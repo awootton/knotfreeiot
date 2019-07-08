@@ -1,0 +1,89 @@
+// func server() {
+// 	ln, err := net.Listen("tcp", ":8080")
+// 	if err != nil {
+// 		// handle error
+// 		fmt.Println(err.Error())
+// 	}
+// 	for {
+// 		//fmt.Println("wait...")
+// 		conn, err := ln.Accept()
+// 		//fmt.Println("...done")
+// 		if err != nil {
+// 			fmt.Println(err.Error())
+// 		}
+// 		defer conn.Close()
+
+// 		go func(c net.Conn) {
+
+// 			for {
+// 				fmt.Println("writing")
+// 				n, err := c.Write([]byte("Server" + time.Now().String()))
+
+// 				if err != nil {
+// 					fmt.Println("server write err " + err.Error())
+// 				}
+// 				_ = n
+// 				fmt.Println("wrote " + strconv.Itoa(n))
+// 				time.Sleep(2000 * time.Millisecond * 2000)
+// 			}
+
+// 		}(conn)
+
+// 		go func(c net.Conn) {
+// 			bytes := make([]byte, 1024)
+// 			for {
+// 				n, _ := conn.Read(bytes)
+// 				_ = n
+// 				//time.Sleep(1000 * time.Millisecond)
+// 				fmt.Println("server got:" + string(bytes))
+// 			}
+// 		}(conn)
+// 	}
+// }
+
+// func testclient() {
+// 	//fmt.Println("dialing")
+// 	conn, err := net.Dial("tcp", "localhost:8080")
+// 	//fmt.Println("dialed")
+// 	if err != nil {
+// 		fmt.Println("dial err" + err.Error())
+// 	}
+// 	defer conn.Close()
+
+// 	go func(c net.Conn) {
+// 		for {
+// 			fmt.Println("writing")
+// 			n, err := c.Write([]byte("Client" + time.Now().String()))
+// 			if err != nil {
+// 				fmt.Println("client write err " + 	// subreq := knotfree.SubscribeRequest{}
+	// subreq.ChannelName = "atw1234"
+	// subreq.Sequence = 11
+
+	// bytes, _ := json.Marshal(subreq)
+	// fmt.Println("hello world 2 atw " + string(bytes))
+	// //fmt.Println("hello world 3 atw " + subreq.String())
+
+	// go server()
+
+	// testclient()err.Error())
+// 			}
+// 			_ = n
+// 			fmt.Println("wrote " + strconv.Itoa(n))
+// 			time.Sleep(1010 * time.Millisecond * 2000)
+// 		}
+// 	}(conn)
+
+// 	bytes := make([]byte, 1024)
+// 	for {
+// 		n, _ := conn.Read(bytes)
+// 		_ = n
+// 		//time.Sleep(1000 * time.Millisecond)
+// 		fmt.Println("client got:" + string(bytes))
+// 	}
+
+// 	//fmt.Fprintf(conn, "GET / HTTP/1.0\r\n\r\n")
+// 	//status, err := bufio.NewReader(conn).ReadString('\n')
+// 	// ...
+
+// }
+

@@ -1,0 +1,123 @@
+
+syntax = "proto3";
+
+package knotfree;
+// cd ...../proj1
+// protoc --go_out=. *.proto
+
+option optimize_for = SPEED;
+
+// Start of common types
+message Hash128 {
+  int64 a = 1;
+  int64 b = 2;
+}
+
+message Connection { Hash128 val = 1; }
+
+message Contract {
+  uint32 producerKey = 1;
+  uint32 expirationDate = 2;
+  uint64 subscriptionMax = 3;
+  uint32 sendBPS = 4;
+  uint32 receiveBPS = 5;
+  uint32 sendBytesPerSixth = 6;
+  uint32 receiveBytesPerSixth = 7;
+  uint32 serialNumber = 8;
+}
+
+/**
+contract:
+
+producer key #  24 bits
+
+    expiration date - nearest 1024 seconds in unix time. 24 bits
+    subscription max - default is 1 - in 12 bit unsigned integer float 12 bits
+
+    send message bytes per sec - 12 bits uint float
+    receive message bytes per sec - 12 bits  uint float
+
+    send message bytes per 10 min - 12 bits  uint float
+    receive message bytes per 10 min - 12 bits  uint float
+
+    serial number  24 bits
+    hashval = 64 bits
+
+total =  11 * 12 , 22 bytes base64 w/o hash
+
+*/
+
+// Start of actual messages
+
+message Ack {
+  bool ok = 1;
+ // uint32 sequence = 2;
+  string errorMessage = 3;
+}
+
+message PresentContractRequest {
+  bytes contract = 1;
+//  uint32 sequence = 2;
+}
+
+message SubscribeRequest {
+  Hash128 channelHash = 1;
+  string channelName = 2;
+  Connection connection = 3;
+//  uint32 sequence = 4;
+}
+
+message Unsubscribe {
+  Hash128 channelHash = 1;
+  Connection connection = 2;
+ // uint32 sequence = 3;
+}
+
+message PublishRequest {
+  Hash128 channelHash = 1;
+ // uint32 sequence = 2;
+  bytes message = 3;
+}
+
+message Receive {
+  Hash128 channelHash = 1;
+ // uint32 sequence = 2;
+  bytes message = 3;
+}
+
+service KnotFreeService {
+
+  rpc SetContract(PresentContractRequest) returns (Ack) {}
+  rpc Subscribe(SubscribeRequest) returns (Ack) {}
+  rpc Publish(PublishRequest) returns (Ack) {}
+
+}
+
+// message Book {
+//   int64 isbn = 1;
+//   string title = 2;
+//   string author = 3;
+// }
+
+// message GetBookRequest { int64 isbn = 1; }
+
+// message GetBookViaAuthor { string author = 1; }
+
+// service BookService {
+//   rpc GetBook(GetBookRequest) returns (Book) {}
+//   rpc GetBooksViaAuthor(GetBookViaAuthor) returns (stream Book) {}
+//   rpc GetGreatestBook(stream GetBookRequest) returns (Book) {}
+//   rpc GetBooks(stream GetBookRequest) returns (stream Book) {}
+// }
+
+// message BookStore {
+//   string name = 1;
+//   map<int64, string> books = 2;
+// }
+
+// enum EnumSample {
+//   option allow_alias = true;
+//   UNKNOWN = 0;
+//   STARTED = 1;
+//   RUNNING = 1;
+// }
