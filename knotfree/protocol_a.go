@@ -21,9 +21,9 @@ type PublishProtocolA struct {
 // ReadProtocolA try to get something
 func ReadProtocolA(conn net.Conn, buffer []byte) (string, error) {
 
-	n, err := conn.Read(buffer)
-	if n <= 2 {
-		return "", errors.New("needed two bytes")
+	n, err := conn.Read(buffer[:2])
+	if n < 2 {
+		return string(buffer), errors.New(" needed two bytes. got " + string(buffer))
 	}
 	if buffer[0] != 'a' {
 		return "", errors.New("expecting an 'a'")
@@ -51,16 +51,21 @@ func WriteProtocolA(conn net.Conn, s string) error {
 
 	if len(s) > 120 {
 		// log too long
-		return errors.New("string too long")
+		return errors.New("WriteProtocolA string too long")
 	}
 
 	prefix[1] = byte(len(s))
+
+	//fmt.Println("WriteProtocolA part1 " + string(prefix))
 
 	n, err := conn.Write(prefix)
 	if n != 2 || err != nil {
 		// log
 		return err
 	}
+
+	//fmt.Println("WriteProtocolA part2 " + string(s))
+
 	n, err = conn.Write([]byte(s))
 	if n != len(s) || err != nil {
 		// log

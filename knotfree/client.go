@@ -119,19 +119,20 @@ func LightController(id string, target string) {
 	for {
 		//fmt.Println("dialing")
 		conn, err := net.DialTimeout("tcp", connectStr, scale*10)
-
 		if err != nil {
 			time.Sleep(10 * time.Second)
 			continue
 		}
-		fmt.Println(" LightController dialed")
+		fmt.Println("LightController dialed in")
 		defer conn.Close()
+
 		go func() {
 			//fmt.Println("start write loop")
 			for {
-				time.Sleep(15 * scale) // rand.Intn(15)
+				time.Sleep(5 * scale) // rand.Intn(15)
 				//	err := write(conn, on)
 				err := writePublish(conn, target, "hello from elsewhere"+strconv.FormatInt(count, 10))
+				count++
 				if err != nil {
 					fmt.Println("LightController write err " + err.Error())
 					conn.Close()

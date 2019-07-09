@@ -1,9 +1,13 @@
 package main
 
 import (
+	"knotfree/knotfree"
 	"os"
-	"proj1/knotfree"
 )
+
+// func init() {
+// 	subscriptionmgr.Qmessage = &knotfree.Qmessage
+// }
 
 func main() {
 

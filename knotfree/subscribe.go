@@ -1,13 +1,14 @@
-package subscriptionmgr
+package knotfree
 
 import (
-	"fmt"
-	types "proj1/knotfree/types"
-	"reflect"
+	types "knotfree/knotfree/types"
 )
 
 //
 var sPREAD = 4
+
+// assign this soon.
+// ar Qmessage *func(channelID *types.HashType, message *types.IncomingMessage) bool
 
 // SubscriptionMessage for real
 type SubscriptionMessage struct {
@@ -45,7 +46,6 @@ type subscribeBucket struct {
 var allTheSubscriptions []subscribeBucket
 
 func init() {
-	fmt.Println("initializing the subscribe Mgr")
 	allTheSubscriptions = make([]subscribeBucket, sPREAD)
 	for i := 0; i < sPREAD; i++ {
 		allTheSubscriptions[i].mySubscriptions = make(map[types.HashType]*subscription)
@@ -57,12 +57,13 @@ func init() {
 func (bucket *subscribeBucket) processMessages() {
 
 	for {
-		msg := <-bucket.incoming                                                   // wait right here
-		fmt.Println("processMessages got message " + reflect.TypeOf(msg).String()) // + string(json.Marshal(msg)))
+		msg := <-bucket.incoming // wait right here
+		//fmt.Println("processMessages got message " + reflect.TypeOf(msg).String()) // + string(json.Marshal(msg)))
 		switch msg.(type) {
 
 		case SubscriptionMessage:
 			submsg := msg.(SubscriptionMessage)
+			//fmt.Println("submsg.Channel " + submsg.Channel.String())
 			substruct, ok := bucket.mySubscriptions[submsg.Channel]
 			if ok == false {
 				substruct = &subscription{}
@@ -72,20 +73,24 @@ func (bucket *subscribeBucket) processMessages() {
 			}
 			// this is the important part:
 			// add the caller to  the set
-			substruct.watchers[submsg.Channel] = true
+			substruct.watchers[submsg.ConnectionID] = true
 
 		case PublishMessage:
 			pubmsg := msg.(PublishMessage)
+			//fmt.Println("pubmsg.Channel " + pubmsg.Channel.String())
 			pubstruct, ok := bucket.mySubscriptions[pubmsg.Channel]
 			if ok == false {
 				// no publish possible !
 			} else {
 				// pubstruct is not nil
 				for key := range pubstruct.watchers {
+					//fmt.Println("pubmsg.Channel " + pubmsg.Channel.String())
 					if key != pubmsg.ConnectionID {
+
 						mmm := types.IncomingMessage{}
 						mmm.Message = pubmsg.Message
-						_ = types.ConnectionMgr.Qmessage(nil, &key, &mmm)
+
+						_ = QueueMessageToConnection(&key, &mmm)
 					}
 				}
 			}
@@ -118,6 +123,14 @@ func AddSubscription(msg SubscriptionMessage) {
 
 // AddUnsubscribe entry point 1
 func AddUnsubscribe(msg UnsubscribeMessage) {
+	i := (int(msg.Channel[0]) << 8) | (int(msg.Channel[1]) & 0x00FF)
+	i = i & (sPREAD - 1)
+	b := allTheSubscriptions[i]
+	b.incoming <- msg
+}
+
+// AddPublish entry point 1
+func AddPublish(msg PublishMessage) {
 	i := (int(msg.Channel[0]) << 8) | (int(msg.Channel[1]) & 0x00FF)
 	i = i & (sPREAD - 1)
 	b := allTheSubscriptions[i]

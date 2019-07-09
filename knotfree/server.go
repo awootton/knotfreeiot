@@ -3,10 +3,10 @@ package knotfree
 import (
 	"encoding/json"
 	"fmt"
+
+	"knotfree/knotfree/types"
 	"math/rand"
 	"net"
-	"proj1/knotfree/subscriptionmgr"
-	"proj1/knotfree/types"
 
 	"strconv"
 	"time"
@@ -15,24 +15,6 @@ import (
 // TODO: move this out to ConnectionMgr
 
 var allTheConnections = make(map[types.HashType]*Connection)
-
-// xxFindConnection - jkust look it up
-func xxFindConnection(key *types.HashType) (*Connection, bool) {
-	c, ok := allTheConnections[*key]
-	return c, ok
-}
-
-// Qmessage s
-func (*Connection) Qmessage(channelID *types.HashType, message *types.IncomingMessage) bool {
-
-	c, ok := allTheConnections[*channelID]
-	if ok == false {
-		return ok
-	}
-	c.wchan <- message
-
-	return true
-}
 
 // Connection - wait
 type Connection struct {
@@ -46,26 +28,42 @@ type Connection struct {
 	realChannelNames map[types.HashType]string
 }
 
+// QueueMessageToConnection function. needs to access allTheConnections and Connection wchan
+func QueueMessageToConnection(channelID *types.HashType, message *types.IncomingMessage) bool {
+
+	//fmt.Println("QueueMessageToConnection with " + string(message.Message))
+	//fmt.Println("looking for CONN " + channelID.String())
+	c, ok := allTheConnections[*channelID]
+	if ok == false {
+		return ok
+	}
+	c.wchan <- message
+
+	return true
+}
+
 // This is called from two gr's - on purpose.
 func close(c *Connection) {
 	// unsubscrbe
 	for k, v := range c.Subscriptions {
-		unsub := subscriptionmgr.UnsubscribeMessage{}
+		unsub := UnsubscribeMessage{}
 		unsub.ConnectionID.FromHashType(&c.Key)
 		unsub.Channel.FromHashType(&k)
-		subscriptionmgr.AddUnsubscribe(unsub)
+		AddUnsubscribe(unsub)
 		_ = v
 	}
 
+	fmt.Println("deleting CONN " + c.Key.String())
 	delete(allTheConnections, c.Key)
 	c.conn.Close()
 }
 
 func watchForData(c *Connection) {
 	defer close(c)
+	//fmt.Println("starting watchForData ")
 	for {
 		msg := <-c.wchan
-		fmt.Println("watchForData sending " + string(msg.Message))
+		//fmt.Println("watchForData " + string(msg.Message))
 		err := WriteProtocolA(c.conn, string(msg.Message))
 		if err != nil {
 			// log err
@@ -81,6 +79,7 @@ func run(c *Connection) {
 	c.Key.FromString(strconv.FormatInt(rand.Int63(), 16) + strconv.FormatInt(rand.Int63(), 16))
 	c.wchan = make(chan *types.IncomingMessage, 2)
 	c.realChannelNames = make(map[types.HashType]string)
+	fmt.Println("setting CONN " + c.Key.String())
 	allTheConnections[c.Key] = c
 	// start reading
 	err := c.conn.SetReadBuffer(4096)
@@ -88,6 +87,8 @@ func run(c *Connection) {
 		fmt.Println("server err " + err.Error())
 		return
 	}
+
+	go watchForData(c)
 	// bytes, _ := json.Marshal(c)
 	// fmt.Println("connection struct " + string(bytes))
 	for c.Running {
@@ -100,38 +101,45 @@ func run(c *Connection) {
 			}
 			str, err := ReadProtocolA(c.conn, bytes)
 			if err != nil {
-				// log
+				fmt.Println("ReadProtocolA err " + str + err.Error())
 				return
 			}
 			// ok, so what is the message? subscribe or publish?
-			//fmt.Println("Have Messaage " + str)
+			//fmt.Println("Have Server str _a " + str)
 			// eg sAchannel
 			if str[0] == 's' {
 				// process subscribe
 				subChan := str[1:]
 				_ = subChan
-				fmt.Println("Have subChan " + subChan)
+				//fmt.Println("sub CONN key " + c.Key.String())
+				//fmt.Println("Have subChan " + subChan)
 				// we'll fill in a sub request and 'mail' it to the sub handler
-				// SubscriptionMessage struct  {
-				// 	Channel      HashType
-				// 	//ChannelName  string
-				// 	ConnectionID HashType
-
-				subr := subscriptionmgr.SubscriptionMessage{}
+				// TODO: change to proc call
+				subr := SubscriptionMessage{}
 				subr.Channel.FromString(subChan)
+				//fmt.Println("Have subChan becomes " + subr.Channel.String())
 				subr.ConnectionID.FromHashType(&c.Key)
+				//fmt.Println("subscribe ConnectionID is " + subr.ConnectionID.String())
 				c.realChannelNames[subr.Channel] = subChan
-				subscriptionmgr.AddSubscription(subr)
+				AddSubscription(subr)
 			} else if str[0] == 'p' {
+				//fmt.Println("publish CONN key " + c.Key.String())
 				// process publish, {"C":"channelRealName","M":"a message"}
-				fmt.Println("got p publish " + str)
+				//fmt.Println("got p publish " + str)
 				pub := PublishProtocolA{}
 				err := json.Unmarshal([]byte(str[1:]), &pub)
 				if err != nil {
 					fmt.Println("server json " + err.Error())
 					return
 				}
-
+				//fmt.Println("Have PublishProtocolA " + string(&pub))
+				pubr := PublishMessage{}
+				pubr.Channel.FromString(pub.C)
+				pubr.ConnectionID.FromHashType(&c.Key)
+				pubr.Message = []byte(pub.M)
+				//fmt.Println("Publish channel becomes " + pubr.Channel.String())
+				//fmt.Println("Publish ConnectionID is " + pubr.ConnectionID.String())
+				AddPublish(pubr)
 			}
 		}
 	}
@@ -151,70 +159,8 @@ func Server() {
 			fmt.Println(err.Error())
 			continue
 		}
-
 		c := Connection{conn: tmpconn.(*net.TCPConn)}
 		go run(&c)
 
-		// if &c != nil {
-		// 	continue
-		// }
-
-		// err = conn.SetReadBuffer(4096)
-		// if err != nil {
-		// 	fmt.Println("server err " + err.Error())
-		// 	conn.Close()
-		// 	break
-		// }
-		// err = conn.SetWriteBuffer(4096)
-		// if err != nil {
-		// 	fmt.Println("server err " + err.Error())
-		// 	conn.Close()
-		// 	break
-		// }
-
-		// go func(c net.Conn) {
-
-		// 	for {
-		// 		err = conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
-		// 		if err != nil {
-		// 			fmt.Println("server err " + err.Error())
-		// 			conn.Close()
-		// 			break
-		// 		}
-		// 		fmt.Println("writing")
-		// 		n, err := c.Write([]byte("Server" + time.Now().String()))
-
-		// 		if err != nil {
-		// 			fmt.Println("server write err " + err.Error())
-		// 			c.Close()
-		// 			break
-		// 		}
-		// 		_ = n
-		// 		fmt.Println("server wrote " + strconv.Itoa(n))
-		// 		time.Sleep(22 * time.Minute)
-		// 	}
-
-		// }(conn)
-
-		// go func(c net.Conn) {
-		// 	bytes := make([]byte, 1024)
-		// 	for {
-		// 		err = conn.SetReadDeadline(time.Now().Add(20 * time.Minute))
-		// 		if err != nil {
-		// 			fmt.Println("server err " + err.Error())
-		// 			conn.Close()
-		// 			break
-		// 		}
-		// 		n, err := conn.Read(bytes)
-		// 		_ = n
-		// 		//time.Sleep(1000 * time.Millisecond)
-		// 		if err != nil {
-		// 			fmt.Println("server dropped conn")
-		// 			conn.Close()
-		// 			break // and we're done
-		// 		}
-		// 		fmt.Println("server got:" + string(bytes))
-		// 	}
-		// }(conn)
 	}
 }

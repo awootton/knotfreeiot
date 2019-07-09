@@ -2,28 +2,13 @@ package types
 
 import (
 	"crypto/md5"
+	"encoding/base64"
 	"io"
 )
 
-// XXHash128 comment
-type XXHash128 struct {
-	A int64 `json:"a,omitempty"`
-	B int64 `json:"b,omitempty"`
-}
-
 // HashType is 128 bits. We'll use these as keys everywhere
+// should we use two longs?
 type HashType [16]byte
-
-// // Connection is a struct in ...
-// type Connection interface {
-
-// }
-
-// ConnectionMgr s
-type ConnectionMgr interface {
-	//FindConnection(key *HashType) (*Connection, bool)
-	Qmessage(channelID *HashType, message *IncomingMessage) bool
-}
 
 // IncomingMessage - for ConnectionMgr
 type IncomingMessage struct {
@@ -50,6 +35,11 @@ func (h *HashType) FromHashType(src *HashType) {
 	}
 }
 
+func (h *HashType) String() string {
+	slic := h[:6]
+	return base64.StdEncoding.EncodeToString(slic)
+}
+
 // Connection comment
 // type xxxConnection struct {
 // 	Val *Hash128 `json:"val,omitempty"`
@@ -67,15 +57,15 @@ type Contract struct {
 	SerialNumber         uint32 `protobuf:"varint,8,opt,name=serialNumber,proto3" json:"serialNumber,omitempty"`
 }
 
-// Ack comment
-type Ack struct {
+// xxxAck comment
+type xxxAck struct {
 	Ok           bool   `protobuf:"varint,1,opt,name=ok,proto3" json:"ok,omitempty"`
 	Sequence     uint32 `protobuf:"varint,2,opt,name=sequence,proto3" json:"sequence,omitempty"`
 	ErrorMessage string `protobuf:"bytes,3,opt,name=errorMessage,proto3" json:"errorMessage,omitempty"`
 }
 
-// PresentContractRequest comment
-type PresentContractRequest struct {
+// xxxPresentContractRequest comment
+type xxxPresentContractRequest struct {
 	Contract []byte `protobuf:"bytes,1,opt,name=contract,proto3" json:"contract,omitempty"`
 	Sequence uint32 `protobuf:"varint,2,opt,name=sequence,proto3" json:"sequence,omitempty"`
 }
@@ -88,15 +78,15 @@ type xxSubscribeRequest struct {
 	//Sequence    uint32      `protobuf:"varint,4,opt,name=sequence,proto3" json:"sequence,omitempty"`
 }
 
-// Unsubscribe comment
-type Unsubscribe struct {
+// xxUnsubscribe comment
+type xxUnsubscribe struct {
 	ChannelHash HashType `protobuf:"bytes,1,opt,name=channelHash,proto3" json:"channelHash,omitempty"`
 	Connection  HashType `protobuf:"bytes,2,opt,name=connection,proto3" json:"connection,omitempty"`
 	Sequence    uint32   `protobuf:"varint,3,opt,name=sequence,proto3" json:"sequence,omitempty"`
 }
 
-// PublishRequest comment
-type PublishRequest struct {
+// xxPublishRequest comment
+type xxPublishRequest struct {
 	ChannelHash HashType `protobuf:"bytes,1,opt,name=channelHash,proto3" json:"channelHash,omitempty"`
 	//	Sequence    uint32   `protobuf:"varint,2,opt,name=sequence,proto3" json:"sequence,omitempty"`
 	Message []byte `protobuf:"bytes,3,opt,name=message,proto3" json:"message,omitempty"`
@@ -107,4 +97,10 @@ type ReceiveXXX struct {
 	ChannelHash HashType `protobuf:"bytes,1,opt,name=channelHash,proto3" json:"channelHash,omitempty"`
 	//	Sequence    uint32   `protobuf:"varint,2,opt,name=sequence,proto3" json:"sequence,omitempty"`
 	Message []byte `protobuf:"bytes,3,opt,name=message,proto3" json:"message,omitempty"`
+}
+
+// XXHash128 comment
+type XXHash128 struct {
+	A int64 `json:"a,omitempty"`
+	B int64 `json:"b,omitempty"`
 }
