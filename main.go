@@ -1,8 +1,10 @@
 package main
 
 import (
+	"fmt"
 	"knotfree/knotfree"
 	"os"
+	"strconv"
 )
 
 // func init() {
@@ -12,8 +14,13 @@ import (
 func main() {
 
 	if len(os.Args) > 1 && os.Args[1] == "client" {
-		go knotfree.LightSwitch("aaaaaa")
-		go knotfree.LightController("bbbbb", "aaaaaa")
+		fmt.Println("Starting clients = " + strconv.Itoa(200))
+		for i := 0; i < 100; i++ {
+			istr := strconv.Itoa(i)
+			go knotfree.LightSwitch("aaaaaa" + istr)
+			go knotfree.LightController("bbbbb"+istr, "aaaaaa"+istr)
+		}
+
 	} else {
 		knotfree.Server()
 	}

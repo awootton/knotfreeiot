@@ -2,34 +2,33 @@ package knotfree
 
 import (
 	"encoding/json"
-	"fmt"
 	"net"
 	"strconv"
 	"time"
 )
 
-var scale = time.Second // time.Minute
+var scale = (time.Second * 10) // time.Minute // time.Second // time.Minute
 
-func writeOn(conn net.Conn, on bool) error {
+var clientLogThing *StringEventAccumulator
 
-	err := WriteProtocolA(conn, "p"+`{}`)
-	if err != nil {
-		return err
-	}
-
-	// n, err := conn.Write([]byte("Client" + time.Now().String()))
-	// if err != nil {
-	// 	fmt.Println("client write err " + err.Error())
-	// 	return err
-	// }
-	// _ = n
-	return nil
+func init() {
+	clientLogThing = NewStringEventAccumulator(16)
+	clientLogThing.quiet = true
 }
 
-func writePublish(conn net.Conn, realChannelName string, message string) error {
+// func writeOn(conn net.Conn, on bool) error {
+
+// 	err := WriteProtocolA(conn, "p"+`{}`)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	return nil
+// }
+
+func writePublish(conn net.Conn, realTopicName string, message string) error {
 
 	pp := PublishProtocolA{}
-	pp.C = realChannelName
+	pp.T = realTopicName
 	pp.M = message
 	bytes, err := json.Marshal(pp)
 	if err != nil {
@@ -69,7 +68,7 @@ func LightSwitch(id string) {
 			continue
 		}
 		defer conn.Close()
-		fmt.Println("LightSwitch dialed in")
+		clientLogThing.Collect("LightSwitch dialed in")
 
 		err = writeSubscribe(conn, id)
 		if err != nil {
@@ -95,9 +94,10 @@ func LightSwitch(id string) {
 		for {
 			err = conn.SetReadDeadline(time.Now().Add(20 * scale))
 			str, err := ReadProtocolA(conn, bytes)
-			fmt.Println("LightSwitch got:" + str)
+			clientLogThing.Collect("LightSw pkt") // + str)
+			clientLogThing.Sum("LightSw r bytes", len(str))
 			if err != nil {
-				fmt.Println("LightSwitch read err " + err.Error())
+				clientLogThing.Collect("LightSw read err " + err.Error())
 				conn.Close()
 				break
 			}
@@ -123,18 +123,20 @@ func LightController(id string, target string) {
 			time.Sleep(10 * time.Second)
 			continue
 		}
-		fmt.Println("LightController dialed in")
+		clientLogThing.Collect("LightCon dialed in")
 		defer conn.Close()
 
 		go func() {
 			//fmt.Println("start write loop")
 			for {
 				time.Sleep(5 * scale) // rand.Intn(15)
-				//	err := write(conn, on)
-				err := writePublish(conn, target, "hello from elsewhere"+strconv.FormatInt(count, 10))
+
+				str := "hello from elsewhere" + strconv.FormatInt(count, 10)
+				clientLogThing.Sum("LightCo w bytes", len(str))
+				err := writePublish(conn, target, str)
 				count++
 				if err != nil {
-					fmt.Println("LightController write err " + err.Error())
+					clientLogThing.Collect("LightCon w err " + err.Error())
 					conn.Close()
 					break
 				}
@@ -147,15 +149,13 @@ func LightController(id string, target string) {
 		for {
 			err = conn.SetReadDeadline(time.Now().Add(35 * scale))
 			n, err := conn.Read(bytes) // blocks
-			fmt.Println("LightController got:" + string(bytes))
+			clientLogThing.Collect("LightCo pkt:" + string(bytes))
+			clientLogThing.Sum("LightCo r bytes", n)
 			if err != nil {
-				fmt.Println("LightController read err " + err.Error())
+				clientLogThing.Collect("LightCon r err " + err.Error())
 				conn.Close()
 				break
 			}
-			_ = n
-			//time.Sleep(1000 * time.Millisecond)
-
 		}
 	}
 }

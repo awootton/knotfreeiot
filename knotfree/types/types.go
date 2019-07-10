@@ -45,8 +45,8 @@ func (h *HashType) String() string {
 // 	Val *Hash128 `json:"val,omitempty"`
 // }
 
-// Contract comment
-type Contract struct {
+// xxxContract comment
+type xxxContract struct {
 	ProducerKey          uint32 `protobuf:"varint,1,opt,name=producerKey,proto3" json:"producerKey,omitempty"`
 	ExpirationDate       uint32 `protobuf:"varint,2,opt,name=expirationDate,proto3" json:"expirationDate,omitempty"`
 	SubscriptionMax      uint64 `protobuf:"varint,3,opt,name=subscriptionMax,proto3" json:"subscriptionMax,omitempty"`
@@ -72,29 +72,29 @@ type xxxPresentContractRequest struct {
 
 // xxSubscribeRequest comment. can we avoid pointers?
 type xxSubscribeRequest struct {
-	Channel      HashType `protobuf:"bytes,1,opt,name=channelHash,proto3" json:"channelHash,omitempty"`
-	ChannelName  string   `protobuf:"bytes,2,opt,name=channelName,proto3" json:"channelName,omitempty"`
+	Topic        HashType `protobuf:"bytes,1,opt,name=channelHash,proto3" json:"channelHash,omitempty"`
+	TopicName    string   `protobuf:"bytes,2,opt,name=channelName,proto3" json:"channelName,omitempty"`
 	ConnectionID HashType `protobuf:"bytes,3,opt,name=connection,proto3" json:"connection,omitempty"`
 	//Sequence    uint32      `protobuf:"varint,4,opt,name=sequence,proto3" json:"sequence,omitempty"`
 }
 
 // xxUnsubscribe comment
 type xxUnsubscribe struct {
-	ChannelHash HashType `protobuf:"bytes,1,opt,name=channelHash,proto3" json:"channelHash,omitempty"`
-	Connection  HashType `protobuf:"bytes,2,opt,name=connection,proto3" json:"connection,omitempty"`
-	Sequence    uint32   `protobuf:"varint,3,opt,name=sequence,proto3" json:"sequence,omitempty"`
+	TopicHash  HashType `protobuf:"bytes,1,opt,name=channelHash,proto3" json:"channelHash,omitempty"`
+	Connection HashType `protobuf:"bytes,2,opt,name=connection,proto3" json:"connection,omitempty"`
+	Sequence   uint32   `protobuf:"varint,3,opt,name=sequence,proto3" json:"sequence,omitempty"`
 }
 
 // xxPublishRequest comment
 type xxPublishRequest struct {
-	ChannelHash HashType `protobuf:"bytes,1,opt,name=channelHash,proto3" json:"channelHash,omitempty"`
+	TopicHash HashType `protobuf:"bytes,1,opt,name=channelHash,proto3" json:"channelHash,omitempty"`
 	//	Sequence    uint32   `protobuf:"varint,2,opt,name=sequence,proto3" json:"sequence,omitempty"`
 	Message []byte `protobuf:"bytes,3,opt,name=message,proto3" json:"message,omitempty"`
 }
 
 // ReceiveXXX comment
 type ReceiveXXX struct {
-	ChannelHash HashType `protobuf:"bytes,1,opt,name=channelHash,proto3" json:"channelHash,omitempty"`
+	TopicHash HashType `protobuf:"bytes,1,opt,name=channelHash,proto3" json:"channelHash,omitempty"`
 	//	Sequence    uint32   `protobuf:"varint,2,opt,name=sequence,proto3" json:"sequence,omitempty"`
 	Message []byte `protobuf:"bytes,3,opt,name=message,proto3" json:"message,omitempty"`
 }

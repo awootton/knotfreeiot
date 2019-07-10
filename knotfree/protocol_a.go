@@ -6,11 +6,11 @@ import (
 	"strings"
 )
 
-// For subscribe it's just 's' and then the rest is the channel real name.
+// For subscribe it's just 's' and then the rest is the topic real name.
 
-// PublishProtocolA  eg {"C":"channelRealName","M":"a message"}
+// PublishProtocolA  eg {"C":"TopicRealName","M":"a message"}
 type PublishProtocolA struct {
-	C string // channel
+	T string // topic
 	M string // message
 }
 
@@ -21,18 +21,19 @@ type PublishProtocolA struct {
 // ReadProtocolA try to get something
 func ReadProtocolA(conn net.Conn, buffer []byte) (string, error) {
 
-	n, err := conn.Read(buffer[:2])
-	if n < 2 {
+	pairbuf := []byte{'a', 'a'}
+	n, err := conn.Read(pairbuf)
+	if n != 2 {
 		return string(buffer), errors.New(" needed two bytes. got " + string(buffer))
 	}
-	if buffer[0] != 'a' {
+	if pairbuf[0] != 'a' {
 		return "", errors.New("expecting an 'a'")
 	}
-	msglen := int(buffer[1]) & 0x00FF
+	msglen := int(pairbuf[1]) & 0x00FF
 	var sb strings.Builder
-	s := string(buffer[2:n])
-	sb.WriteString(s)
-	msglen -= len(s)
+	//s := string(buffer[2:n])
+	//sb.WriteString(s)
+	//msglen -= len(s)
 	for msglen > 0 {
 		n, err = conn.Read(buffer[:msglen])
 		s := string(buffer[:n])
