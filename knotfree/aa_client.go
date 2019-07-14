@@ -1,40 +1,20 @@
 package knotfree
 
 import (
-	"encoding/json"
 	"net"
 	"strconv"
 	"time"
 )
 
-var scale = (time.Second * 10) // time.Minute // time.Second // time.Minute
-
-var clientLogThing *StringEventAccumulator
-
-func init() {
-	clientLogThing = NewStringEventAccumulator(16)
-	clientLogThing.quiet = true
-}
-
-// func writeOn(conn net.Conn, on bool) error {
-
-// 	err := WriteProtocolA(conn, "p"+`{}`)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	return nil
-// }
+var scale = (time.Second * 1) // time.Minute // time.Second // time.Minute
 
 func writePublish(conn net.Conn, realTopicName string, message string) error {
 
-	pp := PublishProtocolA{}
-	pp.T = realTopicName
-	pp.M = message
-	bytes, err := json.Marshal(pp)
+	err := WriteProtocolAaStr(conn, "t"+realTopicName)
 	if err != nil {
 		return err
 	}
-	err = WriteProtocolA(conn, "p"+string(bytes))
+	err = WriteProtocolAaStr(conn, "p"+message)
 	if err != nil {
 		return err
 	}
@@ -43,7 +23,7 @@ func writePublish(conn net.Conn, realTopicName string, message string) error {
 
 func writeSubscribe(conn net.Conn, id string) error {
 
-	err := WriteProtocolA(conn, "s"+id)
+	err := WriteProtocolAaStr(conn, "s"+id)
 	if err != nil {
 		return err
 	}
@@ -75,35 +55,16 @@ func LightSwitch(id string) {
 			break
 		}
 
-		// go func() {
-		// 	//fmt.Println("start write loop")
-		// 	for {
-		// 		time.Sleep(19 * time.Minute)
-		// 		err := write(conn, on)
-		// 		if err != nil {
-		// 			//fmt.Println("client write err " + err.Error())
-		// 			conn.Close()
-		// 			break
-		// 		}
-		// 	}
-		// }()
-
-		//fmt.Println("Connected " + id)
-
-		bytes := make([]byte, 256)
 		for {
 			err = conn.SetReadDeadline(time.Now().Add(20 * scale))
-			str, err := ReadProtocolA(conn, bytes)
-			clientLogThing.Collect("LightSw pkt") // + str)
+			str, err := ReadProtocolAstr(conn)
+			clientLogThing.Collect("LightSw pkt " + str)
 			clientLogThing.Sum("LightSw r bytes", len(str))
 			if err != nil {
 				clientLogThing.Collect("LightSw read err " + err.Error())
 				conn.Close()
 				break
 			}
-
-			//time.Sleep(1000 * time.Millisecond)
-
 		}
 	}
 }
@@ -129,7 +90,7 @@ func LightController(id string, target string) {
 		go func() {
 			//fmt.Println("start write loop")
 			for {
-				time.Sleep(5 * scale) // rand.Intn(15)
+				time.Sleep(1 * scale) // rand.Intn(15)
 
 				str := "hello from elsewhere" + strconv.FormatInt(count, 10)
 				clientLogThing.Sum("LightCo w bytes", len(str))
@@ -140,10 +101,9 @@ func LightController(id string, target string) {
 					conn.Close()
 					break
 				}
+				time.Sleep(5 * scale)
 			}
 		}()
-
-		//fmt.Println("Connected " + id)
 
 		bytes := make([]byte, 256)
 		for {
@@ -158,4 +118,11 @@ func LightController(id string, target string) {
 			}
 		}
 	}
+}
+
+var clientLogThing *StringEventAccumulator
+
+func init() {
+	clientLogThing = NewStringEventAccumulator(16)
+	clientLogThing.quiet = false
 }

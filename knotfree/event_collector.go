@@ -9,6 +9,9 @@ import (
 	"time"
 )
 
+// DoStartEventCollectorReporting - set to run the reporter
+var DoStartEventCollectorReporting = false
+
 //var delayBetweenReports = 20 * time.Second
 var delayBetweenReports = 10 * time.Second
 
@@ -22,7 +25,9 @@ var reporters = make([]Reporting, 0, 25)
 func init() {
 	//reporters = make([]Reporting, 0, 25)
 	//testLogThing = NewStringEventAccumulator(16)
-	go startRunningReports()
+	if DoStartEventCollectorReporting {
+		go startRunningReports()
+	}
 }
 
 // StringEventAccumulator a
@@ -42,7 +47,7 @@ func NewStringEventAccumulator(maxstrlen int) *StringEventAccumulator {
 	return &cm
 }
 
-// AddReporter a
+// AddReporter appends r to the global list of reporters.
 func AddReporter(r Reporting) {
 	reporters = append(reporters, r)
 	//fmt.Println("AddReporter count=" + strconv.Itoa(len(reporters)))

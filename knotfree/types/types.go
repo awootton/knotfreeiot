@@ -13,7 +13,7 @@ type HashType [16]byte
 // IncomingMessage - for ConnectionMgr
 type IncomingMessage struct {
 	//Type    byte   `json:"@,omitempty"`
-	Message []byte `json:"m,omitempty"`
+	Message *[]byte `json:"m,omitempty"`
 }
 
 // FromString init an existing hash from a string

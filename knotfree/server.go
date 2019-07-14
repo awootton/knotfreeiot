@@ -8,7 +8,7 @@ var srvrLogThing *StringEventAccumulator
 
 func init() {
 	srvrLogThing = NewStringEventAccumulator(16)
-	srvrLogThing.quiet = true
+	srvrLogThing.quiet = false
 }
 
 // Server - wait for connections and spawn them
