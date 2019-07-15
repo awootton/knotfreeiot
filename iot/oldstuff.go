@@ -1,4 +1,4 @@
-package knotfree
+package iot
 
 import (
 	"encoding/gob"
@@ -78,8 +78,8 @@ func (p *TCPOverPubsubCmd) Write(w io.Writer) error {
 // 	}
 // }
 
-var wire1 = make(chan byte, 5)
-
+//var wire1 = make(chan byte, 5)
+//
 //  ByteChanReadWriter - implements io.Reader and io.Writer
 // type ByteChanReadWriter struct {
 // 	wire chan byte

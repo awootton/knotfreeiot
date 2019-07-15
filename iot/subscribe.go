@@ -1,12 +1,13 @@
-package knotfree
+package iot
 
 import (
-	types "knotfree/knotfree/types"
+	types "knotfree/types"
 	"strconv"
 )
 
 // theBucketsSize is the
-var theBucketsSize = 4
+const theBucketsSize = uint(4)
+const theBucketsSizeLog2 = uint(2) // int(math.Log2(theBucketsSize))
 
 // SubscriptionMessage for real
 type subscriptionMessage struct {
@@ -37,14 +38,25 @@ type subscribeBucket struct {
 }
 
 // this is the whole point:
-var allTheSubscriptions []subscribeBucket
+// implements SubscriptionsIntf
+type pubSubManager struct {
+	allTheSubscriptions []subscribeBucket
+}
+
+var psMgr pubSubManager
+
+// GetSubscriptionsMgr returns the singleton mgr here.
+func GetSubscriptionsMgr() types.SubscriptionsIntf {
+	return &psMgr
+}
 
 func init() {
-	allTheSubscriptions = make([]subscribeBucket, theBucketsSize)
-	for i := 0; i < theBucketsSize; i++ {
-		allTheSubscriptions[i].mySubscriptions = make(map[types.HashType]*subscription)
-		allTheSubscriptions[i].incoming = make(chan interface{}, 256)
-		go allTheSubscriptions[i].processMessages()
+	psMgr = pubSubManager{}
+	psMgr.allTheSubscriptions = make([]subscribeBucket, theBucketsSize)
+	for i := uint(0); i < theBucketsSize; i++ {
+		psMgr.allTheSubscriptions[i].mySubscriptions = make(map[types.HashType]*subscription)
+		psMgr.allTheSubscriptions[i].incoming = make(chan interface{}, 256)
+		go psMgr.allTheSubscriptions[i].processMessages()
 	}
 }
 
@@ -83,6 +95,7 @@ func (bucket *subscribeBucket) processMessages() {
 
 						mmm := types.IncomingMessage{}
 						mmm.Message = pubmsg.payload
+						mmm.Topic = pubmsg.Topic
 
 						_ = QueueMessageToConnection(&key, &mmm)
 					}
@@ -111,35 +124,32 @@ func (bucket *subscribeBucket) processMessages() {
 
 }
 
-// SendSubscriptionMessage entry point 1
-func SendSubscriptionMessage(Topic *types.HashType, ConnectionID *types.HashType) {
+// SendSubscriptionMessage will create a message object, copy pointers to it so it'll own them now, and queue the message.
+func (me *pubSubManager) SendSubscriptionMessage(Topic *types.HashType, ConnectionID *types.HashType) {
 	msg := subscriptionMessage{Topic, ConnectionID}
-	i := (int(msg.Topic[0]) << 8) | (int(msg.Topic[1]) & 0x00FF)
-	i = i & (theBucketsSize - 1)
-	b := allTheSubscriptions[i]
+	i := Topic.GetFractionalBits(theBucketsSizeLog2)
+	b := me.allTheSubscriptions[i]
 	b.incoming <- msg
 }
 
-// SendUnsubscribeMessage entry point 1
-func SendUnsubscribeMessage(Topic *types.HashType, ConnectionID *types.HashType) {
+// SendUnsubscribeMessage will create a message object, copy pointers to it so it'll own them now, and queue the message.
+func (me *pubSubManager) SendUnsubscribeMessage(Topic *types.HashType, ConnectionID *types.HashType) {
 	msg := unsubscribeMessage{}
 	msg.Topic = Topic
 	msg.ConnectionID = ConnectionID
-	i := (int(msg.Topic[0]) << 8) | (int(msg.Topic[1]) & 0x00FF)
-	i = i & (theBucketsSize - 1)
-	b := allTheSubscriptions[i]
+	i := Topic.GetFractionalBits(theBucketsSizeLog2)
+	b := me.allTheSubscriptions[i]
 	b.incoming <- msg
 }
 
-// SendPublishMessage entry point 1
-func SendPublishMessage(Topic *types.HashType, ConnectionID *types.HashType, payload *[]byte) {
+// SendPublishMessage will create a message object, copy pointers to it so it'll own them now, and queue the message.
+func (me *pubSubManager) SendPublishMessage(Topic *types.HashType, ConnectionID *types.HashType, payload *[]byte) {
 	msg := publishMessage{}
 	msg.Topic = Topic
 	msg.ConnectionID = ConnectionID
 	msg.payload = payload
-	i := (int(msg.Topic[0]) << 8) | (int(msg.Topic[1]) & 0x00FF)
-	i = i & (theBucketsSize - 1)
-	b := allTheSubscriptions[i]
+	i := Topic.GetFractionalBits(theBucketsSizeLog2)
+	b := me.allTheSubscriptions[i]
 	b.incoming <- msg
 }
 
@@ -149,7 +159,7 @@ type subrEventsReporter struct {
 func (collector *subrEventsReporter) report(seconds float32) []string {
 	strlist := make([]string, 0, 5)
 	count := 0
-	for _, b := range allTheSubscriptions {
+	for _, b := range psMgr.allTheSubscriptions {
 		count += len(b.mySubscriptions)
 	}
 	strlist = append(strlist, "Topic count="+strconv.Itoa(count))

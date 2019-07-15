@@ -1,8 +1,8 @@
-package knotfree_test
+package iot_test
 
 import (
 	"fmt"
-	"knotfree/knotfree"
+	"knotfree/iot"
 	"math/rand"
 	"strings"
 	"time"
@@ -13,9 +13,9 @@ import (
 func ExampleByteChanReadWriter_suffix1() {
 	testStr := "Testing, testing. This will be todays test string. How is everyone doing?"
 
-	src := knotfree.NewByteChanReadWriter(10)
+	src := iot.NewByteChanReadWriter(10)
 
-	sink := knotfree.NewByteArrayBuilder(src)
+	sink := iot.NewByteArrayBuilder(src)
 
 	n, err := src.Write([]byte(testStr))
 
@@ -32,9 +32,9 @@ func ExampleByteChanReadWriter_suffix1() {
 func ExampleByteChanReadWriter_suffix2() {
 	testStr := "Testing, testing. This will be todays test string. How is everyone doing?"
 
-	src := knotfree.NewByteChanReadWriter(10)
+	src := iot.NewByteChanReadWriter(10)
 
-	sink := knotfree.NewByteArrayBuilder(src)
+	sink := iot.NewByteArrayBuilder(src)
 
 	for _, ch := range []byte(testStr) {
 		_, _ = src.Write([]byte{ch})
@@ -49,7 +49,7 @@ func ExampleByteChanReadWriter_suffix2() {
 // It holds 2 and we're writing 3 so --- timeout.
 func ExampleByteChanReadWriter_suffix3() {
 
-	src := knotfree.NewByteChanReadWriter(2)
+	src := iot.NewByteChanReadWriter(2)
 	src.SetTimeout(time.Millisecond)
 	n, err := src.Write([]byte{'a', 'b', 'c'})
 
@@ -60,7 +60,7 @@ func ExampleByteChanReadWriter_suffix3() {
 // let's try the read
 func ExampleByteChanReadWriter_suffix4() {
 
-	bcrw := knotfree.NewByteChanReadWriter(2)
+	bcrw := iot.NewByteChanReadWriter(2)
 	bcrw.SetTimeout(1000 * time.Millisecond)
 
 	// pipe the bcrw to a stringBuilder.
@@ -94,10 +94,10 @@ func ExampleByteChanReadWriter_suffix4() {
 func ExampleByteChunkedReadWriter_suffix1() {
 	testStr := "Testing, testing. This will be todays test string. How is everyone doing?"
 
-	bcrw := knotfree.NewByteChunkedReadWriter(1)
+	bcrw := iot.NewByteChunkedReadWriter(1)
 	bcrw.SetDebugPrint(true)
 
-	sink := knotfree.NewByteArrayBuilderChunked(bcrw)
+	sink := iot.NewByteArrayBuilderChunked(bcrw)
 
 	n, err := bcrw.Write([]byte(testStr))
 
@@ -123,7 +123,7 @@ func ExampleByteChunkedReadWriter_suffix2() {
 
 	testStr := "Testing, testing. This will be todays test string. How is everyone doing?"
 
-	bcrw := knotfree.NewByteChunkedReadWriter(1)
+	bcrw := iot.NewByteChunkedReadWriter(1)
 	//bcrw.SetDebugPrint(true)
 
 	bcrw.SetTimeout(100 * time.Millisecond)
@@ -162,7 +162,7 @@ func ExampleByteChunkedReadWriter_suffix2() {
 // It holds 2 and we're writing 3 so --- timeout.
 func ExampleByteChunkedReadWriter_suffix3() {
 
-	src := knotfree.NewByteChunkedReadWriter(2)
+	src := iot.NewByteChunkedReadWriter(2)
 	src.SetTimeout(time.Millisecond)
 	n, err := src.Write([]byte("1234567890ABCDEF 1234567890ABCDEF 1234567890ABCDEF "))
 
@@ -174,7 +174,7 @@ func ExampleByteChunkedReadWriter_suffix3() {
 // This is supposed to timeout and not read anything
 func ExampleByteChunkedReadWriter_suffix4() {
 
-	src := knotfree.NewByteChunkedReadWriter(2)
+	src := iot.NewByteChunkedReadWriter(2)
 	src.SetTimeout(time.Millisecond)
 	n, err := src.Read([]byte("1234567890ABCDEF 1234567890ABCDEF 1234567890ABCDEF "))
 

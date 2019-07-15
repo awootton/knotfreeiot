@@ -1,104 +1,62 @@
-package knotfree
+// Package iot provides   pub/sub
+package iot
 
 import (
-	"knotfree/knotfree/types"
+	"knotfree/protocolaa"
+	"knotfree/types"
 	"math/rand"
 	"net"
+
 	"strconv"
-	"sync"
 	"time"
 )
 
-// TODO: get all of protocolAa out of here.
+var srvrLogThing *StringEventAccumulator
 
-// for every TCP socket there will be a Connection struct
-
-// Connection - wait
-type Connection struct {
-	Key types.HashType // 128 bits
-	//Subscriptions map[types.HashType]bool
-	Running       bool
-	writesChannel chan *types.IncomingMessage // channel for receiving
-	tcpConn       *net.TCPConn
-	// map from Topic hash to Topic string
-	realTopicNames map[types.HashType]string
-
-	protocolHandler *ProtocolHandler
+func init() {
+	srvrLogThing = NewStringEventAccumulator(16)
+	srvrLogThing.quiet = false
 }
 
-// ProtocolHandler for handling read and write
-type ProtocolHandler interface {
-	Serve() error
-	HandleWrite(*types.IncomingMessage) error // from writesChannel
-}
-
-// QueueMessageToConnection function. needs to access allTheConnections and the Connection.writesChannel
-func QueueMessageToConnection(channelID *types.HashType, message *types.IncomingMessage) bool {
-
-	//fmt.Println("QueueMessageToConnection with " + string(message.Message))
-	connLogThing.Collect("qlook4 CONN " + channelID.String())
-	allConnMutex.Lock()
-	c, ok := allTheConnections[*channelID]
-	allConnMutex.Unlock()
-	if ok == false {
-		return ok
+// Server - wait for connections and spawn them
+func Server() {
+	ln, err := net.Listen("tcp", ":8080")
+	if err != nil {
+		// handle error
+		srvrLogThing.Collect(err.Error())
+		return
 	}
-	c.writesChannel <- message
-
-	return true
-}
-
-// This is called from two gr's - on purpose.
-//
-func close(c *Connection) {
-	// unsubscrbe
-	for k, v := range c.realTopicNames {
-		topic := types.HashType{}
-		topic.FromHashType(&k)
-		SendUnsubscribeMessage(&topic, &c.Key)
-		connLogThing.Collect("Unsub  topic " + k.String())
-		_ = v
-	}
-	connLogThing.Collect("deleting CONN " + c.Key.String())
-	allConnMutex.Lock()
-	delete(allTheConnections, c.Key)
-	allConnMutex.Unlock()
-	c.tcpConn.Close()
-}
-
-func watchForData(c *Connection) {
-	defer close(c)
-	//fmt.Println("starting watchForData ")
 	for {
-		msg := <-c.writesChannel
-		connLogThing.Collect("watchForD got:" + string(*msg.Message))
-		connLogThing.Sum("Conn w bytes", len(*msg.Message))
-		err := WriteProtocolAaStr(c.tcpConn, string(*msg.Message))
+		tmpconn, err := ln.Accept()
 		if err != nil {
-			// log err
-			return
+			srvrLogThing.Collect(err.Error())
+			continue
 		}
+		srvrLogThing.Collect("Conn Accept")
+		c := Connection{tcpConn: tmpconn.(*net.TCPConn)}
+		go runTheConnection(&c) //,handler types.ProtocolHandler)
 	}
 }
 
-// RunAConnection - this is really a protoA connection.
+// RunAConnection - FIXME: this is really a protoA connection.
 //
-func RunAConnection(c *Connection) {
+func runTheConnection(c *Connection) {
 
-	handler := ProtocolAaServerHandler{}
-	handler.c = c
+	// FIXME: pass a factory
+	handler := protocolaa.NewServerHandler(c, GetSubscriptionsMgr())
+	c.SetProtocolHandler(&handler)
 
-	defer close(c)
-	c.Running = true
+	defer c.Close()
+	c.running = true
 	// random connection id
 	randomStr := strconv.FormatInt(rand.Int63(), 16) + strconv.FormatInt(rand.Int63(), 16)
-	c.Key.FromString(randomStr)
+	c.key.FromString(randomStr)
 	c.writesChannel = make(chan *types.IncomingMessage, 2)
 	c.realTopicNames = make(map[types.HashType]string)
 	//c.Subscriptions = make(map[types.HashType]bool)
-	connLogThing.Collect("setting CONN " + c.Key.String())
+	connLogThing.Collect("setting CONN " + c.key.String())
 	allConnMutex.Lock()
-	allTheConnections[c.Key] = c
+	allTheConnections[c.key] = c
 	allConnMutex.Unlock()
 	// start reading
 	err := c.tcpConn.SetReadBuffer(4096)
@@ -110,7 +68,7 @@ func RunAConnection(c *Connection) {
 	go watchForData(c)
 	// bytes, _ := json.Marshal(c)
 	// fmt.Println("connection struct " + string(bytes))
-	for c.Running {
+	for c.running {
 
 		for {
 			err := c.tcpConn.SetReadDeadline(time.Now().Add(20 * time.Minute))
@@ -181,28 +139,4 @@ func RunAConnection(c *Connection) {
 
 		}
 	}
-}
-
-// This is a Set of all the Connection structs that can be looked up by Key.
-var allTheConnections = make(map[types.HashType]*Connection)
-var allConnMutex = &sync.Mutex{}
-
-type connectionsEventsReporter struct {
-}
-
-func (collector *connectionsEventsReporter) report(seconds float32) []string {
-	strlist := make([]string, 0, 5)
-	allConnMutex.Lock()
-	size := len(allTheConnections)
-	allConnMutex.Unlock()
-	strlist = append(strlist, "Conn count="+strconv.Itoa(size))
-	return strlist
-}
-
-var connLogThing *StringEventAccumulator
-
-func init() {
-	connLogThing = NewStringEventAccumulator(12)
-	connLogThing.quiet = true
-	AddReporter(&connectionsEventsReporter{})
 }

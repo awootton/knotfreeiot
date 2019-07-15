@@ -2,7 +2,8 @@ package main
 
 import (
 	"fmt"
-	"knotfree/knotfree"
+	"knotfree/clients"
+	"knotfree/iot"
 	"os"
 	"strconv"
 )
@@ -15,23 +16,22 @@ func runClients(amt int) {
 	fmt.Println("Starting clients = " + strconv.Itoa(amt))
 	for i := 0; i < amt; i++ {
 		istr := strconv.Itoa(i)
-		go knotfree.LightSwitch("aaaaaa" + istr)
-		go knotfree.LightController("bbbbb"+istr, "aaaaaa"+istr)
+		go clients.LightSwitch("aaaaaa"+istr, "bbbbb"+istr)
+		go clients.LightController("bbbbb"+istr, "aaaaaa"+istr)
 	}
 }
 
 func main() {
 
-	//knotfree.RunTCPOverPubsub()
-
 	if 3 == 1+1 {
+		iot.RunTCPOverPubsub()
 		return
 	}
 
 	if len(os.Args) > 1 && os.Args[1] == "client" {
 		go runClients(1)
 	} else {
-		go knotfree.Server()
+		go iot.Server()
 		go runClients(1)
 	}
 
