@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: knotfree{{N}}
+  labels:
+    app: knotfree{{N}}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      run: knotfree{{N}}
+  template:
+    metadata:
+      labels:
+        run: knotfree{{N}}
+    spec:
+      containers:
+      - name: golang
+        image: golang:1.12.1-stretch
+        command: ["/bin/sh"]
+        args: ["-c", "touch fffile; tail -f fffile"]
+        ports:
+        - containerPort: 6161
+          name : aa
+        - containerPort: 1883
+          name : mqtt
+        - containerPort: 8080 
+          name : knot
+        resources:
+          limits:
+            cpu: '{{CPU}}'
+            memory: "{{MEM}}"
+          requests:
+            cpu: "{{CPU}}"
+            memory: "{{MEM}}"
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: knotfree{{N}}
+  name: knotfree{{N}}
+spec:
+  type: NodePort
+  ports:
+  - port: 6161
+    name: aa
+  - port: 1883
+    name: mqtt
+  - port: 8080
+    name: knot
+  selector:
+    run: knotfree{{N}}

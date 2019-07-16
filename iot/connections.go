@@ -118,6 +118,6 @@ var connLogThing *StringEventAccumulator
 
 func init() {
 	connLogThing = NewStringEventAccumulator(12)
-	connLogThing.quiet = true
+	connLogThing.quiet = false
 	AddReporter(&connectionsEventsReporter{})
 }

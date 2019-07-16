@@ -10,7 +10,7 @@ import (
 )
 
 // DoStartEventCollectorReporting - set to run the reporter
-var DoStartEventCollectorReporting = false
+var DoStartEventCollectorReporting = true
 
 //var delayBetweenReports = 20 * time.Second
 var delayBetweenReports = 10 * time.Second
@@ -43,6 +43,7 @@ func NewStringEventAccumulator(maxstrlen int) *StringEventAccumulator {
 	cm := StringEventAccumulator{}
 	cm.countMap = make(map[string]float32)
 	cm.strlen = maxstrlen
+	cm.quiet = false
 	AddReporter(&cm)
 	return &cm
 }
@@ -149,6 +150,7 @@ func startRunningReports() {
 		fmt.Println(sb.String())
 		fmt.Println("")
 		previousTime = t
+		reportCount += 1
 	}
 }
 

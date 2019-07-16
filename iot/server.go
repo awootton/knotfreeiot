@@ -20,7 +20,7 @@ func init() {
 
 // Server - wait for connections and spawn them
 func Server() {
-	ln, err := net.Listen("tcp", ":8080")
+	ln, err := net.Listen("tcp", ":6161")
 	if err != nil {
 		// handle error
 		srvrLogThing.Collect(err.Error())

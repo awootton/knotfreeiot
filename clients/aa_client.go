@@ -1,7 +1,6 @@
 package clients
 
 import (
-	"fmt"
 	"knotfree/iot"
 	"knotfree/protocolaa"
 	"math/rand"
@@ -44,10 +43,10 @@ func moreBackoff(backoff int) int {
 // connect, send contract, subscribe.
 // timeout after 20 minutes. keep trying.
 // We'll spawn a thread to write every 19 min.
-// usually "localhost:8080"
+// add 127.0.0.1 knotfreeserver to /etc/hosts
 func LightSwitch(mySubChan string, ourSwitch string) {
 
-	connectStr := "localhost:8080"
+	connectStr := "knotfreeserver:6161"
 	on := false
 	_ = on
 	backoff := 2
@@ -55,6 +54,7 @@ func LightSwitch(mySubChan string, ourSwitch string) {
 		//fmt.Println("dialing")
 		conn, err := net.DialTimeout("tcp", connectStr, 60*time.Second)
 		if err != nil {
+			clientLogThing.Collect("sleeping " + strconv.Itoa(backoff))
 			time.Sleep(time.Duration(backoff) * time.Second)
 			backoff = moreBackoff(backoff)
 			continue // try to connect again
@@ -85,7 +85,7 @@ func LightSwitch(mySubChan string, ourSwitch string) {
 				continue
 			case *protocolaa.Publish:
 				what := got.(*protocolaa.Publish).Msg
-				fmt.Println("LightSw received:", what)
+				clientLogThing.Collect("LightSw received:" + what)
 				// echo it back
 				handler.Push(&protocolaa.SetTopic{Msg: ourSwitch})
 				handler.Push(&protocolaa.Publish{Msg: what})
@@ -101,9 +101,10 @@ func LightSwitch(mySubChan string, ourSwitch string) {
 var count int64
 
 // LightController -  switches a light switch.
+// add 127.0.0.1 knotfreeserver to /etc/hosts
 func LightController(id string, target string) {
 
-	connectStr := "localhost:8080"
+	connectStr := "knotfreeserver:6161"
 	on := false
 	_ = on
 	backoff := 2
@@ -143,7 +144,7 @@ func LightController(id string, target string) {
 				continue
 			case *protocolaa.Publish:
 				what := got.(*protocolaa.Publish).Msg
-				fmt.Println("LightCon received:", what)
+				clientLogThing.Collect("LightCon received:" + what)
 
 			default:
 				// nothing
@@ -157,5 +158,4 @@ var clientLogThing *iot.StringEventAccumulator
 
 func init() {
 	clientLogThing = iot.NewStringEventAccumulator(16)
-	//clientLogThing.quiet = false
 }

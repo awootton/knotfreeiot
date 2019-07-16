@@ -210,7 +210,7 @@ func RunTCPOverPubsub() {
 	sender(cd.west, cd.east)
 
 	for {
-
+		time.Sleep(60*time.Minute)
 	}
 
 }
