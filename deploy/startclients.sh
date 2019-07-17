@@ -11,7 +11,7 @@ export CPU=20m
 export MEM=64Mi
 
 export CPU=400m
-export MEM=256Mi
+export MEM=2048Mi
 
  ./template.sh server.yaml | kubectl apply -f -
 

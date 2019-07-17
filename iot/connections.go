@@ -51,11 +51,16 @@ func (c *Connection) GetKey() *types.HashType {
 	return &c.key
 }
 
+// ConnectionExists reports if it's still in the table.
+func ConnectionExists(channelID *types.HashType) bool {
+	_, ok := allTheConnections[*channelID]
+	return ok
+}
+
 // QueueMessageToConnection called by subscribe. needs to access allTheConnections and the Connection.writesChannel
 func QueueMessageToConnection(channelID *types.HashType, message *types.IncomingMessage) bool {
 
-	//fmt.Println("QueueMessageToConnection with " + string(message.Message))
-	connLogThing.Collect("qlook4 CONN " + channelID.String())
+	connLogThing.Collect("q publish incoming " + channelID.String())
 	allConnMutex.Lock()
 	c, ok := allTheConnections[*channelID]
 	allConnMutex.Unlock()
@@ -102,10 +107,7 @@ func watchForData(c *Connection) {
 var allTheConnections = make(map[types.HashType]*Connection)
 var allConnMutex = &sync.Mutex{}
 
-type connectionsEventsReporter struct {
-}
-
-func (collector *connectionsEventsReporter) report(seconds float32) []string {
+var connectionsReporter = func(seconds float32) []string {
 	strlist := make([]string, 0, 5)
 	allConnMutex.Lock()
 	size := len(allTheConnections)
@@ -114,10 +116,11 @@ func (collector *connectionsEventsReporter) report(seconds float32) []string {
 	return strlist
 }
 
-var connLogThing *StringEventAccumulator
+var connLogThing *types.StringEventAccumulator
 
 func init() {
-	connLogThing = NewStringEventAccumulator(12)
-	connLogThing.quiet = false
-	AddReporter(&connectionsEventsReporter{})
+	connLogThing = types.NewStringEventAccumulator(12)
+	connLogThing.SetQuiet(true)
+	types.NewGenericEventAccumulator(connectionsReporter)
+
 }

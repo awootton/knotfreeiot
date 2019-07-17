@@ -7,6 +7,7 @@ import (
 	"io"
 	"net"
 	"strconv"
+	"time"
 )
 
 // ProtocolHandler does read and write of the various messages involved
@@ -21,7 +22,7 @@ type ProtocolHandler interface {
 	Push(cmd interface{}) error
 	// Pop will block for a timeout that could be as long as 30 minutes.
 	// used by clients
-	Pop() (interface{}, error)
+	Pop(timeout time.Duration) (interface{}, error)
 }
 
 // ConnectionIntf stuff that deals with managing net connections

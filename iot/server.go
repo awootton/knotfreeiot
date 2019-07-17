@@ -11,11 +11,11 @@ import (
 	"time"
 )
 
-var srvrLogThing *StringEventAccumulator
+var srvrLogThing *types.StringEventAccumulator
 
 func init() {
-	srvrLogThing = NewStringEventAccumulator(16)
-	srvrLogThing.quiet = false
+	srvrLogThing = types.NewStringEventAccumulator(16)
+	srvrLogThing.SetQuiet(true)
 }
 
 // Server - wait for connections and spawn them
@@ -54,7 +54,7 @@ func runTheConnection(c *Connection) {
 	c.writesChannel = make(chan *types.IncomingMessage, 2)
 	c.realTopicNames = make(map[types.HashType]string)
 	//c.Subscriptions = make(map[types.HashType]bool)
-	connLogThing.Collect("setting CONN " + c.key.String())
+	connLogThing.Collect("new connection")
 	allConnMutex.Lock()
 	allTheConnections[c.key] = c
 	allConnMutex.Unlock()
@@ -62,6 +62,11 @@ func runTheConnection(c *Connection) {
 	err := c.tcpConn.SetReadBuffer(4096)
 	if err != nil {
 		connLogThing.Collect("server err " + err.Error())
+		return
+	}
+	err = c.tcpConn.SetWriteBuffer(4096)
+	if err != nil {
+		connLogThing.Collect("cserver " + err.Error())
 		return
 	}
 
@@ -82,61 +87,6 @@ func runTheConnection(c *Connection) {
 				connLogThing.Collect("handler err " + err.Error())
 				return
 			}
-
-			// str, err := ReadProtocolAstr(c.tcpConn)
-			// if err != nil {
-			// 	connLogThing.Collect("rProtA err " + str + err.Error())
-			// 	return
-			// }
-			// connLogThing.Sum("Conn r bytes", len(str))
-			// // ok, so what is the message? subscribe or publish?
-			// //fmt.Println("Have Server str _a " + str)
-			// // eg sAchannel
-
-			// // CONNECT c
-			// // PUBLISH p
-			// // SUBSCRIBE s
-			// // UNSUBSCRIBE u
-			// // PING g
-			// // DISCONNECT d
-
-			// if str[0] == 's' {
-			// 	// process subscribe
-			// 	subTopic := str[1:]
-
-			// 	//fmt.Println("sub CONN key " + c.Key.String())
-			// 	//fmt.Println("Have subTopic " + subTopic)
-			// 	// we'll fill in a sub request and 'mail' it to the sub handler
-			// 	// TODO: change to proc call
-			// 	subr := SubscriptionMessage{}
-			// 	subr.Topic.FromString(subTopic)
-			// 	//fmt.Println("Have subChan becomes " + subr.Channel.String())
-			// 	subr.ConnectionID.FromHashType(&c.Key)
-			// 	//fmt.Println("subscribe ConnectionID is " + subr.ConnectionID.String())
-			// 	c.realTopicNames[subr.Topic] = subTopic
-			// 	AddSubscription(subr)
-			// 	//c.Subscriptions[subr.Topic] = true
-			// } else if str[0] == 'p' {
-			// 	//fmt.Println("publish CONN key " + c.Key.String())
-			// 	// process publish, {"C":"channelRealName","M":"a message"}
-			// 	//fmt.Println("got p publish " + str)
-			// 	pub := PublishProtocolA{}
-			// 	err := json.Unmarshal([]byte(str[1:]), &pub)
-			// 	if err != nil {
-			// 		connLogThing.Collect("server json " + err.Error())
-			// 		return
-			// 	}
-			// 	//fmt.Println("Have PublishProtocolA " + string(&pub))
-			// 	pubr := PublishMessage{}
-			// 	pubr.Topic.FromString(pub.T)
-			// 	pubr.ConnectionID.FromHashType(&c.Key)
-			// 	pubr.Message = []byte(pub.M)
-			// 	//fmt.Println("Publish topic becomes " + pubr.Topic.String())
-			// 	//fmt.Println("Publish ConnectionID is " + pubr.ConnectionID.String())
-			// 	AddPublish(pubr)
-			// }
-			// // we don't have an unsubscribe yet.
-
 		}
 	}
 }

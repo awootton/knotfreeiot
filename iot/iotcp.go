@@ -166,33 +166,6 @@ func receiver(destination chan CmdInterface, replies chan CmdInterface) error {
 	synack := SynAckCommand{sequence: incomingSequence}
 	destination <- &synack
 
-	// go func() {
-	// 	obj := <-east
-	// 	fmt.Println("received", obj)
-
-	// 	switch v := obj.(type) {
-	// 	case *SynCommand:
-	// 		//sss := v.(*SynCommand)
-	// 		fmt.Println("syn", v)
-	// 		sequence = v.sequence
-	// 		west <- SynAckCommand{}
-	// 	case *AckCommand:
-	// 		west <- AckCommand{}
-	// 	case *SynAckCommand:
-	// 		//west <- AckCommand{}
-
-	// 	default:
-	// 		fmt.Printf("I don't know about type %T!\n", v)
-	// 	}
-
-	// }()
-
-	// syn-ack (A+1,)
-
-	// akc ack ack the received
-
-	// fin-ack
-
 	_ = incomingSequence
 	_ = replyTopic
 
@@ -210,7 +183,7 @@ func RunTCPOverPubsub() {
 	sender(cd.west, cd.east)
 
 	for {
-		time.Sleep(60*time.Minute)
+		time.Sleep(60 * time.Minute)
 	}
 
 }

@@ -30,11 +30,11 @@ func (me *Handler) Push(cmd interface{}) error {
 }
 
 // Pop blocks. Actually returns aaInterface. See above.
-func (me *Handler) Pop() (interface{}, error) {
+func (me *Handler) Pop(timeout time.Duration) (interface{}, error) {
 	select {
 	case obj := <-me.wire.east:
 		return obj, nil
-	case <-time.After(21 * time.Minute):
+	case <-time.After(timeout):
 		return nil, errors.New("Aa read too slow")
 	}
 	//return nil, errors.New("wtf")
@@ -57,7 +57,7 @@ func newAaDuplexChannel(capacity int, conn *net.TCPConn) aaDuplexChannel {
 			str, err := readProtocolAstr(conn)
 			//fmt.Println("sock to east:", str, err)
 			if err != nil { // we're dead. its over.
-				adc.east <- &Death{"Aa read err " + err.Error()}
+				// adc.east <- &Death{"Aa read err " + err.Error()}
 				return
 			}
 			obj := unMarshalAa(str[:1], str[1:])
@@ -71,9 +71,9 @@ func newAaDuplexChannel(capacity int, conn *net.TCPConn) aaDuplexChannel {
 			str := obj.marshal()
 			err := writeProtocolAaStr(conn, str)
 			if err != nil { // we're dead. its over.
-				death := Death{"Aa write err " + err.Error()}
-				str = death.marshal()
-				_ = writeProtocolAaStr(conn, str)
+				//death := Death{"Aa write err " + err.Error()}
+				//str = death.marshal()
+				//_ = writeProtocolAaStr(conn, str)
 			}
 		}
 	}()

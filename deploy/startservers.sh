@@ -12,7 +12,7 @@ export CPU=20m
 export MEM=64Mi
 
 export CPU=400m
-export MEM=256Mi
+export MEM=2048Mi
 
  ./template.sh server.yaml | kubectl apply -f -
 
@@ -24,12 +24,13 @@ done
 
 #kubectl exec ${POD} -- bash -c "go get -u github.com/eclipse/paho.mqtt.golang"
 
-#  kubectl exec -it ${POD} -- bash 
+#  log on to it:  kubectl exec -it ${POD} -- bash 
 
 kubectl exec ${POD} -- bash -c "pkill main" | true
 
-
+# copy the latest version up up the pod
 kubectl cp ../../knotfree ${POD}:/go/src/
 
+# start the process
 kubectl exec ${POD} -- bash -c "cd src/knotfree && go run main.go server"
 

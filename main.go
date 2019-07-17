@@ -34,7 +34,7 @@ func main() {
 	}
 
 	if len(os.Args) > 1 && os.Args[1] == "client" {
-		go runClients(20000)
+		go runClients(12000)
 	} else if len(os.Args) > 1 && os.Args[1] == "server" {
 		go iot.Server()
 	} else {

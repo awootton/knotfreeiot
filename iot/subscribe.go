@@ -5,9 +5,9 @@ import (
 	"strconv"
 )
 
-// theBucketsSize is the
+// theBucketsSize is 4 for debug and 1024 for prod
 const theBucketsSize = uint(4)
-const theBucketsSizeLog2 = uint(2) // int(math.Log2(theBucketsSize))
+const theBucketsSizeLog2 = 2 // uint(math.Log2(float64(theBucketsSize)))
 
 // SubscriptionMessage for real
 type subscriptionMessage struct {
@@ -64,18 +64,17 @@ func (bucket *subscribeBucket) processMessages() {
 
 	for {
 		msg := <-bucket.incoming // wait right here
-		//fmt.Println("processMessages got message " + reflect.TypeOf(msg).String()) // + string(json.Marshal(msg)))
 		switch msg.(type) {
 
 		case subscriptionMessage:
 			submsg := msg.(subscriptionMessage)
-			//fmt.Println("submsg.Topic " + submsg.Topic.String())
 			substruct, ok := bucket.mySubscriptions[*submsg.Topic]
 			if ok == false {
 				substruct = &subscription{}
 				substruct.name.FromHashType(submsg.Topic)
 				substruct.watchers = make(map[types.HashType]bool)
 				bucket.mySubscriptions[*submsg.Topic] = substruct
+				subscribeEvents.Collect("new subscription")
 			}
 			// this is the important part:
 			// add the caller to  the set
@@ -83,21 +82,25 @@ func (bucket *subscribeBucket) processMessages() {
 
 		case publishMessage:
 			pubmsg := msg.(publishMessage)
-			//fmt.Println("pubmsg.Topic " + pubmsg.Topic.String())
 			pubstruct, ok := bucket.mySubscriptions[*pubmsg.Topic]
 			if ok == false {
 				// no publish possible !
 			} else {
 				// pubstruct is not nil
 				for key := range pubstruct.watchers {
-					//fmt.Println("pubmsg.Topic " + pubmsg.Topic.String())
 					if key != *pubmsg.ConnectionID {
 
 						mmm := types.IncomingMessage{}
 						mmm.Message = pubmsg.payload
 						mmm.Topic = pubmsg.Topic
 
-						_ = QueueMessageToConnection(&key, &mmm)
+						if !ConnectionExists(&key) {
+							subscribeEvents.Collect("lost conn deleted")
+							delete(pubstruct.watchers, key)
+						} else {
+							_ = QueueMessageToConnection(&key, &mmm)
+						}
+
 					}
 				}
 			}
@@ -107,6 +110,7 @@ func (bucket *subscribeBucket) processMessages() {
 			unmsg := msg.(unsubscribeMessage)
 			unstruct, ok := bucket.mySubscriptions[*unmsg.Topic]
 			if ok == true {
+				subscribeEvents.Collect("unsubscribe")
 				delete(unstruct.watchers, *unmsg.ConnectionID)
 				if len(unstruct.watchers) == 0 {
 					// forget the entire topic
@@ -153,10 +157,7 @@ func (me *pubSubManager) SendPublishMessage(Topic *types.HashType, ConnectionID 
 	b.incoming <- msg
 }
 
-type subrEventsReporter struct {
-}
-
-func (collector *subrEventsReporter) report(seconds float32) []string {
+var subscrFRepofrtFunct = func(seconds float32) []string {
 	strlist := make([]string, 0, 5)
 	count := 0
 	for _, b := range psMgr.allTheSubscriptions {
@@ -166,6 +167,10 @@ func (collector *subrEventsReporter) report(seconds float32) []string {
 	return strlist
 }
 
+var subscribeEvents *types.StringEventAccumulator
+
 func init() {
-	AddReporter(&subrEventsReporter{})
+	subscribeEvents = types.NewStringEventAccumulator(12)
+	subscribeEvents.SetQuiet(true)
+	types.NewGenericEventAccumulator(subscrFRepofrtFunct)
 }

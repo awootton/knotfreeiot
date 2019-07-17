@@ -31,7 +31,6 @@ func (me *ByteChanReadWriter) Read(p []byte) (n int, err error) {
 		select {
 		case ch := <-me.wire:
 			p[i] = ch
-			//fmt.Println("p[i]=", string(p[i]))
 		case <-time.After(me.timeout):
 			return i, errors.New("Timeout ByteChanReadWriter Read")
 		}
