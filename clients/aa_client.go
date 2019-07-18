@@ -79,7 +79,8 @@ func LightSwitch(mySubChan string, ourSwitch string) {
 
 		lastTopicReceived := "none" // there''s only one topic so this is dumb deleteme:
 		for {
-
+			// all error of any kind must propogate to Pop()
+			// so they can be known
 			got, err := handler.Pop(15 * time.Minute) // blocks
 			if err != nil {
 				clientLogThing.Collect("LightSw read err " + err.Error())
@@ -154,14 +155,17 @@ func LightController(id string, target string) {
 
 		// Don't publish until after the light has subscribed
 		var count int64
+		expecting := "some hello message or something"
+		when := time.Now()
 		go func() {
 			for {
 				st := protocolaa.SetTopic{Msg: target}
 				handler.Push(&st)
 
-				str := "hello from elsewhere" + strconv.FormatInt(count, 10)
+				expecting = "hello from elsewhere" + strconv.FormatInt(count, 10)
 				count++
-				pu := protocolaa.Publish{Msg: str}
+				pu := protocolaa.Publish{Msg: expecting}
+				when = time.Now()
 				handler.Push(&pu)
 				time.Sleep(time.Duration(60+rand.Intn(60)) * time.Second)
 			}
@@ -180,6 +184,17 @@ func LightController(id string, target string) {
 			case *protocolaa.Publish:
 				what := got.(*protocolaa.Publish).Msg
 				clientLogThing.Collect("LightCon received:" + what)
+				if what != expecting {
+					clientLogThing.Collect("customer not happy")
+				}
+				duration := time.Now().Sub(when)
+				if duration > time.Second*10 {
+					clientLogThing.Collect("customer bored")
+				} else if duration < time.Millisecond*100 {
+					clientLogThing.Collect("happy joy")
+				} else {
+					clientLogThing.Collect("ok")
+				}
 
 			default:
 				sss := reflect.TypeOf(got).String()
@@ -201,6 +216,6 @@ var clientLogThing *types.StringEventAccumulator
 
 func init() {
 	clientLogThing = types.NewStringEventAccumulator(16)
-	clientLogThing.SetQuiet(true)
+	clientLogThing.SetQuiet(false)
 	types.NewGenericEventAccumulator(aaclientRepofrter)
 }

@@ -16,9 +16,9 @@ import (
 type Connection struct {
 	key types.HashType // 128 bits
 	//Subscriptions map[types.HashType]bool
-	running       bool
-	writesChannel chan *types.IncomingMessage // channel for receiving
-	tcpConn       *net.TCPConn
+	running bool
+	//writesChannel chan *types.IncomingMessage // channel for receiving
+	tcpConn *net.TCPConn
 	// map from Topic hash to Topic string
 	realTopicNames map[types.HashType]string
 
@@ -58,24 +58,30 @@ func ConnectionExists(channelID *types.HashType) bool {
 }
 
 // QueueMessageToConnection called by subscribe. needs to access allTheConnections and the Connection.writesChannel
-func QueueMessageToConnection(channelID *types.HashType, message *types.IncomingMessage) bool {
+func QueueMessageToConnection(channelID *types.HashType, message *types.IncomingMessage) {
 
 	connLogThing.Collect("q publish incoming " + channelID.String())
 	allConnMutex.Lock()
 	c, ok := allTheConnections[*channelID]
 	allConnMutex.Unlock()
 	if ok == false {
-		return ok
+		// someone is sending a message to a lost channel
+		// c will be nil
+		return
 	}
-	// FIXME: just call the handler directly. Watch for blocking.
-	c.writesChannel <- message
-
-	return true
+	handler := *c.protocolHandler
+	err := handler.HandleWrite(message)
+	if err != nil {
+		// only timeout errors or socket errors will happen
+		// and they will stuff an error into the pipe that the
+		// poll (in server.runTheConnection) will break on and that will close the socket
+		c.running = false
+	}
 }
 
 // Close will kill the connection for disconnect or timeout or error or whatever.
 func (c *Connection) Close() {
-	// unsubscrbe
+	// TODO: send a bulk unsub
 	for k, v := range c.realTopicNames {
 		topic := types.HashType{}
 		topic.FromHashType(&k)
@@ -83,25 +89,25 @@ func (c *Connection) Close() {
 		connLogThing.Collect("Unsub  topic " + k.String())
 		_ = v
 	}
-	connLogThing.Collect("deleting CONN " + c.key.String())
+	connLogThing.Collect("Closing Connection")
 	allConnMutex.Lock()
 	delete(allTheConnections, c.key)
 	allConnMutex.Unlock()
 	c.tcpConn.Close()
 }
 
-func watchForData(c *Connection) {
-	defer c.Close()
-	//fmt.Println("starting watchForData ")
-	for {
-		msg := <-c.writesChannel
-		handler := *c.protocolHandler
-		err := handler.HandleWrite(msg)
-		if err != nil {
-			c.Close()
-		}
-	}
-}
+// func watchForData(c *Connection) {
+// 	for {
+// 		msg := <-c.writesChannel
+// 		handler := *c.protocolHandler
+// 		err := handler.HandleWrite(msg)
+// 		if err != nil {
+// 			connLogThing.Collect("wFD err" + err.Error())
+// 			c.running = false // not the right way really
+// 			return
+// 		}
+// 	}
+// }
 
 // This is a Set of all the Connection structs that can be looked up by Key.
 var allTheConnections = make(map[types.HashType]*Connection)

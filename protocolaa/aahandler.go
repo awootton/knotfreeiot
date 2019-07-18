@@ -30,19 +30,24 @@ func (me *Handler) Push(cmd interface{}) error {
 }
 
 // Pop blocks. Actually returns aaInterface. See above.
+// This is used by test clients so it must check for the
+// PipedError case and return the error.
 func (me *Handler) Pop(timeout time.Duration) (interface{}, error) {
 	select {
 	case obj := <-me.wire.east:
+		errObj, ok := obj.(*PipedError)
+		if ok {
+			return nil, errObj.err
+		}
 		return obj, nil
 	case <-time.After(timeout):
 		return nil, errors.New("Aa read too slow")
 	}
-	//return nil, errors.New("wtf")
 }
 
 type aaDuplexChannel struct {
-	east chan aaInterface
-	west chan aaInterface
+	east chan aaInterface // from the wire to the connection
+	west chan aaInterface // from the connection to the wire
 }
 
 var aaDefaultTimeout = 21 * time.Minute
@@ -55,13 +60,15 @@ func newAaDuplexChannel(capacity int, conn *net.TCPConn) aaDuplexChannel {
 	go func() {
 		for {
 			str, err := readProtocolAstr(conn)
-			//fmt.Println("sock to east:", str, err)
-			if err != nil { // we're dead. its over.
-				// adc.east <- &Death{"Aa read err " + err.Error()}
-				return
+			if err != nil {
+				cmd := PipedError{}
+				cmd.Msg = err.Error()
+				cmd.err = err
+				adc.east <- &cmd
+			} else {
+				obj := unMarshalAa(str[:1], str[1:])
+				adc.east <- obj
 			}
-			obj := unMarshalAa(str[:1], str[1:])
-			adc.east <- obj
 		}
 	}()
 
@@ -70,10 +77,11 @@ func newAaDuplexChannel(capacity int, conn *net.TCPConn) aaDuplexChannel {
 			obj := <-adc.west
 			str := obj.marshal()
 			err := writeProtocolAaStr(conn, str)
-			if err != nil { // we're dead. its over.
-				//death := Death{"Aa write err " + err.Error()}
-				//str = death.marshal()
-				//_ = writeProtocolAaStr(conn, str)
+			if err != nil {
+				cmd := PipedError{}
+				cmd.Msg = err.Error()
+				cmd.err = err
+				adc.east <- &cmd
 			}
 		}
 	}()
@@ -89,8 +97,6 @@ func unMarshalAa(firstChar string, str string) aaInterface {
 		return &SetTopic{str}
 	case 'p':
 		return &Publish{str}
-	case 'd':
-		return &Death{str}
 	}
 	return &Ping{}
 }
@@ -105,18 +111,20 @@ func (me *ServerHandler) HandleWrite(msg *types.IncomingMessage) error {
 	// TODO: optimize redundant SetTopic commands.
 	select {
 	case me.wire.west <- &SetTopic{realName}:
-	case <-time.After(10 * time.Millisecond):
+	case <-time.After(100 * time.Millisecond):
 		return errors.New("Aa wr slow")
 	}
 	select {
 	case me.wire.west <- &Publish{string(*msg.Message)}:
-	case <-time.After(10 * time.Millisecond):
+	case <-time.After(100 * time.Millisecond):
 		return errors.New("Aa wr slow2")
 	}
 	return nil
 }
 
 // Serve implementing  ProtocolHandler interface
+// if there was a tcp sock error then the execute of the PipedError
+// will return that error to the loop in server
 func (me *ServerHandler) Serve() error {
 	select {
 	case obj := <-me.wire.east:

@@ -20,14 +20,14 @@ type ServerHandler struct {
 	subscriptions types.SubscriptionsIntf
 }
 
-// NewHandler constructor
+// NewHandler constructor - for test client
 func NewHandler(conn *net.TCPConn) types.ProtocolHandler {
 	me := ServerHandler{}
 	me.wire = newAaDuplexChannel(1, conn)
 	return &me
 }
 
-// NewServerHandler constructor
+// NewServerHandler constructor for connections.go
 func NewServerHandler(c types.ConnectionIntf, s types.SubscriptionsIntf) types.ProtocolHandler {
 	me := ServerHandler{}
 	me.c = c
@@ -134,17 +134,17 @@ func (me *Ping) execute(parent *ServerHandler) error {
 	return nil
 }
 
-// Death is 'd'. When you get it you quit and die
-// Basically like disconnect
-type Death struct {
+// PipedError happened at the socket so we push this in the pipe
+// then everyone can get it.
+type PipedError struct {
 	Msg string
+	err error
 }
 
-func (me *Death) marshal() string {
+func (me *PipedError) marshal() string {
 	return "d" + me.Msg
 }
 
-func (me *Death) execute(parent *ServerHandler) error {
-	parent.c.Close()
-	return errors.New("Death received:" + me.Msg)
+func (me *PipedError) execute(parent *ServerHandler) error {
+	return me.err
 }

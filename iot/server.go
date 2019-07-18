@@ -6,6 +6,7 @@ import (
 	"knotfree/types"
 	"math/rand"
 	"net"
+	"strings"
 
 	"strconv"
 	"time"
@@ -43,17 +44,19 @@ func Server() {
 func runTheConnection(c *Connection) {
 
 	// FIXME: pass a factory
+	// not always aa
 	handler := protocolaa.NewServerHandler(c, GetSubscriptionsMgr())
 	c.SetProtocolHandler(&handler)
 
-	defer c.Close()
 	c.running = true
 	// random connection id
 	randomStr := strconv.FormatInt(rand.Int63(), 16) + strconv.FormatInt(rand.Int63(), 16)
 	c.key.FromString(randomStr)
-	c.writesChannel = make(chan *types.IncomingMessage, 2)
+	//c.writesChannel = make(chan *types.IncomingMessage, 2)
 	c.realTopicNames = make(map[types.HashType]string)
-	//c.Subscriptions = make(map[types.HashType]bool)
+
+	defer c.Close()
+
 	connLogThing.Collect("new connection")
 	allConnMutex.Lock()
 	allTheConnections[c.key] = c
@@ -70,23 +73,53 @@ func runTheConnection(c *Connection) {
 		return
 	}
 
-	go watchForData(c)
+	//go watchForData(c)
 	// bytes, _ := json.Marshal(c)
 	// fmt.Println("connection struct " + string(bytes))
 	for c.running {
 
-		for {
-			err := c.tcpConn.SetReadDeadline(time.Now().Add(20 * time.Minute))
-			if err != nil {
-				connLogThing.Collect("server err2 " + err.Error())
-				return
-			}
-
-			err = handler.Serve()
-			if err != nil {
-				connLogThing.Collect("handler err " + err.Error())
-				return
-			}
+		err := c.tcpConn.SetReadDeadline(time.Now().Add(20 * time.Minute))
+		if err != nil {
+			connLogThing.Collect("server err2 " + err.Error())
+			return // quit, close the sock, be forgotten
+		}
+		err = handler.Serve()
+		if err != nil {
+			connLogThing.Collect("se err " + err.Error())
+			return // quit, close the sock, be forgotten
 		}
 	}
+}
+
+// isClosedConnError reports whether err is an error from use of a closed
+// network connection.
+func isClosedConnError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	// TODO: remove this string search and be more like the Windows
+	// case below. That might involve modifying the standard library
+	// to return better error types.
+	str := err.Error()
+	if strings.Contains(str, "use of closed network connection") {
+		return true
+	}
+
+	// TODO(bradfitz): x/tools/cmd/bundle doesn't really support
+	// build tags, so I can't make an http2_windows.go file with
+	// Windows-specific stuff. Fix that and move this, once we
+	// have a way to bundle this into std's net/http somehow.
+	// if runtime.GOOS == "windows" {
+	// 	if oe, ok := err.(*net.OpError); ok && oe.Op == "read" {
+	// 		if se, ok := oe.Err.(*os.SyscallError); ok && se.Syscall == "wsarecv" {
+	// 			const WSAECONNABORTED = 10053
+	// 			const WSAECONNRESET = 10054
+	// 			if n := errno(se.Err); n == WSAECONNRESET || n == WSAECONNABORTED {
+	// 				return true
+	// 			}
+	// 		}
+	// 	}
+	// }
+	return false
 }

@@ -98,7 +98,7 @@ func (bucket *subscribeBucket) processMessages() {
 							subscribeEvents.Collect("lost conn deleted")
 							delete(pubstruct.watchers, key)
 						} else {
-							_ = QueueMessageToConnection(&key, &mmm)
+							QueueMessageToConnection(&key, &mmm)
 						}
 
 					}
