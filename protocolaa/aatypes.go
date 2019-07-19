@@ -23,7 +23,7 @@ type ServerHandler struct {
 // NewHandler constructor - for test client
 func NewHandler(conn *net.TCPConn) types.ProtocolHandler {
 	me := ServerHandler{}
-	me.wire = newAaDuplexChannel(1, conn)
+	me.wire = newAaDuplexChannel(0, conn)
 	return &me
 }
 
@@ -32,7 +32,7 @@ func NewServerHandler(c types.ConnectionIntf, s types.SubscriptionsIntf) types.P
 	me := ServerHandler{}
 	me.c = c
 	me.subscriptions = s
-	me.wire = newAaDuplexChannel(1, c.GetTCPConn())
+	me.wire = newAaDuplexChannel(0, c.GetTCPConn())
 	return &me
 }
 
@@ -71,7 +71,7 @@ func (me *Publish) execute(parent *ServerHandler) error {
 		return errors.New("there's no topic set for the publish")
 	}
 	bytes := []byte(me.Msg)
-	parent.subscriptions.SendPublishMessage(&parent.hashedTopic, parent.c.GetKey(), &bytes)
+	parent.subscriptions.SendPublishMessage(&parent.hashedTopic, parent.c, &bytes)
 	return nil
 }
 
@@ -86,8 +86,7 @@ func (me *Subscribe) marshal() string {
 func (me *Subscribe) execute(parent *ServerHandler) error {
 	hashedTopic := types.HashType{}
 	hashedTopic.FromString(me.Msg)
-	parent.c.SetRealTopicName(&hashedTopic, me.Msg)
-	parent.subscriptions.SendSubscriptionMessage(&hashedTopic, parent.c.GetKey())
+	parent.subscriptions.SendSubscriptionMessage(&hashedTopic, me.Msg, parent.c)
 	return nil
 }
 
@@ -102,7 +101,7 @@ func (me *Unsubscribe) marshal() string {
 func (me *Unsubscribe) execute(parent *ServerHandler) error {
 	hashedTopic := types.HashType{}
 	hashedTopic.FromString(me.Msg)
-	parent.subscriptions.SendUnsubscribeMessage(&hashedTopic, parent.c.GetKey())
+	parent.subscriptions.SendUnsubscribeMessage(&hashedTopic, parent.c)
 	return nil
 }
 

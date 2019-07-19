@@ -2,6 +2,7 @@ package types
 
 import (
 	"crypto/md5"
+	"crypto/rsa"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -37,9 +38,9 @@ type ConnectionIntf interface {
 
 // SubscriptionsIntf stuff that deals with pub/sub
 type SubscriptionsIntf interface {
-	SendSubscriptionMessage(Topic *HashType, ConnectionID *HashType)
-	SendUnsubscribeMessage(Topic *HashType, ConnectionID *HashType)
-	SendPublishMessage(Topic *HashType, ConnectionID *HashType, payload *[]byte)
+	SendSubscriptionMessage(Topic *HashType, realName string, c ConnectionIntf)
+	SendUnsubscribeMessage(Topic *HashType, c ConnectionIntf)
+	SendPublishMessage(Topic *HashType, c ConnectionIntf, payload *[]byte)
 }
 
 // HashType is 128 bits. We'll use these as keys everywhere
@@ -87,67 +88,33 @@ func (h *HashType) String() string {
 	return strconv.FormatUint(h.a, 16)
 }
 
-// Connection comment
-// type xxxConnection struct {
-// 	Val *Hash128 `json:"val,omitempty"`
-// }
+type tinyfloat float32 // actually 12 bits
+type twentyFourBits uint32
+type four uint32
 
-// xxxContract comment
-type xxxContract struct {
-	ProducerKey          uint32 `protobuf:"varint,1,opt,name=producerKey,proto3" json:"producerKey,omitempty"`
-	ExpirationDate       uint32 `protobuf:"varint,2,opt,name=expirationDate,proto3" json:"expirationDate,omitempty"`
-	SubscriptionMax      uint64 `protobuf:"varint,3,opt,name=subscriptionMax,proto3" json:"subscriptionMax,omitempty"`
-	SendBPS              uint32 `protobuf:"varint,4,opt,name=sendBPS,proto3" json:"sendBPS,omitempty"`
-	ReceiveBPS           uint32 `protobuf:"varint,5,opt,name=receiveBPS,proto3" json:"receiveBPS,omitempty"`
-	SendBytesPerSixth    uint32 `protobuf:"varint,6,opt,name=sendBytesPerSixth,proto3" json:"sendBytesPerSixth,omitempty"`
-	ReceiveBytesPerSixth uint32 `protobuf:"varint,7,opt,name=receiveBytesPerSixth,proto3" json:"receiveBytesPerSixth,omitempty"`
-	SerialNumber         uint32 `protobuf:"varint,8,opt,name=serialNumber,proto3" json:"serialNumber,omitempty"`
+// Contract instead of password.
+// the ProducerKey references a public key
+// that will decode
+type Contract struct {
+	ProducerKey uint32
+
+	SerialNumber         uint32
+	ExpirationDate       uint32
+	SubscriptionMax      float32
+	SendBPS              float32
+	ReceiveBPS           float32
+	SendBytesPer10min    float32
+	ReceiveBytesPer10min float32
+	hash                 uint64
 }
 
-// xxxAck comment
-type xxxAck struct {
-	Ok           bool   `protobuf:"varint,1,opt,name=ok,proto3" json:"ok,omitempty"`
-	Sequence     uint32 `protobuf:"varint,2,opt,name=sequence,proto3" json:"sequence,omitempty"`
-	ErrorMessage string `protobuf:"bytes,3,opt,name=errorMessage,proto3" json:"errorMessage,omitempty"`
+// EncodeContract returns a big string with a bunch of base64 in it
+func EncodeContract(con *Contract, priv *rsa.PrivateKey) string {
+	return "ss"
 }
 
-// xxxPresentContractRequest comment
-type xxxPresentContractRequest struct {
-	Contract []byte `protobuf:"bytes,1,opt,name=contract,proto3" json:"contract,omitempty"`
-	Sequence uint32 `protobuf:"varint,2,opt,name=sequence,proto3" json:"sequence,omitempty"`
-}
-
-// xxSubscribeRequest comment. can we avoid pointers?
-type xxSubscribeRequest struct {
-	Topic        HashType `protobuf:"bytes,1,opt,name=channelHash,proto3" json:"channelHash,omitempty"`
-	TopicName    string   `protobuf:"bytes,2,opt,name=channelName,proto3" json:"channelName,omitempty"`
-	ConnectionID HashType `protobuf:"bytes,3,opt,name=connection,proto3" json:"connection,omitempty"`
-	//Sequence    uint32      `protobuf:"varint,4,opt,name=sequence,proto3" json:"sequence,omitempty"`
-}
-
-// xxUnsubscribe comment
-type xxUnsubscribe struct {
-	TopicHash  HashType `protobuf:"bytes,1,opt,name=channelHash,proto3" json:"channelHash,omitempty"`
-	Connection HashType `protobuf:"bytes,2,opt,name=connection,proto3" json:"connection,omitempty"`
-	Sequence   uint32   `protobuf:"varint,3,opt,name=sequence,proto3" json:"sequence,omitempty"`
-}
-
-// xxPublishRequest comment
-type xxPublishRequest struct {
-	TopicHash HashType `protobuf:"bytes,1,opt,name=channelHash,proto3" json:"channelHash,omitempty"`
-	//	Sequence    uint32   `protobuf:"varint,2,opt,name=sequence,proto3" json:"sequence,omitempty"`
-	Message []byte `protobuf:"bytes,3,opt,name=message,proto3" json:"message,omitempty"`
-}
-
-// ReceiveXXX comment
-type ReceiveXXX struct {
-	TopicHash HashType `protobuf:"bytes,1,opt,name=channelHash,proto3" json:"channelHash,omitempty"`
-	//	Sequence    uint32   `protobuf:"varint,2,opt,name=sequence,proto3" json:"sequence,omitempty"`
-	Message []byte `protobuf:"bytes,3,opt,name=message,proto3" json:"message,omitempty"`
-}
-
-// XXHash128 comment
-type XXHash128 struct {
-	A int64 `json:"a,omitempty"`
-	B int64 `json:"b,omitempty"`
+// DecodeContract unpacks the string and checks that everything matches.
+func DecodeContract(str string, priv *rsa.PublicKey) (Contract, error) {
+	c := Contract{}
+	return c, nil
 }

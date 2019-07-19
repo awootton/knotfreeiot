@@ -7,20 +7,26 @@ import (
 	"net"
 	"reflect"
 	"strconv"
+	"sync/atomic"
 	"time"
 )
 
+var maxBackoff = 10 * 60 // is seconds
+
 func moreBackoff(backoff int) int {
-	if backoff >= 512 { // 1024 seconds is 17 minutes
+	if backoff >= maxBackoff {
 		return backoff
 	}
 	backoff = backoff * (200 + int(rand.Int31n(100))) / 150
 	return backoff
 }
 
+// ExpectedConnections so we can act differnetly during debugging
+var ExpectedConnections = 0
+
 // allTheClientConnections is the set of all connections here.
 // since we only want the len and there's never a delete...
-var allTheClientConnections = 0 // make(map[types.HashType]bool) a set
+var allTheClientConnections = int32(0) // make(map[types.HashType]bool) a set
 
 // LightSwitch -  a light switch.
 // connect, send contract, subscribe.
@@ -29,42 +35,36 @@ var allTheClientConnections = 0 // make(map[types.HashType]bool) a set
 // add 127.0.0.1 knotfreeserver to /etc/hosts
 func LightSwitch(mySubChan string, ourSwitch string) {
 
-	time.Sleep(time.Duration(rand.Intn(60)) * time.Second)
+	if ExpectedConnections > 10 {
+		time.Sleep(time.Duration(rand.Intn(60)) * time.Second)
+	}
+	if ExpectedConnections == 1 {
+		clientLogThing.SetQuiet(false)
+	}
 
 	// randomStr := strconv.FormatInt(rand.Int63(), 16) + strconv.FormatInt(rand.Int63(), 16)
 	// myKey := types.HashType{}
 	// myKey.FromString(randomStr)
-	allTheClientConnections++ //[myKey] = true
+	atomic.AddInt32(&allTheClientConnections, 1) //[myKey] = true
 
 	connectStr := "knotfreeserver:6161"
 	on := false
 	_ = on
 	backoff := 2
 	for {
+		atomic.AddInt32(&allTheClientConnections, -1)
 		conn, err := net.DialTimeout("tcp", connectStr, 60*time.Second)
+		atomic.AddInt32(&allTheClientConnections, +1)
 		if err != nil {
-			clientLogThing.Collect("ls sleeping  " + strconv.Itoa(backoff))
+			clientLogThing.Collect("LightSwitch sleeping  " + strconv.Itoa(backoff))
 			time.Sleep(time.Duration(backoff) * time.Second)
 			backoff = moreBackoff(backoff)
 			continue // try to connect again
 		}
 		defer conn.Close()
 
-		tcpConn := conn.(*net.TCPConn)
-		err = tcpConn.SetReadBuffer(4096)
-		if err != nil {
-			clientLogThing.Collect("cl err " + err.Error())
-			continue
-		}
-		err = tcpConn.SetWriteBuffer(4096)
-		if err != nil {
-			clientLogThing.Collect("cl err3 " + err.Error())
-			continue
-		}
-		err = tcpConn.SetReadDeadline(time.Now().Add(20 * time.Minute))
-		if err != nil {
-			clientLogThing.Collect("cl err2 " + err.Error())
-			continue
+		if !socketSetup(conn) {
+			continue // try again
 		}
 
 		backoff = 2
@@ -105,53 +105,45 @@ func LightSwitch(mySubChan string, ourSwitch string) {
 		}
 		_ = lastTopicReceived
 	}
+	//fmt.Println("NEVER SUPPOSED TO HAPPEN!")
 }
 
 // LightController -  switches a light switch.
 // add 127.0.0.1 knotfreeserver to /etc/hosts
 func LightController(id string, target string) {
 
-	time.Sleep(time.Duration(rand.Intn(60)) * time.Second)
+	if ExpectedConnections > 10 {
+		time.Sleep(time.Duration(rand.Intn(60)) * time.Second)
+	}
 
-	allTheClientConnections++ //[myKey] = true
+	atomic.AddInt32(&allTheClientConnections, 1) //[myKey] = true
 
 	connectStr := "knotfreeserver:6161"
 	on := false
 	_ = on
 	backoff := 2
 	for { // forever
+		atomic.AddInt32(&allTheClientConnections, -1)
 		conn, err := net.DialTimeout("tcp", connectStr, 60*time.Second)
+		atomic.AddInt32(&allTheClientConnections, 1)
 		if err != nil {
-			clientLogThing.Collect("lc sleeping  " + strconv.Itoa(backoff))
+			clientLogThing.Collect("LightCon sleeping  " + strconv.Itoa(backoff))
 			time.Sleep(time.Duration(backoff) * time.Second)
 			backoff = moreBackoff(backoff)
 			continue
 		}
 		backoff = 2
 		clientLogThing.Collect("LightCon dialed in")
-		// defer func() { // we never quit
-		// 	allTheClientConnections--
-		defer conn.Close()
-		// }()
+		defer conn.Close() // never happens
 
-		tcpConn := conn.(*net.TCPConn)
-		err = tcpConn.SetReadBuffer(4096)
-		if err != nil {
-			clientLogThing.Collect("cl err3 " + err.Error())
-			continue
-		}
-		err = tcpConn.SetWriteBuffer(4096)
-		if err != nil {
-			clientLogThing.Collect("cl err3 " + err.Error())
-			continue
-		}
-		err = tcpConn.SetReadDeadline(time.Now().Add(20 * time.Minute))
-		if err != nil {
-			clientLogThing.Collect("cl err4 " + err.Error())
-			continue
+		if !socketSetup(conn) {
+			continue // try again
 		}
 
 		handler := protocolaa.NewHandler(conn.(*net.TCPConn))
+
+		sub := protocolaa.Subscribe{Msg: id}
+		handler.Push(&sub)
 
 		// Don't publish until after the light has subscribed
 		var count int64
@@ -161,13 +153,16 @@ func LightController(id string, target string) {
 			for {
 				st := protocolaa.SetTopic{Msg: target}
 				handler.Push(&st)
-
 				expecting = "hello from elsewhere" + strconv.FormatInt(count, 10)
 				count++
 				pu := protocolaa.Publish{Msg: expecting}
 				when = time.Now()
 				handler.Push(&pu)
-				time.Sleep(time.Duration(60+rand.Intn(60)) * time.Second)
+				if ExpectedConnections > 10 {
+					time.Sleep(time.Duration(60+rand.Intn(60)) * time.Second * 10)
+				} else {
+					time.Sleep(10 * time.Second)
+				}
 			}
 		}()
 
@@ -203,12 +198,13 @@ func LightController(id string, target string) {
 
 		}
 	}
+	//fmt.Println("NEVER SUPPOSED TO HAPPEN!")
 }
 
 var aaclientRepofrter = func(seconds float32) []string {
 	strlist := make([]string, 0, 5)
 	size := allTheClientConnections
-	strlist = append(strlist, "Client count="+strconv.Itoa(size))
+	strlist = append(strlist, "Client count="+strconv.FormatInt(int64(size), 10))
 	return strlist
 }
 
@@ -216,6 +212,26 @@ var clientLogThing *types.StringEventAccumulator
 
 func init() {
 	clientLogThing = types.NewStringEventAccumulator(16)
-	clientLogThing.SetQuiet(false)
+	clientLogThing.SetQuiet(true)
 	types.NewGenericEventAccumulator(aaclientRepofrter)
+}
+
+func socketSetup(conn net.Conn) bool {
+	tcpConn := conn.(*net.TCPConn)
+	err := tcpConn.SetReadBuffer(4096)
+	if err != nil {
+		clientLogThing.Collect("cl err3 " + err.Error())
+		return false
+	}
+	err = tcpConn.SetWriteBuffer(4096)
+	if err != nil {
+		clientLogThing.Collect("cl err3 " + err.Error())
+		return false
+	}
+	err = tcpConn.SetReadDeadline(time.Now().Add(20 * time.Minute))
+	if err != nil {
+		clientLogThing.Collect("cl err4 " + err.Error())
+		return false
+	}
+	return true
 }

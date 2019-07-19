@@ -53,7 +53,9 @@ func (c *Connection) GetKey() *types.HashType {
 
 // ConnectionExists reports if it's still in the table.
 func ConnectionExists(channelID *types.HashType) bool {
+	allConnMutex.Lock()
 	_, ok := allTheConnections[*channelID]
+	allConnMutex.Unlock()
 	return ok
 }
 
@@ -82,14 +84,16 @@ func QueueMessageToConnection(channelID *types.HashType, message *types.Incoming
 // Close will kill the connection for disconnect or timeout or error or whatever.
 func (c *Connection) Close() {
 	// TODO: send a bulk unsub
+	// key is the conn  key - a hash of the real name
+	// v is the real name, a unicode string.
 	for k, v := range c.realTopicNames {
-		topic := types.HashType{}
-		topic.FromHashType(&k)
-		GetSubscriptionsMgr().SendUnsubscribeMessage(&topic, &c.key)
+		//topic := types.HashType{}
+		//topic.FromHashType(&k)
+		GetSubscriptionsMgr().SendUnsubscribeMessage(&k, c)
 		connLogThing.Collect("Unsub  topic " + k.String())
 		_ = v
 	}
-	connLogThing.Collect("Closing Connection")
+	connLogThing.Collect("CLOSE Connection")
 	allConnMutex.Lock()
 	delete(allTheConnections, c.key)
 	allConnMutex.Unlock()

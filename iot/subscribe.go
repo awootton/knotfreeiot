@@ -129,28 +129,29 @@ func (bucket *subscribeBucket) processMessages() {
 }
 
 // SendSubscriptionMessage will create a message object, copy pointers to it so it'll own them now, and queue the message.
-func (me *pubSubManager) SendSubscriptionMessage(Topic *types.HashType, ConnectionID *types.HashType) {
-	msg := subscriptionMessage{Topic, ConnectionID}
+func (me *pubSubManager) SendSubscriptionMessage(Topic *types.HashType, realName string, c types.ConnectionIntf) {
+	c.SetRealTopicName(Topic, realName)
+	msg := subscriptionMessage{Topic, c.GetKey()}
 	i := Topic.GetFractionalBits(theBucketsSizeLog2)
 	b := me.allTheSubscriptions[i]
 	b.incoming <- msg
 }
 
 // SendUnsubscribeMessage will create a message object, copy pointers to it so it'll own them now, and queue the message.
-func (me *pubSubManager) SendUnsubscribeMessage(Topic *types.HashType, ConnectionID *types.HashType) {
+func (me *pubSubManager) SendUnsubscribeMessage(Topic *types.HashType, c types.ConnectionIntf) {
 	msg := unsubscribeMessage{}
 	msg.Topic = Topic
-	msg.ConnectionID = ConnectionID
+	msg.ConnectionID = c.GetKey()
 	i := Topic.GetFractionalBits(theBucketsSizeLog2)
 	b := me.allTheSubscriptions[i]
 	b.incoming <- msg
 }
 
 // SendPublishMessage will create a message object, copy pointers to it so it'll own them now, and queue the message.
-func (me *pubSubManager) SendPublishMessage(Topic *types.HashType, ConnectionID *types.HashType, payload *[]byte) {
+func (me *pubSubManager) SendPublishMessage(Topic *types.HashType, c types.ConnectionIntf, payload *[]byte) {
 	msg := publishMessage{}
 	msg.Topic = Topic
-	msg.ConnectionID = ConnectionID
+	msg.ConnectionID = c.GetKey()
 	msg.payload = payload
 	i := Topic.GetFractionalBits(theBucketsSizeLog2)
 	b := me.allTheSubscriptions[i]

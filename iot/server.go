@@ -58,6 +58,7 @@ func runTheConnection(c *Connection) {
 	defer c.Close()
 
 	connLogThing.Collect("new connection")
+
 	allConnMutex.Lock()
 	allTheConnections[c.key] = c
 	allConnMutex.Unlock()
@@ -73,9 +74,7 @@ func runTheConnection(c *Connection) {
 		return
 	}
 
-	//go watchForData(c)
-	// bytes, _ := json.Marshal(c)
-	// fmt.Println("connection struct " + string(bytes))
+	// we might just for over the range of the handler input channel?
 	for c.running {
 
 		err := c.tcpConn.SetReadDeadline(time.Now().Add(20 * time.Minute))

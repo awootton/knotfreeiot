@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"knotfree/clients"
 	"knotfree/iot"
+	"math/rand"
 	"net/http"
 	"os"
 	"strconv"
@@ -14,12 +15,15 @@ import (
 // 	subscriptionmgr.Qmessage = &knotfree.Qmessage
 // }
 
+var prefix = ""
+
 func runClients(amt int) {
+	clients.ExpectedConnections = amt
 	fmt.Println("Starting clients = " + strconv.Itoa(amt))
 	for i := 0; i < amt; i++ {
 		istr := strconv.Itoa(i)
-		go clients.LightSwitch("aaaaaa"+istr, "bbbbb"+istr)
-		go clients.LightController("bbbbb"+istr, "aaaaaa"+istr)
+		go clients.LightSwitch(prefix+"aaaaaa"+istr, prefix+"bbbbb"+istr)
+		go clients.LightController(prefix+"bbbbb"+istr, prefix+"aaaaaa"+istr)
 	}
 }
 
@@ -27,6 +31,8 @@ func runClients(amt int) {
 func main() {
 
 	fmt.Println("Hello")
+	prefix = "_" + strconv.FormatUint(uint64(rand.Uint32()), 16) + "_/"
+	fmt.Println("using prefix " + prefix)
 
 	if 3 == 1+1 {
 		iot.RunTCPOverPubsub()
@@ -39,7 +45,7 @@ func main() {
 		go iot.Server()
 	} else {
 		go iot.Server()
-		go runClients(1)
+		go runClients(2000)
 	}
 
 	http.HandleFunc("/", HelloServer)

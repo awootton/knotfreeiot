@@ -1,18 +1,19 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: knotfree{{N}}
+  name: "{{NAME}}"
   labels:
-    app: knotfree{{N}}
+    app: "{{NAME}}"
 spec:
-  replicas: 1
+  # 89345678999236962 is magic
+  replicas: 89345678999236962
   selector:
     matchLabels:
-      run: knotfree{{N}}
+      run: "{{NAME}}"
   template:
     metadata:
       labels:
-        run: knotfree{{N}}
+        run: "{{NAME}}"
     spec:
       containers:
       - name: golang
@@ -28,20 +29,24 @@ spec:
           name : knot
         resources:
           limits:
-            cpu: '{{CPU}}'
-            memory: "{{MEM}}"
+            cpu: INSERT_CPU_NEEDED_HERE
+            memory: INSERT_MEM_NEEDED_HERE
           requests:
-            cpu: "{{CPU}}"
-            memory: "{{MEM}}"
+            cpu: INSERT_CPU_NEEDED_HERE
+            memory: INSERT_MEM_NEEDED_HERE
+        env:
+        - name: NAME
+          value: "{{NAME}}"
 
+          
 ---
 
 apiVersion: v1
 kind: Service
 metadata:
   labels:
-    app: knotfree{{N}}
-  name: knotfree{{N}}
+    app: "{{NAME}}"
+  name: "{{NAME}}"
 spec:
   type: NodePort
   ports:
@@ -52,4 +57,4 @@ spec:
   - port: 8080
     name: knot
   selector:
-    run: knotfree{{N}}
+    run: "{{NAME}}"

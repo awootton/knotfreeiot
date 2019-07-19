@@ -2,7 +2,7 @@ package protocolaa
 
 import (
 	"errors"
-	"fmt"
+	"io"
 	"knotfree/types"
 	"net"
 	"reflect"
@@ -144,23 +144,25 @@ func readProtocolAstr(conn net.Conn) (string, error) {
 	buffer := make([]byte, 256)
 	ch := []byte{'a'}
 	n, err := conn.Read(ch)
-	if n != 1 {
-		if err != nil { // probably timed out
-			fmt.Println(err.Error())
-			return string(buffer), err
+	if err != nil {
+		if err == io.EOF {
+			//os.Exit(0)
 		}
-		return string(buffer), errors.New(" needed 1 bytes. got " + string(buffer))
+		return "", err
 	}
 	msglen := int(ch[0]) & 0x00FF
 	var sb strings.Builder
 	for msglen > 0 {
 		n, err = conn.Read(buffer[:msglen])
+		if err != nil {
+			if err == io.EOF {
+				//os.Exit(0)
+			}
+			return "", err
+		}
 		s := string(buffer[:n])
 		sb.WriteString(s)
 		msglen -= n
-		if err != nil {
-			return "", err
-		}
 	}
 	return sb.String(), nil
 }
@@ -174,10 +176,22 @@ func writeProtocolAaStr(conn net.Conn, str string) error {
 	}
 	prefix := []byte{byte(len(strbytes))}
 	n, err := conn.Write(prefix)
+	if err != nil {
+		if err == io.EOF {
+			//os.Exit(0)
+		}
+		return err
+	}
 	if n != 1 || err != nil {
 		return err
 	}
 	n, err = conn.Write(strbytes)
+	if err != nil {
+		if err == io.EOF {
+			//os.Exit(0)
+		}
+		return err
+	}
 	if n != len(strbytes) || err != nil {
 		return err
 	}

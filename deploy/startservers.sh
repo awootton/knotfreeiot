@@ -14,6 +14,8 @@ export MEM=64Mi
 export CPU=400m
 export MEM=2048Mi
 
+export REPLICAS=1
+
  ./template.sh server.yaml | kubectl apply -f -
 
 POD=""
@@ -29,8 +31,14 @@ done
 kubectl exec ${POD} -- bash -c "pkill main" | true
 
 # copy the latest version up up the pod
+echo "Copy source..."
 kubectl cp ../../knotfree ${POD}:/go/src/
 
 # start the process
+echo "start"
 kubectl exec ${POD} -- bash -c "cd src/knotfree && go run main.go server"
 
+echo "stopping main.go"
+kubectl exec ${POD} -- bash -c "pkill main" | true
+
+echo "finished"
