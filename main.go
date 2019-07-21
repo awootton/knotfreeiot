@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"knotfree/clients"
 	"knotfree/iot"
+	"knotfree/types"
 	"math/rand"
 	"net/http"
 	"os"
@@ -27,24 +28,34 @@ func runClients(amt int) {
 	}
 }
 
+func runServer() {
+	var subscribeMgr types.SubscriptionsIntf
+	subscribeMgr = iot.NewPubsubManager()
+	iot.Server(subscribeMgr)
+}
+
 // add 127.0.0.1 knotfreeserver to /etc/hosts
 func main() {
 
-	fmt.Println("Hello")
+	fmt.Println("Hello3")
 	prefix = "_" + strconv.FormatUint(uint64(rand.Uint32()), 16) + "_/"
 	fmt.Println("using prefix " + prefix)
 
-	if 3 == 1+1 {
-		iot.RunTCPOverPubsub()
-		return
-	}
-
 	if len(os.Args) > 1 && os.Args[1] == "client" {
-		go runClients(12000)
+		n := 12000
+		if len(os.Args) > 2 {
+			tmp, err := strconv.ParseInt(os.Args[1], 10, 32)
+			if err == nil {
+				n = int(tmp)
+			} else {
+				fmt.Println(err)
+			}
+		}
+		go runClients(n)
 	} else if len(os.Args) > 1 && os.Args[1] == "server" {
-		go iot.Server()
+		go runServer()
 	} else {
-		go iot.Server()
+		go runServer()
 		go runClients(2000)
 	}
 

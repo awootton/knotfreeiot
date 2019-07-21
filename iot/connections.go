@@ -1,15 +1,19 @@
+// Copyright 2019 Alan Tracey Wootton
+
 // Package iot manages Connections, literal tcp system sockets, using an object called Connection in the file
 // connections.go
 package iot
 
 import (
 	"knotfree/types"
+	"math/rand"
 	"net"
 	"strconv"
 	"sync"
 )
 
 // for every TCP socket there will be a Connection struct
+// make private?
 
 // Connection - wait
 // we don't need this to be public
@@ -23,6 +27,36 @@ type Connection struct {
 	realTopicNames map[types.HashType]string
 
 	protocolHandler *types.ProtocolHandler
+	subcribeMgr     types.SubscriptionsIntf
+}
+
+// NewConnection is used by Server.go
+// the new struct is NOT inserted into the global list.
+func NewConnection(tcpConn *net.TCPConn, subscribeMgr types.SubscriptionsIntf) Connection {
+
+	c := Connection{}
+	c.tcpConn = tcpConn
+	c.subcribeMgr = subscribeMgr
+	c.running = true // do we need this?
+	// random connection id
+	randomStr := strconv.FormatInt(rand.Int63(), 16) + strconv.FormatInt(rand.Int63(), 16)
+	c.key.FromString(randomStr)
+	//c.writesChannel = make(chan *types.IncomingMessage, 2)
+	c.realTopicNames = make(map[types.HashType]string)
+
+	return c
+}
+
+// This is a Set of all the Connection structs that can be looked up by Key.
+var allTheConnections = make(map[types.HashType]*Connection)
+var allConnMutex = &sync.RWMutex{}
+
+// ResetAllTheConnectionsMap for until we use a pointer to a connections manager.
+// Clears them all out.
+func ResetAllTheConnectionsMap() {
+	allConnMutex.Lock()
+	allTheConnections = make(map[types.HashType]*Connection)
+	allConnMutex.Unlock()
 }
 
 // SetProtocolHandler is just a setter
@@ -35,37 +69,44 @@ func (c *Connection) GetTCPConn() *net.TCPConn {
 	return c.tcpConn
 }
 
-// SetRealTopicName is
+// SetRealTopicName is used by someone who shouldn't?
 func (c *Connection) SetRealTopicName(h *types.HashType, s string) {
 	c.realTopicNames[*h] = s
 }
 
-// GetRealTopicName is
+// GetRealTopicName is used ...?
 func (c *Connection) GetRealTopicName(h *types.HashType) (string, bool) {
 	str, ok := c.realTopicNames[*h]
 	return str, ok
 }
 
-// GetKey is
+// GetKey is a getter
 func (c *Connection) GetKey() *types.HashType {
 	return &c.key
 }
 
 // ConnectionExists reports if it's still in the table.
 func ConnectionExists(channelID *types.HashType) bool {
-	allConnMutex.Lock()
+	allConnMutex.RLock()
 	_, ok := allTheConnections[*channelID]
-	allConnMutex.Unlock()
+	allConnMutex.RUnlock()
 	return ok
+}
+
+// RememberConnection -- and do forget later. See Close()
+func RememberConnection(c *Connection) {
+	allConnMutex.Lock()
+	allTheConnections[c.key] = c
+	allConnMutex.Unlock()
 }
 
 // QueueMessageToConnection called by subscribe. needs to access allTheConnections and the Connection.writesChannel
 func QueueMessageToConnection(channelID *types.HashType, message *types.IncomingMessage) {
 
 	connLogThing.Collect("q publish incoming " + channelID.String())
-	allConnMutex.Lock()
+	allConnMutex.RLock()
 	c, ok := allTheConnections[*channelID]
-	allConnMutex.Unlock()
+	allConnMutex.RUnlock()
 	if ok == false {
 		// someone is sending a message to a lost channel
 		// c will be nil
@@ -89,7 +130,7 @@ func (c *Connection) Close() {
 	for k, v := range c.realTopicNames {
 		//topic := types.HashType{}
 		//topic.FromHashType(&k)
-		GetSubscriptionsMgr().SendUnsubscribeMessage(&k, c)
+		c.subcribeMgr.SendUnsubscribeMessage(&k, c)
 		connLogThing.Collect("Unsub  topic " + k.String())
 		_ = v
 	}
@@ -113,15 +154,11 @@ func (c *Connection) Close() {
 // 	}
 // }
 
-// This is a Set of all the Connection structs that can be looked up by Key.
-var allTheConnections = make(map[types.HashType]*Connection)
-var allConnMutex = &sync.Mutex{}
-
 var connectionsReporter = func(seconds float32) []string {
 	strlist := make([]string, 0, 5)
-	allConnMutex.Lock()
+	allConnMutex.RLock()
 	size := len(allTheConnections)
-	allConnMutex.Unlock()
+	allConnMutex.RUnlock()
 	strlist = append(strlist, "Conn count="+strconv.Itoa(size))
 	return strlist
 }

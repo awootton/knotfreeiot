@@ -1,3 +1,4 @@
+# Copyright 2019 Alan Tracey Wootton 
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -17,9 +18,10 @@ spec:
     spec:
       containers:
       - name: golang
-        image: golang:1.12.1-stretch
-        command: ["/bin/sh"]
-        args: ["-c", "touch fffile; tail -f fffile"]
+        imagePullPolicy: Always
+        image: gcr.io/fair-theater-238820/knotfreeserver:v2 #golang:1.12.1-stretch
+        command: ["/go/bin/knotfree"]
+        args: ["INSERT_COMMAND_HERE"]
         ports:
         - containerPort: 6161
           name : aa

@@ -1,3 +1,5 @@
+// Copyright 2019 Alan Tracey Wootton
+
 package protocolaa
 
 import (

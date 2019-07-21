@@ -1,14 +1,15 @@
+// Copyright 2019 Alan Tracey Wootton
+
 // Package iot provides   pub/sub
 package iot
 
 import (
-	"knotfree/protocolaa"
+	"fmt"
+	"knotfree/protocolaa" // FIXME: get rid of this
 	"knotfree/types"
-	"math/rand"
 	"net"
 	"strings"
 
-	"strconv"
 	"time"
 )
 
@@ -20,7 +21,10 @@ func init() {
 }
 
 // Server - wait for connections and spawn them
-func Server() {
+// runs forever
+// TODO: handlerFactory as argument.
+func Server(subscribeMgr types.SubscriptionsIntf) {
+	fmt.Println("Server starting")
 	ln, err := net.Listen("tcp", ":6161")
 	if err != nil {
 		// handle error
@@ -33,34 +37,29 @@ func Server() {
 			srvrLogThing.Collect(err.Error())
 			continue
 		}
-		srvrLogThing.Collect("Conn Accept")
-		c := Connection{tcpConn: tmpconn.(*net.TCPConn)}
-		go runTheConnection(&c) //,handler types.ProtocolHandler)
+		go runTheConnection(tmpconn, subscribeMgr) //,handler types.ProtocolHandler)
 	}
 }
 
 // RunAConnection - FIXME: this is really a protoA connection.
 //
-func runTheConnection(c *Connection) {
+func runTheConnection(tmpconn net.Conn, subscribeMgr types.SubscriptionsIntf) {
+	
+	srvrLogThing.Collect("Conn Accept")
+
+	c := NewConnection(tmpconn.(*net.TCPConn), subscribeMgr)
 
 	// FIXME: pass a factory
 	// not always aa
-	handler := protocolaa.NewServerHandler(c, GetSubscriptionsMgr())
+	handler := protocolaa.NewServerHandler(&c, subscribeMgr)
 	c.SetProtocolHandler(&handler)
-
-	c.running = true
-	// random connection id
-	randomStr := strconv.FormatInt(rand.Int63(), 16) + strconv.FormatInt(rand.Int63(), 16)
-	c.key.FromString(randomStr)
-	//c.writesChannel = make(chan *types.IncomingMessage, 2)
-	c.realTopicNames = make(map[types.HashType]string)
 
 	defer c.Close()
 
 	connLogThing.Collect("new connection")
 
 	allConnMutex.Lock()
-	allTheConnections[c.key] = c
+	allTheConnections[c.key] = &c
 	allConnMutex.Unlock()
 	// start reading
 	err := c.tcpConn.SetReadBuffer(4096)
@@ -76,8 +75,8 @@ func runTheConnection(c *Connection) {
 
 	// we might just for over the range of the handler input channel?
 	for c.running {
-
-		err := c.tcpConn.SetReadDeadline(time.Now().Add(20 * time.Minute))
+		// SetReadDeadline
+		err := c.tcpConn.SetDeadline(time.Now().Add(20 * time.Minute))
 		if err != nil {
 			connLogThing.Collect("server err2 " + err.Error())
 			return // quit, close the sock, be forgotten

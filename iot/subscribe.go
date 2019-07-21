@@ -1,15 +1,15 @@
+// Copyright 2019 Alan Tracey Wootton
+
 package iot
 
 import (
 	types "knotfree/types"
-	"strconv"
 )
 
 // theBucketsSize is 4 for debug and 1024 for prod
-const theBucketsSize = uint(4)
-const theBucketsSizeLog2 = 2 // uint(math.Log2(float64(theBucketsSize)))
+const theBucketsSize = uint(1024)
+const theBucketsSizeLog2 = 10 // uint(math.Log2(float64(theBucketsSize)))
 
-// SubscriptionMessage for real
 type subscriptionMessage struct {
 	Topic        *types.HashType // not my real name
 	ConnectionID *types.HashType
@@ -37,27 +37,29 @@ type subscribeBucket struct {
 	incoming        chan interface{} //SubscriptionMessage
 }
 
-// this is the whole point:
-// implements SubscriptionsIntf
+// // this is the whole point:
+// // implements SubscriptionsIntf
 type pubSubManager struct {
 	allTheSubscriptions []subscribeBucket
 }
 
-var psMgr pubSubManager
+// var psMgr pubSubManager
 
-// GetSubscriptionsMgr returns the singleton mgr here.
-func GetSubscriptionsMgr() types.SubscriptionsIntf {
-	return &psMgr
-}
+// // GetSubscriptionsMgr returns the singleton mgr here.
+// func GetSubscriptionsMgr() types.SubscriptionsIntf {
+// 	return &psMgr
+// }
 
-func init() {
-	psMgr = pubSubManager{}
+// NewPubsubManager makes a SubscriptionsIntf, usually a singleton
+func NewPubsubManager() types.SubscriptionsIntf {
+	psMgr := pubSubManager{}
 	psMgr.allTheSubscriptions = make([]subscribeBucket, theBucketsSize)
 	for i := uint(0); i < theBucketsSize; i++ {
 		psMgr.allTheSubscriptions[i].mySubscriptions = make(map[types.HashType]*subscription)
-		psMgr.allTheSubscriptions[i].incoming = make(chan interface{}, 256)
+		psMgr.allTheSubscriptions[i].incoming = make(chan interface{}, 32)
 		go psMgr.allTheSubscriptions[i].processMessages()
 	}
+	return &psMgr
 }
 
 func (bucket *subscribeBucket) processMessages() {
@@ -72,7 +74,7 @@ func (bucket *subscribeBucket) processMessages() {
 			if ok == false {
 				substruct = &subscription{}
 				substruct.name.FromHashType(submsg.Topic)
-				substruct.watchers = make(map[types.HashType]bool)
+				substruct.watchers = make(map[types.HashType]bool, 0)
 				bucket.mySubscriptions[*submsg.Topic] = substruct
 				subscribeEvents.Collect("new subscription")
 			}
@@ -158,20 +160,20 @@ func (me *pubSubManager) SendPublishMessage(Topic *types.HashType, c types.Conne
 	b.incoming <- msg
 }
 
-var subscrFRepofrtFunct = func(seconds float32) []string {
-	strlist := make([]string, 0, 5)
-	count := 0
-	for _, b := range psMgr.allTheSubscriptions {
-		count += len(b.mySubscriptions)
-	}
-	strlist = append(strlist, "Topic count="+strconv.Itoa(count))
-	return strlist
-}
+// var subscrFRepofrtFunct = func(seconds float32) []string {
+// 	strlist := make([]string, 0, 5)
+// 	count := 0
+// 	for _, b := range psMgr.allTheSubscriptions {
+// 		count += len(b.mySubscriptions)
+// 	}
+// 	strlist = append(strlist, "Topic count="+strconv.Itoa(count))
+// 	return strlist
+// }
 
 var subscribeEvents *types.StringEventAccumulator
 
 func init() {
 	subscribeEvents = types.NewStringEventAccumulator(12)
 	subscribeEvents.SetQuiet(true)
-	types.NewGenericEventAccumulator(subscrFRepofrtFunct)
+	//	types.NewGenericEventAccumulator(subscrFRepofrtFunct)
 }

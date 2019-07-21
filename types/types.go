@@ -1,14 +1,19 @@
+// Copyright 2019 Alan Tracey Wootton
+
 package types
 
 import (
 	"crypto/md5"
 	"crypto/rsa"
 	"encoding/binary"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"net"
 	"strconv"
 	"time"
+
+	"github.com/minio/highwayhash"
 )
 
 // ProtocolHandler does read and write of the various messages involved
@@ -34,6 +39,7 @@ type ConnectionIntf interface {
 	SetRealTopicName(*HashType, string)
 	GetRealTopicName(*HashType) (string, bool)
 	GetKey() *HashType
+	SetProtocolHandler(protocolHandler *ProtocolHandler)
 }
 
 // SubscriptionsIntf stuff that deals with pub/sub
@@ -67,15 +73,33 @@ func (h *HashType) GetFractionalBits(n uint) int {
 
 }
 
+var hashstartkey *[]byte //= hex.DecodeString("000102030405060708090A0B0C0D0E0FF0E0D0C0B0A090807060504030201000")
+
 // FromString init an existing hash from a string
 // todo: faster, copy less.
 func (h *HashType) FromString(s string) {
-	md5er := md5.New()
-	io.WriteString(md5er, s)
-	bytes := md5er.Sum(nil)
-	h.a = binary.BigEndian.Uint64(bytes)
-	h.b = binary.BigEndian.Uint64(bytes[8:])
-	//fmt.Println(h.a, h.b)
+	if 0 == 1-1 {
+		md5er := md5.New()
+		io.WriteString(md5er, s)
+		bytes := md5er.Sum(nil)
+		h.a = binary.BigEndian.Uint64(bytes)
+		h.b = binary.BigEndian.Uint64(bytes[8:])
+		//fmt.Println(h.a, h.b)
+	} else {
+		if hashstartkey == nil {
+			tmp, err := hex.DecodeString("00E5060708090A0BC0B0A00C0D0E0FF90807060504030201000D000102030400")
+			if err != nil {
+				fmt.Println("FIXME: moron")
+			}
+			hashstartkey = &tmp
+		}
+		hhash, _ := highwayhash.New128(*hashstartkey) // (hash.Hash, error)
+		io.WriteString(hhash, s)
+		bytes := hhash.Sum(nil)
+		h.a = binary.BigEndian.Uint64(bytes)
+		h.b = binary.BigEndian.Uint64(bytes[8:])
+		//fmt.Println(h.a, h.b)
+	}
 }
 
 // FromHashType init an existing hash from another

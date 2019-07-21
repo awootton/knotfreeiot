@@ -1,3 +1,5 @@
+// Copyright 2019 Alan Tracey Wootton
+
 package types
 
 import (
@@ -24,9 +26,9 @@ type Reporting interface {
 var reporters = make([]Reporting, 0, 25)
 
 func init() {
-	if DoStartEventCollectorReporting {
-		go startRunningReports()
-	}
+	// if DoStartEventCollectorReporting {
+	// 	go startRunningReports()
+	// }
 }
 
 // GenericEventAccumulator is
@@ -121,13 +123,16 @@ func (collector *StringEventAccumulator) Sum(str string, amt int) {
 func (collector *StringEventAccumulator) report(seconds float32) []string {
 	lll := make([]string, 0)
 	var keys = make([]string, 0, len(collector.countMap))
-	collector.Lock()
+
+	collector.RLock()
 	for k := range collector.countMap {
 		keys = append(keys, k)
 	}
-	collector.Unlock()
+	collector.RUnlock()
+
 	sort.Strings(keys)
 	for _, k := range keys {
+
 		collector.Lock()
 		counts := collector.countMap[k]
 		collector.countMap[k] = counts * 0.5
@@ -135,6 +140,7 @@ func (collector *StringEventAccumulator) report(seconds float32) []string {
 			delete(collector.countMap, k)
 		}
 		collector.Unlock()
+
 		val := "        " + strconv.FormatFloat(float64(counts/(2*seconds)), 'f', 2, 32)
 		val = val[len(val)-8 : len(val)]
 		lll = append(lll, k+":"+val+"/s")

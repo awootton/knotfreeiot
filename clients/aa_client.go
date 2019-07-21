@@ -1,3 +1,5 @@
+// Copyright 2019 Alan Tracey Wootton 
+
 package clients
 
 import (
@@ -11,7 +13,7 @@ import (
 	"time"
 )
 
-var maxBackoff = 10 * 60 // is seconds
+var maxBackoff = 30 * 60 // is seconds
 
 func moreBackoff(backoff int) int {
 	if backoff >= maxBackoff {
@@ -35,17 +37,14 @@ var allTheClientConnections = int32(0) // make(map[types.HashType]bool) a set
 // add 127.0.0.1 knotfreeserver to /etc/hosts
 func LightSwitch(mySubChan string, ourSwitch string) {
 
-	if ExpectedConnections > 10 {
-		time.Sleep(time.Duration(rand.Intn(60)) * time.Second)
+	if ExpectedConnections > 10 { // 60 sec * 30 = 1800 sec = 30 min
+		time.Sleep(time.Duration(rand.Intn(60)) * time.Second * 30)
 	}
 	if ExpectedConnections == 1 {
 		clientLogThing.SetQuiet(false)
 	}
 
-	// randomStr := strconv.FormatInt(rand.Int63(), 16) + strconv.FormatInt(rand.Int63(), 16)
-	// myKey := types.HashType{}
-	// myKey.FromString(randomStr)
-	atomic.AddInt32(&allTheClientConnections, 1) //[myKey] = true
+	atomic.AddInt32(&allTheClientConnections, 1)
 
 	connectStr := "knotfreeserver:6161"
 	on := false
@@ -57,7 +56,9 @@ func LightSwitch(mySubChan string, ourSwitch string) {
 		atomic.AddInt32(&allTheClientConnections, +1)
 		if err != nil {
 			clientLogThing.Collect("LightSwitch sleeping  " + strconv.Itoa(backoff))
+			atomic.AddInt32(&allTheClientConnections, -1)
 			time.Sleep(time.Duration(backoff) * time.Second)
+			atomic.AddInt32(&allTheClientConnections, +1)
 			backoff = moreBackoff(backoff)
 			continue // try to connect again
 		}
@@ -77,7 +78,7 @@ func LightSwitch(mySubChan string, ourSwitch string) {
 		sub := protocolaa.Subscribe{Msg: mySubChan}
 		handler.Push(&sub)
 
-		lastTopicReceived := "none" // there''s only one topic so this is dumb deleteme:
+		lastTopicReceived := "none" // there''s only one topic so this is dumb deleteme s
 		for {
 			// all error of any kind must propogate to Pop()
 			// so they can be known
@@ -113,10 +114,10 @@ func LightSwitch(mySubChan string, ourSwitch string) {
 func LightController(id string, target string) {
 
 	if ExpectedConnections > 10 {
-		time.Sleep(time.Duration(rand.Intn(60)) * time.Second)
+		time.Sleep(time.Duration(rand.Intn(60)) * time.Second * 30)
 	}
 
-	atomic.AddInt32(&allTheClientConnections, 1) //[myKey] = true
+	atomic.AddInt32(&allTheClientConnections, 1)
 
 	connectStr := "knotfreeserver:6161"
 	on := false
@@ -128,7 +129,9 @@ func LightController(id string, target string) {
 		atomic.AddInt32(&allTheClientConnections, 1)
 		if err != nil {
 			clientLogThing.Collect("LightCon sleeping  " + strconv.Itoa(backoff))
+			atomic.AddInt32(&allTheClientConnections, -1)
 			time.Sleep(time.Duration(backoff) * time.Second)
+			atomic.AddInt32(&allTheClientConnections, +1)
 			backoff = moreBackoff(backoff)
 			continue
 		}
@@ -201,7 +204,7 @@ func LightController(id string, target string) {
 	//fmt.Println("NEVER SUPPOSED TO HAPPEN!")
 }
 
-var aaclientRepofrter = func(seconds float32) []string {
+var aaclientReporter = func(seconds float32) []string {
 	strlist := make([]string, 0, 5)
 	size := allTheClientConnections
 	strlist = append(strlist, "Client count="+strconv.FormatInt(int64(size), 10))
@@ -213,7 +216,7 @@ var clientLogThing *types.StringEventAccumulator
 func init() {
 	clientLogThing = types.NewStringEventAccumulator(16)
 	clientLogThing.SetQuiet(true)
-	types.NewGenericEventAccumulator(aaclientRepofrter)
+	types.NewGenericEventAccumulator(aaclientReporter)
 }
 
 func socketSetup(conn net.Conn) bool {
@@ -228,7 +231,8 @@ func socketSetup(conn net.Conn) bool {
 		clientLogThing.Collect("cl err3 " + err.Error())
 		return false
 	}
-	err = tcpConn.SetReadDeadline(time.Now().Add(20 * time.Minute))
+	// SetReadDeadline
+	err = tcpConn.SetDeadline(time.Now().Add(20 * time.Minute))
 	if err != nil {
 		clientLogThing.Collect("cl err4 " + err.Error())
 		return false

@@ -1,4 +1,6 @@
-package iot
+// Copyright 2019 Alan Tracey Wootton
+
+package misc
 
 import (
 	"encoding/gob"
