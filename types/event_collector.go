@@ -25,11 +25,11 @@ type Reporting interface {
 
 var reporters = make([]Reporting, 0, 25)
 
-func init() {
-	// if DoStartEventCollectorReporting {
-	// 	go startRunningReports()
-	// }
-}
+// func init() {
+// 	if DoStartEventCollectorReporting {
+// 		go startRunningReports()
+// 	}
+// }
 
 // GenericEventAccumulator is
 type GenericEventAccumulator struct {
@@ -40,6 +40,7 @@ type GenericEventAccumulator struct {
 type StringEventAccumulator struct {
 	sync.RWMutex
 	countMap map[string]float32
+	onceSet  map[string]bool
 	strlen   int  // for trimming keys
 	quiet    bool // don't println incoming msgs
 }
@@ -53,6 +54,7 @@ func (collector *StringEventAccumulator) SetQuiet(q bool) {
 func NewStringEventAccumulator(maxstrlen int) *StringEventAccumulator {
 	cm := StringEventAccumulator{}
 	cm.countMap = make(map[string]float32)
+	cm.onceSet = make(map[string]bool)
 	cm.strlen = maxstrlen
 	cm.quiet = false
 	addReporter(&cm)
@@ -96,6 +98,22 @@ func (collector *StringEventAccumulator) Collect(str string) {
 		collector.countMap[str] = v + 1
 	}
 	collector.Unlock()
+}
+
+// CollectOnce - prints just one time.
+// eg. atwCm.Collect("This is a serious bug")
+func (collector *StringEventAccumulator) CollectOnce(str string) {
+
+	collector.Lock()
+	here, ok := collector.onceSet[str]
+	collector.Unlock()
+	_ = ok
+	if !here {
+		fmt.Println(str) // leave this. It's the exception to the rule.
+		collector.Lock()
+		collector.onceSet[str] = true
+		collector.Unlock()
+	}
 }
 
 // Sum - add the amount to the item instead of adding 1 like above
@@ -152,7 +170,8 @@ func (collector *StringEventAccumulator) report(seconds float32) []string {
 var reportTicker time.Ticker
 var reportCount = 0
 
-func startRunningReports() {
+// StartRunningReports is
+func StartRunningReports() {
 	reportTicker := time.NewTicker(delayBetweenReports)
 	previousTime := time.Now()
 

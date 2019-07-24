@@ -19,12 +19,12 @@ import (
 // Push into 'west' chan headed for the east. Used by clients and not the server
 func (me *Handler) Push(cmd interface{}) error {
 	tmp := cmd
-	aathing, ok := tmp.(aaInterface)
+	aathing, ok := tmp.(*aaInterface)
 	if !ok {
 		return errors.New("expected aaInterface{} got " + reflect.TypeOf(cmd).String())
 	}
 	select {
-	case me.wire.west <- aathing:
+	case me.wire.west <- *aathing:
 	case <-time.After(10 * time.Millisecond):
 		return errors.New("Aa Push slow")
 	}
@@ -54,7 +54,7 @@ type aaDuplexChannel struct {
 
 var aaDefaultTimeout = 21 * time.Minute
 
-func newAaDuplexChannel(capacity int, conn *net.TCPConn) aaDuplexChannel {
+func newAaDuplexChannel(capacity int, conn *net.TCPConn) *aaDuplexChannel {
 	adc := aaDuplexChannel{}
 	adc.east = make(chan aaInterface, capacity)
 	adc.west = make(chan aaInterface, capacity)
@@ -88,7 +88,7 @@ func newAaDuplexChannel(capacity int, conn *net.TCPConn) aaDuplexChannel {
 		}
 	}()
 
-	return adc
+	return &adc
 }
 
 func unMarshalAa(firstChar string, str string) aaInterface {

@@ -16,11 +16,17 @@ import (
 	"github.com/minio/highwayhash"
 )
 
-// ProtocolHandler does read and write of the various messages involved
+// ProtocolHandlerIntf does read and write of the various messages involved
 // with an over the wire iot pub/sub protocol.
-// The 'aa' protocol is an example.
-type ProtocolHandler interface {
+// The 'aa' protocol is an example. See timing.TestProtocolHandler as another example.
+// Push and HandleWrite are the same. SAME. Server uses HandleWrite and Client uses Push
+// Pop and Serve are the same. They block. Server uses Serve and Client uses Pop. COnfused?
+// FIXME: redesign atw
+// Why do we need this at all-
+// Implementations have two channels of interface{} so can't we just expose the wires?
+type ProtocolHandlerIntf interface {
 	Serve() error
+
 	// HandleWrite needs renaming FIXME.
 	HandleWrite(*IncomingMessage) error
 
@@ -33,13 +39,18 @@ type ProtocolHandler interface {
 
 // ConnectionIntf stuff that deals with managing net connections
 type ConnectionIntf interface {
-	GetTCPConn() *net.TCPConn
 	Close()
+
+	GetTCPConn() *net.TCPConn
+	SetTCPConn(t *net.TCPConn)
+
+	GetKey() *HashType
 
 	SetRealTopicName(*HashType, string)
 	GetRealTopicName(*HashType) (string, bool)
-	GetKey() *HashType
-	SetProtocolHandler(protocolHandler *ProtocolHandler)
+
+	SetProtocolHandler(protocolHandler ProtocolHandlerIntf)
+	GetProtocolHandler() ProtocolHandlerIntf
 }
 
 // SubscriptionsIntf stuff that deals with pub/sub
@@ -47,13 +58,19 @@ type SubscriptionsIntf interface {
 	SendSubscriptionMessage(Topic *HashType, realName string, c ConnectionIntf)
 	SendUnsubscribeMessage(Topic *HashType, c ConnectionIntf)
 	SendPublishMessage(Topic *HashType, c ConnectionIntf, payload *[]byte)
+	GetAllSubsCount() uint64
 }
 
 // HashType is 128 bits. We'll use these as keys everywhere
 // should we use two longs?
+// it's supposed to be immutable.
 type HashType struct { // [16]byte
 	a, b uint64 // think of this as a bigendian fraction from 0 to 1-1/2^128/. Like a probability. No negatives.
 }
+
+// func (k Key) hashCode() string { how?
+// 	return fmt.Sprintf("%s/%s", k.Path, k.City) //omit Country in your hash code here
+//  }
 
 // IncomingMessage - for ConnectionMgr
 // todo: rename or something

@@ -8,11 +8,11 @@ import (
 	"net"
 )
 
-// Handler implements types.ProtocolHandler
+// Handler implements types.ProtocolHandlerIntf
 type Handler struct {
-	theTopic    string
-	hashedTopic types.HashType
-	wire        aaDuplexChannel
+	theTopic    string         // because of the way publish works we need state.
+	hashedTopic types.HashType // state
+	wire        *aaDuplexChannel
 }
 
 // ServerHandler is a handler for the server end.
@@ -20,17 +20,18 @@ type ServerHandler struct {
 	Handler
 	c             types.ConnectionIntf
 	subscriptions types.SubscriptionsIntf
+	// do we really need all this baggage? does it matter?
 }
 
 // NewHandler constructor - for test client
-func NewHandler(conn *net.TCPConn) types.ProtocolHandler {
+func NewHandler(conn *net.TCPConn) types.ProtocolHandlerIntf {
 	me := ServerHandler{}
 	me.wire = newAaDuplexChannel(0, conn)
 	return &me
 }
 
 // NewServerHandler constructor for connections.go
-func NewServerHandler(c types.ConnectionIntf, s types.SubscriptionsIntf) types.ProtocolHandler {
+func NewServerHandler(c types.ConnectionIntf, s types.SubscriptionsIntf) types.ProtocolHandlerIntf {
 	me := ServerHandler{}
 	me.c = c
 	me.subscriptions = s

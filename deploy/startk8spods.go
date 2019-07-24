@@ -113,7 +113,6 @@ func pkillPods(c kubectl.Config) {
 func buildTheDocker() {
 	kubectl.K("cd ..;docker build -t gcr.io/fair-theater-238820/knotfreeserver:v2 .")
 	kubectl.K("docker push gcr.io/fair-theater-238820/knotfreeserver:v2")
-
 }
 
 var count = 0
@@ -131,13 +130,15 @@ func main() {
 
 	// TODO: rtfm on flags.
 
+	// assume 20k per socket until we fix it.
+
 	clientconfig := kubectl.Config{
 		Namespace:      "knotfree",
 		DeploymentName: "client",
-		Replication:    32,
-		Command:        "client 500", //  "gorunclient.sh"
+		Replication:    20,
+		Command:        `client","2500`, //  really 5000 sockets at 20k each is 100 Mi
+		Mem:            "200Mi",         // so 10k sockets max 20k per sock
 		CPU:            "100m",
-		Mem:            "250Mi",
 		YamlFile:       "knotfreedeploy.yaml",
 	}
 	serverconfig := kubectl.Config{
@@ -145,13 +146,13 @@ func main() {
 		DeploymentName: "knotfreeserver",
 		Replication:    1,
 		Command:        "server", // "gorunserver.sh"
-		CPU:            "900m",
-		Mem:            "3000Mi",
+		CPU:            "1500m",
+		Mem:            "4000Mi", // 20 * 5000 = 100k socks. 100k * 20kB/sock = 2 Gi
 		YamlFile:       "knotfreedeploy.yaml",
 	}
 
 	if len(os.Args) > 1 && os.Args[1] == "killmain" {
-		pkillPods(clientconfig)
+		pkillPods(clientconfig) // broken
 		pkillPods(serverconfig)
 		return
 	}
@@ -168,12 +169,12 @@ func main() {
 		// pkillPods(serverconfig)
 		// pkillPods(clientconfig)
 
-		go start(serverconfig)
-		go start(clientconfig)
-
-		for {
-			//	time.Sleep(100 * time.Minute)
-		}
+		start(serverconfig)
+		start(clientconfig)
+		// we can't quit until everyone is done.
+		// for {
+		// 	time.Sleep(100 * time.Minute)
+		// }
 
 	}
 

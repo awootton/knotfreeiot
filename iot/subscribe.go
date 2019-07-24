@@ -3,75 +3,69 @@
 package iot
 
 import (
+	"fmt"
 	types "knotfree/types"
 )
 
-// theBucketsSize is 4 for debug and 1024 for prod
-const theBucketsSize = uint(1024)
-const theBucketsSizeLog2 = 10 // uint(math.Log2(float64(theBucketsSize)))
-
-type subscriptionMessage struct {
-	Topic        *types.HashType // not my real name
-	ConnectionID *types.HashType
-}
-
-// unsubscribeMessage for real
-type unsubscribeMessage struct {
-	subscriptionMessage
-}
-
-// publishMessage used here
-type publishMessage struct {
-	subscriptionMessage
-	payload *[]byte
-}
-
-// subscription, this is private here
-type subscription struct {
-	name     types.HashType          // not my real name
-	watchers map[types.HashType]bool // these are ID's for tcp Connection mgr
-}
-
-type subscribeBucket struct {
-	mySubscriptions map[types.HashType]*subscription
-	incoming        chan interface{} //SubscriptionMessage
-}
-
-// // this is the whole point:
-// // implements SubscriptionsIntf
-type pubSubManager struct {
-	allTheSubscriptions []subscribeBucket
-}
-
-// var psMgr pubSubManager
-
-// // GetSubscriptionsMgr returns the singleton mgr here.
-// func GetSubscriptionsMgr() types.SubscriptionsIntf {
-// 	return &psMgr
-// }
-
-// NewPubsubManager makes a SubscriptionsIntf, usually a singleton
-func NewPubsubManager() types.SubscriptionsIntf {
+// NewPubsubManager makes a SubscriptionsIntf, usually a singleton.
+// In the tests we call here and then use the result to init some Connenctions.
+func NewPubsubManager(amt int) types.SubscriptionsIntf {
 	psMgr := pubSubManager{}
+	portion := amt / int(theBucketsSize)
+	portion2 := amt >> theBucketsSizeLog2 // we can init the hash maps big
+	if portion != portion2 {
+		fmt.Printf("theBucketsSizeLog2 != uint(math.Log2(float64(theBucketsSize)))")
+	}
 	psMgr.allTheSubscriptions = make([]subscribeBucket, theBucketsSize)
 	for i := uint(0); i < theBucketsSize; i++ {
-		psMgr.allTheSubscriptions[i].mySubscriptions = make(map[types.HashType]*subscription)
-		psMgr.allTheSubscriptions[i].incoming = make(chan interface{}, 32)
+		psMgr.allTheSubscriptions[i].mySubscriptions = make(map[types.HashType]*subscription, portion)
+		tmp := make(chan interface{}, 32)
+		psMgr.allTheSubscriptions[i].incoming = &tmp
 		go psMgr.allTheSubscriptions[i].processMessages()
 	}
 	return &psMgr
 }
 
+// SendSubscriptionMessage will create a message object, copy pointers to it so it'll own them now, and queue the message.
+func (me *pubSubManager) SendSubscriptionMessage(Topic *types.HashType, realName string, c types.ConnectionIntf) {
+	c.SetRealTopicName(Topic, realName)
+	msg := subscriptionMessage{Topic, c.GetKey()}
+	i := Topic.GetFractionalBits(theBucketsSizeLog2)
+	b := me.allTheSubscriptions[i]
+	*b.incoming <- msg
+}
+
+// SendUnsubscribeMessage will create a message object, copy pointers to it so it'll own them now, and queue the message.
+func (me *pubSubManager) SendUnsubscribeMessage(Topic *types.HashType, c types.ConnectionIntf) {
+	msg := unsubscribeMessage{}
+	msg.Topic = Topic
+	msg.ConnectionID = c.GetKey()
+	i := Topic.GetFractionalBits(theBucketsSizeLog2)
+	b := me.allTheSubscriptions[i]
+	*b.incoming <- msg
+}
+
+// SendPublishMessage will create a message object, copy pointers to it so it'll own them now, and queue the message.
+func (me *pubSubManager) SendPublishMessage(Topic *types.HashType, c types.ConnectionIntf, payload *[]byte) {
+	msg := publishMessage{}
+	msg.Topic = Topic
+	msg.ConnectionID = c.GetKey()
+	msg.payload = payload
+	i := Topic.GetFractionalBits(theBucketsSizeLog2)
+	b := me.allTheSubscriptions[i]
+	*b.incoming <- msg
+}
+
 func (bucket *subscribeBucket) processMessages() {
 
 	for {
-		msg := <-bucket.incoming // wait right here
+		msg := <-*bucket.incoming // wait right here
 		switch msg.(type) {
 
 		case subscriptionMessage:
 			submsg := msg.(subscriptionMessage)
-			substruct, ok := bucket.mySubscriptions[*submsg.Topic]
-			if ok == false {
+			substruct := bucket.mySubscriptions[*submsg.Topic]
+			if substruct == nil {
 				substruct = &subscription{}
 				substruct.name.FromHashType(submsg.Topic)
 				substruct.watchers = make(map[types.HashType]bool, 0)
@@ -130,36 +124,6 @@ func (bucket *subscribeBucket) processMessages() {
 
 }
 
-// SendSubscriptionMessage will create a message object, copy pointers to it so it'll own them now, and queue the message.
-func (me *pubSubManager) SendSubscriptionMessage(Topic *types.HashType, realName string, c types.ConnectionIntf) {
-	c.SetRealTopicName(Topic, realName)
-	msg := subscriptionMessage{Topic, c.GetKey()}
-	i := Topic.GetFractionalBits(theBucketsSizeLog2)
-	b := me.allTheSubscriptions[i]
-	b.incoming <- msg
-}
-
-// SendUnsubscribeMessage will create a message object, copy pointers to it so it'll own them now, and queue the message.
-func (me *pubSubManager) SendUnsubscribeMessage(Topic *types.HashType, c types.ConnectionIntf) {
-	msg := unsubscribeMessage{}
-	msg.Topic = Topic
-	msg.ConnectionID = c.GetKey()
-	i := Topic.GetFractionalBits(theBucketsSizeLog2)
-	b := me.allTheSubscriptions[i]
-	b.incoming <- msg
-}
-
-// SendPublishMessage will create a message object, copy pointers to it so it'll own them now, and queue the message.
-func (me *pubSubManager) SendPublishMessage(Topic *types.HashType, c types.ConnectionIntf, payload *[]byte) {
-	msg := publishMessage{}
-	msg.Topic = Topic
-	msg.ConnectionID = c.GetKey()
-	msg.payload = payload
-	i := Topic.GetFractionalBits(theBucketsSizeLog2)
-	b := me.allTheSubscriptions[i]
-	b.incoming <- msg
-}
-
 // var subscrFRepofrtFunct = func(seconds float32) []string {
 // 	strlist := make([]string, 0, 5)
 // 	count := 0
@@ -175,5 +139,51 @@ var subscribeEvents *types.StringEventAccumulator
 func init() {
 	subscribeEvents = types.NewStringEventAccumulator(12)
 	subscribeEvents.SetQuiet(true)
-	//	types.NewGenericEventAccumulator(subscrFRepofrtFunct)
+	//types.NewGenericEventAccumulator(subscrFRepofrtFunct)
+}
+
+// theBucketsSize is 4 for debug and 1024 for prod
+const theBucketsSize = uint(8) // uint(1024)
+const theBucketsSizeLog2 = 3   // 10 // uint(math.Log2(float64(theBucketsSize)))
+
+type subscriptionMessage struct {
+	Topic        *types.HashType // not my real name
+	ConnectionID *types.HashType
+}
+
+// unsubscribeMessage for real
+type unsubscribeMessage struct {
+	subscriptionMessage
+}
+
+// publishMessage used here
+type publishMessage struct {
+	subscriptionMessage
+	payload *[]byte
+}
+
+// subscription, this is private here
+type subscription struct {
+	name     types.HashType          // not my real name
+	watchers map[types.HashType]bool // these are ID's for tcp Connection mgr
+}
+
+type subscribeBucket struct {
+	mySubscriptions map[types.HashType]*subscription
+	incoming        *chan interface{} //SubscriptionMessage
+}
+
+// // this is the whole point:
+// // implements SubscriptionsIntf
+type pubSubManager struct {
+	allTheSubscriptions []subscribeBucket
+}
+
+func (me *pubSubManager) GetAllSubsCount() uint64 {
+	c := uint64(0)
+
+	for _, b := range me.allTheSubscriptions {
+		c += uint64(len(b.mySubscriptions))
+	}
+	return c
 }

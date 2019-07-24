@@ -13,13 +13,6 @@ import (
 	"time"
 )
 
-var srvrLogThing *types.StringEventAccumulator
-
-func init() {
-	srvrLogThing = types.NewStringEventAccumulator(16)
-	srvrLogThing.SetQuiet(true)
-}
-
 // Server - wait for connections and spawn them
 // runs forever
 // TODO: handlerFactory as argument.
@@ -37,46 +30,46 @@ func Server(subscribeMgr types.SubscriptionsIntf) {
 			srvrLogThing.Collect(err.Error())
 			continue
 		}
-		go runTheConnection(tmpconn, subscribeMgr) //,handler types.ProtocolHandler)
+		go handleConnection(tmpconn, subscribeMgr) //,handler types.ProtocolHandler)
 	}
 }
 
 // RunAConnection - FIXME: this is really a protoA connection.
 //
-func runTheConnection(tmpconn net.Conn, subscribeMgr types.SubscriptionsIntf) {
-	
+func handleConnection(tmpconn net.Conn, subscribeMgr types.SubscriptionsIntf) {
+
 	srvrLogThing.Collect("Conn Accept")
 
 	c := NewConnection(tmpconn.(*net.TCPConn), subscribeMgr)
 
 	// FIXME: pass a factory
 	// not always aa
-	handler := protocolaa.NewServerHandler(&c, subscribeMgr)
-	c.SetProtocolHandler(&handler)
+	handler := protocolaa.NewServerHandler(c, subscribeMgr)
+	c.SetProtocolHandler(handler)
 
 	defer c.Close()
 
 	connLogThing.Collect("new connection")
 
 	allConnMutex.Lock()
-	allTheConnections[c.key] = &c
+	allTheConnections[*c.GetKey()] = c
 	allConnMutex.Unlock()
 	// start reading
-	err := c.tcpConn.SetReadBuffer(4096)
+	err := c.GetTCPConn().SetReadBuffer(4096)
 	if err != nil {
 		connLogThing.Collect("server err " + err.Error())
 		return
 	}
-	err = c.tcpConn.SetWriteBuffer(4096)
+	err = c.GetTCPConn().SetWriteBuffer(4096)
 	if err != nil {
 		connLogThing.Collect("cserver " + err.Error())
 		return
 	}
 
 	// we might just for over the range of the handler input channel?
-	for c.running {
+	for true { // c.running {
 		// SetReadDeadline
-		err := c.tcpConn.SetDeadline(time.Now().Add(20 * time.Minute))
+		err := c.GetTCPConn().SetDeadline(time.Now().Add(20 * time.Minute))
 		if err != nil {
 			connLogThing.Collect("server err2 " + err.Error())
 			return // quit, close the sock, be forgotten
@@ -120,4 +113,38 @@ func isClosedConnError(err error) bool {
 	// 	}
 	// }
 	return false
+}
+
+var srvrLogThing *types.StringEventAccumulator
+
+func init() {
+	srvrLogThing = types.NewStringEventAccumulator(16)
+	srvrLogThing.SetQuiet(true)
+}
+
+// SocketSetup sets common options
+func SocketSetup(conn net.Conn) error {
+	tcpConn := conn.(*net.TCPConn)
+	err := tcpConn.SetReadBuffer(4096)
+	if err != nil {
+		srvrLogThing.Collect("SS err1 " + err.Error())
+		return err
+	}
+	err = tcpConn.SetWriteBuffer(4096)
+	if err != nil {
+		srvrLogThing.Collect("SS err2 " + err.Error())
+		return err
+	}
+	err = tcpConn.SetNoDelay(true)
+	if err != nil {
+		srvrLogThing.Collect("SS err3 " + err.Error())
+		return err
+	}
+	// SetReadDeadline and SetWriteDeadline
+	err = tcpConn.SetDeadline(time.Now().Add(20 * time.Minute))
+	if err != nil {
+		srvrLogThing.Collect("cl err4 " + err.Error())
+		return err
+	}
+	return nil
 }

@@ -2,13 +2,6 @@
 
 package misc
 
-import (
-	"encoding/gob"
-	"fmt"
-	"io"
-	"log"
-)
-
 // bound to network connections and the encoder and decoder would
 // run in different processes.
 // var network bytes.Buffer        // Stand-in for a network connection
@@ -51,15 +44,15 @@ import (
 // 	1: "syn",
 // }
 
-func (p *TCPOverPubsubCmd) Write(w io.Writer) error {
-	fmt.Println("writing ", *p)
-	enc := gob.NewEncoder(w)
-	err := enc.Encode(p)
-	if err != nil {
-		log.Fatal("encode error:", err)
-	}
-	return nil
-}
+// func (p *TCPOverPubsubCmd) Write(w io.Writer) error {
+// 	fmt.Println("writing ", *p)
+// 	enc := gob.NewEncoder(w)
+// 	err := enc.Encode(p)
+// 	if err != nil {
+// 		log.Fatal("encode error:", err)
+// 	}
+// 	return nil
+// }
 
 // func ReadCmd(r io.Reader) (CmdInterface, error) {
 // 	return nil, nil

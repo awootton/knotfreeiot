@@ -27,7 +27,9 @@ var quiet = false
 // command line technique. There is also a technique using go-client.
 
 // K8s runs a kubectl command like "kubectl get nodes"
-// except it's just another shell gadget.
+// except it's really just another shell gadget.
+// returns what the command outputs and not before it's done.
+// and that's annoying because I kinds like watching Docker build.
 func K8s(command string, input string) (string, error) {
 	if !quiet {
 		fmt.Println(">" + command)

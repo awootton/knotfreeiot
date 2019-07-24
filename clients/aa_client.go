@@ -1,8 +1,9 @@
-// Copyright 2019 Alan Tracey Wootton 
+// Copyright 2019 Alan Tracey Wootton
 
 package clients
 
 import (
+	"knotfree/iot"
 	"knotfree/protocolaa"
 	"knotfree/types"
 	"math/rand"
@@ -64,7 +65,7 @@ func LightSwitch(mySubChan string, ourSwitch string) {
 		}
 		defer conn.Close()
 
-		if !socketSetup(conn) {
+		if iot.SocketSetup(conn) != nil {
 			continue // try again
 		}
 
@@ -139,7 +140,7 @@ func LightController(id string, target string) {
 		clientLogThing.Collect("LightCon dialed in")
 		defer conn.Close() // never happens
 
-		if !socketSetup(conn) {
+		if iot.SocketSetup(conn) != nil {
 			continue // try again
 		}
 
@@ -217,25 +218,4 @@ func init() {
 	clientLogThing = types.NewStringEventAccumulator(16)
 	clientLogThing.SetQuiet(true)
 	types.NewGenericEventAccumulator(aaclientReporter)
-}
-
-func socketSetup(conn net.Conn) bool {
-	tcpConn := conn.(*net.TCPConn)
-	err := tcpConn.SetReadBuffer(4096)
-	if err != nil {
-		clientLogThing.Collect("cl err3 " + err.Error())
-		return false
-	}
-	err = tcpConn.SetWriteBuffer(4096)
-	if err != nil {
-		clientLogThing.Collect("cl err3 " + err.Error())
-		return false
-	}
-	// SetReadDeadline
-	err = tcpConn.SetDeadline(time.Now().Add(20 * time.Minute))
-	if err != nil {
-		clientLogThing.Collect("cl err4 " + err.Error())
-		return false
-	}
-	return true
 }
