@@ -3,36 +3,23 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"runtime"
-	"sync/atomic"
-
-	"knotfreeiot/iot2"
-	"knotfreeiot/iot2/reporting"
-
+	"knotfreeiot/iot"
+	"knotfreeiot/iot/reporting"
 	"math/rand"
 	"net/http"
+	"runtime"
 	"strconv"
+	"sync/atomic"
 	"time"
 )
 
 var prefix = ""
 
-// the old way in oldstuff/iot
-// func runClients(amt int) {
-// 	clients.ExpectedConnections = amt
-// 	fmt.Println("Starting clients = " + strconv.Itoa(amt))
-// 	for i := 0; i < amt; i++ {
-// 		istr := strconv.Itoa(i)
-// 		go clients.LightSwitch(prefix+"aaaaaa"+istr, prefix+"bbbbb"+istr)
-// 		go clients.LightController(prefix+"bbbbb"+istr, prefix+"aaaaaa"+istr)
-// 	}
-// }
-
-func runAlight(ss *iot2.SockStruct) {
+func runAlight(ss *iot.SockStruct) {
 
 	// context to read loop decl here
 
-	go func(ss *iot2.SockStruct) {
+	go func(ss *iot.SockStruct) {
 		reader := bufio.NewReader(ss.GetConn())
 		for { // our reading loop
 			text, err := reader.ReadString('\n')
@@ -42,15 +29,15 @@ func runAlight(ss *iot2.SockStruct) {
 			}
 			str := text[0 : len(text)-1]
 			//fmt.Println("Light received", str)
-			cmd, payload := iot2.GetFirstWord(str)
+			cmd, payload := iot.GetFirstWord(str)
 			if cmd == "got" {
 				// just pub back to switch
-				topicfrom, payload := iot2.GetFirstWord(payload)
+				topicfrom, payload := iot.GetFirstWord(payload)
 				myID := ss.GetSequence()
 				topic := "switch_" + strconv.FormatUint(0x000FFFFF&myID, 16)
 
 				command := "pub " + topic + " " + payload
-				iot2.ServerOfStringsWrite(ss, command)
+				iot.ServerOfStringsWrite(ss, command)
 				_ = topicfrom
 			} else {
 				// it's just the echo of out own pub and sub commands.
@@ -65,7 +52,7 @@ func runAlight(ss *iot2.SockStruct) {
 	topic := "light_" + idstr
 	// now convert to command
 	cmd := "sub " + topic
-	iot2.ServerOfStringsWrite(ss, cmd) // send subscribe command to server
+	iot.ServerOfStringsWrite(ss, cmd) // send subscribe command to server
 
 	for {
 		// our sending loop
@@ -74,7 +61,7 @@ func runAlight(ss *iot2.SockStruct) {
 	}
 }
 
-func runAswitch(ss *iot2.SockStruct) {
+func runAswitch(ss *iot.SockStruct) {
 
 	myID := ss.GetSequence()
 	idstr := strconv.FormatUint(0x000FFFFF&myID, 16)
@@ -84,7 +71,7 @@ func runAswitch(ss *iot2.SockStruct) {
 	waiting := int32(0)
 	when := time.Now()
 
-	go func(ss *iot2.SockStruct) {
+	go func(ss *iot.SockStruct) {
 		reader := bufio.NewReader(ss.GetConn())
 		for { // our reading loop
 			text, err := reader.ReadString('\n')
@@ -93,8 +80,8 @@ func runAswitch(ss *iot2.SockStruct) {
 				return
 			}
 			str := text[0 : len(text)-1] // remove \n
-			cmd, tmp := iot2.GetFirstWord(str)
-			topic, payload := iot2.GetFirstWord(tmp)
+			cmd, tmp := iot.GetFirstWord(str)
+			topic, payload := iot.GetFirstWord(tmp)
 			if cmd == "got" {
 				if payload == ourCommand {
 					atomic.AddInt32(&waiting, -1)
@@ -115,7 +102,7 @@ func runAswitch(ss *iot2.SockStruct) {
 	topic := "switch_" + idstr
 	// now convert to command
 	cmd := "sub " + topic
-	iot2.ServerOfStringsWrite(ss, cmd) // send subscribe command to se
+	iot.ServerOfStringsWrite(ss, cmd) // send subscribe command to se
 
 	for {
 		// our sending loop
@@ -123,7 +110,7 @@ func runAswitch(ss *iot2.SockStruct) {
 		command := "pub " + topic + " " + ourCommand
 		atomic.AddInt32(&waiting, 1)
 		when = time.Now()
-		iot2.ServerOfStringsWrite(ss, command) // send pub command to server
+		iot.ServerOfStringsWrite(ss, command) // send pub command to server
 		time.Sleep(10 * time.Second)
 	}
 }
@@ -135,20 +122,20 @@ func runServer2() {
 	clientLogThing = reporting.NewStringEventAccumulator(16)
 	clientLogThing.SetQuiet(true)
 
-	var subscribeMgr iot2.PubsubIntf
-	subscribeMgr = iot2.NewPubsubManager(100 * 1000)
+	var subscribeMgr iot.PubsubIntf
+	subscribeMgr = iot.NewPubsubManager(100 * 1000)
 
-	//config := iot2.ServerOfAa(subscribeMgr, ":6161")
-	config := iot2.ServerOfStrings(subscribeMgr, ":7374")
+	//config := iot.ServerOfAa(subscribeMgr, ":6161")
+	config := iot.ServerOfStrings(subscribeMgr, ":7374")
 
 	defer config.Close(nil)
 
 	addr := "knotfreeserver:7374"
 
-	lights := iot2.NewSockStructConfig(nil)
-	iot2.ServerOfStringsInit(lights)
-	switches := iot2.NewSockStructConfig(nil)
-	iot2.ServerOfStringsInit(switches)
+	lights := iot.NewSockStructConfig(nil)
+	iot.ServerOfStringsInit(lights)
+	switches := iot.NewSockStructConfig(nil)
+	iot.ServerOfStringsInit(switches)
 
 	clientCount := 5000
 
@@ -177,12 +164,12 @@ func runServer2() {
 	fmt.Println("start making clients")
 
 	lights.SetCallback(runAlight)
-	iot2.MakeBunchOfClients(clientCount, addr, 10*time.Millisecond, lights, clientLogThing)
+	iot.MakeBunchOfClients(clientCount, addr, 10*time.Millisecond, lights, clientLogThing)
 
 	fmt.Println("lights started")
 
 	switches.SetCallback(runAswitch)
-	iot2.MakeBunchOfClients(clientCount, addr, 10*time.Millisecond, switches, clientLogThing)
+	iot.MakeBunchOfClients(clientCount, addr, 10*time.Millisecond, switches, clientLogThing)
 
 	fmt.Println("switches started")
 
@@ -197,28 +184,6 @@ func runServer2() {
 	}
 }
 
-// the old way in oldstuff/iot
-// func runServer() {
-// 	iot.ResetAllTheConnectionsMap(100 * 1000)
-
-// 	var subscribeMgr types.SubscriptionsIntf
-// 	subscribeMgr = iot.NewPubsubManager(100 * 1000)
-// 	psMgr = subscribeMgr
-
-// 	iot.Server(subscribeMgr)
-
-// 	subscrFRepofrtFunct := func(seconds float32) []string {
-// 		strlist := make([]string, 0, 5)
-// 		count := subscribeMgr.GetAllSubsCount()
-// 		strlist = append(strlist, "Topic count="+strconv.FormatUint(count, 10))
-// 		return strlist
-// 	}
-// 	types.NewGenericEventAccumulator(subscrFRepofrtFunct)
-
-// }
-
-//var psMgr types.SubscriptionsIntf
-
 // Hint: add 127.0.0.1 knotfreeserver to /etc/hosts
 func main() {
 
@@ -227,33 +192,6 @@ func main() {
 	fmt.Println("using prefix " + prefix)
 
 	go runServer2()
-
-	// args := os.Args
-	// arglen := len(args)
-	// _ = arglen
-
-	// if len(os.Args) > 1 && os.Args[1] == "client" {
-	// 	n := 9999
-	// 	if len(os.Args) > 2 {
-	// 		tmp, err := strconv.ParseInt(os.Args[2], 10, 32)
-	// 		if err == nil {
-	// 			n = int(tmp)
-	// 		} else {
-	// 			fmt.Println(err)
-	// 		}
-	// 	}
-	// 	go types.StartRunningReports()
-	// 	go runClients(n)
-	// } else if len(os.Args) > 1 && os.Args[1] == "server" {
-	// 	go types.StartRunningReports()
-	// 	go runServer()
-	// } else {
-	// 	// go types.StartRunningReports()
-	// 	// go runServer()
-	// 	// go runClients(2000)
-	// 	go runServer2()
-
-	// }
 
 	http.HandleFunc("/", HelloServer)
 	err := http.ListenAndServe(":8080", nil)
