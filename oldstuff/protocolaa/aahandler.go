@@ -5,12 +5,36 @@ package protocolaa
 import (
 	"errors"
 	"io"
-	"knotfree/types"
+	"knotfree/oldstuff/types"
 	"net"
 	"reflect"
-	"strings"
 	"time"
 )
+
+// AaServeCallback is in iot2  now.
+// func AaServeCallback(ss *types.SockStruct) {
+
+// 	// implement the protocol
+// 	cmdReader := NewReader(ss.GetConn())
+// 	for {
+// 		obj, err := cmdReader.Read()
+// 		if err != nil {
+// 			// say back something snarky?
+// 			// we don't have a write channel
+// 			// the client might want to know!
+// 			ee := Error{}
+// 			ee.Msg = err.Error()
+// 			//ss.GetConn().Write() fixme
+// 			ss.Close(err)
+// 			return
+// 		}
+// 		aaobj := obj.(aaInterface)
+// 		fmt.Println("received obj", aaobj.marshal())
+// 		// execute the obj I think.
+// 		// but not here. let's
+// 		// keep the stack frames here smaller
+// 	}
+// }
 
 // ProtocolAa is a lame pub/sub protocol with a length byte followed by a string of len 0 to 255.
 // The first char in the string
@@ -91,6 +115,7 @@ func newAaDuplexChannel(capacity int, conn *net.TCPConn) *aaDuplexChannel {
 	return &adc
 }
 
+// fixme add error
 func unMarshalAa(firstChar string, str string) aaInterface {
 	switch firstChar[0] {
 	case 's':
@@ -140,10 +165,30 @@ func (me *ServerHandler) Serve() error {
 	return nil
 }
 
-// readProtocolAstr will block trying to get a string until the conn times out.
-func readProtocolAstr(conn net.Conn) (string, error) {
+// Reader is
+// type Reader struct {
+// 	Src io.Reader
+// }
 
-	buffer := make([]byte, 256)
+// func (me *Reader) Read() (interface{}, error) {
+// 	str, err := readProtocolAstr(me.Src)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	aa := unMarshalAa(str[:1], str[1:])
+// 	return aa, nil
+// }
+
+// // NewReader is the local version of an object reading interface
+// func NewReader(src io.Reader) *Reader {
+// 	r := Reader{}
+// 	r.Src = src
+// 	return &r
+// }
+
+// readProtocolAstr will block trying to get a string until the conn times out.
+func readProtocolAstr(conn io.Reader) (string, error) {
+
 	ch := []byte{'a'}
 	n, err := conn.Read(ch)
 	if err != nil {
@@ -153,21 +198,25 @@ func readProtocolAstr(conn net.Conn) (string, error) {
 		return "", err
 	}
 	msglen := int(ch[0]) & 0x00FF
-	var sb strings.Builder
-	for msglen > 0 {
-		n, err = conn.Read(buffer[:msglen])
+	pos := 0
+	buffer := make([]byte, msglen)
+	for pos < msglen {
+		n, err = conn.Read(buffer[pos:msglen])
 		if err != nil {
 			if err == io.EOF {
 				//os.Exit(0)
 			}
 			return "", err
 		}
-		s := string(buffer[:n])
-		sb.WriteString(s)
-		msglen -= n
+		pos += n
 	}
-	return sb.String(), nil
+	return string(buffer), nil
 }
+
+//WriteStr is
+// func WriteStr(conn net.Conn, str string) error {
+// 	return writeProtocolAaStr(conn, str)
+// }
 
 // writeProtocolAaStr writes our lame protocol to the conn
 func writeProtocolAaStr(conn net.Conn, str string) error {

@@ -1,0 +1,1475 @@
+Hello3
+using prefix _9acb0442_/
+Server starting
+Report#0 2019 07 23 06:51:33
+CLOSE Connec:    0.10/s    Unsub  topic:    0.10/s    new connecti:   79.35/s    q publish in:   40.55/s    se err there:    0.10/s    Conn count=1585    
+Conn Accept:   79.35/s    new subscrip:   58.80/s    unsubscribe:    0.10/s    Client count=0    
+
+Report#1 2019 07 23 06:51:43
+CLOSE Connec:    0.06/s    Unsub  topic:    0.06/s    new connecti:   44.08/s    q publish in:   22.53/s    se err there:    0.06/s    Conn count=1585    
+Conn Accept:   44.08/s    new subscrip:   32.67/s    unsubscribe:    0.06/s    Client count=0    
+
+Report#2 2019 07 23 06:51:53
+CLOSE Connec:    0.03/s    Unsub  topic:    0.03/s    new connecti:   22.04/s    q publish in:   11.26/s    se err there:    0.03/s    Conn count=1585    
+Conn Accept:   22.04/s    new subscrip:   16.33/s    unsubscribe:    0.03/s    Client count=0    
+
+Report#3 2019 07 23 06:52:03
+CLOSE Connec:    0.01/s    Unsub  topic:    0.01/s    new connecti:  104.08/s    q publish in:  104.58/s    se err there:    0.01/s    Conn count=3260    
+Conn Accept:  104.08/s    new subscrip:   61.33/s    unsubscribe:    0.01/s    Client count=0    
+
+Report#4 2019 07 23 06:52:13
+CLOSE Connec:    0.01/s    Unsub  topic:    0.01/s    new connecti:   52.04/s    q publish in:   52.29/s    se err there:    0.01/s    Conn count=3260    
+Conn Accept:   52.04/s    new subscrip:   30.67/s    unsubscribe:    0.01/s    Client count=0    
+
+Report#5 2019 07 23 06:52:23
+new connecti:   26.02/s    q publish in:   26.14/s    Conn count=3260    Conn Accept:   26.02/s    new subscrip:   15.33/s    Client count=0    
+
+
+Report#6 2019 07 23 06:52:33
+new connecti:   98.51/s    q publish in:  172.41/s    Conn count=4799    Conn Accept:   98.51/s    new subscrip:   46.61/s    Client count=0    
+
+
+Report#7 2019 07 23 06:52:43
+new connecti:   49.25/s    q publish in:   86.20/s    Conn count=4799    Conn Accept:   49.25/s    new subscrip:   23.31/s    Client count=0    
+
+
+Report#8 2019 07 23 06:52:53
+new connecti:   24.63/s    q publish in:   43.10/s    Conn count=4799    Conn Accept:   24.63/s    new subscrip:   11.65/s    Client count=0    
+
+
+Report#9 2019 07 23 06:53:03
+CLOSE Connec:    0.06/s    Unsub  topic:    0.06/s    new connecti:  114.92/s    q publish in:  261.44/s    se err there:    0.06/s    Conn count=6645    
+Conn Accept:  114.92/s    new subscrip:   40.22/s    unsubscribe:    0.06/s    Client count=0    
+
+Report#10 2019 07 23 06:53:13
+CLOSE Connec:    0.03/s    Unsub  topic:    0.03/s    new connecti:   57.46/s    q publish in:  130.72/s    se err there:    0.03/s    Conn count=6645    
+Conn Accept:   57.46/s    new subscrip:   20.11/s    unsubscribe:    0.03/s    Client count=0    
+
+Report#11 2019 07 23 06:53:23
+CLOSE Connec:    0.01/s    Unsub  topic:    0.01/s    new connecti:   28.73/s    q publish in:   65.36/s    se err there:    0.01/s    Conn count=6645    
+Conn Accept:   28.73/s    new subscrip:   10.05/s    unsubscribe:    0.01/s    Client count=0    
+
+Report#12 2019 07 23 06:53:33
+CLOSE Connec:    0.01/s    Unsub  topic:    0.01/s    new connecti:   97.87/s    q publish in:  313.07/s    se err there:    0.01/s    Conn count=8148    
+Conn Accept:   97.87/s    new subscrip:   26.53/s    unsubscribe:    0.01/s    Client count=0    
+
+Report#13 2019 07 23 06:53:43
+new connecti:   48.93/s    q publish in:  156.53/s    Conn count=8148    Conn Accept:   48.93/s    new subscrip:   13.26/s    Client count=0    
+
+
+Report#14 2019 07 23 06:53:53
+new connecti:   24.47/s    q publish in:   78.27/s    Conn count=8148    Conn Accept:   24.47/s    new subscrip:    6.63/s    Client count=0    
+
+
+Report#15 2019 07 23 06:54:03
+CLOSE Connec:    0.11/s    Unsub  topic:    0.11/s    new connecti:  113.51/s    q publish in:  459.30/s    se err there:    0.11/s    Conn count=9969    
+Conn Accept:  113.51/s    new subscrip:   22.04/s    unsubscribe:    0.11/s    Client count=0    
+
+Report#16 2019 07 23 06:54:13
+CLOSE Connec:    0.06/s    Unsub  topic:    0.06/s    new connecti:   56.76/s    q publish in:  229.65/s    se err there:    0.06/s    Conn count=9969    
+Conn Accept:   56.76/s    new subscrip:   11.02/s    unsubscribe:    0.06/s    Client count=0    
+
+Report#17 2019 07 23 06:54:23
+CLOSE Connec:    0.03/s    Unsub  topic:    0.03/s    new connecti:   28.38/s    q publish in:  114.83/s    se err there:    0.03/s    Conn count=9969    
+Conn Accept:   28.38/s    new subscrip:    5.51/s    unsubscribe:    0.03/s    Client count=0    
+
+Report#18 2019 07 23 06:54:33
+CLOSE Connec:    0.24/s    Unsub  topic:    0.24/s    new connecti:  125.58/s    q publish in:  656.47/s    se err there:    0.24/s    Conn count=11970    
+Conn Accept:  125.58/s    new subscrip:   17.14/s    unsubscribe:    0.24/s    Client count=0    
+
+Report#19 2019 07 23 06:54:43
+CLOSE Connec:    0.12/s    Unsub  topic:    0.12/s    new connecti:   62.79/s    q publish in:  328.23/s    se err there:    0.12/s    Conn count=11970    
+Conn Accept:   62.79/s    new subscrip:    8.57/s    unsubscribe:    0.12/s    Client count=0    
+
+Report#20 2019 07 23 06:54:53
+CLOSE Connec:    0.06/s    Unsub  topic:    0.06/s    new connecti:   31.39/s    q publish in:  164.12/s    se err there:    0.06/s    Conn count=11970    
+Conn Accept:   31.39/s    new subscrip:    4.29/s    unsubscribe:    0.06/s    Client count=0    
+
+Report#21 2019 07 23 06:55:03
+CLOSE Connec:    0.03/s    Unsub  topic:    0.03/s    new connecti:  102.86/s    q publish in:  637.34/s    se err there:    0.03/s    Conn count=13539    
+Conn Accept:  102.86/s    new subscrip:   10.70/s    unsubscribe:    0.03/s    Client count=0    
+
+Report#22 2019 07 23 06:55:13
+CLOSE Connec:    0.01/s    Unsub  topic:    0.01/s    new connecti:   46.29/s    q publish in:  286.80/s    se err there:    0.01/s    Conn count=13539    
+Conn Accept:   46.29/s    new subscrip:    4.81/s    unsubscribe:    0.01/s    Client count=0    
+
+Report#23 2019 07 23 06:55:23
+CLOSE Connec:    0.01/s    Unsub  topic:    0.01/s    new connecti:   25.72/s    q publish in:  159.33/s    se err there:    0.01/s    Conn count=13539    
+Conn Accept:   25.72/s    new subscrip:    2.67/s    unsubscribe:    0.01/s    Client count=0    
+
+Report#24 2019 07 23 06:55:33
+CLOSE Connec:    0.06/s    Unsub  topic:    0.06/s    new connecti:  110.69/s    q publish in:  830.94/s    se err there:    0.06/s    Conn count=15299    
+Conn Accept:  110.69/s    new subscrip:    7.28/s    unsubscribe:    0.06/s    Client count=0    
+
+Report#25 2019 07 23 06:55:43
+CLOSE Connec:    0.03/s    Unsub  topic:    0.03/s    new connecti:   55.35/s    q publish in:  415.47/s    se err there:    0.03/s    Conn count=15299    
+Conn Accept:   55.35/s    new subscrip:    3.64/s    unsubscribe:    0.03/s    Client count=0    
+
+Report#26 2019 07 23 06:55:53
+CLOSE Connec:    0.01/s    Unsub  topic:    0.01/s    new connecti:   27.67/s    q publish in:  207.74/s    se err there:    0.01/s    Conn count=15299    
+Conn Accept:   27.67/s    new subscrip:    1.82/s    unsubscribe:    0.01/s    Client count=0    
+
+Report#27 2019 07 23 06:56:03
+CLOSE Connec:    0.01/s    Unsub  topic:    0.01/s    new connecti:   95.78/s    q publish in:  925.98/s    se err there:    0.01/s    Conn count=16774    
+Conn Accept:   95.78/s    new subscrip:    5.30/s    unsubscribe:    0.01/s    Client count=0    
+
+Report#28 2019 07 23 06:56:13
+new connecti:   47.89/s    q publish in:  462.99/s    Conn count=16774    Conn Accept:   47.89/s    new subscrip:    2.65/s    Client count=0    
+
+
+Report#29 2019 07 23 06:56:23
+new connecti:   23.95/s    q publish in:  231.49/s    Conn count=16774    Conn Accept:   23.95/s    new subscrip:    1.32/s    Client count=0    
+
+
+Report#30 2019 07 23 06:56:33
+new connecti:  119.08/s    q publish in: 1188.64/s    Conn count=18702    Conn Accept:  119.08/s    new subscrip:    5.16/s    Client count=0    
+
+
+Report#31 2019 07 23 06:56:43
+new connecti:   59.54/s    q publish in:  594.32/s    Conn count=18702    Conn Accept:   59.54/s    new subscrip:    2.58/s    Client count=0    
+
+
+Report#32 2019 07 23 06:56:53
+new connecti:   26.79/s    q publish in:  267.44/s    Conn count=18702    Conn Accept:   26.79/s    new subscrip:    1.16/s    Client count=0    
+
+
+Report#33 2019 07 23 06:57:03
+CLOSE Connec:    0.05/s    Unsub  topic:    0.05/s    new connecti:   97.85/s    q publish in: 1204.82/s    se err there:    0.05/s    Conn count=20390    
+Conn Accept:   97.85/s    new subscrip:    2.63/s    unsubscribe:    0.05/s    Client count=0    
+
+Report#34 2019 07 23 06:57:13
+CLOSE Connec:    0.03/s    Unsub  topic:    0.03/s    new connecti:   54.36/s    q publish in:  669.35/s    se err there:    0.03/s    Conn count=20390    
+Conn Accept:   54.36/s    new subscrip:    1.46/s    unsubscribe:    0.03/s    Client count=0    
+
+Report#35 2019 07 23 06:57:23
+CLOSE Connec:    0.01/s    Unsub  topic:    0.01/s    new connecti:   27.18/s    q publish in:  334.67/s    se err there:    0.01/s    Conn count=20390    
+Conn Accept:   27.18/s    new subscrip:    0.73/s    unsubscribe:    0.01/s    Client count=0    
+
+Report#36 2019 07 23 06:57:33
+CLOSE Connec:    0.12/s    Unsub  topic:    0.12/s    new connecti:  117.15/s    q publish in: 1674.06/s    se err there:    0.12/s    Conn count=22252    
+Conn Accept:  117.15/s    new subscrip:    1.92/s    unsubscribe:    0.12/s    Client count=0    
+
+Report#37 2019 07 23 06:57:43
+CLOSE Connec:    0.06/s    Unsub  topic:    0.06/s    new connecti:   58.57/s    q publish in:  837.03/s    se err there:    0.06/s    Conn count=22252    
+Conn Accept:   58.57/s    new subscrip:    0.96/s    unsubscribe:    0.06/s    Client count=0    
+
+Report#38 2019 07 23 06:57:53
+CLOSE Connec:    0.03/s    Unsub  topic:    0.03/s    new connecti:   29.29/s    q publish in:  418.51/s    se err there:    0.03/s    Conn count=22252    
+Conn Accept:   29.29/s    new subscrip:    0.48/s    unsubscribe:    0.03/s    Client count=0    
+
+Report#39 2019 07 23 06:58:03
+CLOSE Connec:    0.07/s    Unsub  topic:    0.07/s    new connecti:  108.92/s    q publish in: 1669.70/s    se err there:    0.07/s    Conn count=23948    
+Conn Accept:  108.92/s    new subscrip:    1.35/s    unsubscribe:    0.07/s    Client count=0    
+
+Report#40 2019 07 23 06:58:13
+CLOSE Connec:    0.04/s    Unsub  topic:    0.04/s    new connecti:   54.46/s    q publish in:  834.85/s    se err there:    0.04/s    Conn count=23948    
+Conn Accept:   54.46/s    new subscrip:    0.68/s    unsubscribe:    0.04/s    Client count=0    
+
+Report#41 2019 07 23 06:58:23
+CLOSE Connec:    0.02/s    Unsub  topic:    0.02/s    new connecti:   27.23/s    q publish in:  417.43/s    se err there:    0.02/s    Conn count=23948    
+Conn Accept:   27.23/s    new subscrip:    0.34/s    unsubscribe:    0.02/s    Client count=0    
+
+Report#42 2019 07 23 06:58:33
+CLOSE Connec:    0.01/s    Unsub  topic:    0.01/s    new connecti:  114.12/s    q publish in: 1953.49/s    se err there:    0.01/s    Conn count=25757    
+Conn Accept:  114.12/s    new subscrip:    0.95/s    unsubscribe:    0.01/s    Client count=0    
+
+Report#43 2019 07 23 06:58:43
+new connecti:   57.06/s    q publish in:  981.52/s    Conn count=25757    Conn Accept:   57.06/s    new subscrip:    0.47/s    Client count=0    
+
+
+Report#44 2019 07 23 06:58:53
+new connecti:   28.53/s    q publish in:  490.76/s    Conn count=25757    Conn Accept:   28.53/s    new subscrip:    0.24/s    Client count=0    
+
+
+Report#45 2019 07 23 06:59:03
+CLOSE Connec:    0.11/s    Unsub  topic:    0.11/s    new connecti:   99.10/s    q publish in: 2127.94/s    se err there:    0.11/s    Conn count=27282    
+Conn Accept:   99.10/s    new subscrip:    0.62/s    unsubscribe:    0.11/s    Client count=0    
+
+Report#46 2019 07 23 06:59:13
+CLOSE Connec:    0.05/s    Unsub  topic:    0.05/s    new connecti:   44.59/s    q publish in:  957.57/s    se err there:    0.05/s    Conn count=27282    
+Conn Accept:   44.59/s    new subscrip:    0.28/s    unsubscribe:    0.05/s    Client count=0    
+
+Report#47 2019 07 23 06:59:23
+CLOSE Connec:    0.03/s    Unsub  topic:    0.03/s    new connecti:   24.77/s    q publish in:  531.98/s    se err there:    0.03/s    Conn count=27282    
+Conn Accept:   24.77/s    new subscrip:    0.15/s    unsubscribe:    0.03/s    Client count=0    
+
+Report#48 2019 07 23 06:59:33
+CLOSE Connec:    0.07/s    Unsub  topic:    0.07/s    new connecti:  118.66/s    q publish in: 2538.10/s    se err there:    0.07/s    Conn count=29194    
+Conn Accept:  118.66/s    new subscrip:    0.63/s    unsubscribe:    0.07/s    Client count=0    
+
+Report#49 2019 07 23 06:59:43
+CLOSE Connec:    0.03/s    Unsub  topic:    0.03/s    new connecti:   59.33/s    q publish in: 1269.05/s    se err there:    0.03/s    Conn count=29194    
+Conn Accept:   59.33/s    new subscrip:    0.32/s    unsubscribe:    0.03/s    Client count=0    
+
+Report#50 2019 07 23 06:59:53
+CLOSE Connec:    0.02/s    Unsub  topic:    0.02/s    new connecti:   29.67/s    q publish in:  634.53/s    se err there:    0.02/s    Conn count=29194    
+Conn Accept:   29.67/s    new subscrip:    0.16/s    unsubscribe:    0.02/s    Client count=0    
+
+Report#51 2019 07 23 07:00:03
+CLOSE Connec:    0.06/s    Unsub  topic:    0.06/s    new connecti:   98.72/s    q publish in: 2312.32/s    se err there:    0.06/s    Conn count=30703    
+Conn Accept:   98.72/s    new subscrip:    0.58/s    unsubscribe:    0.06/s    Client count=0    
+
+Report#52 2019 07 23 07:00:13
+CLOSE Connec:    0.03/s    Unsub  topic:    0.03/s    new connecti:   49.36/s    q publish in: 1156.16/s    se err there:    0.03/s    Conn count=30703    
+Conn Accept:   49.36/s    new subscrip:    0.29/s    unsubscribe:    0.03/s    Client count=0    
+
+Report#53 2019 07 23 07:00:23
+CLOSE Connec:    0.01/s    Unsub  topic:    0.01/s    new connecti:   22.21/s    q publish in:  520.27/s    se err there:    0.01/s    Conn count=30703    
+Conn Accept:   22.21/s    new subscrip:    0.13/s    unsubscribe:    0.01/s    Client count=0    
+
+Report#54 2019 07 23 07:00:33
+CLOSE Connec:    0.01/s    Unsub  topic:    0.01/s    new connecti:  104.84/s    q publish in: 2843.93/s    se err there:    0.01/s    Conn count=32368    
+Conn Accept:  104.84/s    new subscrip:    0.35/s    unsubscribe:    0.01/s    Client count=0    
+
+Report#55 2019 07 23 07:00:43
+new connecti:   52.42/s    q publish in: 1421.96/s    Conn count=32368    Conn Accept:   52.42/s    new subscrip:    0.18/s    Client count=0    
+
+
+Report#56 2019 07 23 07:00:53
+new connecti:   26.21/s    q publish in:  710.98/s    Conn count=32368    Conn Accept:   26.21/s    new subscrip:    0.09/s    Client count=0    
+
+
+Report#57 2019 07 23 07:01:03
+new connecti:   89.72/s    q publish in: 2496.66/s    Conn count=33747    Conn Accept:   89.72/s    new subscrip:    0.10/s    Client count=0    
+
+
+Report#58 2019 07 23 07:01:13
+new connecti:   40.37/s    q publish in: 1123.50/s    Conn count=33747    Conn Accept:   40.37/s    new subscrip:    0.04/s    Client count=0    
+
+
+Report#59 2019 07 23 07:01:23
+new connecti:   22.43/s    q publish in:  624.16/s    Conn count=33747    Conn Accept:   22.43/s    new subscrip:    0.02/s    Client count=0    
+
+
+Report#60 2019 07 23 07:01:33
+CLOSE Connec:    0.40/s    Unsub  topic:    0.40/s    new connecti:   99.19/s    q publish in: 2717.17/s    se err there:    0.40/s    Conn count=35521    
+Conn Accept:   99.19/s    new subscrip:    0.06/s    unsubscribe:    0.40/s    Client count=0    
+
+Report#61 2019 07 23 07:01:43
+CLOSE Connec:    0.22/s    Unsub  topic:    0.22/s    new connecti:   56.44/s    q publish in: 1980.65/s    se err there:    0.22/s    Conn count=35545    
+Conn Accept:   56.44/s    new subscrip:    0.03/s    unsubscribe:    0.22/s    Client count=0    
+
+Report#62 2019 07 23 07:01:53
+CLOSE Connec:    0.11/s    Unsub  topic:    0.11/s    new connecti:   28.22/s    q publish in: 1041.49/s    se err there:    0.11/s    Conn count=35545    
+Conn Accept:   28.22/s    new subscrip:    0.02/s    unsubscribe:    0.11/s    Client count=0    
+
+Report#63 2019 07 23 07:02:03
+CLOSE Connec:    0.05/s    Unsub  topic:    0.05/s    new connecti:   97.20/s    q publish in: 3310.22/s    se err there:    0.05/s    Conn count=37235    
+Conn Accept:   97.20/s    new subscrip:    0.16/s    unsubscribe:    0.05/s    Client count=0    
+
+Report#64 2019 07 23 07:02:13
+CLOSE Connec:    0.03/s    Unsub  topic:    0.03/s    new connecti:   54.00/s    q publish in: 1991.07/s    se err there:    0.03/s    Conn count=37235    
+Conn Accept:   54.00/s    new subscrip:    0.09/s    unsubscribe:    0.03/s    Client count=0    
+
+Report#65 2019 07 23 07:02:23
+CLOSE Connec:    0.01/s    Unsub  topic:    0.01/s    new connecti:   27.00/s    q publish in: 1122.70/s    se err there:    0.01/s    Conn count=37235    
+Conn Accept:   27.00/s    new subscrip:    0.04/s    unsubscribe:    0.01/s    Client count=0    
+
+Report#66 2019 07 23 07:02:33
+CLOSE Connec:    0.16/s    Unsub  topic:    0.16/s    new connecti:  108.45/s    q publish in: 4260.02/s    se err there:    0.16/s    Conn count=39158    
+Conn Accept:  108.45/s    new subscrip:    0.02/s    unsubscribe:    0.16/s    Client count=0    
+
+Report#67 2019 07 23 07:02:43
+CLOSE Connec:    0.09/s    Unsub  topic:    0.09/s    new connecti:   60.25/s    q publish in: 2929.23/s    se err there:    0.09/s    Conn count=39158    
+Conn Accept:   60.25/s    new subscrip:    0.01/s    unsubscribe:    0.09/s    Client count=0    
+
+Report#68 2019 07 23 07:02:53
+CLOSE Connec:    0.04/s    Unsub  topic:    0.04/s    new connecti:   30.12/s    q publish in: 1690.12/s    se err there:    0.04/s    Conn count=39158    
+Conn Accept:   30.12/s    new subscrip:    0.01/s    unsubscribe:    0.04/s    Client count=0    
+
+Report#69 2019 07 23 07:03:03
+CLOSE Connec:    0.08/s    Unsub  topic:    0.08/s    new connecti:   97.67/s    q publish in: 4354.45/s    se err there:    0.08/s    Conn count=40644    
+Conn Accept:   97.67/s    new subscrip:    0.06/s    unsubscribe:    0.08/s    Client count=0    
+
+Report#70 2019 07 23 07:03:13
+CLOSE Connec:    0.04/s    Unsub  topic:    0.04/s    new connecti:   48.84/s    q publish in: 2776.28/s    se err there:    0.04/s    Conn count=40644    
+Conn Accept:   48.84/s    new subscrip:    0.03/s    unsubscribe:    0.04/s    Client count=0    
+
+Report#71 2019 07 23 07:03:23
+CLOSE Connec:    0.02/s    Unsub  topic:    0.02/s    new connecti:   24.42/s    q publish in: 1631.86/s    se err there:    0.02/s    Conn count=40644    
+Conn Accept:   24.42/s    new subscrip:    0.01/s    unsubscribe:    0.02/s    Client count=0    
+
+Report#72 2019 07 23 07:03:33
+CLOSE Connec:    0.11/s    Unsub  topic:    0.11/s    new connecti:   87.44/s    q publish in: 4152.74/s    se err there:    0.11/s    Conn count=42171    
+Conn Accept:   87.44/s    new subscrip:    0.01/s    unsubscribe:    0.11/s    Client count=0    
+
+Report#73 2019 07 23 07:03:43
+CLOSE Connec:    0.06/s    Unsub  topic:    0.06/s    new connecti:   53.08/s    q publish in: 2912.74/s    se err there:    0.06/s    Conn count=42252    
+Conn Accept:   53.08/s    unsubscribe:    0.06/s    Client count=0    
+
+Report#74 2019 07 23 07:03:53
+CLOSE Connec:    0.03/s    Unsub  topic:    0.03/s    new connecti:   26.54/s    q publish in: 1768.82/s    se err there:    0.03/s    Conn count=42252    
+Conn Accept:   26.54/s    unsubscribe:    0.03/s    Client count=0    
+
+Report#75 2019 07 23 07:04:03
+CLOSE Connec:    0.06/s    Unsub  topic:    0.06/s    new connecti:   95.74/s    q publish in: 3553.22/s    se err there:    0.06/s    Conn count=43927    
+Conn Accept:   95.74/s    new subscrip:    0.05/s    unsubscribe:    0.06/s    Client count=0    
+
+Report#76 2019 07 23 07:04:13
+CLOSE Connec:    0.04/s    Unsub  topic:    0.04/s    new connecti:   55.13/s    q publish in: 3977.18/s    se err there:    0.04/s    Conn count=43962    
+Conn Accept:   55.13/s    new subscrip:    0.03/s    unsubscribe:    0.04/s    Client count=0    
+
+Report#77 2019 07 23 07:04:23
+CLOSE Connec:    0.02/s    Unsub  topic:    0.02/s    new connecti:   27.57/s    q publish in: 2281.92/s    se err there:    0.02/s    Conn count=43962    
+Conn Accept:   27.57/s    new subscrip:    0.01/s    unsubscribe:    0.02/s    Client count=0    
+
+Report#78 2019 07 23 07:04:33
+CLOSE Connec:    0.06/s    Unsub  topic:    0.06/s    new connecti:  103.11/s    q publish in: 4406.71/s    se err there:    0.06/s    Conn count=45775    
+Conn Accept:  103.11/s    new subscrip:    0.06/s    unsubscribe:    0.06/s    Client count=0    
+
+Report#79 2019 07 23 07:04:43
+CLOSE Connec:    0.03/s    Unsub  topic:    0.03/s    new connecti:   57.28/s    q publish in: 4960.06/s    se err there:    0.03/s    Conn count=45775    
+Conn Accept:   57.28/s    new subscrip:    0.03/s    unsubscribe:    0.03/s    Client count=0    
+
+Report#80 2019 07 23 07:04:53
+CLOSE Connec:    0.02/s    Unsub  topic:    0.02/s    new connecti:   28.64/s    q publish in: 3207.59/s    se err there:    0.02/s    Conn count=45775    
+Conn Accept:   28.64/s    new subscrip:    0.02/s    unsubscribe:    0.02/s    Client count=0    
+
+Report#81 2019 07 23 07:05:03
+CLOSE Connec:    0.21/s    Unsub  topic:    0.21/s    new connecti:   87.74/s    q publish in: 4741.96/s    se err there:    0.21/s    Conn count=47268    
+Conn Accept:   87.74/s    new subscrip:    0.01/s    unsubscribe:    0.21/s    Client count=0    
+
+Report#82 2019 07 23 07:05:13
+CLOSE Connec:    0.12/s    Unsub  topic:    0.12/s    new connecti:   49.19/s    q publish in: 3909.20/s    se err there:    0.12/s    Conn count=47276    
+Conn Accept:   49.19/s    unsubscribe:    0.12/s    Client count=0    
+
+Report#83 2019 07 23 07:05:23
+CLOSE Connec:    0.06/s    Unsub  topic:    0.06/s    new connecti:   24.59/s    q publish in: 2531.93/s    se err there:    0.06/s    Conn count=47276    
+Conn Accept:   24.59/s    unsubscribe:    0.06/s    Client count=0    
+
+Report#84 2019 07 23 07:05:33
+CLOSE Connec:    0.03/s    Unsub  topic:    0.03/s    new connecti:   75.32/s    q publish in: 5038.62/s    se err there:    0.03/s    Conn count=48561    
+Conn Accept:   75.32/s    new subscrip:    0.05/s    unsubscribe:    0.03/s    Client count=0    
+
+Report#85 2019 07 23 07:05:43
+CLOSE Connec:    0.01/s    Unsub  topic:    0.01/s    new connecti:   52.07/s    q publish in: 4565.29/s    se err there:    0.01/s    Conn count=48745    
+Conn Accept:   52.07/s    new subscrip:    0.03/s    unsubscribe:    0.01/s    Client count=0    
+
+Report#86 2019 07 23 07:05:53
+CLOSE Connec:    0.01/s    Unsub  topic:    0.01/s    new connecti:   26.03/s    q publish in: 3052.81/s    se err there:    0.01/s    Conn count=48745    
+Conn Accept:   26.03/s    new subscrip:    0.01/s    unsubscribe:    0.01/s    Client count=0    
+
+Report#87 2019 07 23 07:06:03
+CLOSE Connec:    0.25/s    Unsub  topic:    0.25/s    new connecti:   93.51/s    q publish in: 5392.51/s    se err there:    0.25/s    Conn count=50376    
+Conn Accept:   93.51/s    new subscrip:    0.01/s    unsubscribe:    0.25/s    Client count=0    
+
+Report#88 2019 07 23 07:06:13
+CLOSE Connec:    0.14/s    Unsub  topic:    0.14/s    new connecti:   51.95/s    q publish in: 5767.12/s    se err there:    0.14/s    Conn count=50376    
+Conn Accept:   51.95/s    unsubscribe:    0.14/s    Client count=0    
+
+Report#89 2019 07 23 07:06:23
+CLOSE Connec:    0.07/s    Unsub  topic:    0.07/s    new connecti:   25.98/s    q publish in: 3643.12/s    se err there:    0.07/s    Conn count=50376    
+Conn Accept:   25.98/s    unsubscribe:    0.07/s    Client count=0    
+
+Report#90 2019 07 23 07:06:33
+CLOSE Connec:    0.03/s    Unsub  topic:    0.03/s    new connecti:   96.94/s    q publish in: 5900.65/s    se err there:    0.03/s    Conn count=52081    
+Conn Accept:   96.94/s    unsubscribe:    0.03/s    Client count=0    
+
+Report#91 2019 07 23 07:06:43
+CLOSE Connec:    0.02/s    Unsub  topic:    0.02/s    new connecti:   53.86/s    q publish in: 7005.31/s    se err there:    0.02/s    Conn count=52081    
+Conn Accept:   53.86/s    unsubscribe:    0.02/s    Client count=0    
+
+Report#92 2019 07 23 07:06:53
+CLOSE Connec:    0.01/s    Unsub  topic:    0.01/s    new connecti:   26.93/s    q publish in: 4384.99/s    se err there:    0.01/s    Conn count=52081    
+Conn Accept:   26.93/s    unsubscribe:    0.01/s    Client count=0    
+
+Report#93 2019 07 23 07:07:03
+CLOSE Connec:    0.15/s    Unsub  topic:    0.15/s    new connecti:  103.87/s    q publish in: 6114.19/s    se err there:    0.20/s    Conn count=53913    
+Conn Accept:  103.87/s    unsubscribe:    0.10/s    Client count=0    
+
+Report#94 2019 07 23 07:07:13
+CLOSE Connec:    0.14/s    Unsub  topic:    0.14/s    new connecti:   58.37/s    q publish in: 8713.44/s    se err there:    0.11/s    Conn count=53924    
+Conn Accept:   58.37/s    unsubscribe:    0.17/s    Client count=0    
+
+Report#95 2019 07 23 07:07:23
+CLOSE Connec:    0.07/s    Unsub  topic:    0.07/s    new connecti:   29.19/s    q publish in: 5498.83/s    se err there:    0.06/s    Conn count=53924    
+Conn Accept:   29.19/s    unsubscribe:    0.08/s    Client count=0    
+
+Report#96 2019 07 23 07:07:33
+CLOSE Connec:    0.03/s    Unsub  topic:    0.03/s    new connecti:   95.48/s    q publish in: 6651.27/s    se err there:    0.03/s    Conn count=55571    
+Conn Accept:   95.48/s    unsubscribe:    0.04/s    Client count=0    
+
+Report#97 2019 07 23 07:07:43
+CLOSE Connec:    0.07/s    Unsub  topic:    0.07/s    new connecti:   53.10/s    q publish in: 8357.54/s    se err there:    0.07/s    Conn count=55571    
+Conn Accept:   53.10/s    unsubscribe:    0.08/s    Client count=0    
+
+Report#98 2019 07 23 07:07:53
+CLOSE Connec:    0.04/s    Unsub  topic:    0.04/s    new connecti:   26.55/s    q publish in: 5556.10/s    se err there:    0.03/s    Conn count=55571    
+Conn Accept:   26.55/s    unsubscribe:    0.04/s    Client count=0    
+
+Report#99 2019 07 23 07:08:03
+CLOSE Connec:    0.02/s    Unsub  topic:    0.02/s    new connecti:   90.80/s    q publish in: 4544.35/s    se err there:    0.02/s    Conn count=57148    
+Conn Accept:   90.80/s    unsubscribe:    0.02/s    Client count=0    
+
+Report#100 2019 07 23 07:08:13
+CLOSE Connec:    0.01/s    Unsub  topic:    0.01/s    new connecti:   50.44/s    q publish in:10353.80/s    se err there:    0.01/s    Conn count=57148    
+Conn Accept:   50.44/s    unsubscribe:    0.01/s    Client count=0    
+
+Report#101 2019 07 23 07:08:23
+new connecti:   25.22/s    q publish in: 6865.68/s    Conn count=57148    Conn Accept:   25.22/s    Client count=0    
+
+Report#102 2019 07 23 07:08:33
+CLOSE Connec:    0.20/s    Unsub  topic:    0.20/s    new connecti:   89.80/s    q publish in: 7327.11/s    se err there:    0.25/s    Conn count=58713    
+Conn Accept:   89.80/s    unsubscribe:    0.20/s    Client count=0    
+
+Report#103 2019 07 23 07:08:43
+CLOSE Connec:    0.22/s    Unsub  topic:    0.22/s    new connecti:   65.67/s    q publish in:10779.28/s    se err there:    0.19/s    Conn count=58995    
+Conn Accept:   65.67/s    unsubscribe:    0.22/s    Client count=0    
+
+Report#104 2019 07 23 07:08:53
+CLOSE Connec:    0.10/s    Unsub  topic:    0.10/s    new connecti:   29.55/s    q publish in: 6783.78/s    se err there:    0.09/s    Conn count=58995    
+Conn Accept:   29.55/s    unsubscribe:    0.10/s    Client count=0    
+
+Report#105 2019 07 23 07:09:03
+CLOSE Connec:    0.05/s    Unsub  topic:    0.05/s    new connecti:   87.37/s    q publish in: 7714.89/s    se err there:    0.04/s    Conn count=60447    
+Conn Accept:   87.37/s    unsubscribe:    0.05/s    Client count=0    
+
+Report#106 2019 07 23 07:09:13
+CLOSE Connec:    0.03/s    Unsub  topic:    0.03/s    new connecti:   52.82/s    q publish in: 9408.88/s    se err there:    0.02/s    Conn count=60524    
+Conn Accept:   52.82/s    unsubscribe:    0.03/s    Client count=0    
+
+Report#107 2019 07 23 07:09:23
+CLOSE Connec:    0.01/s    Unsub  topic:    0.01/s    new connecti:   26.41/s    q publish in: 6734.94/s    se err there:    0.01/s    Conn count=60524    
+Conn Accept:   26.41/s    unsubscribe:    0.01/s    Client count=0    
+
+Report#108 2019 07 23 07:09:33
+CLOSE Connec:    0.11/s    Unsub  topic:    0.11/s    new connecti:   99.58/s    q publish in: 7279.67/s    se err there:    0.16/s    Conn count=62276    
+Conn Accept:   99.58/s    unsubscribe:    0.11/s    Client count=0    
+
+Report#109 2019 07 23 07:09:43
+CLOSE Connec:    0.17/s    Unsub  topic:    0.17/s    new connecti:   55.99/s    q publish in:11435.82/s    se err there:    0.14/s    Conn count=62286    
+Conn Accept:   55.99/s    unsubscribe:    0.17/s    Client count=0    
+
+Report#110 2019 07 23 07:09:53
+CLOSE Connec:    0.09/s    Unsub  topic:    0.09/s    new connecti:   28.00/s    q publish in: 7678.74/s    se err there:    0.07/s    Conn count=62286    
+Conn Accept:   28.00/s    unsubscribe:    0.09/s    Client count=0    
+
+Report#111 2019 07 23 07:10:03
+CLOSE Connec:    0.09/s    Unsub  topic:    0.09/s    new connecti:  104.20/s    q publish in: 7754.13/s    se err there:    0.08/s    Conn count=64117    
+Conn Accept:  104.20/s    unsubscribe:    0.09/s    Client count=0    
+
+Report#112 2019 07 23 07:10:13
+CLOSE Connec:    0.04/s    Unsub  topic:    0.04/s    new connecti:   57.00/s    q publish in:13241.12/s    se err there:    0.04/s    Conn count=64215    
+Conn Accept:   57.00/s    unsubscribe:    0.04/s    Client count=0    
+
+Report#113 2019 07 23 07:10:23
+CLOSE Connec:    0.02/s    Unsub  topic:    0.02/s    new connecti:   28.50/s    q publish in: 8861.86/s    se err there:    0.02/s    Conn count=64215    
+Conn Accept:   28.50/s    unsubscribe:    0.02/s    Client count=0    
+
+Report#114 2019 07 23 07:10:33
+CLOSE Connec:    0.12/s    Unsub  topic:    0.12/s    new connecti:   99.89/s    q publish in:10594.03/s    se err there:    0.12/s    Conn count=65726    
+Conn Accept:   99.89/s    unsubscribe:    0.12/s    Client count=0    
+
+Report#115 2019 07 23 07:10:43
+CLOSE Connec:    0.12/s    Unsub  topic:    0.12/s    new connecti:   54.39/s    q publish in:14826.79/s    se err there:    0.12/s    Conn count=65805    
+Conn Accept:   54.39/s    unsubscribe:    0.12/s    Client count=0    
+
+Report#116 2019 07 23 07:10:53
+CLOSE Connec:    0.06/s    Unsub  topic:    0.06/s    new connecti:   27.19/s    q publish in: 9801.90/s    se err there:    0.06/s    Conn count=65805    
+Conn Accept:   27.19/s    unsubscribe:    0.06/s    Client count=0    
+
+Report#117 2019 07 23 07:11:03
+CLOSE Connec:    0.08/s    Unsub  topic:    0.08/s    new connecti:  106.44/s    q publish in: 8875.15/s    se err there:    0.08/s    Conn count=67688    
+Conn Accept:  106.44/s    unsubscribe:    0.08/s    Client count=0    
+
+Report#118 2019 07 23 07:11:13
+CLOSE Connec:    0.09/s    Unsub  topic:    0.09/s    new connecti:   53.27/s    q publish in:12708.48/s    se err there:    0.09/s    Conn count=67688    
+Conn Accept:   53.27/s    unsubscribe:    0.09/s    Client count=0    
+
+Report#119 2019 07 23 07:11:23
+CLOSE Connec:    0.05/s    Unsub  topic:    0.05/s    new connecti:   29.59/s    q publish in:12773.88/s    se err there:    0.05/s    Conn count=67688    
+Conn Accept:   29.59/s    unsubscribe:    0.05/s    Client count=0    
+
+Report#120 2019 07 23 07:11:33
+CLOSE Connec:   28.08/s    Unsub  topic:   28.08/s    new connecti:  201.46/s    q publish in: 9288.05/s    se err EOF:   86.50/s    se err there:    0.02/s    
+se err write:    0.06/s    Conn count=70543    Conn Accept:  201.46/s    lost conn de:    0.06/s    unsubscribe:   27.58/s    Client count=0    
+
+
+Report#121 2019 07 23 07:11:43
+CLOSE Connec:   59.82/s    Unsub  topic:   59.82/s    new connecti:  100.73/s    q publish in:13068.91/s    se err EOF:   44.75/s    se err there:    0.01/s    
+se err write:    0.03/s    Conn count=69719    Conn Accept:  100.73/s    lost conn de:    0.42/s    unsubscribe:   59.57/s    Client count=0    
+
+
+Report#122 2019 07 23 07:11:53
+CLOSE Connec:   44.19/s    Unsub  topic:   44.19/s    new connecti:   50.42/s    q publish in:14928.96/s    se err EOF:   22.38/s    se err there:    0.06/s    
+se err write:    0.01/s    Conn count=69463    Conn Accept:   50.42/s    lost conn de:    0.32/s    unsubscribe:   44.56/s    Client count=0    
+
+
+Report#123 2019 07 23 07:12:03
+CLOSE Connec:   57.63/s    Unsub  topic:   57.63/s    new connecti:  188.04/s    q publish in:15804.63/s    se err EOF:   89.32/s    se err read :    1.25/s    
+se err there:    0.08/s    se err write:    0.06/s    Conn count=72015    Conn Accept:  188.04/s    lost conn de:    0.59/s    unsubscribe:   57.20/s    
+Client count=0    
+
+Report#124 2019 07 23 07:12:13
+CLOSE Connec:  140.85/s    Unsub  topic:  140.85/s    new connecti:  108.41/s    q publish in:15905.29/s    se err EOF:  213.84/s    se err read :   24.36/s    
+se err there:    0.21/s    se err write:    0.14/s    Conn count=70127    Conn Accept:  108.41/s    lost conn de:    0.55/s    unsubscribe:  141.28/s    
+Client count=0    
+
+Report#125 2019 07 23 07:12:23
+CLOSE Connec:  232.13/s    Unsub  topic:  232.13/s    new connecti:   57.38/s    q publish in: 8005.38/s    se err EOF:  404.98/s    se err read :   38.01/s    
+se err there:    0.09/s    se err write:    0.06/s    Conn count=66924    Conn Accept:   57.38/s    lost conn de:    0.25/s    unsubscribe:  232.33/s    
+Client count=0    
+
+Report#126 2019 07 23 07:12:33
+CLOSE Connec:  177.30/s    Unsub  topic:  175.85/s    new connecti:  187.49/s    q publish in: 6658.44/s    se err EOF:  460.82/s    se err read :   36.17/s    
+se err there:    0.11/s    se err write:    0.20/s    Conn count=68855    Conn Accept:  187.49/s    lost conn de:    0.30/s    unsubscribe:  173.79/s    
+Client count=0    
+
+Report#127 2019 07 23 07:12:43
+CLOSE Connec:  143.48/s    Unsub  topic:  142.83/s    new connecti:   95.87/s    q publish in: 3625.00/s    se err EOF:  367.67/s    se err read :   18.13/s    
+se err there:    0.05/s    se err write:    0.09/s    Conn count=67811    Conn Accept:   95.87/s    lost conn de:    0.19/s    unsubscribe:  143.11/s    
+Client count=0    
+
+Report#128 2019 07 23 07:12:53
+CLOSE Connec:  129.60/s    Unsub  topic:  129.24/s    new connecti:   63.32/s    q publish in: 2597.66/s    se err EOF:  207.98/s    se err read :   10.29/s    
+se err there:    0.03/s    se err write:    0.05/s    Conn count=67094    Conn Accept:   63.32/s    lost conn de:    0.10/s    unsubscribe:  130.23/s    
+Client count=0    
+
+Report#129 2019 07 23 07:13:03
+CLOSE Connec:  119.47/s    Unsub  topic:  119.29/s    new connecti:  135.27/s    q publish in: 2342.83/s    se err EOF:  172.10/s    se err read :    5.15/s    
+se err there:    0.01/s    se err write:    0.08/s    Conn count=67975    Conn Accept:  135.27/s    lost conn de:    0.27/s    unsubscribe:  118.95/s    
+Client count=0    
+
+Report#130 2019 07 23 07:13:13
+CLOSE Connec:  180.66/s    Unsub  topic:  180.58/s    new connecti:  122.87/s    q publish in: 2810.57/s    se err EOF:  365.50/s    se err read :   24.92/s    
+se err there:    0.01/s    se err write:    0.04/s    Conn count=66677    Conn Accept:  122.87/s    lost conn de:    0.32/s    unsubscribe:  181.18/s    
+Client count=0    
+
+Report#131 2019 07 23 07:13:23
+CLOSE Connec:  101.09/s    Unsub  topic:  101.04/s    new connecti:   77.32/s    q publish in: 1893.82/s    se err EOF:  204.61/s    se err read :   13.84/s    
+se err write:    0.02/s    Conn count=66827    Conn Accept:   77.32/s    lost conn de:    0.18/s    unsubscribe:  101.32/s    Client count=0    
+
+
+Report#132 2019 07 23 07:13:33
+CLOSE Connec:   66.10/s    Unsub  topic:   66.08/s    new connecti:  152.99/s    q publish in: 2195.47/s    se err EOF:  148.58/s    se err read :    6.98/s    
+se err write:    0.01/s    Conn count=68605    Conn Accept:  152.99/s    lost conn de:    0.26/s    unsubscribe:   66.27/s    Client count=0    
+
+
+Report#133 2019 07 23 07:13:43
+CLOSE Connec:   34.88/s    Unsub  topic:   34.87/s    new connecti:   98.27/s    q publish in: 1656.12/s    se err EOF:   76.29/s    se err read :    3.54/s    
+se err write:    0.01/s    Conn count=68964    Conn Accept:   98.27/s    lost conn de:    0.24/s    unsubscribe:   34.69/s    Client count=0    
+
+
+Report#134 2019 07 23 07:13:53
+CLOSE Connec:   17.83/s    Unsub  topic:   17.82/s    new connecti:   60.36/s    q publish in: 1229.89/s    se err EOF:   39.70/s    se err read :    1.77/s    
+Conn count=69159    Conn Accept:   60.36/s    lost conn de:    0.12/s    unsubscribe:   17.68/s    Client count=0    
+
+Report#135 2019 07 23 07:14:03
+CLOSE Connec:   29.25/s    Unsub  topic:   29.25/s    new connecti:  142.29/s    q publish in: 1749.67/s    se err EOF:   74.80/s    se err read :    1.61/s    
+se err there:    0.06/s    Conn count=70811    Conn Accept:  142.29/s    lost conn de:    0.17/s    unsubscribe:   29.12/s    Client count=0    
+
+
+Report#136 2019 07 23 07:14:13
+CLOSE Connec:   17.18/s    Unsub  topic:   17.18/s    new connecti:  105.70/s    q publish in: 1611.22/s    se err EOF:   42.68/s    se err read :    0.97/s    
+se err there:    0.03/s    Conn count=71387    Conn Accept:  105.70/s    lost conn de:    0.09/s    unsubscribe:   16.73/s    Client count=0    
+
+
+Report#137 2019 07 23 07:14:23
+CLOSE Connec:   12.53/s    Unsub  topic:   12.53/s    new connecti:   62.63/s    q publish in: 1355.45/s    se err EOF:   25.34/s    se err read :    0.49/s    
+se err there:    0.07/s    Conn count=71492    Conn Accept:   62.63/s    lost conn de:    0.04/s    unsubscribe:   12.25/s    Client count=0    
+
+
+Report#138 2019 07 23 07:14:33
+CLOSE Connec:   33.60/s    Unsub  topic:   33.60/s    new connecti:  167.31/s    q publish in: 1856.17/s    se err EOF:   71.95/s    se err read :    0.35/s    
+se err there:    0.15/s    se err write:    0.06/s    Conn count=73448    Conn Accept:  167.31/s    lost conn de:    0.35/s    unsubscribe:   33.51/s    
+Client count=0    
+
+Report#139 2019 07 23 07:14:43
+CLOSE Connec:   19.69/s    Unsub  topic:   19.69/s    new connecti:  106.66/s    q publish in: 1949.47/s    se err EOF:   38.31/s    se err read :    0.18/s    
+se err there:    0.13/s    se err write:    0.03/s    Conn count=73810    Conn Accept:  106.66/s    lost conn de:    0.18/s    unsubscribe:   20.26/s    
+Client count=0    
+
+Report#140 2019 07 23 07:14:53
+CLOSE Connec:   11.68/s    Unsub  topic:   11.68/s    new connecti:   64.16/s    q publish in: 1496.01/s    se err EOF:   20.21/s    se err read :    0.14/s    
+se err there:    0.06/s    se err write:    0.35/s    Conn count=73972    Conn Accept:   64.16/s    lost conn de:    0.14/s    unsubscribe:   11.18/s    
+Client count=0    
+
+Report#141 2019 07 23 07:15:04
+CLOSE Connec:   44.76/s    Unsub  topic:   44.01/s    new connecti:  125.67/s    q publish in: 1692.46/s    se err EOF:  160.54/s    se err read :    7.76/s    
+se err there:    0.03/s    se err write:    0.36/s    Conn count=75118    Conn Accept:  125.67/s    lost conn de:    0.16/s    unsubscribe:   42.28/s    
+Client count=0    
+
+Report#142 2019 07 23 07:15:13
+CLOSE Connec:  121.91/s    Unsub  topic:  119.94/s    new connecti:  119.92/s    q publish in: 1366.72/s    se err EOF:  448.03/s    se err read :   21.85/s    
+se err there:    0.02/s    se err write:    0.47/s    Conn count=74277    Conn Accept:  119.92/s    lost conn de:    0.17/s    unsubscribe:  120.93/s    
+Client count=0    
+
+Report#143 2019 07 23 07:15:23
+CLOSE Connec:  114.40/s    Unsub  topic:  113.53/s    new connecti:   65.19/s    q publish in:  907.21/s    se err EOF:  200.79/s    se err read :    9.88/s    
+se err there:    0.01/s    se err write:    0.21/s    Conn count=73407    Conn Accept:   65.19/s    lost conn de:    0.13/s    unsubscribe:  113.13/s    
+Client count=0    
+
+Report#144 2019 07 23 07:15:33
+CLOSE Connec:  107.31/s    Unsub  topic:  106.88/s    new connecti:  104.26/s    q publish in:  875.88/s    se err EOF:  277.39/s    se err read :    8.22/s    
+se err write:    0.44/s    Conn count=73795    Conn Accept:  104.26/s    lost conn de:    0.23/s    unsubscribe:  105.18/s    Client count=0    
+
+
+Report#145 2019 07 23 07:15:43
+CLOSE Connec:  150.99/s    Unsub  topic:  150.77/s    new connecti:   95.46/s    q publish in:  696.77/s    se err EOF:  287.31/s    se err read :    7.55/s    
+se err write:    0.22/s    Conn count=72823    Conn Accept:   95.46/s    lost conn de:    0.17/s    unsubscribe:  148.92/s    Client count=0    
+
+
+Report#146 2019 07 23 07:15:53
+CLOSE Connec:  185.38/s    Unsub  topic:  185.27/s    new connecti:   61.29/s    q publish in:  562.00/s    se err EOF:  286.82/s    se err read :   10.17/s    
+se err write:    0.17/s    Conn count=71089    Conn Accept:   61.29/s    lost conn de:    0.09/s    unsubscribe:  186.85/s    Client count=0    
+
+
+Report#147 2019 07 23 07:16:03
+CLOSE Connec:  116.36/s    Unsub  topic:  116.30/s    new connecti:   94.42/s    q publish in:  597.94/s    se err EOF:  166.69/s    se err read :    5.30/s    
+se err write:    0.08/s    Conn count=71811    Conn Accept:   94.42/s    lost conn de:    0.04/s    unsubscribe:  118.31/s    Client count=0    
+
+
+Report#148 2019 07 23 07:16:13
+CLOSE Connec:  114.85/s    Unsub  topic:  114.76/s    new connecti:   92.77/s    q publish in:  551.47/s    se err EOF:  223.68/s    se err read :    4.76/s    
+se err write:    0.54/s    Conn count=71611    Conn Accept:   92.77/s    lost conn de:    0.13/s    unsubscribe:  115.60/s    Client count=0    
+
+
+Report#149 2019 07 23 07:16:23
+CLOSE Connec:   59.70/s    Unsub  topic:   59.66/s    new connecti:   61.72/s    q publish in:  452.90/s    se err EOF:  114.12/s    se err read :    2.49/s    
+se err write:    0.60/s    Conn count=71846    Conn Accept:   61.72/s    lost conn de:    0.12/s    unsubscribe:   59.36/s    Client count=0    
+
+
+Report#150 2019 07 23 07:16:33
+CLOSE Connec:   37.68/s    Unsub  topic:   37.66/s    new connecti:   91.52/s    q publish in:  540.51/s    se err EOF:   84.50/s    se err read :    1.52/s    
+se err write:    0.36/s    Conn count=72797    Conn Accept:   91.52/s    lost conn de:    0.06/s    unsubscribe:   38.18/s    Client count=0    
+
+
+Report#151 2019 07 23 07:16:43
+CLOSE Connec:   41.79/s    Unsub  topic:   41.78/s    new connecti:   92.15/s    q publish in:  751.70/s    se err EOF:   44.42/s    se err read :    0.76/s    
+se err write:    0.29/s    Conn count=73219    Conn Accept:   92.15/s    lost conn de:    0.03/s    unsubscribe:   41.53/s    Client count=0    
+
+
+Report#152 2019 07 23 07:16:53
+CLOSE Connec:   23.28/s    Unsub  topic:   23.28/s    new connecti:   58.63/s    q publish in:  767.68/s    se err EOF:   24.38/s    se err read :    0.44/s    
+se err write:    0.92/s    Conn count=73402    Conn Accept:   58.63/s    lost conn de:    0.02/s    unsubscribe:   23.27/s    Client count=0    
+
+
+Report#153 2019 07 23 07:17:03
+CLOSE Connec:   18.25/s    Unsub  topic:   18.25/s    new connecti:   85.15/s    q publish in:  713.45/s    se err EOF:   32.52/s    se err read :    0.33/s    
+se err write:    0.52/s    Conn count=74288    Conn Accept:   85.15/s    lost conn de:    0.06/s    unsubscribe:   18.41/s    Client count=0    
+
+
+Report#154 2019 07 23 07:17:13
+CLOSE Connec:   64.63/s    Unsub  topic:   63.90/s    new connecti:   90.46/s    q publish in:  614.78/s    se err EOF:  147.37/s    se err read :    7.28/s    
+se err write:    0.31/s    Conn count=74151    Conn Accept:   90.46/s    lost conn de:    0.03/s    unsubscribe:   63.48/s    Client count=0    
+
+
+Report#155 2019 07 23 07:17:23
+CLOSE Connec:   35.42/s    Unsub  topic:   35.06/s    new connecti:   62.62/s    q publish in:  462.45/s    se err EOF:   76.35/s    se err read :    3.64/s    
+se err write:    0.49/s    Conn count=74408    Conn Accept:   62.62/s    lost conn de:    0.07/s    unsubscribe:   34.85/s    Client count=0    
+
+
+Report#156 2019 07 23 07:17:33
+CLOSE Connec:   25.77/s    Unsub  topic:   25.59/s    new connecti:   84.98/s    q publish in:  465.17/s    se err EOF:   58.01/s    se err read :    2.04/s    
+se err write:    0.52/s    Conn count=75229    Conn Accept:   84.98/s    lost conn de:    0.04/s    unsubscribe:   24.76/s    Client count=0    
+
+
+Report#157 2019 07 23 07:17:43
+CLOSE Connec:   14.55/s    Unsub  topic:   14.46/s    new connecti:   94.54/s    q publish in:  558.25/s    se err EOF:   30.73/s    se err read :    1.02/s    
+se err write:    0.32/s    Conn count=76136    Conn Accept:   94.54/s    lost conn de:    0.07/s    unsubscribe:   14.38/s    Client count=0    
+
+
+Report#158 2019 07 23 07:17:53
+CLOSE Connec:    9.66/s    Unsub  topic:    9.62/s    new connecti:   61.33/s    q publish in:  400.96/s    se err EOF:   19.53/s    se err read :    0.51/s    
+se err write:    0.16/s    Conn count=76346    Conn Accept:   61.33/s    lost conn de:    0.04/s    unsubscribe:   10.19/s    Client count=0    
+
+
+Report#159 2019 07 23 07:18:03
+CLOSE Connec:   10.78/s    Unsub  topic:   10.75/s    new connecti:   75.00/s    q publish in:  393.09/s    se err EOF:   27.38/s    se err read :    0.26/s    
+se err write:    0.08/s    Conn count=77037    Conn Accept:   75.00/s    lost conn de:    0.02/s    new subscrip:    0.06/s    unsubscribe:   10.43/s    
+Client count=0    
+
+Report#160 2019 07 23 07:18:13
+CLOSE Connec:   62.50/s    Unsub  topic:   61.27/s    new connecti:   96.00/s    q publish in:  541.71/s    se err EOF:  139.80/s    se err read :    6.24/s    
+se err write:    0.37/s    Conn count=77062    Conn Accept:   96.00/s    lost conn de:    0.01/s    new subscrip:    0.03/s    unsubscribe:   61.44/s    
+Client count=0    
+
+Report#161 2019 07 23 07:18:23
+CLOSE Connec:   35.53/s    Unsub  topic:   34.91/s    new connecti:   64.44/s    q publish in:  446.02/s    se err EOF:   74.29/s    se err read :    3.12/s    
+se err write:    0.19/s    Conn count=77281    Conn Accept:   64.44/s    new subscrip:    0.01/s    unsubscribe:   34.83/s    Client count=0    
+
+
+Report#162 2019 07 23 07:18:33
+CLOSE Connec:   24.04/s    Unsub  topic:   23.73/s    new connecti:   74.50/s    q publish in:  378.34/s    se err EOF:   53.31/s    se err read :    1.67/s    
+se err write:    0.26/s    Conn count=77929    Conn Accept:   74.50/s    lost conn de:    0.06/s    new subscrip:    0.01/s    unsubscribe:   23.36/s    
+Client count=0    
+
+Report#163 2019 07 23 07:18:43
+CLOSE Connec:   12.72/s    Unsub  topic:   12.58/s    new connecti:   84.87/s    q publish in:  487.21/s    se err EOF:   28.29/s    se err read :    0.75/s    
+se err write:    0.22/s    Conn count=78918    Conn Accept:   84.87/s    lost conn de:    0.03/s    unsubscribe:   13.51/s    Client count=0    
+
+
+Report#164 2019 07 23 07:18:53
+CLOSE Connec:    8.95/s    Unsub  topic:    8.88/s    new connecti:   63.10/s    q publish in:  446.06/s    se err EOF:   19.27/s    se err read :    0.47/s    
+se err write:    0.23/s    Conn count=79171    Conn Accept:   63.10/s    lost conn de:    0.01/s    unsubscribe:    9.01/s    Client count=0    
+
+
+Report#165 2019 07 23 07:19:03
+CLOSE Connec:    8.38/s    Unsub  topic:    8.34/s    new connecti:   62.89/s    q publish in:  360.93/s    se err EOF:   20.87/s    se err read :    0.26/s    
+se err write:    0.25/s    Conn count=79774    Conn Accept:   62.89/s    lost conn de:    0.01/s    unsubscribe:    8.65/s    Client count=0    
+
+
+Report#166 2019 07 23 07:19:13
+CLOSE Connec:    6.32/s    Unsub  topic:    6.30/s    new connecti:   91.89/s    q publish in:  512.07/s    se err EOF:   13.37/s    se err read :    0.20/s    
+se err write:    0.31/s    Conn count=80769    Conn Accept:   91.89/s    unsubscribe:    6.25/s    Client count=0    
+
+Report#167 2019 07 23 07:19:23
+CLOSE Connec:    4.88/s    Unsub  topic:    4.87/s    new connecti:   61.33/s    q publish in:  394.31/s    se err EOF:    8.85/s    se err read :    0.10/s    
+se err write:    0.21/s    Conn count=81015    Conn Accept:   61.33/s    unsubscribe:    5.13/s    Client count=0    
+
+Report#168 2019 07 23 07:19:33
+CLOSE Connec:    9.00/s    Unsub  topic:    8.99/s    new connecti:   73.94/s    q publish in:  384.49/s    se err EOF:   21.87/s    se err read :    0.05/s    
+se err write:    0.44/s    Conn count=81676    Conn Accept:   73.94/s    unsubscribe:    8.73/s    Client count=0    
+
+Report#169 2019 07 23 07:19:43
+CLOSE Connec:    5.94/s    Unsub  topic:    5.94/s    new connecti:   91.53/s    q publish in:  491.13/s    se err EOF:   13.99/s    se err read :    0.03/s    
+se err there:    0.06/s    se err write:    0.50/s    Conn count=82632    Conn Accept:   91.53/s    unsubscribe:    6.03/s    Client count=0    
+
+
+Report#170 2019 07 23 07:19:53
+CLOSE Connec:    5.14/s    Unsub  topic:    5.14/s    new connecti:   60.37/s    q publish in:  390.46/s    se err EOF:   10.33/s    se err read :    0.01/s    
+se err there:    0.03/s    se err write:    0.47/s    Conn count=82856    Conn Accept:   60.37/s    unsubscribe:    5.13/s    Client count=0    
+
+
+Report#171 2019 07 23 07:20:03
+CLOSE Connec:    5.90/s    Unsub  topic:    5.90/s    new connecti:   69.97/s    q publish in:  417.34/s    se err EOF:   16.83/s    se err read :    0.01/s    
+se err there:    0.07/s    se err write:    0.35/s    Conn count=83512    Conn Accept:   69.97/s    unsubscribe:    6.01/s    Client count=0    
+
+
+Report#172 2019 07 23 07:20:13
+CLOSE Connec:    3.86/s    Unsub  topic:    3.86/s    new connecti:   83.48/s    q publish in:  460.60/s    se err EOF:    9.07/s    se err there:    0.03/s    
+se err write:    0.46/s    Conn count=84528    Conn Accept:   83.48/s    unsubscribe:    3.95/s    Client count=0    
+
+Report#173 2019 07 23 07:20:23
+CLOSE Connec:    4.48/s    Unsub  topic:    4.48/s    new connecti:   61.82/s    q publish in:  526.39/s    se err EOF:    8.04/s    se err read :    0.06/s    
+se err there:    0.02/s    se err write:    0.64/s    Conn count=84764    Conn Accept:   61.82/s    unsubscribe:    4.42/s    Client count=0    
+
+
+Report#174 2019 07 23 07:20:33
+CLOSE Connec:    7.46/s    Unsub  topic:    7.46/s    new connecti:   69.97/s    q publish in:  587.70/s    se err EOF:   17.02/s    se err read :    0.03/s    
+se err there:    0.01/s    se err write:    0.49/s    Conn count=85373    Conn Accept:   69.97/s    unsubscribe:    7.99/s    Client count=0    
+
+
+Report#175 2019 07 23 07:20:43
+CLOSE Connec:    5.40/s    Unsub  topic:    5.40/s    new connecti:   90.04/s    q publish in:  684.74/s    se err EOF:    9.95/s    se err read :    0.01/s    
+se err write:    0.41/s    Conn count=86334    Conn Accept:   90.04/s    unsubscribe:    4.99/s    Client count=0    
+
+Report#176 2019 07 23 07:20:53
+CLOSE Connec:    3.92/s    Unsub  topic:    3.92/s    new connecti:   59.30/s    q publish in:  471.03/s    se err EOF:    6.70/s    se err read :    0.01/s    
+se err write:    0.32/s    Conn count=86569    Conn Accept:   59.30/s    unsubscribe:    3.39/s    Client count=0    
+
+Report#177 2019 07 23 07:21:03
+CLOSE Connec:    5.71/s    Unsub  topic:    5.71/s    new connecti:   60.43/s    q publish in:  374.52/s    se err EOF:   13.46/s    se err write:    0.29/s    
+Conn count=87165    Conn Accept:   60.43/s    lost conn de:    0.05/s    unsubscribe:    5.87/s    Client count=0    
+
+Report#178 2019 07 23 07:21:13
+CLOSE Connec:    4.01/s    Unsub  topic:    4.01/s    new connecti:   83.02/s    q publish in:  625.11/s    se err EOF:    8.18/s    se err write:    0.30/s    
+Conn count=88198    Conn Accept:   83.02/s    lost conn de:    0.03/s    unsubscribe:    4.09/s    Client count=0    
+
+Report#179 2019 07 23 07:21:23
+CLOSE Connec:    4.50/s    Unsub  topic:    4.50/s    new connecti:   60.73/s    q publish in:  556.78/s    se err EOF:    8.10/s    se err write:    0.83/s    
+Conn count=88420    Conn Accept:   60.73/s    lost conn de:    0.07/s    unsubscribe:    4.16/s    Client count=0    
+
+Report#180 2019 07 23 07:21:33
+CLOSE Connec:    6.09/s    Unsub  topic:    6.03/s    new connecti:   55.53/s    q publish in:  391.56/s    se err EOF:   17.00/s    se err write:    0.80/s    
+Conn count=88804    Conn Accept:   55.53/s    lost conn de:    0.09/s    unsubscribe:    5.86/s    Client count=0    
+
+Report#181 2019 07 23 07:21:43
+CLOSE Connec:    6.15/s    Unsub  topic:    6.13/s    new connecti:   80.99/s    q publish in:  635.83/s    se err EOF:   10.83/s    se err read :    0.11/s    
+se err write:    0.79/s    Conn count=89706    Conn Accept:   80.99/s    lost conn de:    0.27/s    unsubscribe:    6.98/s    Client count=0    
+
+
+Report#182 2019 07 23 07:21:53
+CLOSE Connec:    4.30/s    Unsub  topic:    4.29/s    new connecti:   53.83/s    q publish in:  597.70/s    se err EOF:    6.19/s    se err read :    0.06/s    
+se err write:    0.84/s    Conn count=89924    Conn Accept:   53.83/s    lost conn de:    0.13/s    unsubscribe:    4.44/s    Client count=0    
+
+
+Report#183 2019 07 23 07:22:03
+CLOSE Connec:    5.87/s    Unsub  topic:    5.86/s    new connecti:   50.41/s    q publish in:  483.46/s    se err EOF:   14.93/s    se err read :    0.03/s    
+se err write:    0.53/s    Conn count=90280    Conn Accept:   50.41/s    lost conn de:    0.07/s    unsubscribe:    5.77/s    Client count=0    
+
+
+Report#184 2019 07 23 07:22:13
+CLOSE Connec:    5.32/s    Unsub  topic:    5.32/s    new connecti:   81.26/s    q publish in:  699.28/s    se err EOF:    9.74/s    se err read :    0.01/s    
+se err write:    0.32/s    Conn count=91246    Conn Accept:   81.26/s    lost conn de:    0.03/s    unsubscribe:    4.66/s    Client count=0    
+
+
+Report#185 2019 07 23 07:22:23
+CLOSE Connec:    4.30/s    Unsub  topic:    4.29/s    new connecti:   51.12/s    q publish in:  588.48/s    se err EOF:    6.28/s    se err read :    0.01/s    
+se err write:    0.14/s    Conn count=91499    Conn Accept:   51.12/s    lost conn de:    0.02/s    unsubscribe:    3.45/s    Client count=0    
+
+
+Report#186 2019 07 23 07:22:33
+CLOSE Connec:    8.33/s    Unsub  topic:    8.33/s    new connecti:   54.84/s    q publish in:  600.82/s    se err EOF:   17.10/s    se err write:    0.08/s    
+Conn count=91868    Conn Accept:   54.84/s    lost conn de:    0.06/s    unsubscribe:    7.19/s    Client count=0    
+
+Report#187 2019 07 23 07:22:43
+CLOSE Connec:    8.22/s    Unsub  topic:    8.22/s    new connecti:   80.81/s    q publish in:  594.74/s    se err EOF:   12.55/s    se err read :    0.06/s    
+se err write:    0.10/s    Conn count=92756    Conn Accept:   80.81/s    lost conn de:    0.03/s    unsubscribe:    7.60/s    Client count=0    
+
+
+Report#188 2019 07 23 07:22:53
+CLOSE Connec:   24.56/s    Unsub  topic:   24.55/s    new connecti:   55.41/s    q publish in:  548.65/s    se err EOF:   10.94/s    se err read :    0.03/s    
+se err write:    0.21/s    Conn count=92658    Conn Accept:   55.41/s    lost conn de:    0.02/s    unsubscribe:   24.80/s    Client count=0    
+
+
+Report#189 2019 07 23 07:23:03
+CLOSE Connec:   21.56/s    Unsub  topic:   21.56/s    new connecti:   48.37/s    q publish in:  531.66/s    se err EOF:   18.86/s    se err read :    0.01/s    
+se err write:    0.44/s    Conn count=92863    Conn Accept:   48.37/s    lost conn de:    0.12/s    unsubscribe:   22.23/s    Client count=0    
+
+
+Report#190 2019 07 23 07:23:13
+CLOSE Connec:   13.15/s    Unsub  topic:   13.15/s    new connecti:   75.62/s    q publish in:  709.05/s    se err EOF:   10.19/s    se err read :    0.06/s    
+se err write:    0.90/s    Conn count=93871    Conn Accept:   75.62/s    lost conn de:    0.05/s    unsubscribe:   13.00/s    Client count=0    
+
+
+Report#191 2019 07 23 07:23:23
+CLOSE Connec:   74.64/s    Unsub  topic:   74.64/s    new connecti:   57.84/s    q publish in:  643.86/s    se err EOF:    9.10/s    se err read :    0.03/s    
+se err write:    1.39/s    Conn count=92944    Conn Accept:   57.84/s    lost conn de:    0.20/s    unsubscribe:   74.50/s    Client count=0    
+
+
+Report#192 2019 07 23 07:23:33
+CLOSE Connec:   46.65/s    Unsub  topic:   46.65/s    new connecti:   52.20/s    q publish in:  554.21/s    se err EOF:   16.50/s    se err read :    0.02/s    
+se err write:    1.92/s    Conn count=93195    Conn Accept:   52.20/s    lost conn de:    0.26/s    unsubscribe:   48.25/s    Client count=0    
+
+
+Report#193 2019 07 23 07:23:43
+CLOSE Connec:   24.49/s    Unsub  topic:   24.49/s    new connecti:   81.93/s    q publish in:  792.99/s    se err EOF:   10.19/s    se err read :    0.06/s    
+se err there:    0.06/s    se err write:    1.29/s    Conn count=94179    Conn Accept:   81.93/s    lost conn de:    0.13/s    unsubscribe:   25.68/s    
+Client count=0    
+
+Report#194 2019 07 23 07:23:53
+CLOSE Connec:   14.19/s    Unsub  topic:   14.19/s    new connecti:   54.97/s    q publish in:  634.44/s    se err EOF:    6.04/s    se err read :    0.03/s    
+se err there:    0.03/s    se err write:    1.03/s    Conn count=94396    Conn Accept:   54.97/s    lost conn de:    0.07/s    unsubscribe:   13.62/s    
+Client count=0    
+
+Report#195 2019 07 23 07:24:03
+CLOSE Connec:   10.48/s    Unsub  topic:   10.48/s    new connecti:   51.26/s    q publish in:  553.78/s    se err EOF:   13.63/s    se err read :    0.02/s    
+se err there:    0.01/s    se err write:    0.74/s    Conn count=94763    Conn Accept:   51.26/s    lost conn de:    0.03/s    unsubscribe:    9.59/s    
+Client count=0    
+
+Report#196 2019 07 23 07:24:13
+CLOSE Connec:   27.62/s    Unsub  topic:   27.62/s    new connecti:   74.47/s    q publish in:  862.15/s    se err EOF:    8.73/s    se err read :    0.06/s    
+se err there:    0.01/s    se err write:    2.18/s    Conn count=95333    Conn Accept:   74.47/s    lost conn de:    0.01/s    unsubscribe:   28.71/s    
+Client count=0    
+
+Report#197 2019 07 23 07:24:23
+CLOSE Connec:   15.61/s    Unsub  topic:   15.61/s    new connecti:   49.48/s    q publish in:  600.17/s    se err EOF:    6.07/s    se err read :    0.03/s    
+se err write:    1.59/s    Conn count=95542    Conn Accept:   49.48/s    lost conn de:    0.06/s    unsubscribe:   15.86/s    Client count=0    
+
+
+Report#198 2019 07 23 07:24:33
+CLOSE Connec:   12.73/s    Unsub  topic:   12.73/s    new connecti:   52.99/s    q publish in:  685.15/s    se err EOF:   14.70/s    se err read :    0.02/s    
+se err write:    1.38/s    Conn count=95928    Conn Accept:   52.99/s    lost conn de:    0.03/s    unsubscribe:   12.81/s    Client count=0    
+
+
+Report#199 2019 07 23 07:24:43
+CLOSE Connec:    8.47/s    Unsub  topic:    8.47/s    new connecti:   78.27/s    q publish in:  917.41/s    se err EOF:    9.85/s    se err read :    0.01/s    
+se err there:    0.06/s    se err write:    1.47/s    Conn count=96822    Conn Accept:   78.27/s    lost conn de:    0.02/s    unsubscribe:    8.68/s    
+Client count=0    
+
+Report#200 2019 07 23 07:24:53
+CLOSE Connec:    5.79/s    Unsub  topic:    5.79/s    new connecti:   54.41/s    q publish in:  725.20/s    se err EOF:    6.70/s    se err there:    0.03/s    
+se err write:    1.68/s    Conn count=97069    Conn Accept:   54.41/s    lost conn de:    0.01/s    unsubscribe:    5.67/s    Client count=0    
+
+
+Report#201 2019 07 23 07:25:03
+CLOSE Connec:    6.01/s    Unsub  topic:    6.01/s    new connecti:   46.48/s    q publish in:  624.82/s    se err EOF:   13.13/s    se err read :    0.06/s    
+se err there:    0.01/s    se err write:    1.51/s    Conn count=97360    Conn Accept:   46.48/s    unsubscribe:    5.73/s    Client count=0    
+
+
+Report#202 2019 07 23 07:25:13
+CLOSE Connec:    3.80/s    Unsub  topic:    3.80/s    new connecti:   76.12/s    q publish in:  910.02/s    se err EOF:    8.46/s    se err read :    0.03/s    
+se err there:    0.01/s    se err write:    0.83/s    Conn count=98442    Conn Accept:   76.12/s    unsubscribe:    3.93/s    Client count=0    
+
+
+Report#203 2019 07 23 07:25:23
+CLOSE Connec:    3.50/s    Unsub  topic:    3.50/s    new connecti:   57.73/s    q publish in:  791.73/s    se err EOF:    6.42/s    se err read :    0.07/s    
+se err write:    1.18/s    Conn count=98695    Conn Accept:   57.73/s    unsubscribe:    3.85/s    Client count=0    
+
+Report#204 2019 07 23 07:25:33
+CLOSE Connec:    5.88/s    Unsub  topic:    5.88/s    new connecti:   46.18/s    q publish in:  587.63/s    se err EOF:   14.09/s    se err read :    0.03/s    
+se err write:    0.88/s    Conn count=99013    Conn Accept:   46.18/s    unsubscribe:    5.53/s    Client count=0    
+
+Report#205 2019 07 23 07:25:43
+CLOSE Connec:    4.88/s    Unsub  topic:    4.88/s    new connecti:   86.21/s    q publish in: 1010.96/s    se err EOF:   13.44/s    se err read :    0.02/s    
+se err write:    0.71/s    Conn count=100074    Conn Accept:   86.21/s    unsubscribe:    4.85/s    Client count=0    
+
+Report#206 2019 07 23 07:25:53
+CLOSE Connec:    3.79/s    Unsub  topic:    3.79/s    new connecti:   53.24/s    q publish in:  659.33/s    se err EOF:    9.05/s    se err read :    0.06/s    
+se err write:    1.07/s    Conn count=100331    Conn Accept:   53.24/s    unsubscribe:    4.18/s    Client count=0    
+
+Report#207 2019 07 23 07:26:03
+CLOSE Connec:    5.83/s    Unsub  topic:    5.83/s    new connecti:   56.14/s    q publish in:  683.30/s    se err EOF:   18.42/s    se err read :    0.03/s    
+se err write:    1.65/s    Conn count=100742    Conn Accept:   56.14/s    unsubscribe:    5.71/s    Client count=0    
+
+Report#208 2019 07 23 07:26:13
+CLOSE Connec:    4.67/s    Unsub  topic:    4.67/s    new connecti:   84.36/s    q publish in: 1009.43/s    se err EOF:   12.94/s    se err read :    0.06/s    
+se err write:    1.74/s    Conn count=101883    Conn Accept:   84.36/s    unsubscribe:    4.97/s    Client count=0    
+
+Report#209 2019 07 23 07:26:23
+CLOSE Connec:   52.54/s    Unsub  topic:   52.37/s    new connecti:   69.26/s    q publish in:  834.52/s    se err EOF:   83.74/s    se err read :    0.15/s    
+se err write:    1.47/s    Conn count=101387    Conn Accept:   69.26/s    unsubscribe:   52.65/s    Client count=0    
+
+Report#210 2019 07 23 07:26:33
+CLOSE Connec:   29.83/s    Unsub  topic:   29.74/s    new connecti:   55.02/s    q publish in:  883.87/s    se err EOF:   51.59/s    se err read :    0.24/s    
+se err write:    1.01/s    Conn count=101690    Conn Accept:   55.02/s    lost conn de:    0.06/s    unsubscribe:   29.44/s    Client count=0    
+
+
+Report#211 2019 07 23 07:26:43
+CLOSE Connec:   16.14/s    Unsub  topic:   16.09/s    new connecti:   84.12/s    q publish in: 1034.27/s    se err EOF:   31.41/s    se err read :    0.12/s    
+se err write:    0.78/s    Conn count=102687    Conn Accept:   84.12/s    lost conn de:    0.03/s    unsubscribe:   15.66/s    Client count=0    
+
+
+Report#212 2019 07 23 07:26:53
+CLOSE Connec:    9.79/s    Unsub  topic:    9.77/s    new connecti:   74.84/s    q publish in:  931.25/s    se err EOF:   27.09/s    se err read :    0.06/s    
+se err write:    0.39/s    Conn count=103246    Conn Accept:   74.84/s    lost conn de:    0.01/s    unsubscribe:    9.44/s    Client count=0    
+
+
+Report#213 2019 07 23 07:27:03
+CLOSE Connec:    9.01/s    Unsub  topic:    9.00/s    new connecti:   77.59/s    q publish in:  779.90/s    se err EOF:   36.88/s    se err read :    0.03/s    
+se err write:    1.20/s    Conn count=103895    Conn Accept:   77.59/s    lost conn de:    0.06/s    unsubscribe:    9.33/s    Client count=0    
+
+
+Report#214 2019 07 23 07:27:13
+CLOSE Connec:    6.25/s    Unsub  topic:    6.25/s    new connecti:   93.91/s    q publish in:  946.86/s    se err EOF:   24.95/s    se err read :    0.01/s    
+se err write:    0.74/s    Conn count=105031    Conn Accept:   93.91/s    lost conn de:    0.03/s    unsubscribe:    5.95/s    Client count=0    
+
+
+Report#215 2019 07 23 07:27:23
+CLOSE Connec:    4.93/s    Unsub  topic:    4.92/s    new connecti:   67.91/s    q publish in:  810.18/s    se err EOF:   15.27/s    se err read :    0.01/s    
+se err write:    0.47/s    Conn count=105414    Conn Accept:   67.91/s    lost conn de:    0.01/s    unsubscribe:    4.27/s    Client count=0    
+
+
+Report#216 2019 07 23 07:27:33
+CLOSE Connec:    6.51/s    Unsub  topic:    6.51/s    new connecti:   66.67/s    q publish in:  780.99/s    se err EOF:   16.26/s    se err write:    0.32/s    
+Conn count=105867    Conn Accept:   66.67/s    lost conn de:    0.01/s    unsubscribe:    5.54/s    Client count=0    
+
+Report#217 2019 07 23 07:27:43
+CLOSE Connec:    5.48/s    Unsub  topic:    5.48/s    new connecti:   86.05/s    q publish in:  893.39/s    se err EOF:   11.32/s    se err write:    0.54/s    
+Conn count=106937    Conn Accept:   86.05/s    unsubscribe:    4.89/s    Client count=0    
+
+Report#218 2019 07 23 07:27:53
+CLOSE Connec:   69.60/s    Unsub  topic:   69.60/s    new connecti:   73.81/s    q publish in:  760.61/s    se err EOF:   11.34/s    se err read :    0.06/s    
+se err write:    1.02/s    Conn count=106207    Conn Accept:   73.81/s    unsubscribe:   69.61/s    Client count=0    
+
+Report#219 2019 07 23 07:28:03
+CLOSE Connec:   39.12/s    Unsub  topic:   39.12/s    new connecti:   55.11/s    q publish in:  592.02/s    se err EOF:   13.60/s    se err read :    0.08/s    
+se err write:    1.61/s    Conn count=106489    Conn Accept:   55.11/s    lost conn de:    0.05/s    unsubscribe:   39.57/s    Client count=0    
+
+
+Report#220 2019 07 23 07:28:13
+CLOSE Connec:   23.57/s    Unsub  topic:   23.57/s    new connecti:  110.62/s    q publish in: 1201.18/s    se err EOF:   10.22/s    se err read :    0.04/s    
+se err write:    1.06/s    Conn count=107896    Conn Accept:  110.62/s    lost conn de:    0.03/s    unsubscribe:   23.65/s    Client count=0    
+
+
+Report#221 2019 07 23 07:28:23
+CLOSE Connec:   14.36/s    Unsub  topic:   14.36/s    new connecti:   71.68/s    q publish in:  865.63/s    se err EOF:    8.00/s    se err read :    0.02/s    
+se err write:    0.53/s    Conn count=108259    Conn Accept:   71.68/s    lost conn de:    0.06/s    unsubscribe:   14.79/s    Client count=0    
+
+
+Report#222 2019 07 23 07:28:33
+CLOSE Connec:   13.03/s    Unsub  topic:   13.03/s    new connecti:   69.77/s    q publish in:  776.52/s    se err EOF:   15.50/s    se err read :    0.12/s    
+se err write:    0.85/s    Conn count=108707    Conn Accept:   69.77/s    lost conn de:    0.03/s    unsubscribe:   13.66/s    Client count=0    
+
+
+Report#223 2019 07 23 07:28:43
+CLOSE Connec:   10.52/s    Unsub  topic:   10.52/s    new connecti:  103.49/s    q publish in: 1201.54/s    se err EOF:   14.25/s    se err read :    0.12/s    
+se err write:    1.09/s    Conn count=109870    Conn Accept:  103.49/s    lost conn de:    0.02/s    unsubscribe:   10.89/s    Client count=0    
+
+
+Report#224 2019 07 23 07:28:53
+CLOSE Connec:    9.65/s    Unsub  topic:    9.65/s    new connecti:   78.69/s    q publish in: 1192.60/s    se err EOF:   12.96/s    se err read :    0.06/s    
+se err write:    1.16/s    Conn count=110276    Conn Accept:   78.69/s    lost conn de:    0.01/s    unsubscribe:    9.72/s    Client count=0    
+
+
+Report#225 2019 07 23 07:29:03
+CLOSE Connec:   11.49/s    Unsub  topic:   11.49/s    new connecti:   69.79/s    q publish in: 1041.69/s    se err EOF:   17.09/s    se err read :    0.20/s    
+se err write:    1.19/s    Conn count=110704    Conn Accept:   69.79/s    unsubscribe:   11.58/s    Client count=0    
+
+Report#226 2019 07 23 07:29:13
+CLOSE Connec:   21.97/s    Unsub  topic:   21.97/s    new connecti:  103.90/s    q publish in: 1370.90/s    se err EOF:   17.38/s    se err read :    0.10/s    
+se err write:    1.04/s    Conn count=111654    Conn Accept:  103.90/s    lost conn de:    0.11/s    unsubscribe:   20.74/s    Client count=0    
+
+
+Report#227 2019 07 23 07:29:23
+CLOSE Connec:   23.99/s    Unsub  topic:   23.99/s    new connecti:   71.50/s    q publish in: 1135.06/s    se err EOF:   14.07/s    se err read :    0.19/s    
+se err write:    0.72/s    Conn count=111867    Conn Accept:   71.50/s    lost conn de:    0.05/s    unsubscribe:   24.83/s    Client count=0    
+
+
+Report#228 2019 07 23 07:29:33
+CLOSE Connec:   17.66/s    Unsub  topic:   17.66/s    new connecti:   72.95/s    q publish in: 1100.70/s    se err EOF:   16.65/s    se err read :    0.11/s    
+se err write:    0.62/s    Conn count=112387    Conn Accept:   72.95/s    lost conn de:    0.03/s    unsubscribe:   18.30/s    Client count=0    
+
+
+Report#229 2019 07 23 07:29:43
+CLOSE Connec:    9.50/s    Unsub  topic:    9.50/s    new connecti:   97.18/s    q publish in: 1303.56/s    se err EOF:    9.39/s    se err read :    0.05/s    
+se err write:    0.58/s    Conn count=113643    Conn Accept:   97.18/s    lost conn de:    0.01/s    unsubscribe:    9.38/s    Client count=0    
+
+
+Report#230 2019 07 23 07:29:53
+CLOSE Connec:    7.83/s    Unsub  topic:    7.83/s    new connecti:   78.54/s    q publish in: 1137.09/s    se err EOF:    8.05/s    se err read :    0.03/s    
+se err write:    1.60/s    Conn count=114039    Conn Accept:   78.54/s    lost conn de:    0.01/s    unsubscribe:    7.27/s    Client count=0    
+
+
+Report#231 2019 07 23 07:30:03
+CLOSE Connec:    8.03/s    Unsub  topic:    8.03/s    new connecti:   70.99/s    q publish in: 1111.71/s    se err EOF:    9.47/s    se err read :    0.07/s    
+se err write:    1.02/s    Conn count=114536    Conn Accept:   70.99/s    lost conn de:    0.06/s    unsubscribe:    7.25/s    Client count=0    
+
+
+Report#232 2019 07 23 07:30:13
+CLOSE Connec:   26.85/s    Unsub  topic:   26.85/s    new connecti:  115.77/s    q publish in: 1272.24/s    se err EOF:    7.85/s    se err read :    0.09/s    
+se err write:    1.34/s    Conn count=115570    Conn Accept:  115.77/s    lost conn de:    0.03/s    unsubscribe:   27.73/s    Client count=0    
+
+
+Report#233 2019 07 23 07:30:23
+CLOSE Connec:   13.98/s    Unsub  topic:   13.98/s    new connecti:   77.60/s    q publish in: 1132.91/s    se err EOF:    6.38/s    se err read :    0.09/s    
+se err write:    1.25/s    Conn count=116042    Conn Accept:   77.60/s    lost conn de:    0.01/s    unsubscribe:   14.03/s    Client count=0    
+
+
+Report#234 2019 07 23 07:30:33
+CLOSE Connec:   12.05/s    Unsub  topic:   12.05/s    new connecti:   72.28/s    q publish in: 1176.06/s    se err EOF:    8.99/s    se err read :    0.11/s    
+se err write:    1.20/s    Conn count=116490    Conn Accept:   72.28/s    lost conn de:    0.01/s    unsubscribe:   12.52/s    Client count=0    
+
+
+Report#235 2019 07 23 07:30:43
+CLOSE Connec:    8.74/s    Unsub  topic:    8.74/s    new connecti:  128.36/s    q publish in: 1649.86/s    se err EOF:    7.49/s    se err read :    0.05/s    
+se err there:    0.06/s    se err write:    0.88/s    Conn count=118101    Conn Accept:  128.36/s    unsubscribe:    8.87/s    Client count=0    
+
+
+Report#236 2019 07 23 07:30:53
+CLOSE Connec:    5.54/s    Unsub  topic:    5.54/s    new connecti:   93.46/s    q publish in: 1552.32/s    se err EOF:    6.47/s    se err read :    0.08/s    
+se err there:    0.03/s    se err write:    0.55/s    Conn count=118607    Conn Accept:   93.46/s    lost conn de:    0.06/s    unsubscribe:    5.77/s    
+Client count=0    
+
+Report#237 2019 07 23 07:31:03
+CLOSE Connec:    5.66/s    Unsub  topic:    5.66/s    new connecti:   81.84/s    q publish in: 1411.88/s    se err EOF:    8.68/s    se err read :    0.04/s    
+se err there:    0.01/s    se err write:    0.33/s    Conn count=119187    Conn Accept:   81.84/s    lost conn de:    0.03/s    unsubscribe:    5.38/s    
+Client count=0    
+
+Report#238 2019 07 23 07:31:13
+CLOSE Connec:    6.00/s    Unsub  topic:    6.00/s    new connecti:  131.75/s    q publish in: 1868.44/s    se err EOF:    7.23/s    se err read :    0.02/s    
+se err there:    0.01/s    se err write:    0.28/s    Conn count=120765    Conn Accept:  131.75/s    lost conn de:    0.07/s    unsubscribe:    4.64/s    
+Client count=0    
+
+Report#239 2019 07 23 07:31:23
+CLOSE Connec:    4.39/s    Unsub  topic:    4.39/s    new connecti:   97.04/s    q publish in: 1586.33/s    se err EOF:    5.50/s    se err read :    0.01/s    
+se err write:    0.36/s    Conn count=121301    Conn Accept:   97.04/s    lost conn de:    0.03/s    unsubscribe:    2.98/s    Client count=0    
+
+
+Report#240 2019 07 23 07:31:33
+CLOSE Connec:   30.53/s    Unsub  topic:   30.53/s    new connecti:   89.36/s    q publish in: 1507.50/s    se err EOF:   13.03/s    se err read :    0.12/s    
+se err write:    0.68/s    Conn count=121526    Conn Accept:   89.36/s    lost conn de:    0.18/s    unsubscribe:   30.71/s    Client count=0    
+
+
+Report#241 2019 07 23 07:31:43
+CLOSE Connec:   15.74/s    Unsub  topic:   15.74/s    new connecti:  120.21/s    q publish in: 1505.42/s    se err EOF:    7.86/s    se err read :    0.15/s    
+se err there:    0.05/s    se err write:    0.56/s    Conn count=123086    Conn Accept:  120.21/s    lost conn de:    0.13/s    unsubscribe:   15.27/s    
+Client count=0    
+
+Report#242 2019 07 23 07:31:53
+CLOSE Connec:   29.32/s    Unsub  topic:   29.32/s    new connecti:   87.20/s    q publish in: 1547.01/s    se err EOF:    6.38/s    se err read :    0.13/s    
+se err there:    0.03/s    se err write:    1.23/s    Conn count=123199    Conn Accept:   87.20/s    lost conn de:    0.12/s    unsubscribe:   29.84/s    
+Client count=0    
+
+Report#243 2019 07 23 07:32:03
+CLOSE Connec:   43.07/s    Unsub  topic:   43.07/s    new connecti:   89.34/s    q publish in: 1447.01/s    se err EOF:   12.32/s    se err read :    0.18/s    
+se err there:    0.01/s    se err write:    1.46/s    Conn count=123453    Conn Accept:   89.34/s    lost conn de:    0.12/s    unsubscribe:   43.69/s    
+Client count=0    
+
+Report#244 2019 07 23 07:32:13
+CLOSE Connec:   22.63/s    Unsub  topic:   22.63/s    new connecti:  122.35/s    q publish in: 1907.20/s    se err EOF:    8.50/s    se err read :    0.08/s    
+se err there:    0.01/s    se err write:    0.86/s    Conn count=125031    Conn Accept:  122.35/s    lost conn de:    0.10/s    unsubscribe:   22.76/s    
+Client count=0    
+
+Report#245 2019 07 23 07:32:23
+CLOSE Connec:   15.74/s    Unsub  topic:   15.74/s    new connecti:  107.42/s    q publish in: 1875.17/s    se err EOF:    8.50/s    se err read :    0.05/s    
+se err write:    0.53/s    Conn count=125684    Conn Accept:  107.42/s    lost conn de:    0.11/s    unsubscribe:   14.70/s    Client count=0    
+
+
+Report#246 2019 07 23 07:32:33
+CLOSE Connec:   57.65/s    Unsub  topic:   57.65/s    new connecti:   91.04/s    q publish in: 1762.14/s    se err EOF:   12.47/s    se err read :    0.08/s    
+se err write:    0.82/s    Conn count=125460    Conn Accept:   91.04/s    lost conn de:    0.06/s    unsubscribe:   58.68/s    Client count=0    
+
+
+Report#247 2019 07 23 07:32:43
+CLOSE Connec:   30.24/s    Unsub  topic:   30.24/s    new connecti:  132.32/s    q publish in: 1969.31/s    se err EOF:   10.16/s    se err read :    0.14/s    
+se err write:    0.92/s    Conn count=127201    Conn Accept:  132.32/s    lost conn de:    0.03/s    unsubscribe:   30.91/s    Client count=0    
+
+
+Report#248 2019 07 23 07:32:53
+CLOSE Connec:   20.08/s    Unsub  topic:   20.08/s    new connecti:  107.01/s    q publish in: 2024.06/s    se err EOF:   10.81/s    se err read :    0.08/s    
+se err write:    0.90/s    Conn count=127745    Conn Accept:  107.01/s    lost conn de:    0.01/s    unsubscribe:   20.67/s    Client count=0    
+
+
+Report#249 2019 07 23 07:33:03
+CLOSE Connec:   14.87/s    Unsub  topic:   14.87/s    new connecti:   88.78/s    q publish in: 1757.53/s    se err EOF:   11.24/s    se err read :    0.20/s    
+se err write:    0.95/s    Conn count=128293    Conn Accept:   88.78/s    lost conn de:    0.06/s    unsubscribe:   15.11/s    Client count=0    
+
+
+Report#250 2019 07 23 07:33:13
+CLOSE Connec:   12.89/s    Unsub  topic:   12.89/s    new connecti:  139.70/s    q publish in: 2248.19/s    se err EOF:   13.11/s    se err read :    0.24/s    
+se err write:    0.63/s    Conn count=130164    Conn Accept:  139.70/s    lost conn de:    0.08/s    unsubscribe:   12.95/s    Client count=0    
+
+
+Report#251 2019 07 23 07:33:23
+CLOSE Connec:   10.94/s    Unsub  topic:   10.94/s    new connecti:  112.61/s    q publish in: 2163.77/s    se err EOF:   12.67/s    se err read :    0.13/s    
+se err write:    1.02/s    Conn count=130726    Conn Accept:  112.61/s    lost conn de:    0.04/s    unsubscribe:   11.25/s    Client count=0    
+
+
+Report#252 2019 07 23 07:33:33
+CLOSE Connec:    9.97/s    Unsub  topic:    9.97/s    new connecti:   86.23/s    q publish in: 1662.75/s    se err EOF:   12.00/s    se err read :    0.06/s    
+se err write:    1.21/s    Conn count=131336    Conn Accept:   86.23/s    lost conn de:    0.02/s    unsubscribe:   10.06/s    Client count=0    
+
+
+Report#253 2019 07 23 07:33:43
+CLOSE Connec:   12.60/s    Unsub  topic:   12.60/s    new connecti:  156.40/s    q publish in: 2750.19/s    se err EOF:   12.67/s    se err read :    0.20/s    
+se err write:    1.45/s    Conn count=133162    Conn Accept:  156.40/s    lost conn de:    0.01/s    unsubscribe:   11.70/s    Client count=0    
+
+
+Report#254 2019 07 23 07:33:53
+CLOSE Connec:    9.30/s    Unsub  topic:    9.30/s    new connecti:  114.26/s    q publish in: 2262.65/s    se err EOF:    8.89/s    se err read :    0.16/s    
+se err write:    1.00/s    Conn count=133757    Conn Accept:  114.26/s    lost conn de:    0.06/s    unsubscribe:    8.24/s    Client count=0    
+
+
+Report#255 2019 07 23 07:34:03
+CLOSE Connec:   11.82/s    Unsub  topic:   11.82/s    new connecti:   93.85/s    q publish in: 2131.21/s    se err EOF:   12.06/s    se err read :    0.08/s    
+se err write:    0.72/s    Conn count=134289    Conn Accept:   93.85/s    lost conn de:    0.20/s    unsubscribe:   10.62/s    Client count=0    
+
+
+Report#256 2019 07 23 07:34:13
+CLOSE Connec:   34.69/s    Unsub  topic:   34.69/s    new connecti:  152.76/s    q publish in: 2358.22/s    se err EOF:   14.47/s    se err read :    0.09/s    
+se err write:    1.03/s    Conn count=135676    Conn Accept:  152.76/s    lost conn de:    0.10/s    unsubscribe:   34.14/s    Client count=0    
+
+
+Report#257 2019 07 23 07:34:23
+CLOSE Connec:   21.16/s    Unsub  topic:   21.16/s    new connecti:  100.04/s    q publish in: 1953.35/s    se err EOF:   11.56/s    se err read :    0.04/s    
+se err write:    1.36/s    Conn count=136191    Conn Accept:  100.04/s    lost conn de:    0.04/s    unsubscribe:   21.76/s    Client count=0    
+
+
+Report#258 2019 07 23 07:34:33
+CLOSE Connec:   19.59/s    Unsub  topic:   19.59/s    new connecti:   93.97/s    q publish in: 2129.53/s    se err EOF:   14.81/s    se err read :    0.08/s    
+se err write:    1.09/s    Conn count=136741    Conn Accept:   93.97/s    lost conn de:    0.14/s    unsubscribe:   19.70/s    Client count=0    
+
+
+Report#259 2019 07 23 07:34:43
+CLOSE Connec:   15.06/s    Unsub  topic:   15.06/s    new connecti:  133.99/s    q publish in: 2401.04/s    se err EOF:   14.17/s    se err read :    0.04/s    
+se err write:    0.54/s    Conn count=138450    Conn Accept:  133.99/s    lost conn de:    0.06/s    unsubscribe:   14.97/s    Client count=0    
+
+
+Report#260 2019 07 23 07:34:53
+CLOSE Connec:   15.42/s    Unsub  topic:   15.42/s    new connecti:  111.33/s    q publish in: 2466.02/s    se err EOF:   14.65/s    se err read :    0.08/s    
+se err write:    0.69/s    Conn count=138987    Conn Accept:  111.33/s    lost conn de:    0.09/s    unsubscribe:   14.54/s    Client count=0    
+
+
+Report#261 2019 07 23 07:35:03
+CLOSE Connec:   16.66/s    Unsub  topic:   16.66/s    new connecti:   92.55/s    q publish in: 2238.90/s    se err EOF:   17.32/s    se err read :    0.04/s    
+se err there:    0.06/s    se err write:    0.51/s    Conn count=139490    Conn Accept:   92.55/s    lost conn de:    0.04/s    unsubscribe:   16.99/s    
+Client count=0    
+
+Report#262 2019 07 23 07:35:13
+CLOSE Connec:   36.10/s    Unsub  topic:   36.10/s    new connecti:  140.20/s    q publish in: 2217.30/s    se err EOF:   20.65/s    se err read :    0.07/s    
+se err there:    0.08/s    se err write:    0.88/s    Conn count=140889    Conn Accept:  140.20/s    lost conn de:    0.12/s    unsubscribe:   36.95/s    
+Client count=0    
+
+Report#263 2019 07 23 07:35:23
+CLOSE Connec:   25.72/s    Unsub  topic:   25.72/s    new connecti:  114.44/s    q publish in: 3081.84/s    se err EOF:   16.97/s    se err read :    0.04/s    
+se err there:    0.04/s    se err write:    0.99/s    Conn count=141445    Conn Accept:  114.44/s    lost conn de:    0.12/s    unsubscribe:   26.41/s    
+Client count=0    
+
+Report#264 2019 07 23 07:35:33
+CLOSE Connec:   20.53/s    Unsub  topic:   20.53/s    new connecti:   91.28/s    q publish in: 2405.86/s    se err EOF:   16.65/s    se err read :    0.07/s    
+se err there:    0.02/s    se err write:    2.27/s    Conn count=141920    Conn Accept:   91.28/s    lost conn de:    0.06/s    unsubscribe:   20.60/s    
+Client count=0    
+
+Report#265 2019 07 23 07:35:43
+CLOSE Connec:   21.04/s    Unsub  topic:   21.04/s    new connecti:  155.86/s    q publish in: 3411.04/s    se err EOF:   18.99/s    se err read :    0.09/s    
+se err there:    0.01/s    se err write:    1.30/s    Conn count=143710    Conn Accept:  155.86/s    lost conn de:    0.03/s    unsubscribe:   19.96/s    
+Client count=0    
+
+Report#266 2019 07 23 07:35:53
+CLOSE Connec:   70.52/s    Unsub  topic:   70.52/s    new connecti:  110.71/s    q publish in: 2902.58/s    se err EOF:   15.83/s    se err read :    0.10/s    
+se err there:    0.01/s    se err write:    1.26/s    Conn count=143220    Conn Accept:  110.71/s    lost conn de:    0.02/s    unsubscribe:   71.54/s    
+Client count=0    
+
+Report#267 2019 07 23 07:36:03
+CLOSE Connec:   42.04/s    Unsub  topic:   42.04/s    new connecti:   90.19/s    q publish in: 2791.18/s    se err EOF:   15.36/s    se err read :    0.11/s    
+se err write:    0.96/s    Conn count=143725    Conn Accept:   90.19/s    lost conn de:    0.01/s    unsubscribe:   41.94/s    Client count=0    
+
+
+Report#268 2019 07 23 07:36:13
+CLOSE Connec:   32.74/s    Unsub  topic:   32.74/s    new connecti:  154.54/s    q publish in: 3984.92/s    se err EOF:   20.79/s    se err read :    0.16/s    
+se err there:    0.06/s    se err write:    1.15/s    Conn count=145484    Conn Accept:  154.54/s    unsubscribe:   33.36/s    Client count=0    
+
+
+Report#269 2019 07 23 07:36:23
+CLOSE Connec:   20.59/s    Unsub  topic:   20.59/s    new connecti:  114.21/s    q publish in: 3144.63/s    se err EOF:   16.23/s    se err read :    0.08/s    
+se err there:    0.03/s    se err write:    0.85/s    Conn count=146073    Conn Accept:  114.21/s    unsubscribe:   20.62/s    Client count=0    
+
+
+Report#270 2019 07 23 07:36:33
+CLOSE Connec:   15.97/s    Unsub  topic:   15.97/s    new connecti:   77.45/s    q publish in: 2196.63/s    se err EOF:   16.45/s    se err read :    0.14/s    
+se err there:    0.01/s    se err write:    0.88/s    Conn count=146460    Conn Accept:   77.45/s    lost conn de:    0.05/s    unsubscribe:   15.88/s    
+Client count=0    
+
+Report#271 2019 07 23 07:36:43
+CLOSE Connec:   18.37/s    Unsub  topic:   18.37/s    new connecti:  148.14/s    q publish in: 3586.85/s    se err EOF:   19.75/s    se err read :    0.08/s    
+se err there:    0.01/s    se err write:    1.16/s    Conn count=148181    Conn Accept:  148.19/s    lost conn de:    0.08/s    unsubscribe:   18.88/s    
+Client count=0    
+
+Report#272 2019 07 23 07:36:53
+CLOSE Connec:   13.74/s    Unsub  topic:   13.74/s    new connecti:  110.90/s    q publish in: 3611.09/s    se err EOF:   14.54/s    se err read :    0.04/s    
+se err there:    0.06/s    se err write:    1.19/s    Conn count=148762    Conn Accept:  110.87/s    lost conn de:    0.04/s    unsubscribe:   14.44/s    
+Client count=0    
+
+Report#273 2019 07 23 07:37:03
+CLOSE Connec:   13.37/s    Unsub  topic:   13.37/s    new connecti:   83.12/s    q publish in: 2800.88/s    se err EOF:   15.33/s    se err read :    0.02/s    
+se err there:    0.03/s    se err write:    0.71/s    Conn count=149143    Conn Accept:   83.10/s    lost conn de:    0.08/s    unsubscribe:   12.94/s    
+Client count=0    
+
+Report#274 2019 07 23 07:37:13
+CLOSE Connec:   16.85/s    Unsub  topic:   16.85/s    new connecti:  148.78/s    q publish in: 4225.61/s    se err EOF:   17.00/s    se err read :    0.01/s    
+se err there:    0.01/s    se err write:    0.41/s    Conn count=150890    Conn Accept:  148.77/s    lost conn de:    0.04/s    unsubscribe:   15.36/s    
+Client count=0    
+
+Report#275 2019 07 23 07:37:23
+CLOSE Connec:   27.93/s    Unsub  topic:   27.93/s    new connecti:  100.00/s    q publish in: 3005.67/s    se err EOF:   13.40/s    se err there:    0.01/s    
+se err write:    0.18/s    Conn count=151144    Conn Accept:  100.00/s    lost conn de:    0.02/s    unsubscribe:   27.16/s    Client count=0    
+
+
+Report#276 2019 07 23 07:37:33
+CLOSE Connec:   21.19/s    Unsub  topic:   21.19/s    new connecti:   85.61/s    q publish in: 2024.65/s    se err EOF:   20.44/s    se err there:    0.06/s    
+se err write:    0.71/s    Conn count=151583    Conn Accept:   85.61/s    lost conn de:    0.07/s    unsubscribe:   19.70/s    Client count=0    
+
+
+Report#277 2019 07 23 07:37:43
+CLOSE Connec:   22.28/s    Unsub  topic:   22.28/s    new connecti:  134.88/s    q publish in: 2784.19/s    se err EOF:   20.20/s    se err there:    0.03/s    
+se err write:    0.42/s    Conn count=153255    Conn Accept:  134.87/s    lost conn de:    0.18/s    unsubscribe:   21.87/s    Client count=0    
+
+
+Report#278 2019 07 23 07:37:53
+CLOSE Connec:   61.49/s    Unsub  topic:   61.49/s    new connecti:  111.65/s    q publish in: 2456.05/s    se err EOF:   18.33/s    se err read :    0.17/s    
+se err there:    0.01/s    se err write:    1.01/s    Conn count=153032    Conn Accept:  111.65/s    lost conn de:    0.10/s    unsubscribe:   62.59/s    
+Client count=0    
+
+Report#279 2019 07 23 07:38:03
+CLOSE Connec:   39.36/s    Unsub  topic:   39.36/s    new connecti:   84.44/s    q publish in: 2874.75/s    se err EOF:   16.28/s    se err read :    0.08/s    
+se err there:    0.01/s    se err write:    1.06/s    Conn count=153392    Conn Accept:   84.44/s    lost conn de:    0.16/s    unsubscribe:   39.35/s    
+Client count=0    
+
+Report#280 2019 07 23 07:38:13
+CLOSE Connec:   43.46/s    Unsub  topic:   43.46/s    new connecti:  158.44/s    q publish in: 2932.21/s    se err EOF:   22.92/s    se err read :    0.04/s    
+se err write:    1.20/s    Conn count=155056    Conn Accept:  158.44/s    lost conn de:    0.08/s    unsubscribe:   44.62/s    Client count=0    
+
+
+Report#281 2019 07 23 07:38:23
+CLOSE Connec:   26.01/s    Unsub  topic:   26.01/s    new connecti:  114.44/s    q publish in: 2566.99/s    se err EOF:   16.96/s    se err read :    0.08/s    
+se err write:    1.32/s    Conn count=155613    Conn Accept:  114.44/s    lost conn de:    0.04/s    unsubscribe:   26.37/s    Client count=0    
+
+
+Report#282 2019 07 23 07:38:33
+CLOSE Connec:   22.11/s    Unsub  topic:   22.11/s    new connecti:   84.61/s    q publish in: 2300.00/s    se err EOF:   16.26/s    se err read :    0.04/s    
+se err write:    1.16/s    Conn count=155942    Conn Accept:   84.61/s    lost conn de:    0.08/s    unsubscribe:   20.85/s    Client count=0    
+
+
+Report#283 2019 07 23 07:38:43
+CLOSE Connec:   23.45/s    Unsub  topic:   23.45/s    new connecti:  154.97/s    q publish in: 2922.78/s    se err EOF:   20.41/s    se err read :    0.07/s    
+se err write:    0.91/s    Conn count=157747    Conn Accept:  154.97/s    lost conn de:    0.15/s    unsubscribe:   22.09/s    Client count=0    
+
+
+Report#284 2019 07 23 07:38:53
+CLOSE Connec:   35.78/s    Unsub  topic:   35.78/s    new connecti:  112.87/s    q publish in: 2596.50/s    se err EOF:   17.04/s    se err read :    0.04/s    
+se err write:    1.35/s    Conn count=157951    Conn Accept:  112.87/s    lost conn de:    0.19/s    unsubscribe:   35.77/s    Client count=0    
+
+
+Report#285 2019 07 23 07:39:03
+CLOSE Connec:   36.35/s    Unsub  topic:   36.35/s    new connecti:   75.14/s    q publish in: 2104.02/s    se err EOF:   19.37/s    se err read :    0.07/s    
+se err write:    2.21/s    Conn count=158033    Conn Accept:   75.14/s    lost conn de:    0.08/s    unsubscribe:   37.15/s    Client count=0    
+
+
+Report#286 2019 07 23 07:39:13
+CLOSE Connec:   34.78/s    Unsub  topic:   34.78/s    new connecti:  139.27/s    q publish in: 2779.01/s    se err EOF:   20.83/s    se err read :    0.13/s    
+se err write:    1.90/s    Conn count=159735    Conn Accept:  139.27/s    lost conn de:    0.04/s    unsubscribe:   35.67/s    Client count=0    
+
+
+Report#287 2019 07 23 07:39:23
+CLOSE Connec:   22.15/s    Unsub  topic:   22.15/s    new connecti:  111.71/s    q publish in: 2405.56/s    se err EOF:   15.02/s    se err read :    0.13/s    
+se err write:    1.39/s    Conn count=160302    Conn Accept:  111.71/s    lost conn de:    0.02/s    unsubscribe:   22.21/s    Client count=0    
+
+
+Report#288 2019 07 23 07:39:33
+CLOSE Connec:   16.35/s    Unsub  topic:   16.35/s    new connecti:   81.02/s    q publish in: 1766.45/s    se err EOF:   15.06/s    se err read :    0.06/s    
+se err write:    1.64/s    Conn count=160660    Conn Accept:   81.02/s    lost conn de:    0.01/s    unsubscribe:   15.83/s    Client count=0    
+
+
+Report#289 2019 07 23 07:39:43
+CLOSE Connec:   32.61/s    Unsub  topic:   32.61/s    new connecti:  130.96/s    q publish in: 2251.25/s    se err EOF:   17.58/s    se err read :    0.03/s    
+se err write:    2.14/s    Conn count=162045    Conn Accept:  130.96/s    lost conn de:    0.06/s    unsubscribe:   34.02/s    Client count=0    
+
+
+Report#290 2019 07 23 07:39:53
+CLOSE Connec:   23.17/s    Unsub  topic:   23.17/s    new connecti:  104.31/s    q publish in: 1833.31/s    se err EOF:   15.43/s    se err read :    0.02/s    
+se err write:    1.74/s    Conn count=162522    Conn Accept:  104.31/s    lost conn de:    0.03/s    unsubscribe:   23.51/s    Client count=0    
+
+
+Report#291 2019 07 23 07:40:03
+CLOSE Connec:   18.59/s    Unsub  topic:   18.59/s    new connecti:   76.49/s    q publish in: 1707.76/s    se err EOF:   17.55/s    se err read :    0.01/s    
+se err write:    1.20/s    Conn count=162834    Conn Accept:   76.49/s    lost conn de:    0.02/s    unsubscribe:   18.53/s    Client count=0    
+
+
+Report#292 2019 07 23 07:40:13
+CLOSE Connec:   16.61/s    Unsub  topic:   16.61/s    new connecti:  135.72/s    q publish in: 1481.79/s    se err EOF:   21.30/s    se err write:    1.64/s    
+Conn count=164695    Conn Accept:  135.72/s    lost conn de:    0.21/s    unsubscribe:   17.19/s    Client count=0    
+
+Report#293 2019 07 23 07:40:23
+CLOSE Connec:   14.84/s    Unsub  topic:   14.84/s    new connecti:  112.34/s    q publish in: 2144.94/s    se err EOF:   17.28/s    se err there:    0.06/s    
+se err write:    1.69/s    Conn count=165259    Conn Accept:  112.34/s    lost conn de:    0.11/s    unsubscribe:   14.83/s    Client count=0    
+
+
+Report#294 2019 07 23 07:40:33
+CLOSE Connec:   12.53/s    Unsub  topic:   12.53/s    new connecti:   83.17/s    q publish in: 2724.14/s    se err EOF:   15.64/s    se err there:    0.03/s    
+se err write:    1.73/s    Conn count=165653    Conn Accept:   83.17/s    lost conn de:    0.06/s    unsubscribe:   12.14/s    Client count=0    
+
+
+Report#295 2019 07 23 07:40:43
+CLOSE Connec:   14.43/s    Unsub  topic:   14.43/s    new connecti:  146.86/s    q publish in: 3066.51/s    se err EOF:   18.32/s    se err there:    0.01/s    
+se err write:    1.20/s    Conn count=167401    Conn Accept:  146.86/s    lost conn de:    0.03/s    unsubscribe:   13.35/s    Client count=0    
+
+
+Report#296 2019 07 23 07:40:53
+CLOSE Connec:   25.44/s    Unsub  topic:   25.44/s    new connecti:  100.84/s    q publish in: 1996.28/s    se err EOF:   15.29/s    se err read :    0.10/s    
+se err there:    0.01/s    se err write:    2.34/s    Conn count=167717    Conn Accept:  100.84/s    lost conn de:    0.21/s    unsubscribe:   26.01/s    
+Client count=0    
+
+Report#297 2019 07 23 07:41:03
+CLOSE Connec:   18.25/s    Unsub  topic:   18.25/s    new connecti:   84.85/s    q publish in: 2079.99/s    se err EOF:   15.27/s    se err read :    0.11/s    
+se err write:    1.86/s    Conn count=168162    Conn Accept:   84.85/s    lost conn de:    0.12/s    unsubscribe:   18.56/s    Client count=0    
+
+
+Report#298 2019 07 23 07:41:13
+CLOSE Connec:   16.96/s    Unsub  topic:   16.96/s    new connecti:  154.43/s    q publish in: 2430.94/s    se err EOF:   19.97/s    se err read :    0.06/s    
+se err write:    1.54/s    Conn count=170037    Conn Accept:  154.43/s    lost conn de:    0.06/s    unsubscribe:   16.95/s    Client count=0    
+
+
+Report#299 2019 07 23 07:41:23
+CLOSE Connec:   11.70/s    Unsub  topic:   11.70/s    new connecti:  121.16/s    q publish in: 1901.64/s    se err EOF:   14.43/s    se err read :    0.08/s    
+se err write:    0.99/s    Conn count=170770    Conn Accept:  121.16/s    lost conn de:    0.03/s    unsubscribe:   11.03/s    Client count=0    
+
+
+Report#300 2019 07 23 07:41:33
+CLOSE Connec:   27.12/s    Unsub  topic:   27.12/s    new connecti:   77.32/s    q publish in: 1274.04/s    se err EOF:   13.39/s    se err read :    0.04/s    
+se err write:    1.35/s    Conn count=170789    Conn Accept:   77.32/s    lost conn de:    0.01/s    unsubscribe:   26.11/s    Client count=0    
+
+
+Report#301 2019 07 23 07:41:43
+CLOSE Connec:   41.45/s    Unsub  topic:   41.40/s    new connecti:  147.23/s    q publish in: 1203.69/s    se err EOF:   20.22/s    se err read :    0.08/s    
+se err write:    1.91/s    Conn count=172191    Conn Accept:  147.23/s    lost conn de:    0.12/s    unsubscribe:   42.40/s    Client count=0    
+
+
+Report#302 2019 07 23 07:41:53
+CLOSE Connec:   25.45/s    Unsub  topic:   25.43/s    new connecti:  116.01/s    q publish in: 2423.81/s    se err EOF:   13.95/s    se err read :    0.03/s    
+se err write:    1.36/s    Conn count=173050    Conn Accept:  116.01/s    lost conn de:    0.15/s    unsubscribe:   25.83/s    Client count=0    
+
+
+Report#303 2019 07 23 07:42:03
+CLOSE Connec:   19.92/s    Unsub  topic:   19.90/s    new connecti:  109.95/s    q publish in: 2409.00/s    se err EOF:   12.86/s    se err read :    0.02/s    
+se err write:    1.65/s    Conn count=173765    Conn Accept:  109.95/s    lost conn de:    0.14/s    unsubscribe:   19.57/s    Client count=0    
+
+
+Report#304 2019 07 23 07:42:13
+CLOSE Connec:   17.79/s    Unsub  topic:   17.79/s    new connecti:  165.81/s    q publish in: 2105.39/s    se err EOF:   18.82/s    se err read :    0.01/s    
+se err write:    2.60/s    Conn count=175619    Conn Accept:  165.81/s    lost conn de:    0.13/s    unsubscribe:   18.23/s    Client count=0    
+
+
+Report#305 2019 07 23 07:42:23
+CLOSE Connec:   15.45/s    Unsub  topic:   15.45/s    new connecti:  116.85/s    q publish in: 2432.08/s    se err EOF:   17.47/s    se err write:    1.86/s    
+Conn count=176112    Conn Accept:  116.85/s    lost conn de:    0.17/s    unsubscribe:   15.39/s    Client count=0    
+
+Report#306 2019 07 23 07:42:33
+CLOSE Connec:   12.89/s    Unsub  topic:   12.89/s    new connecti:   92.81/s    q publish in: 2087.21/s    se err EOF:   17.12/s    se err read :    0.06/s    
+se err write:    2.09/s    Conn count=176638    Conn Accept:   92.81/s    lost conn de:    0.09/s    unsubscribe:   13.42/s    Client count=0    
+
+
+Report#307 2019 07 23 07:42:43
+CLOSE Connec:   13.17/s    Unsub  topic:   13.17/s    new connecti:  148.80/s    q publish in: 2077.33/s    se err EOF:   17.95/s    se err read :    0.03/s    
+se err write:    1.99/s    Conn count=178360    Conn Accept:  148.80/s    lost conn de:    0.10/s    unsubscribe:   13.54/s    Client count=0    
+
+
+Report#308 2019 07 23 07:42:53
+CLOSE Connec:   11.25/s    Unsub  topic:   11.25/s    new connecti:  108.45/s    q publish in: 2179.61/s    se err EOF:   14.42/s    se err read :    0.01/s    
+se err write:    1.94/s    Conn count=178889    Conn Accept:  108.45/s    lost conn de:    0.05/s    unsubscribe:   11.55/s    Client count=0    
+
+
+Report#309 2019 07 23 07:43:03
+CLOSE Connec:   51.07/s    Unsub  topic:   51.07/s    new connecti:   77.62/s    q publish in: 1445.36/s    se err EOF:  139.60/s    se err read :    2.62/s    
+se err write:    1.53/s    Conn count=178492    Conn Accept:   77.62/s    lost conn de:    0.02/s    unsubscribe:   51.77/s    Client count=0    
+
+
+Report#310 2019 07 23 07:43:13
+CLOSE Connec:   40.09/s    Unsub  topic:   40.09/s    new connecti:  139.64/s    q publish in: 1183.24/s    se err EOF:   80.69/s    se err read :    1.31/s    
+se err write:    1.76/s    Conn count=180045    Conn Accept:  139.64/s    lost conn de:    0.07/s    unsubscribe:   38.39/s    Client count=0    
+
+
+Report#311 2019 07 23 07:43:23
+CLOSE Connec:   55.94/s    Unsub  topic:   55.94/s    new connecti:   93.09/s    q publish in: 1143.86/s    se err EOF:   41.41/s    se err read :    0.59/s    
+se err write:    1.19/s    Conn count=179892    Conn Accept:   93.09/s    lost conn de:    0.08/s    unsubscribe:   56.57/s    Client count=0    
+
+
+Report#312 2019 07 23 07:43:33
+CLOSE Connec:   33.08/s    Unsub  topic:   33.08/s    new connecti:   75.94/s    q publish in: 1377.70/s    se err EOF:   25.56/s    se err read :    0.33/s    
+se err write:    1.11/s    Conn count=180292    Conn Accept:   75.94/s    lost conn de:    0.10/s    unsubscribe:   32.65/s    Client count=0    
+
+
+Report#313 2019 07 23 07:43:43
+CLOSE Connec:   23.93/s    Unsub  topic:   23.93/s    new connecti:  134.64/s    q publish in: 2403.29/s    se err EOF:   24.50/s    se err read :    0.16/s    
+se err write:    0.72/s    Conn count=181899    Conn Accept:  134.64/s    lost conn de:    0.05/s    unsubscribe:   23.77/s    Client count=0    
+
+
+Report#314 2019 07 23 07:43:53
+CLOSE Connec:   16.74/s    Unsub  topic:   16.74/s    new connecti:  105.48/s    q publish in: 1734.65/s    se err EOF:   17.75/s    se err read :    0.08/s    
+se err write:    0.86/s    Conn count=182500    Conn Accept:  105.48/s    lost conn de:    0.03/s    unsubscribe:   16.27/s    Client count=0    
+
+
+Report#315 2019 07 23 07:44:03
+CLOSE Connec:   10.59/s    Unsub  topic:   10.59/s    new connecti:   75.30/s    q publish in: 1187.77/s    se err EOF:   13.49/s    se err read :    0.04/s    
+se err write:    0.87/s    Conn count=182866    Conn Accept:   75.30/s    lost conn de:    0.01/s    unsubscribe:   10.47/s    Client count=0    
+
+
+Report#316 2019 07 23 07:44:13
+CLOSE Connec:   16.02/s    Unsub  topic:   16.02/s    new connecti:  136.04/s    q publish in: 1740.44/s    se err EOF:   20.91/s    se err read :    0.02/s    
+se err write:    1.05/s    Conn count=184444    Conn Accept:  136.04/s    lost conn de:    0.06/s    unsubscribe:   14.74/s    Client count=0    
+
+
+Report#317 2019 07 23 07:44:23
+CLOSE Connec:   16.40/s    Unsub  topic:   16.40/s    new connecti:  107.52/s    q publish in: 1138.11/s    se err EOF:   18.51/s    se err read :    0.01/s    
+se err write:    1.14/s    Conn count=185004    Conn Accept:  107.52/s    lost conn de:    0.03/s    unsubscribe:   15.76/s    Client count=0    
+
+
+Report#318 2019 07 23 07:44:33
+CLOSE Connec:   11.59/s    Unsub  topic:   11.59/s    new connecti:   78.87/s    q publish in:  775.72/s    se err EOF:   17.70/s    se err read :    0.06/s    
+se err write:    1.29/s    Conn count=185395    Conn Accept:   78.87/s    lost conn de:    0.13/s    unsubscribe:   12.10/s    Client count=0    
+
+
+Report#319 2019 07 23 07:44:43
+CLOSE Connec:   22.63/s    Unsub  topic:   22.63/s    new connecti:  137.88/s    q publish in:  479.92/s    se err EOF:   21.24/s    se err read :    0.03/s    
+se err write:    1.81/s    Conn count=186864    Conn Accept:  137.88/s    lost conn de:    0.06/s    unsubscribe:   23.72/s    Client count=0    
+
+
+Report#320 2019 07 23 07:44:53
+CLOSE Connec:   15.15/s    Unsub  topic:   15.15/s    new connecti:  106.94/s    q publish in:  447.07/s    se err EOF:   18.06/s    se err read :    0.02/s    
+se err write:    2.24/s    Conn count=187479    Conn Accept:  106.94/s    lost conn de:    0.03/s    unsubscribe:   15.80/s    Client count=0    
+
+
+Report#321 2019 07 23 07:45:03
+CLOSE Connec:   10.41/s    Unsub  topic:   10.35/s    new connecti:   74.80/s    q publish in:  401.42/s    se err EOF:   12.64/s    se err read :    0.01/s    
+se err write:    1.79/s    Conn count=187812    Conn Accept:   74.80/s    lost conn de:    0.02/s    unsubscribe:   10.18/s    Client count=0    
+
+
+Report#322 2019 07 23 07:45:13
+CLOSE Connec:    9.98/s    Unsub  topic:    9.95/s    new connecti:  129.57/s    q publish in:  353.43/s    se err EOF:   17.43/s    se err write:    2.34/s    
+Conn count=189385    Conn Accept:  129.57/s    lost conn de:    0.12/s    unsubscribe:    9.65/s    Client count=0    
+
+Report#323 2019 07 23 07:45:23
+CLOSE Connec:    7.71/s    Unsub  topic:    7.70/s    new connecti:  103.84/s    q publish in:  334.99/s    se err EOF:   15.88/s    se err write:    1.89/s    
+Conn count=190039    Conn Accept:  103.84/s    lost conn de:    0.06/s    unsubscribe:    7.21/s    Client count=0    
+

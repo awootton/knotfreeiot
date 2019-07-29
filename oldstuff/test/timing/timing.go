@@ -5,8 +5,8 @@ package timing
 import (
 	"bufio"
 	"fmt"
-	"knotfree/iot"
-	"knotfree/types"
+	"knotfree/oldstuff/iot"
+	"knotfree/oldstuff/types"
 	"math"
 	"net"
 	"reflect"
@@ -35,7 +35,7 @@ func ChanAndSubWithTCP(chanCount, testCount int) {
 		topic := "chan/test/hello7" + strconv.Itoa(i)
 		topicHash := types.HashType{}
 		topicHash.FromString(topic)
-		subMgr.SendSubscriptionMessage(&topicHash, topic, c)
+		subMgr.SendSubscriptionMessage(&topicHash, topic, c, nil)
 	}
 
 	ln, err := net.Listen("tcp", "localhost:6161")
@@ -65,7 +65,7 @@ func ChanAndSubWithTCP(chanCount, testCount int) {
 			go func(conn net.Conn) {
 				defer conn.Close()
 				reader := bufio.NewReader(conn)
-				err := iot.SocketSetup(conn)
+				err := types.SocketSetup(conn)
 				if err != nil {
 					fmt.Println("SocketSetup problem3", err)
 					return
@@ -230,7 +230,7 @@ func MeasureChanAndSub(chanCount, testCount int) {
 		topic := "chan/test/hello7" + strconv.Itoa(i)
 		topicHash := types.HashType{}
 		topicHash.FromString(topic)
-		subMgr.SendSubscriptionMessage(&topicHash, topic, c)
+		subMgr.SendSubscriptionMessage(&topicHash, topic, c, nil)
 	}
 
 	for i := 0; i < testCount; i++ {
@@ -409,7 +409,7 @@ func OneTestOfSubsMemory(subscriptionCount int, chanCount int) Memstat {
 		topic := "chan" + strconv.Itoa(i)
 		topicHash := types.HashType{}
 		topicHash.FromString(topic)
-		subMgr.SendSubscriptionMessage(&topicHash, topic, c)
+		subMgr.SendSubscriptionMessage(&topicHash, topic, c, nil)
 	}
 
 	runtime.GC()

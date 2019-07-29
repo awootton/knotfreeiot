@@ -5,7 +5,7 @@
 package iot
 
 import (
-	"knotfree/types"
+	"knotfree/oldstuff/types"
 	"math/rand"
 	"net"
 	"strconv"
@@ -201,5 +201,4 @@ func init() {
 	connLogThing = types.NewStringEventAccumulator(12)
 	connLogThing.SetQuiet(true)
 	types.NewGenericEventAccumulator(connectionsReporter)
-
 }

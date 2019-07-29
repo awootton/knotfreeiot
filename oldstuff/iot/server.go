@@ -5,20 +5,45 @@ package iot
 
 import (
 	"fmt"
-	"knotfree/protocolaa" // FIXME: get rid of this
-	"knotfree/types"
+	"knotfree/oldstuff/protocolaa" // FIXME: get rid of this
+	"knotfree/oldstuff/types"
 	"net"
 	"strings"
 
 	"time"
 )
 
+const testport = "knotfreeserver:6162"
+
+// ServerAa - use the reader arch and implement aa
+// returns but
+// func ServerAa(subscribeMgr types.SubscriptionsIntf) *types.SockStructConfig {
+
+// 	config := types.NewSockStructConfig()
+
+// 	// serverCallback := func(ss *SockStruct) {
+
+// 	// }
+// 	config.SetCallback(protocolaa.AaServeCallback)
+// 	servererr := func(ss *types.SockStruct, err error) {
+// 		fmt.Println("server is closing", err)
+
+// 	}
+// 	config.SetClosecb(servererr)
+
+// 	types.ServeFactory(config)
+
+// 	return config
+// }
+
+// gen one:
+
 // Server - wait for connections and spawn them
 // runs forever
 // TODO: handlerFactory as argument.
 func Server(subscribeMgr types.SubscriptionsIntf) {
 	fmt.Println("Server starting")
-	ln, err := net.Listen("tcp", ":6161")
+	ln, err := net.Listen("tcp", "knotfreeserver:6161")
 	if err != nil {
 		// handle error
 		srvrLogThing.Collect(err.Error())
@@ -54,17 +79,23 @@ func handleConnection(tmpconn net.Conn, subscribeMgr types.SubscriptionsIntf) {
 	allConnMutex.Lock()
 	allTheConnections[*c.GetKey()] = c
 	allConnMutex.Unlock()
-	// start reading
-	err := c.GetTCPConn().SetReadBuffer(4096)
+
+	err := types.SocketSetup(tmpconn)
 	if err != nil {
 		connLogThing.Collect("server err " + err.Error())
 		return
 	}
-	err = c.GetTCPConn().SetWriteBuffer(4096)
-	if err != nil {
-		connLogThing.Collect("cserver " + err.Error())
-		return
-	}
+	// start reading
+	// err := c.GetTCPConn().SetReadBuffer(4096)
+	// if err != nil {
+	// 	connLogThing.Collect("server err " + err.Error())
+	// 	return
+	// }
+	// err = c.GetTCPConn().SetWriteBuffer(4096)
+	// if err != nil {
+	// 	connLogThing.Collect("cserver " + err.Error())
+	// 	return
+	// }
 
 	// we might just for over the range of the handler input channel?
 	for true { // c.running {
@@ -120,31 +151,4 @@ var srvrLogThing *types.StringEventAccumulator
 func init() {
 	srvrLogThing = types.NewStringEventAccumulator(16)
 	srvrLogThing.SetQuiet(true)
-}
-
-// SocketSetup sets common options
-func SocketSetup(conn net.Conn) error {
-	tcpConn := conn.(*net.TCPConn)
-	err := tcpConn.SetReadBuffer(4096)
-	if err != nil {
-		srvrLogThing.Collect("SS err1 " + err.Error())
-		return err
-	}
-	err = tcpConn.SetWriteBuffer(4096)
-	if err != nil {
-		srvrLogThing.Collect("SS err2 " + err.Error())
-		return err
-	}
-	err = tcpConn.SetNoDelay(true)
-	if err != nil {
-		srvrLogThing.Collect("SS err3 " + err.Error())
-		return err
-	}
-	// SetReadDeadline and SetWriteDeadline
-	err = tcpConn.SetDeadline(time.Now().Add(20 * time.Minute))
-	if err != nil {
-		srvrLogThing.Collect("cl err4 " + err.Error())
-		return err
-	}
-	return nil
 }

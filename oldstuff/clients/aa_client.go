@@ -3,9 +3,8 @@
 package clients
 
 import (
-	"knotfree/iot"
-	"knotfree/protocolaa"
-	"knotfree/types"
+	"knotfree/oldstuff/protocolaa"
+	"knotfree/oldstuff/types"
 	"math/rand"
 	"net"
 	"reflect"
@@ -13,6 +12,8 @@ import (
 	"sync/atomic"
 	"time"
 )
+
+const testport = "knotfreeserver:6162"
 
 var maxBackoff = 30 * 60 // is seconds
 
@@ -47,7 +48,7 @@ func LightSwitch(mySubChan string, ourSwitch string) {
 
 	atomic.AddInt32(&allTheClientConnections, 1)
 
-	connectStr := "knotfreeserver:6161"
+	connectStr := testport
 	on := false
 	_ = on
 	backoff := 2
@@ -65,7 +66,7 @@ func LightSwitch(mySubChan string, ourSwitch string) {
 		}
 		defer conn.Close()
 
-		if iot.SocketSetup(conn) != nil {
+		if types.SocketSetup(conn) != nil {
 			continue // try again
 		}
 
@@ -120,7 +121,7 @@ func LightController(id string, target string) {
 
 	atomic.AddInt32(&allTheClientConnections, 1)
 
-	connectStr := "knotfreeserver:6161"
+	connectStr := testport
 	on := false
 	_ = on
 	backoff := 2
@@ -140,14 +141,15 @@ func LightController(id string, target string) {
 		clientLogThing.Collect("LightCon dialed in")
 		defer conn.Close() // never happens
 
-		if iot.SocketSetup(conn) != nil {
+		if types.SocketSetup(conn) != nil {
 			continue // try again
 		}
 
 		handler := protocolaa.NewHandler(conn.(*net.TCPConn))
-
 		sub := protocolaa.Subscribe{Msg: id}
 		handler.Push(&sub)
+
+		//	protocolaa.WriteStr(conn, "s"+sub.Msg)
 
 		// Don't publish until after the light has subscribed
 		var count int64

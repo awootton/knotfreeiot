@@ -4,7 +4,7 @@ package protocolaa
 
 import (
 	"errors"
-	"knotfree/types"
+	"knotfree/oldstuff/types"
 	"net"
 )
 
@@ -89,7 +89,7 @@ func (me *Subscribe) marshal() string {
 func (me *Subscribe) execute(parent *ServerHandler) error {
 	hashedTopic := types.HashType{}
 	hashedTopic.FromString(me.Msg)
-	parent.subscriptions.SendSubscriptionMessage(&hashedTopic, me.Msg, parent.c)
+	parent.subscriptions.SendSubscriptionMessage(&hashedTopic, me.Msg, parent.c, nil)
 	return nil
 }
 

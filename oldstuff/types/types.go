@@ -55,7 +55,7 @@ type ConnectionIntf interface {
 
 // SubscriptionsIntf stuff that deals with pub/sub
 type SubscriptionsIntf interface {
-	SendSubscriptionMessage(Topic *HashType, realName string, c ConnectionIntf)
+	SendSubscriptionMessage(Topic *HashType, realName string, c ConnectionIntf, ss *SockStruct)
 	SendUnsubscribeMessage(Topic *HashType, c ConnectionIntf)
 	SendPublishMessage(Topic *HashType, c ConnectionIntf, payload *[]byte)
 	GetAllSubsCount() uint64

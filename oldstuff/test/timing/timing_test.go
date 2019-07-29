@@ -4,8 +4,11 @@ package timing_test
 
 import (
 	"fmt"
-	"knotfree/iot"
-	"knotfree/test/timing"
+	"knotfree/oldstuff/iot"
+	"knotfree/oldstuff/test/timing"
+	"math/rand"
+	"runtime"
+	"strconv"
 	"testing"
 )
 
@@ -82,4 +85,59 @@ func BenchmarkMakeChannels(b *testing.B) {
 	}
 	//BenchmarkMakeChannels-8   	       1	1,506,747,961 ns/op	461,052,248 B/op	 8,043,321 allocs/op
 	// 1500 ns each for 666,666 per sec.
+}
+
+// BenchmarkPrintMemUsage
+func BenchmarkPrintMemUsage(b *testing.B) {
+
+	// collect the garbage now.
+	runtime.GC()
+	runtime.GC()
+	runtime.GC()
+	runtime.GC() // be very sure
+
+	fmt.Println()
+	stat := timing.Memstat{}
+	memStats := timing.PrintMemUsage(nil, &stat)
+
+	const csize = 0
+	const chainLength = 1 * 1000 * 1000
+
+	var head chan *string
+	var tail chan *string
+
+	head = make(chan *string, csize)
+	tail = head
+	{
+		previous := &head
+		for i := 0; i < chainLength; i++ {
+			tail = make(chan *string, csize)
+			go func(in, out *chan *string) {
+				for {
+					s := <-*in
+					*out <- s
+				}
+			}(previous, &tail)
+			previous = &tail
+		}
+	}
+
+	testStr := "this is my test str " + strconv.Itoa(rand.Int())
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		head <- &testStr
+		got := <-tail
+		// they are probably not only the same but also the exact same pointer
+		// to the exact same string
+		if testStr != *got {
+			fmt.Printf("never happens %s != %s", *got, testStr)
+		}
+	}
+	fmt.Printf("csize = %v", csize)
+	fmt.Printf("\tchainLen = %v", chainLength)
+	timing.PrintMemUsage(memStats, &stat)
+	fmt.Println("\tmemstats", stat)
+	// csize = 0	chainLen = 1000000	memstats {619,356,928 2,999,996 1}
+	// csize = 4	chainLen = 1000000	memstats {558,938,240 2,977,603 1}
 }

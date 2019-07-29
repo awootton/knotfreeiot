@@ -4,7 +4,7 @@ package misc_test
 
 import (
 	"fmt"
-	"knotfree/misc"
+	"knotfree/oldstuff/misc"
 	"math/rand"
 	"strings"
 	"time"

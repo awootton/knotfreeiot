@@ -4,7 +4,7 @@ package iot
 
 import (
 	"fmt"
-	types "knotfree/types"
+	types "knotfree/oldstuff/types"
 )
 
 // NewPubsubManager makes a SubscriptionsIntf, usually a singleton.
@@ -27,20 +27,23 @@ func NewPubsubManager(amt int) types.SubscriptionsIntf {
 }
 
 // SendSubscriptionMessage will create a message object, copy pointers to it so it'll own them now, and queue the message.
-func (me *pubSubManager) SendSubscriptionMessage(Topic *types.HashType, realName string, c types.ConnectionIntf) {
-	c.SetRealTopicName(Topic, realName)
-	msg := subscriptionMessage{Topic, c.GetKey()}
-	i := Topic.GetFractionalBits(theBucketsSizeLog2)
+func (me *pubSubManager) SendSubscriptionMessage(topic *types.HashType, realName string, c types.ConnectionIntf, ss *types.SockStruct) {
+	c.SetRealTopicName(topic, realName)
+	msg := subscriptionMessage{}
+	msg.ConnectionID = c.GetKey()
+	msg.Topic = topic
+	msg.ss = ss
+	i := topic.GetFractionalBits(theBucketsSizeLog2)
 	b := me.allTheSubscriptions[i]
 	*b.incoming <- msg
 }
 
 // SendUnsubscribeMessage will create a message object, copy pointers to it so it'll own them now, and queue the message.
-func (me *pubSubManager) SendUnsubscribeMessage(Topic *types.HashType, c types.ConnectionIntf) {
+func (me *pubSubManager) SendUnsubscribeMessage(topic *types.HashType, c types.ConnectionIntf) {
 	msg := unsubscribeMessage{}
-	msg.Topic = Topic
+	msg.Topic = topic
 	msg.ConnectionID = c.GetKey()
-	i := Topic.GetFractionalBits(theBucketsSizeLog2)
+	i := topic.GetFractionalBits(theBucketsSizeLog2)
 	b := me.allTheSubscriptions[i]
 	*b.incoming <- msg
 }
@@ -68,13 +71,16 @@ func (bucket *subscribeBucket) processMessages() {
 			if substruct == nil {
 				substruct = &subscription{}
 				substruct.name.FromHashType(submsg.Topic)
-				substruct.watchers = make(map[types.HashType]bool, 0)
+				substruct.watchers = make(map[types.HashType]*fan, 0)
 				bucket.mySubscriptions[*submsg.Topic] = substruct
 				subscribeEvents.Collect("new subscription")
 			}
 			// this is the important part:
 			// add the caller to  the set
-			substruct.watchers[*submsg.ConnectionID] = true
+			newfan := fan{}
+			newfan.key = submsg.ConnectionID
+			newfan.ss = submsg.ss
+			substruct.watchers[*submsg.ConnectionID] = &newfan
 
 		case publishMessage:
 			pubmsg := msg.(publishMessage)
@@ -149,6 +155,7 @@ const theBucketsSizeLog2 = 3   // 10 // uint(math.Log2(float64(theBucketsSize)))
 type subscriptionMessage struct {
 	Topic        *types.HashType // not my real name
 	ConnectionID *types.HashType
+	ss           *types.SockStruct
 }
 
 // unsubscribeMessage for real
@@ -162,10 +169,15 @@ type publishMessage struct {
 	payload *[]byte
 }
 
+type fan struct {
+	key *types.HashType
+	ss  *types.SockStruct
+}
+
 // subscription, this is private here
 type subscription struct {
 	name     types.HashType          // not my real name
-	watchers map[types.HashType]bool // these are ID's for tcp Connection mgr
+	watchers map[types.HashType]*fan // these are ID's for tcp Connection mgr
 }
 
 type subscribeBucket struct {

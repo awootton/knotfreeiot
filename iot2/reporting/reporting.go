@@ -1,6 +1,6 @@
 // Copyright 2019 Alan Tracey Wootton
 
-package types
+package reporting
 
 import (
 	"fmt"
@@ -11,8 +11,10 @@ import (
 	"time"
 )
 
+// TODO: cleanup
+
 // DoStartEventCollectorReporting - set to run the reporter
-var DoStartEventCollectorReporting = true
+//var DoStartEventCollectorReporting = true
 
 //var delayBetweenReports = 6 per minute
 var delayBetweenReports = 10 * time.Second
@@ -31,7 +33,8 @@ var reporters = make([]Reporting, 0, 25)
 // 	}
 // }
 
-// GenericEventAccumulator is
+// GenericEventAccumulator is for when we don't want to collect events or make sums
+// and what we need to to just contribute some values to the report.
 type GenericEventAccumulator struct {
 	reporter func(float32) []string
 }
@@ -42,7 +45,7 @@ type StringEventAccumulator struct {
 	countMap map[string]float32
 	onceSet  map[string]bool
 	strlen   int  // for trimming keys
-	quiet    bool // don't println incoming msgs
+	quiet    bool // don't Println incoming msgs
 }
 
 // SetQuiet is
@@ -81,27 +84,11 @@ func addReporter(r Reporting) {
 // Collect - Users will call this when strings happen and we'll count the rate.
 // eg. atwCm.Collect("This is a serious bug")
 func (collector *StringEventAccumulator) Collect(str string) {
-	if collector.quiet == false {
-		fmt.Println(str) // leave this. It's the exception to the rule.
-	}
-	if len(str) == 0 {
-		str = "collected_empty_str"
-	}
-	if len(str) > collector.strlen {
-		str = str[0:collector.strlen]
-	}
-	collector.Lock()
-	v, ok := collector.countMap[str]
-	if ok == false {
-		collector.countMap[str] = 1
-	} else {
-		collector.countMap[str] = v + 1
-	}
-	collector.Unlock()
+	collector.Sum(str, 1)
 }
 
 // CollectOnce - prints just one time.
-// eg. atwCm.Collect("This is a serious bug")
+// eg. if you call this a million times: atwCm.Collect("This is a serious bug")
 func (collector *StringEventAccumulator) CollectOnce(str string) {
 
 	collector.Lock()
@@ -170,6 +157,13 @@ func (collector *StringEventAccumulator) report(seconds float32) []string {
 var reportTicker time.Ticker
 var reportCount = 0
 
+var latestReport = "unset"
+
+// GetLatestReport is global.
+func GetLatestReport() string {
+	return latestReport
+}
+
 // StartRunningReports is
 func StartRunningReports() {
 	reportTicker := time.NewTicker(delayBetweenReports)
@@ -192,8 +186,10 @@ func StartRunningReports() {
 			}
 		}
 		t := time.Now()
-		fmt.Println("Report#" + strconv.Itoa(reportCount) + " " + t.Format("2006 01 02 15:04:05")) // don't delete this Println
-		fmt.Println(sb.String())
+		report := "Report#" + strconv.Itoa(reportCount) + " " + t.Format("2006 01 02 15:04:05") + "\n"
+		report = report + sb.String()
+		latestReport = report
+		fmt.Println(report) // don't delete this Println
 		fmt.Println("")
 		previousTime = t
 		reportCount++

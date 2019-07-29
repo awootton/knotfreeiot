@@ -13,10 +13,22 @@ import (
 	"time"
 )
 
+// Config is for setting up a typical deployment
+type Config struct {
+	Namespace      string
+	DeploymentName string
+	Replication    int
+	Command        string
+	CPU            string
+	Mem            string
+	YamlFile       string
+	Type           string // eg type NodePort
+}
+
 // use kubectl to start some pods.
 // fully idempotent
 // it's really only good for the one k8s deploy yaml file that we use here.
-func start(c kubectl.Config) {
+func start(c Config) {
 
 	// should print the list of k8s nodes running now.
 	kubectl.K("kubectl get no")
@@ -38,6 +50,7 @@ func start(c kubectl.Config) {
 	deployment = strings.ReplaceAll(deployment, "INSERT_MEM_NEEDED_HERE", c.Mem)
 	deployment = strings.ReplaceAll(deployment, "89345678999236962", strconv.Itoa(c.Replication))
 	deployment = strings.ReplaceAll(deployment, "INSERT_COMMAND_HERE", c.Command)
+	deployment = strings.ReplaceAll(deployment, "#type: {{SERVICE_TYPE}}", c.Type)
 
 	out, err = kubectl.K8s("kubectl apply -f -", deployment)
 	fmt.Println(out)
@@ -92,21 +105,22 @@ func start(c kubectl.Config) {
 // root          61      23  0 06:10 ?        00:00:00 /tmp/go-build048328676/b001/exe/main server
 // root          78       0  0 06:12 ?        00:00:00 ps -ef
 
-// doesn't do anything now
-func pkillPods(c kubectl.Config) {
+func pkillPods(c Config) {
 
-	thepodnames := kubectl.GetThePodNames(c.DeploymentName)
-	var waitgroup sync.WaitGroup
-	for POD := range thepodnames {
-		waitgroup.Add(1)
-		go func(POD string) {
-			// kubectl exec ${POD} -- bash -c "pkill main" | true
-			_, _ = kubectl.K8s("kubectl exec  "+POD+" -- bash -c \"pkill main\"", "")
-			waitgroup.Done()
-			time.Sleep(1 * time.Minute)
-		}(POD)
-	}
-	waitgroup.Wait()
+	kubectl.K("kubectl delete deploy " + c.DeploymentName)
+
+	// thepodnames := kubectl.GetThePodNames(c.DeploymentName)
+	// var waitgroup sync.WaitGroup
+	// for POD := range thepodnames {
+	// 	waitgroup.Add(1)
+	// 	go func(POD string) {
+	// 		// kubectl exec ${POD} -- bash -c "pkill main" | true
+	// 		_, _ = kubectl.K8s("kubectl exec  "+POD+" -- bash -c \"pkill main\"", "")
+	// 		waitgroup.Done()
+	// 		time.Sleep(1 * time.Minute)
+	// 	}(POD)
+	// }
+	// waitgroup.Wait()
 
 }
 
@@ -132,7 +146,7 @@ func main() {
 
 	// assume 20k per socket until we fix it.
 
-	clientconfig := kubectl.Config{
+	clientconfig := Config{
 		Namespace:      "knotfree",
 		DeploymentName: "client",
 		Replication:    20,
@@ -140,8 +154,9 @@ func main() {
 		Mem:            "200Mi",         // so 10k sockets max 20k per sock
 		CPU:            "100m",
 		YamlFile:       "knotfreedeploy.yaml",
+		Type:           "type NodePort",
 	}
-	serverconfig := kubectl.Config{
+	serverconfig := Config{
 		Namespace:      "knotfree",
 		DeploymentName: "knotfreeserver",
 		Replication:    1,
@@ -149,6 +164,7 @@ func main() {
 		CPU:            "1500m",
 		Mem:            "4000Mi", // 20 * 5000 = 100k socks. 100k * 20kB/sock = 2 Gi
 		YamlFile:       "knotfreedeploy.yaml",
+		Type:           "type LoadBalancer",
 	}
 
 	if len(os.Args) > 1 && os.Args[1] == "killmain" {
@@ -162,19 +178,15 @@ func main() {
 	} else if len(os.Args) > 1 && os.Args[1] == "server" {
 		start(serverconfig)
 	} else {
-		fmt.Println("specify client or server")
+		fmt.Println("specify client or server or we'll do both")
 
 		buildTheDocker()
 
-		// pkillPods(serverconfig)
-		// pkillPods(clientconfig)
+		pkillPods(serverconfig)
+		pkillPods(clientconfig)
 
 		start(serverconfig)
 		start(clientconfig)
-		// we can't quit until everyone is done.
-		// for {
-		// 	time.Sleep(100 * time.Minute)
-		// }
 
 	}
 

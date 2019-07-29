@@ -1,5 +1,8 @@
 // Copyright 2019 Alan Tracey Wootton
 
+// Package kubectl has some utilty functions that will issue kubectl commands.
+// It is assumed that kubectl in your envrionment, typically a workstation, is setup
+// and configured to access a running k8s cluster.
 package kubectl
 
 import (
@@ -9,17 +12,6 @@ import (
 	"strings"
 	"time"
 )
-
-// Config is for setting up a typical deployment
-type Config struct {
-	Namespace      string
-	DeploymentName string
-	Replication    int
-	Command        string
-	CPU            string
-	Mem            string
-	YamlFile       string
-}
 
 var quiet = false
 
@@ -128,6 +120,8 @@ func GetThePodNames(deploymentName string) map[string]bool {
 	fmt.Println(thepodnames)
 	return thepodnames
 }
+
+// TODO: needs example
 
 func check(e error) {
 	if e != nil {

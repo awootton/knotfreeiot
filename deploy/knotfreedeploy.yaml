@@ -28,7 +28,9 @@ spec:
         - containerPort: 1883
           name : mqtt
         - containerPort: 8080 
-          name : knot
+          name : web
+        - containerPort: 7374 
+          name : str
         resources:
           limits:
             cpu: INSERT_CPU_NEEDED_HERE
@@ -50,13 +52,13 @@ metadata:
     app: "{{NAME}}"
   name: "{{NAME}}"
 spec:
-  type: NodePort
+  #type: {{SERVICE_TYPE}}
   ports:
   - port: 6161
     name: aa
   - port: 1883
     name: mqtt
   - port: 8080
-    name: knot
+    name: web
   selector:
     run: "{{NAME}}"
