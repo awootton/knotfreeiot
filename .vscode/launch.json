@@ -20,7 +20,7 @@
         "request": "launch",
         "mode": "debug",
         "program": "main.go",
-        "args": [] // "client","2500"
+        "args": [] //was "client","2500"
     },
         
         {
