@@ -5,8 +5,8 @@ package timing
 import (
 	"bufio"
 	"fmt"
-	"knotfree/oldstuff/iot"
-	"knotfree/oldstuff/types"
+	"knotfreeiot/oldstuff/iot"
+	"knotfreeiot/oldstuff/types"
 	"math"
 	"net"
 	"reflect"

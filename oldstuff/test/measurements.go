@@ -4,7 +4,7 @@ package main
 
 import (
 	"fmt"
-	"knotfree/oldstuff/test/timing"
+	"knotfreeiot/oldstuff/test/timing"
 )
 
 func main() {

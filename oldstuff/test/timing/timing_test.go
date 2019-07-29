@@ -4,8 +4,8 @@ package timing_test
 
 import (
 	"fmt"
-	"knotfree/oldstuff/iot"
-	"knotfree/oldstuff/test/timing"
+	"knotfreeiot/oldstuff/iot"
+	"knotfreeiot/oldstuff/test/timing"
 	"math/rand"
 	"runtime"
 	"strconv"

@@ -3,8 +3,8 @@
 package clients
 
 import (
-	"knotfree/oldstuff/protocolaa"
-	"knotfree/oldstuff/types"
+	"knotfreeiot/oldstuff/protocolaa"
+	"knotfreeiot/oldstuff/types"
 	"math/rand"
 	"net"
 	"reflect"

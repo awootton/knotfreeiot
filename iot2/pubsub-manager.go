@@ -4,7 +4,7 @@ package iot2
 
 import (
 	"fmt"
-	"knotfree/iot2/reporting"
+	"knotfreeiot/iot2/reporting"
 	"strconv"
 )
 

@@ -6,8 +6,8 @@ import (
 	"runtime"
 	"sync/atomic"
 
-	"knotfree/iot2"
-	"knotfree/iot2/reporting"
+	"knotfreeiot/iot2"
+	"knotfreeiot/iot2/reporting"
 
 	"math/rand"
 	"net/http"

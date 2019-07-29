@@ -6,9 +6,9 @@ ENV PORT 1883
 
 RUN go get -u github.com/minio/highwayhash
 
-WORKDIR /go/src/knotfree/
+WORKDIR /go/src/knotfreeiot/
 
-ADD . /go/src/knotfree
+ADD . /go/src/knotfreeiot
 RUN go install 
 
 CMD ["/go/bin/knotfree"]

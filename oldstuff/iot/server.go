@@ -5,8 +5,8 @@ package iot
 
 import (
 	"fmt"
-	"knotfree/oldstuff/protocolaa" // FIXME: get rid of this
-	"knotfree/oldstuff/types"
+	"knotfreeiot/oldstuff/protocolaa" // FIXME: get rid of this
+	"knotfreeiot/oldstuff/types"
 	"net"
 	"strings"
 

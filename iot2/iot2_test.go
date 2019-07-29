@@ -2,7 +2,7 @@ package iot2_test
 
 import (
 	"fmt"
-	"knotfree/iot2"
+	"knotfreeiot/iot2"
 )
 
 // ExampleGetFirstWord is a test. I do with I didn't have to make GetFirstWord public just to write this test.

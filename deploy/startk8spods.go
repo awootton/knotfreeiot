@@ -5,7 +5,7 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
-	"knotfree/kubectl"
+	"knotfreeiot/kubectl"
 	"os"
 	"strconv"
 	"strings"

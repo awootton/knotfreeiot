@@ -4,7 +4,7 @@ package iot
 
 import (
 	"fmt"
-	types "knotfree/oldstuff/types"
+	types "knotfreeiot/oldstuff/types"
 )
 
 // NewPubsubManager makes a SubscriptionsIntf, usually a singleton.

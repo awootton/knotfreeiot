@@ -3,7 +3,7 @@
 package iot2
 
 import (
-	"knotfree/iot2/reporting"
+	"knotfreeiot/iot2/reporting"
 	"math/rand"
 	"net"
 	"strconv"

@@ -5,7 +5,7 @@ package timing
 import (
 	"errors"
 	"fmt"
-	"knotfree/oldstuff/types"
+	"knotfreeiot/oldstuff/types"
 	"time"
 )
 

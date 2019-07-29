@@ -1,11 +1,11 @@
 // Copyright 2019 Alan Tracey Wootton
 
-// Package iot manages Connections, literal tcp system sockets, using an object called Connection in the file
+// Package iot deprecated
 // connections.go
 package iot
 
 import (
-	"knotfree/oldstuff/types"
+	"knotfreeiot/oldstuff/types"
 	"math/rand"
 	"net"
 	"strconv"

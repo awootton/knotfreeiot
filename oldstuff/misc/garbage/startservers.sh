@@ -1,6 +1,6 @@
 #!/bin/bash -ex
 
-# The currect directory should be src/knotfree/deploy
+# The currect directory should be src/knotfreeiot/deploy
 
 kubectl create namespace servers | true
 
