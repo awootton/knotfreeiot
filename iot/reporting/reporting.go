@@ -25,13 +25,8 @@ type Reporting interface {
 	report(float32) []string
 }
 
+var mutex = sync.Mutex{}
 var reporters = make([]Reporting, 0, 25)
-
-// func init() {
-// 	if DoStartEventCollectorReporting {
-// 		go startRunningReports()
-// 	}
-// }
 
 // GenericEventAccumulator is for when we don't want to collect events or make sums
 // and what we need to to just contribute some values to the report.
@@ -48,18 +43,16 @@ type StringEventAccumulator struct {
 	quiet    bool // don't Println incoming msgs
 }
 
-// SetQuiet is
-func (collector *StringEventAccumulator) SetQuiet(q bool) {
-	collector.quiet = q
-}
-
 // NewStringEventAccumulator is
 func NewStringEventAccumulator(maxstrlen int) *StringEventAccumulator {
 	cm := StringEventAccumulator{}
 	cm.countMap = make(map[string]float32)
 	cm.onceSet = make(map[string]bool)
+	if maxstrlen < 4 {
+		maxstrlen = 4
+	}
 	cm.strlen = maxstrlen
-	cm.quiet = false
+	cm.quiet = true
 	addReporter(&cm)
 	return &cm
 }
@@ -72,13 +65,20 @@ func NewGenericEventAccumulator(reporter func(float32) []string) *GenericEventAc
 	return &cm
 }
 
+// SetQuiet is
+func (collector *StringEventAccumulator) SetQuiet(q bool) {
+	collector.quiet = q
+}
+
 func (me *GenericEventAccumulator) report(seconds float32) []string {
 	return me.reporter(seconds)
 }
 
 // addReporter appends r to the global list of reporters.
 func addReporter(r Reporting) {
+	mutex.Lock()
 	reporters = append(reporters, r)
+	mutex.Unlock()
 }
 
 // Collect - Users will call this when strings happen and we'll count the rate.
@@ -166,6 +166,15 @@ func GetLatestReport() string {
 
 // StartRunningReports is
 func StartRunningReports() {
+	mutex.Lock()
+	tmp := reportCount
+	mutex.Unlock()
+	if tmp > 0 {
+		return
+	}
+	mutex.Lock()
+	reportCount = 1
+	mutex.Unlock()
 	reportTicker := time.NewTicker(delayBetweenReports)
 	previousTime := time.Now()
 
@@ -173,7 +182,11 @@ func StartRunningReports() {
 		var sb strings.Builder
 		width := 0
 		elapsed := t.Sub(previousTime)
-		for _, reporter := range reporters {
+		rcopy := make([]Reporting, len(reporters))
+		mutex.Lock()
+		copy(rcopy, reporters)
+		mutex.Unlock()
+		for _, reporter := range rcopy {
 			sssarr := reporter.report(float32(elapsed / time.Second))
 			for _, str := range sssarr {
 				sb.WriteString(str)
@@ -185,6 +198,16 @@ func StartRunningReports() {
 				}
 			}
 		}
+		// sssarr := memStats()
+		// for _, str := range sssarr {
+		// 	sb.WriteString(str)
+		// 	sb.WriteString("    ")
+		// 	width += len(str) + 1
+		// 	if width > 120 {
+		// 		sb.WriteString("\n")
+		// 		width = 0
+		// 	}
+		// }
 		t := time.Now()
 		report := "Report#" + strconv.Itoa(reportCount) + " " + t.Format("2006 01 02 15:04:05") + "\n"
 		report = report + sb.String()
@@ -194,4 +217,12 @@ func StartRunningReports() {
 		previousTime = t
 		reportCount++
 	}
+}
+
+func bToMb(b uint64) uint64 {
+	return b / 1024 / 1024
+}
+
+func bToKb(b uint64) uint64 {
+	return b / 1024
 }

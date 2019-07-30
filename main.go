@@ -1,207 +1,87 @@
 package main
 
 import (
-	"bufio"
+	"flag"
 	"fmt"
-	"knotfreeiot/iot"
 	"knotfreeiot/iot/reporting"
-	"math/rand"
+	"knotfreeiot/strprotocol"
 	"net/http"
-	"runtime"
-	"strconv"
-	"sync/atomic"
 	"time"
 )
 
-var prefix = ""
+func strProtocolServerDemo() {
 
-func runAlight(ss *iot.SockStruct) {
-
-	// context to read loop decl here
-
-	go func(ss *iot.SockStruct) {
-		reader := bufio.NewReader(ss.GetConn())
-		for { // our reading loop
-			text, err := reader.ReadString('\n')
-			if err != nil {
-				ss.Close(err)
-				return
-			}
-			str := text[0 : len(text)-1]
-			//fmt.Println("Light received", str)
-			cmd, payload := iot.GetFirstWord(str)
-			if cmd == "got" {
-				// just pub back to switch
-				topicfrom, payload := iot.GetFirstWord(payload)
-				myID := ss.GetSequence()
-				topic := "switch_" + strconv.FormatUint(0x000FFFFF&myID, 16)
-
-				command := "pub " + topic + " " + payload
-				iot.ServerOfStringsWrite(ss, command)
-				_ = topicfrom
-			} else {
-				// it's just the echo of out own pub and sub commands.
-				// fmt.Println("not handled", cmd, payload)
-			}
-		}
-	}(ss)
-
-	myID := ss.GetSequence()
-	idstr := strconv.FormatUint(0x000FFFFF&myID, 16)
-
-	topic := "light_" + idstr
-	// now convert to command
-	cmd := "sub " + topic
-	iot.ServerOfStringsWrite(ss, cmd) // send subscribe command to server
-
+	fmt.Println("Starting strProtocolServerDemo")
+	config := strprotocol.StartServerDemo(100 * 1000)
+	_ = config
 	for {
-		// our sending loop
-		// lights don't send. light controllers, aka switches, send commands.
-		time.Sleep(10 * time.Second)
+		time.Sleep(time.Minute)
 	}
 }
 
-func runAswitch(ss *iot.SockStruct) {
+func strProtocolClientDemo(count int) {
 
-	myID := ss.GetSequence()
-	idstr := strconv.FormatUint(0x000FFFFF&myID, 16)
-
-	ourCommand := "Hello From Switch_" + idstr
-
-	waiting := int32(0)
-	when := time.Now()
-
-	go func(ss *iot.SockStruct) {
-		reader := bufio.NewReader(ss.GetConn())
-		for { // our reading loop
-			text, err := reader.ReadString('\n')
-			if err != nil {
-				ss.Close(err)
-				return
-			}
-			str := text[0 : len(text)-1] // remove \n
-			cmd, tmp := iot.GetFirstWord(str)
-			topic, payload := iot.GetFirstWord(tmp)
-			if cmd == "got" {
-				if payload == ourCommand {
-					atomic.AddInt32(&waiting, -1)
-					duration := time.Now().Sub(when)
-					if duration < time.Millisecond*100 {
-						clientLogThing.Collect("happy joy")
-					} else if duration < time.Second {
-						clientLogThing.Collect("ok")
-					} else {
-						clientLogThing.Collect("too slow")
-					}
-				}
-			}
-			_ = topic
-		}
-	}(ss)
-
-	topic := "switch_" + idstr
-	// now convert to command
-	cmd := "sub " + topic
-	iot.ServerOfStringsWrite(ss, cmd) // send subscribe command to se
-
+	fmt.Println("Starting strProtocolClientDemo", count)
+	lights, switches := strprotocol.StartClientsDemo(count)
+	_ = lights
+	_ = switches
 	for {
-		// our sending loop
-		topic := "light_" + idstr
-		command := "pub " + topic + " " + ourCommand
-		atomic.AddInt32(&waiting, 1)
-		when = time.Now()
-		iot.ServerOfStringsWrite(ss, command) // send pub command to server
-		time.Sleep(10 * time.Second)
-	}
-}
-
-var clientLogThing *reporting.StringEventAccumulator
-
-func runServer2() {
-
-	clientLogThing = reporting.NewStringEventAccumulator(16)
-	clientLogThing.SetQuiet(true)
-
-	var subscribeMgr iot.PubsubIntf
-	subscribeMgr = iot.NewPubsubManager(100 * 1000)
-
-	//config := iot.ServerOfAa(subscribeMgr, ":6161")
-	config := iot.ServerOfStrings(subscribeMgr, ":7374")
-
-	defer config.Close(nil)
-
-	addr := "knotfreeserver:7374"
-
-	lights := iot.NewSockStructConfig(nil)
-	iot.ServerOfStringsInit(lights)
-	switches := iot.NewSockStructConfig(nil)
-	iot.ServerOfStringsInit(switches)
-
-	clientCount := 5000
-
-	subscrFRepofrtFunct := func(seconds float32) []string {
-		strlist := make([]string, 0, 5)
-		count := config.Len()
-		strlist = append(strlist, "Conn count="+strconv.FormatUint(uint64(count), 10))
-		topicCpunt, buffAvg := subscribeMgr.GetAllSubsCount()
-		strlist = append(strlist, "Topic count="+strconv.FormatUint(uint64(topicCpunt), 10))
-		strlist = append(strlist, "Topic buffers="+strconv.FormatUint(uint64(buffAvg), 10))
-		strlist = append(strlist, "Lights="+strconv.FormatUint(uint64(lights.Len()), 10))
-		strlist = append(strlist, "Switches="+strconv.FormatUint(uint64(switches.Len()), 10))
-
-		var m runtime.MemStats
-		runtime.ReadMemStats(&m)
-
-		strlist = append(strlist, "Bytes="+strconv.FormatUint(bToMb(m.HeapAlloc), 10)+"MiB")
-		strlist = append(strlist, "Sys="+strconv.FormatUint(bToMb(m.Sys), 10)+"MiB")
-		strlist = append(strlist, "GC="+strconv.FormatUint(bToMb(uint64(m.NumGC)), 10))
-
-		return strlist
-	}
-	reporting.NewGenericEventAccumulator(subscrFRepofrtFunct)
-	go reporting.StartRunningReports()
-
-	fmt.Println("start making clients")
-
-	lights.SetCallback(runAlight)
-	iot.MakeBunchOfClients(clientCount, addr, 10*time.Millisecond, lights, clientLogThing)
-
-	fmt.Println("lights started")
-
-	switches.SetCallback(runAswitch)
-	iot.MakeBunchOfClients(clientCount, addr, 10*time.Millisecond, switches, clientLogThing)
-
-	fmt.Println("switches started")
-
-	fmt.Println("StartRunningReports called")
-
-	for {
-		time.Sleep(10 * time.Second) //
-
-		// open a client and send a message
-
-		fmt.Println("sockets=", config.Len())
+		time.Sleep(time.Minute)
 	}
 }
 
 // Hint: add 127.0.0.1 knotfreeserver to /etc/hosts
 func main() {
 
-	fmt.Println("Hello3")
-	prefix = "_" + strconv.FormatUint(uint64(rand.Uint32()), 16) + "_/"
-	fmt.Println("using prefix " + prefix)
+	fmt.Println("Hello knotfreeserver")
 
-	go runServer2()
+	aa := flag.Bool("aa", false, "use aa protocol")
+	str := flag.Bool("str", false, "use str protocol")
+	client := flag.Int("client", 0, "start a client test, else start the servers")
+	server := flag.Bool("server", false, "start a server even if we're also starting the clients test")
 
-	http.HandleFunc("/", HelloServer)
-	err := http.ListenAndServe(":8080", nil)
-	if err != nil {
-		fmt.Println("ListenAndServe err ", err)
+	flag.Parse()
+
+	if *aa == false && *str == false && *client == 0 && *server == false {
+
+		// the vs code version
+		go strProtocolServerDemo()
+		go strProtocolClientDemo(1000)
+
+	} else {
+		if *client > 0 {
+			go strProtocolClientDemo(*client)
+		}
+		if *server {
+			go strProtocolServerDemo()
+		}
 	}
+
+	go func() {
+		http.HandleFunc("/", HelloServer)
+		err := http.ListenAndServe(":8080", nil)
+		if err != nil {
+			fmt.Println("ListenAndServe err ", err)
+		}
+	}()
 
 	for {
-		time.Sleep(60 * time.Minute)
+		time.Sleep(time.Minute)
 	}
+
+	// reportTicker := time.NewTicker(10 * time.Second)
+	// for t := range reportTicker.C {
+
+	// 	// 	strlist := strings.Builder{}
+	// 	// 	var m runtime.MemStats
+	// 	// 	//	runtime.ReadMemStats(&m) // FIXME: this deadlocks and hangs.
+
+	// 	// 	strlist.WriteString("Bytes=" + strconv.FormatUint(bToMb(m.HeapAlloc), 10) + "MiB")
+	// 	// 	strlist.WriteString("Sys=" + strconv.FormatUint(bToMb(m.Sys), 10) + "MiB")
+	// 	// 	strlist.WriteString("GC=" + strconv.FormatUint(bToMb(uint64(m.NumGC)), 10))
+
+	// 	_ = t
+	// }
 }
 
 // HelloServer is
@@ -209,10 +89,24 @@ func HelloServer(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "Hello, %s! %v \n", r.URL.Path[1:], reporting.GetLatestReport())
 }
 
+var mainLogThing = reporting.NewStringEventAccumulator(16)
+
+// func startReportingHere() {
+// 	aReportFunc := func(seconds float32) []string {
+// 		strlist := make([]string, 0, 2)
+// 		var m runtime.MemStats
+// 		runtime.ReadMemStats(&m)
+
+// 		strlist = append(strlist, "Bytes="+strconv.FormatUint(bToMb(m.HeapAlloc), 10)+"MiB")
+// 		strlist = append(strlist, "Sys="+strconv.FormatUint(bToMb(m.Sys), 10)+"MiB")
+// 		strlist = append(strlist, "GC="+strconv.FormatUint(bToMb(uint64(m.NumGC)), 10))
+
+// 		return strlist
+// 	}
+// 	reporting.NewGenericEventAccumulator(aReportFunc)
+//go reporting.StartRunningReports()
+//}
+
 func bToMb(b uint64) uint64 {
 	return b / 1024 / 1024
-}
-
-func bToKb(b uint64) uint64 {
-	return b / 1024
 }

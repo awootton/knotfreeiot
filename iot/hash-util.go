@@ -14,15 +14,15 @@ import (
 	"github.com/minio/highwayhash"
 )
 
-// HashType is 128 bits. We'll use these as keys. While they are a little fat they're quite resistant
-// to collision privided that they are random.
-// Think of this as a bigendian fraction from 0 to 1-1/(2^128) . Like a probability. No negatives.
+// HashType represents 128 bits of randomness. We'll use these as keys and ID's. While they are a little fat they're quite resistant
+// to collision provided that they are random.
+// Think of this as a fraction from 0 to 1-1/(2^128) . Like a probability. No negatives.
 // When we distribute these into buckets we'll start with the high bits in 'a'.
 type HashType struct {
 	a, b uint64
 }
 
-// HalfHash is half of HashType. At 64 bits we might expect some collisions with a billion items
+// HalfHash represents 64 bits of randomness. HalfHash is half of HashType. At 64 bits we might expect some collisions with a billion items
 // but in other cases, like a dozen items, it will do.
 type HalfHash uint64
 
@@ -36,7 +36,7 @@ func (h *HashType) GetFractionalBits(n uint) int {
 
 }
 
-var hashstartkey *[]byte //= hex.DecodeString("000102030405060708090A0B0C0D0E0FF0E0D0C0B0A090807060504030201000")
+var hashstartkey *[]byte
 
 // FromString will initialize an existing hash from a string.
 // The string will get hashed to provide the bits so we'll wish this was faster.

@@ -1,4 +1,5 @@
 FROM golang:1.12.1-stretch
+#FROM golang:1.12-alpine # is smaller by 200 MiB
 
 ENV PORT 8080
 ENV PORT 6161

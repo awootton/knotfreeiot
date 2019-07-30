@@ -150,9 +150,9 @@ func main() {
 		Namespace:      "knotfree",
 		DeploymentName: "client",
 		Replication:    20,
-		Command:        `client","2500`, //  really 5000 sockets at 20k each is 100 Mi
-		Mem:            "200Mi",         // so 10k sockets max 20k per sock
-		CPU:            "100m",
+		Command:        `-client=2500`, //  really 5000 sockets at 20k each is 100 Mi
+		Mem:            "800Mi",        // so 10k sockets max 20k per sock
+		CPU:            "250m",
 		YamlFile:       "knotfreedeploy.yaml",
 		Type:           "type NodePort",
 	}
@@ -160,7 +160,7 @@ func main() {
 		Namespace:      "knotfree",
 		DeploymentName: "knotfreeserver",
 		Replication:    1,
-		Command:        "server", // "gorunserver.sh"
+		Command:        `-server`,
 		CPU:            "1500m",
 		Mem:            "4000Mi", // 20 * 5000 = 100k socks. 100k * 20kB/sock = 2 Gi
 		YamlFile:       "knotfreedeploy.yaml",

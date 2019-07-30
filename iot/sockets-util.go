@@ -38,11 +38,11 @@ func MakeBunchOfClients(amt int, addr string, delay time.Duration, config *SockS
 	}
 
 	// here's the gc factory:
-	dialFunc := func() {
+	dialFunc := func(sequence int) {
 		for {
 			conn, err := net.DialTimeout("tcp", addr, 60*time.Second)
 			if err != nil {
-				//fmt.Println("dial err", err)
+
 				if logThing != nil {
 					logThing.Collect("dial err")
 				}
@@ -50,22 +50,21 @@ func MakeBunchOfClients(amt int, addr string, delay time.Duration, config *SockS
 				continue
 			}
 			ss := NewSockStruct(conn, config)
-			go config.callback(ss)
-			break
+			ss.setSequence(uint64(sequence))
+			config.callback(ss)
+			// Yikes! our lovely client has returned. Probably a socket error.
+			// We'll delay and then try again.
+			time.Sleep(time.Duration(rand.Intn(60)) * time.Second)
 		}
 	}
-	allAtOnce := false
+
 	for i := 0; i < amt; i++ {
-		if allAtOnce {
-			go dialFunc()
-		} else {
-			// one at a time, with a delay.
-			dialFunc()
-			if i+1 < amt {
-				time.Sleep(delay)
-			}
+		go dialFunc(i)
+		if i+1 < amt {
+			time.Sleep(delay)
 		}
 	}
+
 }
 
 // SockStruct is our wrapper for a net.Conn socket to the internet.
@@ -181,6 +180,13 @@ func (ss *SockStruct) Close(err error) {
 		ss.ele = nil
 		ss.config.closecb(ss, err)
 	}
+	if ss.topicToName != nil {
+		for key, realName := range ss.topicToName {
+			ss.SendUnsubscribeMessage(realName)
+			_ = key
+		}
+		ss.topicToName = nil
+	}
 }
 
 // GetConn is
@@ -191,6 +197,11 @@ func (ss *SockStruct) GetConn() net.Conn {
 // GetSequence is
 func (ss *SockStruct) GetSequence() uint64 {
 	return uint64(ss.key) - ss.config.key.a
+}
+
+// SetSequence is only used by clients who aren't afreaid of messing with the key of a sock
+func (ss *SockStruct) setSequence(seq uint64) {
+	ss.key = HalfHash(ss.config.key.a + seq)
 }
 
 // SetCallback is
@@ -247,4 +258,19 @@ func SocketSetup(conn net.Conn) error {
 		return err
 	}
 	return nil
+}
+
+// SendSubscriptionMessage will create a message object, copy pointers to it so it'll own them now, and queue the message.
+func (ss *SockStruct) SendSubscriptionMessage(realName string) {
+	ss.config.subscriber.SendSubscriptionMessage(realName, ss)
+}
+
+// SendUnsubscribeMessage will create a message object, copy pointers to it so it'll own them now, and queue the message.
+func (ss *SockStruct) SendUnsubscribeMessage(realName string) {
+	ss.config.subscriber.SendUnsubscribeMessage(realName, ss)
+}
+
+// SendPublishMessage will create a message object, copy pointers to it so it'll own them now, and queue the message.
+func (ss *SockStruct) SendPublishMessage(realName string, payload *[]byte) {
+	ss.config.subscriber.SendPublishMessage(realName, ss, payload)
 }

@@ -38,11 +38,9 @@ func NewPubsubManager(amt int) PubsubIntf {
 		go psMgr.allTheSubscriptions[i].processMessages(&psMgr)
 	}
 
-	var subscribeEvents *reporting.StringEventAccumulator
-
-	//func init() {
-	subscribeEvents = reporting.NewStringEventAccumulator(12)
+	subscribeEvents := reporting.NewStringEventAccumulator(12)
 	subscribeEvents.SetQuiet(true)
+	psMgr.subscribeEvents = subscribeEvents
 
 	subscrFRepofrtFunct := func(seconds float32) []string {
 		strlist := make([]string, 0, 5)
@@ -122,6 +120,17 @@ func (me *pubSubManager) GetAllSubsCount() (int, int) {
 
 // TODO: implement a pool of the incoming types.
 
+// PrivateSendUnsubscribeMessage is only for use by SockStruct Close()
+// func PrivateSendUnsubscribeMessage(me *pubSubManager, topic *HashType, ss *SockStruct) {
+
+// 	msg := unsubscribeMessage{}
+// 	msg.Topic = topic
+// 	msg.ss = ss
+// 	i := topic.GetFractionalBits(theBucketsSizeLog2)
+// 	b := me.allTheSubscriptions[i]
+// 	*b.incoming <- msg
+// }
+
 func (me *pubSubManager) checkForBadSS(badsock *SockStruct, pubstruct *subscription) bool {
 
 	forgetme := false
@@ -157,7 +166,7 @@ func (bucket *subscribeBucket) processMessages(me *pubSubManager) {
 				substruct.name.FromHashType(submsg.Topic)
 				substruct.watchers = make(map[HalfHash]*SockStruct, 0)
 				bucket.mySubscriptions[*submsg.Topic] = substruct
-				//bucket.subscriber.subscribeEvents.Collect("new subscription")
+				bucket.subscriber.subscribeEvents.Collect("subscription")
 			}
 			// this is the important part:
 			// add the caller to  the set
@@ -238,6 +247,6 @@ type subscribeBucket struct {
 // // implements SubscriptionsIntf
 type pubSubManager struct {
 	allTheSubscriptions []subscribeBucket
-	subscribeEvents     reporting.StringEventAccumulator
+	subscribeEvents     *reporting.StringEventAccumulator
 	key                 HashType
 }

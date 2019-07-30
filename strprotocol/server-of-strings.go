@@ -1,44 +1,68 @@
-package iot
+package strprotocol
 
 import (
 	"bufio"
 	"errors"
-	"fmt"
+	"knotfreeiot/iot"
+	"knotfreeiot/iot/reporting"
 	"strings"
 )
 
-// ServerOfStrings - implement string messages
-func ServerOfStrings(subscribeMgr PubsubIntf, addr string) *SockStructConfig {
+/** Here is the protocol. Each line is a command.
+There is command echo with the string "ok" or "error"
 
-	config := NewSockStructConfig(subscribeMgr)
+eg.
+
+sub mytopic1
+
+pub yourtopic2 hello to you
+
+unsub mytopic1
+
+returned strings are:
+
+ok sub mytopic1
+
+ok pub yourtopic2
+
+ok unsub mytopic1
+
+pub mytopic1 hello from you
+
+*/
+
+// ServerOfStrings - implement string messages
+func ServerOfStrings(subscribeMgr iot.PubsubIntf, addr string) *iot.SockStructConfig {
+
+	config := iot.NewSockStructConfig(subscribeMgr)
 
 	ServerOfStringsInit(config)
 
-	ServeFactory(config, addr)
+	iot.ServeFactory(config, addr)
 
 	return config
 }
 
 // ServerOfStringsInit is to set default callbacks.
-func ServerOfStringsInit(config *SockStructConfig) {
+func ServerOfStringsInit(config *iot.SockStructConfig) {
 
 	config.SetCallback(strServeCallback)
 
-	servererr := func(ss *SockStruct, err error) {
-		fmt.Println("server is closing", err)
+	servererr := func(ss *iot.SockStruct, err error) {
+		sosLogThing.Collect("server closing")
 	}
 	config.SetClosecb(servererr)
 
 	//  the writer
-	handleTopicPayload := func(ss *SockStruct, topic string, payload *[]byte) error {
+	handleTopicPayload := func(ss *iot.SockStruct, topic string, payload *[]byte) error {
 
 		// make a 'command' (called 'got'), serialize it and write it to the sock
 		str := string(*payload)
-		cmd := `got "` + topic + `" ` + str
+		cmd := `pub "` + topic + `" ` + str
 		// TODO: warning. this will BLOCK and jam up the whole machine.
-		n, err := ss.conn.Write([]byte(cmd + "\n"))
+		n, err := ss.GetConn().Write([]byte(cmd + "\n"))
 		if err != nil || n != (len(cmd)+1) {
-			fmt.Println("error in str writer", n, err, cmd)
+			sosLogThing.Collect("error in str writer") //, n, err, cmd)
 			return err
 		}
 		return nil
@@ -47,35 +71,39 @@ func ServerOfStringsInit(config *SockStructConfig) {
 	config.SetWriter(handleTopicPayload)
 }
 
-// ServerOfStringsWrite translates the object 'str' into bytes and sends it.
+// ServerOfStringsWrite translates the object into bytes and sends it.
+// This is pretty easy since our objects are all strings.
 // Clients will need this and it's NOT the same as config.writer for ServerOfStrings
-func ServerOfStringsWrite(ss *SockStruct, str string) error {
+func ServerOfStringsWrite(ss *iot.SockStruct, str string) error {
 	bytes := []byte(str + "\n")
-	n, err := ss.conn.Write(bytes)
-	if err != nil {
-		ss.Close(err)
-		return err
+	conn := ss.GetConn()
+	if conn != nil {
+		n, err := conn.Write(bytes)
+		if err != nil {
+			ss.Close(err)
+			return err
+		}
+		_ = n // fixme
 	}
-	_ = n // fixme
 	return nil
 }
 
 // strServeCallback is the default callback which implements an api
 // to the pub sub manager.
 // This protol echos back commands.
-func strServeCallback(ss *SockStruct) {
+func strServeCallback(ss *iot.SockStruct) {
 
-	reader := bufio.NewReader(ss.conn)
+	reader := bufio.NewReader(ss.GetConn())
 
 	for {
 		text, err := reader.ReadString('\n')
 		if err != nil {
-			err = ServerOfStringsWrite(ss, "error: "+err.Error())
+			err = ServerOfStringsWrite(ss, "error "+err.Error())
 			ss.Close(err)
 			return
 		}
 		if len(text) <= 1 {
-			err = ServerOfStringsWrite(ss, "error: Empty sent")
+			err = ServerOfStringsWrite(ss, "error Empty sent")
 			if err != nil {
 				ss.Close(err)
 			}
@@ -92,42 +120,44 @@ func strServeCallback(ss *SockStruct) {
 		case "sub":
 			topic := strings.Trim(remaining, " ")
 			if len(topic) <= 0 {
-				ServerOfStringsWrite(ss, "error: say 'sub mytopic' and not "+text)
+				ServerOfStringsWrite(ss, "error say 'sub mytopic' and not "+text)
 			} else {
-				ss.config.subscriber.SendSubscriptionMessage(topic, ss)
-				ServerOfStringsWrite(ss, "sub "+topic)
+				ss.SendSubscriptionMessage(topic)
+				ServerOfStringsWrite(ss, "ok sub "+topic)
 			}
 
 		case "unsub":
 			topic := strings.Trim(remaining, " ")
 			if len(topic) <= 0 {
-				ServerOfStringsWrite(ss, "error: say 'unsub mytopic' and not "+text)
+				ServerOfStringsWrite(ss, "error say 'unsub mytopic' and not "+text)
 			} else {
-				ss.config.subscriber.SendUnsubscribeMessage(topic, ss)
-				ServerOfStringsWrite(ss, "unsub "+topic)
+				ss.SendUnsubscribeMessage(topic)
+				ServerOfStringsWrite(ss, "ok unsub "+topic)
 			}
 
 		case "pub":
 			topic, payload := GetFirstWord(remaining)
 			if len(topic) <= 0 || len(payload) < 0 {
-				ServerOfStringsWrite(ss, "error: say 'pub mytopic mymessage' and not "+text)
+				ServerOfStringsWrite(ss, "error say 'pub mytopic mymessage' and not "+text)
 			} else {
-				topicHash := HashType{}
+				topicHash := iot.HashType{}
 				topicHash.FromString(topic)
 				bytes := []byte(payload)
-				ss.config.subscriber.SendPublishMessage(topic, ss, &bytes)
-				ServerOfStringsWrite(ss, "pub "+topic+" "+payload)
+				ss.SendPublishMessage(topic, &bytes)
+				ServerOfStringsWrite(ss, "ok pub "+topic+" "+payload)
 			}
 
 		default:
-			ServerOfStringsWrite(ss, "error: unknown command "+text)
+			ServerOfStringsWrite(ss, "error unknown command "+text)
 		}
 	}
 }
 
 // GetFirstWord will return the first word of str where the words are delimited by spaces.
+// So this string: "pub aaa bbb" would get split into "pub" and "aaa bbb".
 // It will also return the remaining words in string. If there is a '"' at the beginning of str then we'll match quotes to
 // get the first word. There will be no escaping of quotes.
+// So this string: '"aaa bbb" ccc ddd' would get split into "aaa bbb" and "ccc ddd".
 func GetFirstWord(str string) (string, string) {
 
 	str = strings.Trim(str, " ")
@@ -137,8 +167,7 @@ func GetFirstWord(str string) (string, string) {
 	if str[0:1] == "\"" {
 		str := str[1:]
 		pos := strings.IndexByte(str, '"')
-		if pos <= 0 {
-			// no 2nd quote
+		if pos <= 0 { // no 2nd quote
 			return strings.Trim(str, " "), ""
 		}
 		first := str[0:pos]
@@ -147,11 +176,12 @@ func GetFirstWord(str string) (string, string) {
 	}
 	// else look for a space
 	pos := strings.IndexByte(str, ' ')
-	if pos <= 0 {
-		// no 2nd space
+	if pos <= 0 { // no 2nd space
 		return str, ""
 	}
 	first := str[0:pos]
 	second := str[pos:]
 	return strings.Trim(first, " "), strings.Trim(second, " ")
 }
+
+var sosLogThing = reporting.NewStringEventAccumulator(16)

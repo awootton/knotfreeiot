@@ -1,4 +1,4 @@
-package iot
+package strprotocol
 
 import (
 	"fmt"
@@ -45,4 +45,12 @@ func ExampleGetFirstWord() {
 
 	// Output: done
 
+}
+
+func bToMb(b uint64) uint64 {
+	return b / 1024 / 1024
+}
+
+func bToKb(b uint64) uint64 {
+	return b / 1024
 }
