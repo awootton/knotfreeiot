@@ -12,9 +12,9 @@ import (
 // is the Write function in the SocketStructConfig which is what the pubsubmgr uses to distribute
 // messages that are published.
 type PubsubIntf interface {
-	SendSubscriptionMessage(topic string, ss *SockStruct)
-	SendUnsubscribeMessage(topic string, ss *SockStruct)
-	SendPublishMessage(topic string, ss *SockStruct, payload *[]byte)
+	SendSubscriptionMessage(topic []byte, ss *SockStruct)
+	SendUnsubscribeMessage(topic []byte, ss *SockStruct)
+	SendPublishMessage(topic []byte, ss *SockStruct, payload []byte)
 	//SendOnlineQuery(topic string, ss *SockStruct )
 	GetAllSubsCount() (int, int)
 }
@@ -31,7 +31,7 @@ func NewPubsubManager(amt int) PubsubIntf {
 	}
 	psMgr.allTheSubscriptions = make([]subscribeBucket, theBucketsSize)
 	for i := uint(0); i < theBucketsSize; i++ {
-		psMgr.allTheSubscriptions[i].mySubscriptions = make(map[HashType]*subscription, portion)
+		psMgr.allTheSubscriptions[i].mySubscriptions = make(map[HashType]*watchedTopic, portion)
 		tmp := make(chan interface{}, 32)
 		psMgr.allTheSubscriptions[i].incoming = &tmp
 		psMgr.allTheSubscriptions[i].subscriber = &psMgr
@@ -57,9 +57,9 @@ func NewPubsubManager(amt int) PubsubIntf {
 }
 
 // SendSubscriptionMessage will create a message object, copy pointers to it so it'll own them now, and queue the message.
-func (me *pubSubManager) SendSubscriptionMessage(realName string, ss *SockStruct) {
+func (me *pubSubManager) SendSubscriptionMessage(realName []byte, ss *SockStruct) {
 	topic := HashType{}
-	topic.FromString(realName)
+	topic.FromBytes(realName)
 	ss.topicToName[HalfHash(topic.a)] = realName
 	msg := subscriptionMessage{}
 	msg.Topic = &topic
@@ -70,10 +70,10 @@ func (me *pubSubManager) SendSubscriptionMessage(realName string, ss *SockStruct
 }
 
 // SendUnsubscribeMessage will create a message object, copy pointers to it so it'll own them now, and queue the message.
-func (me *pubSubManager) SendUnsubscribeMessage(realName string, ss *SockStruct) {
+func (me *pubSubManager) SendUnsubscribeMessage(realName []byte, ss *SockStruct) {
 
 	topic := HashType{}
-	topic.FromString(realName)
+	topic.FromBytes(realName)
 
 	delete(ss.topicToName, HalfHash(topic.a))
 
@@ -87,10 +87,10 @@ func (me *pubSubManager) SendUnsubscribeMessage(realName string, ss *SockStruct)
 }
 
 // SendPublishMessage will create a message object, copy pointers to it so it'll own them now, and queue the message.
-func (me *pubSubManager) SendPublishMessage(realName string, ss *SockStruct, payload *[]byte) {
+func (me *pubSubManager) SendPublishMessage(realName []byte, ss *SockStruct, payload []byte) {
 
 	topic := HashType{}
-	topic.FromString(realName)
+	topic.FromBytes(realName)
 
 	msg := publishMessage{}
 	msg.Topic = &topic
@@ -131,7 +131,7 @@ func (me *pubSubManager) GetAllSubsCount() (int, int) {
 // 	*b.incoming <- msg
 // }
 
-func (me *pubSubManager) checkForBadSS(badsock *SockStruct, pubstruct *subscription) bool {
+func (me *pubSubManager) checkForBadSS(badsock *SockStruct, pubstruct *watchedTopic) bool {
 
 	forgetme := false
 	if badsock.conn == nil {
@@ -162,7 +162,7 @@ func (bucket *subscribeBucket) processMessages(me *pubSubManager) {
 			submsg := msg.(subscriptionMessage)
 			substruct := bucket.mySubscriptions[*submsg.Topic]
 			if substruct == nil {
-				substruct = &subscription{}
+				substruct = &watchedTopic{}
 				substruct.name.FromHashType(submsg.Topic)
 				substruct.watchers = make(map[HalfHash]*SockStruct, 0)
 				bucket.mySubscriptions[*submsg.Topic] = substruct
@@ -170,11 +170,13 @@ func (bucket *subscribeBucket) processMessages(me *pubSubManager) {
 			}
 			// this is the important part:
 			// add the caller to  the set
+			//fmt.Println("pubsub sub ", submsg.Topic.a&0x0FFFF)
 			substruct.watchers[submsg.ss.key] = submsg.ss
 
 		case publishMessage:
 			pubmsg := msg.(publishMessage)
 			pubstruct, ok := bucket.mySubscriptions[*pubmsg.Topic]
+			//fmt.Println("pubsub pub  ", pubmsg.Topic.a&0x0FFFF)
 			if ok == false {
 				// no publish possible !
 				// it's sad really when someone sends messages to nobody.
@@ -228,17 +230,17 @@ type unsubscribeMessage struct {
 // publishMessage used here
 type publishMessage struct {
 	subscriptionMessage
-	payload *[]byte
+	payload []byte
 }
 
-// subscription, this is private here
-type subscription struct {
+// watchedTopic, this is private here
+type watchedTopic struct {
 	name     HashType                 // not my real name
 	watchers map[HalfHash]*SockStruct // these are ID's for tcp Connection mgr
 }
 
 type subscribeBucket struct {
-	mySubscriptions map[HashType]*subscription
+	mySubscriptions map[HashType]*watchedTopic
 	incoming        *chan interface{} //SubscriptionMessage
 	subscriber      *pubSubManager
 }

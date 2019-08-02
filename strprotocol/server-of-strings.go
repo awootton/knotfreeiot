@@ -23,7 +23,7 @@ returned strings are:
 
 ok sub mytopic1
 
-ok pub yourtopic2
+ok pub yourtopic2 hello to you
 
 ok unsub mytopic1
 
@@ -54,11 +54,11 @@ func ServerOfStringsInit(config *iot.SockStructConfig) {
 	config.SetClosecb(servererr)
 
 	//  the writer
-	handleTopicPayload := func(ss *iot.SockStruct, topic string, payload *[]byte) error {
+	handleTopicPayload := func(ss *iot.SockStruct, topic []byte, payload []byte) error {
 
-		// make a 'command' (called 'got'), serialize it and write it to the sock
-		str := string(*payload)
-		cmd := `pub "` + topic + `" ` + str
+		// make a 'command' (called 'pub'), serialize it and write it to the sock
+		str := string(payload)
+		cmd := `pub "` + string(topic) + `" ` + str
 		// TODO: warning. this will BLOCK and jam up the whole machine.
 		n, err := ss.GetConn().Write([]byte(cmd + "\n"))
 		if err != nil || n != (len(cmd)+1) {
@@ -90,7 +90,7 @@ func ServerOfStringsWrite(ss *iot.SockStruct, str string) error {
 
 // strServeCallback is the default callback which implements an api
 // to the pub sub manager.
-// This protol echos back commands.
+// This protcol echos back commands.
 func strServeCallback(ss *iot.SockStruct) {
 
 	reader := bufio.NewReader(ss.GetConn())
@@ -122,7 +122,7 @@ func strServeCallback(ss *iot.SockStruct) {
 			if len(topic) <= 0 {
 				ServerOfStringsWrite(ss, "error say 'sub mytopic' and not "+text)
 			} else {
-				ss.SendSubscriptionMessage(topic)
+				ss.SendSubscriptionMessage([]byte(topic))
 				ServerOfStringsWrite(ss, "ok sub "+topic)
 			}
 
@@ -131,7 +131,7 @@ func strServeCallback(ss *iot.SockStruct) {
 			if len(topic) <= 0 {
 				ServerOfStringsWrite(ss, "error say 'unsub mytopic' and not "+text)
 			} else {
-				ss.SendUnsubscribeMessage(topic)
+				ss.SendUnsubscribeMessage([]byte(topic))
 				ServerOfStringsWrite(ss, "ok unsub "+topic)
 			}
 
@@ -143,7 +143,7 @@ func strServeCallback(ss *iot.SockStruct) {
 				topicHash := iot.HashType{}
 				topicHash.FromString(topic)
 				bytes := []byte(payload)
-				ss.SendPublishMessage(topic, &bytes)
+				ss.SendPublishMessage([]byte(topic), []byte(bytes))
 				ServerOfStringsWrite(ss, "ok pub "+topic+" "+payload)
 			}
 

@@ -29,7 +29,7 @@ func MakeBunchOfClients(amt int, addr string, delay time.Duration, config *SockS
 	if config.closecb == nil {
 		config.SetClosecb(servererr)
 	}
-	writef := func(ss *SockStruct, topicName string, payload *[]byte) error {
+	writef := func(ss *SockStruct, topicName []byte, payload []byte) error {
 		fmt.Println("default server write")
 		return errors.New("default server writer")
 	}
@@ -77,7 +77,7 @@ type SockStruct struct {
 	conn        net.Conn
 	config      *SockStructConfig
 	key         HalfHash
-	topicToName map[HalfHash]string // a tree would be better?
+	topicToName map[HalfHash][]byte // a tree would be better?
 }
 
 // SockStructConfig could be just a stack frame but I'd like to return it.
@@ -88,7 +88,7 @@ type SockStructConfig struct {
 	closecb  func(*SockStruct, error)
 	// This is supposed to implement the protocol when a message happens on a topic
 	// and the socket is supposed to get a copy.
-	writer func(ss *SockStruct, topicName string, payload *[]byte) error
+	writer func(ss *SockStruct, topicName []byte, payload []byte) error
 
 	listener net.Listener
 
@@ -123,7 +123,7 @@ func NewSockStruct(conn net.Conn, config *SockStructConfig) *SockStruct {
 	ss.conn = conn
 	ss.config = config
 
-	ss.topicToName = make(map[HalfHash]string)
+	ss.topicToName = make(map[HalfHash][]byte)
 
 	config.listlock.Lock()
 	seq := config.sequence
@@ -215,7 +215,7 @@ func (config *SockStructConfig) SetClosecb(closecb func(*SockStruct, error)) {
 }
 
 // SetWriter is
-func (config *SockStructConfig) SetWriter(w func(ss *SockStruct, topicName string, payload *[]byte) error) {
+func (config *SockStructConfig) SetWriter(w func(ss *SockStruct, topicName []byte, payload []byte) error) {
 	config.writer = w
 }
 
@@ -261,16 +261,16 @@ func SocketSetup(conn net.Conn) error {
 }
 
 // SendSubscriptionMessage will create a message object, copy pointers to it so it'll own them now, and queue the message.
-func (ss *SockStruct) SendSubscriptionMessage(realName string) {
+func (ss *SockStruct) SendSubscriptionMessage(realName []byte) {
 	ss.config.subscriber.SendSubscriptionMessage(realName, ss)
 }
 
 // SendUnsubscribeMessage will create a message object, copy pointers to it so it'll own them now, and queue the message.
-func (ss *SockStruct) SendUnsubscribeMessage(realName string) {
+func (ss *SockStruct) SendUnsubscribeMessage(realName []byte) {
 	ss.config.subscriber.SendUnsubscribeMessage(realName, ss)
 }
 
 // SendPublishMessage will create a message object, copy pointers to it so it'll own them now, and queue the message.
-func (ss *SockStruct) SendPublishMessage(realName string, payload *[]byte) {
+func (ss *SockStruct) SendPublishMessage(realName []byte, payload []byte) {
 	ss.config.subscriber.SendPublishMessage(realName, ss, payload)
 }

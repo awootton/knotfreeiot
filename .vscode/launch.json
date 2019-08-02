@@ -10,7 +10,7 @@
             "request": "launch",
             "mode": "debug",
             "program": "main.go",
-            "args": ["-client=10"] //or "-client=2500" "-server"
+            "args": ["-client=100","-server","-str","-aa"] // "-client=10","-server","-aa","-str"
         },
         {
             "name": "Launch Start Pods",

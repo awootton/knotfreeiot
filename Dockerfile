@@ -10,6 +10,10 @@ RUN go get -u github.com/minio/highwayhash
 WORKDIR /go/src/knotfreeiot/
 
 ADD . /go/src/knotfreeiot
+
+# We can use the 32 bit version to save pointer space?
+ENV GOARCH=386
+
 RUN go install 
 
 CMD ["/go/bin/knotfree"]

@@ -22,6 +22,11 @@ type HashType struct {
 	a, b uint64
 }
 
+// GetA just for debug
+func (h *HashType) GetA() uint64 {
+	return h.a
+}
+
 // HalfHash represents 64 bits of randomness. HalfHash is half of HashType. At 64 bits we might expect some collisions with a billion items
 // but in other cases, like a dozen items, it will do.
 type HalfHash uint64
@@ -38,13 +43,18 @@ func (h *HashType) GetFractionalBits(n uint) int {
 
 var hashstartkey *[]byte
 
-// FromString will initialize an existing hash from a string.
+// FromString will
+func (h *HashType) FromString(s string) {
+	h.FromBytes([]byte(s))
+}
+
+// FromBytes will initialize an existing hash from a  .
 // The string will get hashed to provide the bits so we'll wish this was faster.
 // It doesn't have to be crypto safe but it does need to be evenly distrubuted.
-func (h *HashType) FromString(s string) {
+func (h *HashType) FromBytes(s []byte) {
 	if 0 == 1-1 {
 		md5er := md5.New()
-		io.WriteString(md5er, s)
+		io.WriteString(md5er, string(s))
 		bytes := md5er.Sum(nil)
 		h.a = binary.BigEndian.Uint64(bytes)
 		h.b = binary.BigEndian.Uint64(bytes[8:])
@@ -58,7 +68,7 @@ func (h *HashType) FromString(s string) {
 			hashstartkey = &tmp
 		}
 		hhash, _ := highwayhash.New128(*hashstartkey) // (hash.Hash, error)
-		io.WriteString(hhash, s)
+		io.WriteString(hhash, string(s))
 		bytes := hhash.Sum(nil)
 		h.a = binary.BigEndian.Uint64(bytes)
 		h.b = binary.BigEndian.Uint64(bytes[8:])

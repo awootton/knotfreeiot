@@ -23,7 +23,7 @@ func StartServerDemo(initialSize int) *iot.SockStructConfig {
 	aReportFunc := func(seconds float32) []string {
 		strlist := make([]string, 0, 1)
 		count := config.Len()
-		strlist = append(strlist, "Conn count="+strconv.FormatUint(uint64(count), 10))
+		strlist = append(strlist, "str_Conn count="+strconv.FormatUint(uint64(count), 10))
 		return strlist
 	}
 	reporting.NewGenericEventAccumulator(aReportFunc)
@@ -48,8 +48,8 @@ func StartClientsDemo(clientCount int) (*iot.SockStructConfig, *iot.SockStructCo
 
 	aReportFunc := func(seconds float32) []string {
 		strlist := make([]string, 0, 2)
-		strlist = append(strlist, "Lights="+strconv.FormatUint(uint64(lights.Len()), 10))
-		strlist = append(strlist, "Switches="+strconv.FormatUint(uint64(switches.Len()), 10))
+		strlist = append(strlist, "str_Lights="+strconv.FormatUint(uint64(lights.Len()), 10))
+		strlist = append(strlist, "str_Switches="+strconv.FormatUint(uint64(switches.Len()), 10))
 		return strlist
 	}
 	reporting.NewGenericEventAccumulator(aReportFunc)
@@ -86,11 +86,11 @@ func runAlight(ss *iot.SockStruct) {
 			str := text[0 : len(text)-1]
 			//fmt.Println("Light received", str)
 			cmd, payload := GetFirstWord(str)
-			if cmd == "got" {
+			if cmd == "pub" {
 				// just pub back to switch
 				topicfrom, payload := GetFirstWord(payload)
 				myID := ss.GetSequence()
-				topic := "switch_" + strconv.FormatUint(0x000FFFFF&myID, 16)
+				topic := "strswitch_" + strconv.FormatUint(0x000FFFFF&myID, 16)
 
 				command := "pub " + topic + " " + payload
 				ServerOfStringsWrite(ss, command)
@@ -105,7 +105,7 @@ func runAlight(ss *iot.SockStruct) {
 	myID := ss.GetSequence()
 	idstr := strconv.FormatUint(0x000FFFFF&myID, 16)
 
-	topic := "light_" + idstr
+	topic := "strlight_" + idstr
 	// now convert to command
 	cmd := "sub " + topic
 	ServerOfStringsWrite(ss, cmd) // send subscribe command to server
@@ -145,11 +145,11 @@ func runAswitch(ss *iot.SockStruct) {
 					duration := time.Now().Sub(when)
 					// log it in buckets:
 					if duration < time.Millisecond*100 {
-						clientLogThing.Collect("happy joy") // under 100 ms
+						clientLogThing.Collect("str happy joy") // under 100 ms
 					} else if duration < time.Second {
-						clientLogThing.Collect("ok") // under one sec
+						clientLogThing.Collect("str ok") // under one sec
 					} else {
-						clientLogThing.Collect("too slow") // everything else
+						clientLogThing.Collect("str too slow") // everything else
 					}
 				}
 			}
@@ -157,14 +157,14 @@ func runAswitch(ss *iot.SockStruct) {
 		}
 	}(ss)
 
-	topic := "switch_" + idstr
+	topic := "strswitch_" + idstr
 	// now convert to command
 	cmd := "sub " + topic
 	ServerOfStringsWrite(ss, cmd) // send subscribe command to se
 
 	for !done {
 		// our sending loop
-		topic := "light_" + idstr
+		topic := "strlight_" + idstr
 		command := "pub " + topic + " " + ourCommand
 		when = time.Now()
 		err := ServerOfStringsWrite(ss, command) // send pub command to server

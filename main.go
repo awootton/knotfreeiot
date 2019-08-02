@@ -3,9 +3,11 @@ package main
 import (
 	"flag"
 	"fmt"
+	"knotfreeiot/aaprotocol"
 	"knotfreeiot/iot/reporting"
 	"knotfreeiot/strprotocol"
 	"net/http"
+	"runtime"
 	"time"
 )
 
@@ -19,10 +21,31 @@ func strProtocolServerDemo() {
 	}
 }
 
+func aaProtocolServerDemo() {
+
+	fmt.Println("Starting aaProtocolServerDemo")
+	config := aaprotocol.StartServerDemo(100 * 1000)
+	_ = config
+	for {
+		time.Sleep(time.Minute)
+	}
+}
+
 func strProtocolClientDemo(count int) {
 
 	fmt.Println("Starting strProtocolClientDemo", count)
 	lights, switches := strprotocol.StartClientsDemo(count)
+	_ = lights
+	_ = switches
+	for {
+		time.Sleep(time.Minute)
+	}
+}
+
+func aaProtocolClientDemo(count int) {
+
+	fmt.Println("Starting aaProtocolClientDemo", count)
+	lights, switches := aaprotocol.StartClientsDemo(count)
 	_ = lights
 	_ = switches
 	for {
@@ -42,18 +65,20 @@ func main() {
 
 	flag.Parse()
 
-	if *aa == false && *str == false && *client == 0 && *server == false {
-
-		// the vs code version
-		go strProtocolServerDemo()
-		go strProtocolClientDemo(1000)
-
-	} else {
-		if *client > 0 {
-			go strProtocolClientDemo(*client)
+	if *server {
+		if *aa {
+			go aaProtocolServerDemo()
 		}
-		if *server {
+		if *str {
 			go strProtocolServerDemo()
+		}
+	}
+	if *client > 0 {
+		if *aa {
+			go aaProtocolClientDemo(*client)
+		}
+		if *str {
+			go strProtocolClientDemo(*client)
 		}
 	}
 
@@ -65,23 +90,25 @@ func main() {
 		}
 	}()
 
-	for {
+	for 1 == 2 {
 		time.Sleep(time.Minute)
 	}
 
-	// reportTicker := time.NewTicker(10 * time.Second)
-	// for t := range reportTicker.C {
+	fmt.Println("starting reporter")
 
-	// 	// 	strlist := strings.Builder{}
-	// 	// 	var m runtime.MemStats
-	// 	// 	//	runtime.ReadMemStats(&m) // FIXME: this deadlocks and hangs.
+	reportTicker := time.NewTicker(10 * time.Second)
+	for t := range reportTicker.C {
 
-	// 	// 	strlist.WriteString("Bytes=" + strconv.FormatUint(bToMb(m.HeapAlloc), 10) + "MiB")
-	// 	// 	strlist.WriteString("Sys=" + strconv.FormatUint(bToMb(m.Sys), 10) + "MiB")
-	// 	// 	strlist.WriteString("GC=" + strconv.FormatUint(bToMb(uint64(m.NumGC)), 10))
+		// strlist := strings.Builder{}
+		var m runtime.MemStats
+		runtime.ReadMemStats(&m) // FIXME: this deadlocks and hangs.
 
-	// 	_ = t
-	// }
+		// 	// 	strlist.WriteString("Bytes=" + strconv.FormatUint(bToMb(m.HeapAlloc), 10) + "MiB")
+		// 	// 	strlist.WriteString("Sys=" + strconv.FormatUint(bToMb(m.Sys), 10) + "MiB")
+		// 	// 	strlist.WriteString("GC=" + strconv.FormatUint(bToMb(uint64(m.NumGC)), 10))
+
+		_ = t
+	}
 }
 
 // HelloServer is
