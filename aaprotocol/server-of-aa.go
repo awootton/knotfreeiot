@@ -59,7 +59,7 @@ func ServerOfAaInit(config *iot.SockStructConfig) {
 // HandleTopicPayload writes a publish onto the  wire.
 // It's also the callback the pubsub uses.
 // we don't have a command with two arguments.
-func HandleTopicPayload(ss *iot.SockStruct, topic []byte, payload []byte) error {
+func HandleTopicPayload(ss *iot.SockStruct, topic []byte, payload []byte, returnAddress []byte) error {
 
 	t := setTopic{topic}
 	err := aaWrite(ss, &t)

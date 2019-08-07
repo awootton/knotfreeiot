@@ -42,6 +42,7 @@ func start(c Config) {
 	// kubectl.K("cd ..;docker build -t gcr.io/fair-theater-238820/knotfreeserver:v2 .")
 	// kubectl.K("docker push gcr.io/fair-theater-238820/knotfreeserver:v2")
 
+	// Behold: the home-rolled template engine.
 	dat, err := ioutil.ReadFile(c.YamlFile)
 	check(err)
 	deployment := string(dat)
@@ -51,6 +52,8 @@ func start(c Config) {
 	deployment = strings.ReplaceAll(deployment, "89345678999236962", strconv.Itoa(c.Replication))
 	deployment = strings.ReplaceAll(deployment, "INSERT_COMMAND_HERE", c.Command)
 	deployment = strings.ReplaceAll(deployment, "#type: {{SERVICE_TYPE}}", c.Type)
+
+	// ioutil.WriteFile("dummy.yaml", []byte(deployment), 0644)
 
 	out, err = kubectl.K8s("kubectl apply -f -", deployment)
 	fmt.Println(out)
@@ -94,16 +97,6 @@ func start(c Config) {
 		waitgroup.Wait()
 	}
 }
-
-// eg.
-// macbook-pro-atw:deploy awootton$ kk exec knotfreeserver-c58c78df4-zx9rr -- bash -c "ps -ef"
-// UID          PID    PPID  C STIME TTY          TIME CMD
-// root           1       0  0 06:09 ?        00:00:00 /bin/sh -c touch fffile; tail -f fffile
-// root           7       1  0 06:09 ?        00:00:00 tail -f fffile
-// root          18       0  0 06:10 ?        00:00:00 /bin/bash -ex ./gorunserver.sh
-// root          23      18  0 06:10 ?        00:00:00 go run main.go server
-// root          61      23  0 06:10 ?        00:00:00 /tmp/go-build048328676/b001/exe/main server
-// root          78       0  0 06:12 ?        00:00:00 ps -ef
 
 func pkillPods(c Config) {
 
@@ -154,7 +147,7 @@ func main() {
 		Mem:            "800Mi",        // so 10k sockets max 20k per sock
 		CPU:            "250m",
 		YamlFile:       "knotfreedeploy.yaml",
-		Type:           "type NodePort",
+		Type:           "type: NodePort",
 	}
 	serverconfig := Config{
 		Namespace:      "knotfree",
@@ -164,8 +157,23 @@ func main() {
 		CPU:            "1500m",
 		Mem:            "4000Mi", // 20 * 5000 = 100k socks. 100k * 20kB/sock = 2 Gi
 		YamlFile:       "knotfreedeploy.yaml",
-		Type:           "type LoadBalancer",
+		Type:           "type: LoadBalancer",
 	}
+
+	// ["-client=10","-server","-str"","-aa"]
+
+	combinedconfig := Config{
+		Namespace:      "knotfree",
+		DeploymentName: "knotfreeserver",
+		Replication:    4,
+		Command:        `-server","-client=4000","-str","-aa`,
+		CPU:            "250m",
+		Mem:            "800Mi", // 20 * 5000 = 100k socks. 100k * 20kB/sock = 2 Gi
+		YamlFile:       "knotfreedeploy.yaml",
+		Type:           "type: NodePort",
+	}
+
+	// do flags.
 
 	if len(os.Args) > 1 && os.Args[1] == "killmain" {
 		pkillPods(clientconfig) // broken
@@ -173,7 +181,15 @@ func main() {
 		return
 	}
 
-	if len(os.Args) > 1 && os.Args[1] == "client" {
+	if len(os.Args) > 1 && os.Args[1] == "combined" {
+
+		pkillPods(combinedconfig)
+
+		buildTheDocker()
+
+		start(combinedconfig)
+
+	} else if len(os.Args) > 1 && os.Args[1] == "client" {
 		start(clientconfig)
 	} else if len(os.Args) > 1 && os.Args[1] == "server" {
 		start(serverconfig)

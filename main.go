@@ -4,54 +4,17 @@ import (
 	"flag"
 	"fmt"
 	"knotfreeiot/aaprotocol"
+	"knotfreeiot/iot"
 	"knotfreeiot/iot/reporting"
+	"knotfreeiot/mqttprotocol"
 	"knotfreeiot/strprotocol"
 	"net/http"
 	"runtime"
+	"strconv"
+	"strings"
+	"sync"
 	"time"
 )
-
-func strProtocolServerDemo() {
-
-	fmt.Println("Starting strProtocolServerDemo")
-	config := strprotocol.StartServerDemo(100 * 1000)
-	_ = config
-	for {
-		time.Sleep(time.Minute)
-	}
-}
-
-func aaProtocolServerDemo() {
-
-	fmt.Println("Starting aaProtocolServerDemo")
-	config := aaprotocol.StartServerDemo(100 * 1000)
-	_ = config
-	for {
-		time.Sleep(time.Minute)
-	}
-}
-
-func strProtocolClientDemo(count int) {
-
-	fmt.Println("Starting strProtocolClientDemo", count)
-	lights, switches := strprotocol.StartClientsDemo(count)
-	_ = lights
-	_ = switches
-	for {
-		time.Sleep(time.Minute)
-	}
-}
-
-func aaProtocolClientDemo(count int) {
-
-	fmt.Println("Starting aaProtocolClientDemo", count)
-	lights, switches := aaprotocol.StartClientsDemo(count)
-	_ = lights
-	_ = switches
-	for {
-		time.Sleep(time.Minute)
-	}
-}
 
 // Hint: add 127.0.0.1 knotfreeserver to /etc/hosts
 func main() {
@@ -60,8 +23,11 @@ func main() {
 
 	aa := flag.Bool("aa", false, "use aa protocol")
 	str := flag.Bool("str", false, "use str protocol")
-	client := flag.Int("client", 0, "start a client test, else start the servers")
-	server := flag.Bool("server", false, "start a server even if we're also starting the clients test")
+	mqtt := flag.Bool("mqtt", false, "use mqtt protocol")
+	client := flag.Int("client", 0, "start a client test with an int of clients.")
+	server := flag.Bool("server", false, "start a server.")
+
+	// eg. ["-client=10","-server","-str"","-aa"]  starts 10 clients in each of two protocols
 
 	flag.Parse()
 
@@ -72,6 +38,9 @@ func main() {
 		if *str {
 			go strProtocolServerDemo()
 		}
+		if *mqtt {
+			go mqttProtocolServerDemo()
+		}
 	}
 	if *client > 0 {
 		if *aa {
@@ -79,6 +48,9 @@ func main() {
 		}
 		if *str {
 			go strProtocolClientDemo(*client)
+		}
+		if *mqtt {
+			go mqttProtocolClientDemo(*client)
 		}
 	}
 
@@ -99,16 +71,97 @@ func main() {
 	reportTicker := time.NewTicker(10 * time.Second)
 	for t := range reportTicker.C {
 
-		// strlist := strings.Builder{}
+		strlist := strings.Builder{}
 		var m runtime.MemStats
 		runtime.ReadMemStats(&m) // FIXME: this deadlocks and hangs.
 
-		// 	// 	strlist.WriteString("Bytes=" + strconv.FormatUint(bToMb(m.HeapAlloc), 10) + "MiB")
-		// 	// 	strlist.WriteString("Sys=" + strconv.FormatUint(bToMb(m.Sys), 10) + "MiB")
-		// 	// 	strlist.WriteString("GC=" + strconv.FormatUint(bToMb(uint64(m.NumGC)), 10))
+		strlist.WriteString("Bytes= " + strconv.FormatUint(bToMb(m.HeapAlloc), 10) + " MiB ")
+		strlist.WriteString("Sys= " + strconv.FormatUint(bToMb(m.Sys), 10) + " MiB ")
+		strlist.WriteString("GC= " + strconv.FormatUint(bToMb(uint64(m.NumGC)), 10) + " ")
 
 		_ = t
+
+		fmt.Println("", strlist.String())
 	}
+}
+
+var subscribeMgr iot.PubsubIntf
+var subscribeMgrMutex sync.Mutex
+
+func getSubscribeMgr() iot.PubsubIntf {
+	subscribeMgrMutex.Lock()
+	if subscribeMgr == nil {
+		subscribeMgr = iot.NewPubsubManager(100 * 1000)
+	}
+	subscribeMgrMutex.Unlock()
+	return subscribeMgr
+}
+
+func strProtocolServerDemo() {
+
+	fmt.Println("Starting strProtocolServerDemo")
+	config := strprotocol.StartServerDemo(getSubscribeMgr())
+	_ = config
+	for {
+		time.Sleep(time.Minute)
+	}
+}
+
+func aaProtocolServerDemo() {
+
+	fmt.Println("Starting aaProtocolServerDemo")
+	config := aaprotocol.StartServerDemo(getSubscribeMgr())
+	_ = config
+	for {
+		time.Sleep(time.Minute)
+	}
+}
+
+func mqttProtocolServerDemo() {
+
+	fmt.Println("Starting mqttProtocolServerDemo")
+	config := mqttprotocol.StartServerDemo(getSubscribeMgr())
+	_ = config
+	for {
+		time.Sleep(time.Minute)
+	}
+}
+
+func strProtocolClientDemo(count int) {
+
+	fmt.Println("Starting strProtocolClientDemo", count)
+	lights, switches := strprotocol.StartClientsDemo(count)
+
+	for 1 == 1 {
+		time.Sleep(time.Minute)
+	}
+	_ = lights
+	_ = switches
+}
+
+func aaProtocolClientDemo(count int) {
+
+	fmt.Println("Starting aaProtocolClientDemo", count)
+	lights, switches := aaprotocol.StartClientsDemo(count)
+
+	for 1 == 1 {
+		time.Sleep(time.Minute)
+	}
+	_ = lights
+	_ = switches
+
+}
+
+func mqttProtocolClientDemo(count int) {
+
+	fmt.Println("Starting mqttProtocolClientDemo", count)
+	lights, switches := mqttprotocol.StartClientsDemo(count)
+	for 1 == 1 {
+		time.Sleep(time.Minute)
+	}
+	_ = lights
+	_ = switches
+
 }
 
 // HelloServer is

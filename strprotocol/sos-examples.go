@@ -9,14 +9,16 @@ import (
 	"time"
 )
 
+var sosClientRateDelay = time.Second * 30
+
 // StartServerDemo is to start a server of the str protocol.
 // Keep track of the return value or else call Close() on it.
-func StartServerDemo(initialSize int) *iot.SockStructConfig {
+func StartServerDemo(subscribeMgr iot.PubsubIntf) *iot.SockStructConfig {
 
 	clientLogThing.SetQuiet(true)
 
-	var subscribeMgr iot.PubsubIntf
-	subscribeMgr = iot.NewPubsubManager(initialSize)
+	//	var subscribeMgr iot.PubsubIntf
+	//	subscribeMgr = iot.NewPubsubManager(initialSize)
 
 	config := ServerOfStrings(subscribeMgr, ":7374")
 
@@ -106,6 +108,7 @@ func runAlight(ss *iot.SockStruct) {
 	idstr := strconv.FormatUint(0x000FFFFF&myID, 16)
 
 	topic := "strlight_" + idstr
+	ss.SetSelfAddress([]byte(topic))
 	// now convert to command
 	cmd := "sub " + topic
 	ServerOfStringsWrite(ss, cmd) // send subscribe command to server
@@ -171,7 +174,7 @@ func runAswitch(ss *iot.SockStruct) {
 		if err != nil {
 			done = true
 		}
-		time.Sleep(10 * time.Second)
+		time.Sleep(sosClientRateDelay) // 10 * time.Second)
 	}
 }
 

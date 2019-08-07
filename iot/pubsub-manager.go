@@ -4,6 +4,7 @@ package iot
 
 import (
 	"fmt"
+
 	"knotfreeiot/iot/reporting"
 	"strconv"
 )
@@ -24,10 +25,11 @@ type PubsubIntf interface {
 func NewPubsubManager(amt int) PubsubIntf {
 	psMgr := pubSubManager{}
 	psMgr.key.Random()
+	fmt.Println("NewPubsubManager", psMgr.key.String())
 	portion := amt / int(theBucketsSize)
 	portion2 := amt >> theBucketsSizeLog2 // we can init the hash maps big
 	if portion != portion2 {
-		fmt.Printf("theBucketsSizeLog2 != uint(math.Log2(float64(theBucketsSize)))")
+		fmt.Println("theBucketsSizeLog2 != uint(math.Log2(float64(theBucketsSize)))")
 	}
 	psMgr.allTheSubscriptions = make([]subscribeBucket, theBucketsSize)
 	for i := uint(0); i < theBucketsSize; i++ {
@@ -52,6 +54,8 @@ func NewPubsubManager(amt int) PubsubIntf {
 		return strlist
 	}
 	reporting.NewGenericEventAccumulator(subscrFRepofrtFunct)
+
+	// parents := *iot.SockStructConfig
 
 	return &psMgr
 }
@@ -94,9 +98,10 @@ func (me *pubSubManager) SendPublishMessage(realName []byte, ss *SockStruct, pay
 
 	msg := publishMessage{}
 	msg.Topic = &topic
-
 	msg.payload = payload
 	msg.ss = ss
+	msg.returnAddress = ss.GetSelfAddress()
+
 	i := topic.GetFractionalBits(theBucketsSizeLog2)
 	b := me.allTheSubscriptions[i]
 	*b.incoming <- msg
@@ -152,6 +157,21 @@ func (me *pubSubManager) checkForBadSS(badsock *SockStruct, pubstruct *watchedTo
 	return false
 }
 
+type parentsIntf struct {
+	setPublishCallback (func(topic *HashType))
+}
+
+func (*parentsIntf) init(topics []HashType) {
+
+}
+
+func (*parentsIntf) subscibe(topics []HashType) {
+
+}
+func (*parentsIntf) unsubscibe(topics []HashType) {
+
+}
+
 func (bucket *subscribeBucket) processMessages(me *pubSubManager) {
 
 	for {
@@ -170,13 +190,15 @@ func (bucket *subscribeBucket) processMessages(me *pubSubManager) {
 			}
 			// this is the important part:
 			// add the caller to  the set
-			//fmt.Println("pubsub sub ", submsg.Topic.a&0x0FFFF)
+			//fmt.Println("pubsub ", bucket.subscriber.key.String(), " sub ", submsg.Topic.a&0x0FFFF)
 			substruct.watchers[submsg.ss.key] = submsg.ss
+
+			//parent.subscribe(submsg.Topic)
 
 		case publishMessage:
 			pubmsg := msg.(publishMessage)
 			pubstruct, ok := bucket.mySubscriptions[*pubmsg.Topic]
-			//fmt.Println("pubsub pub  ", pubmsg.Topic.a&0x0FFFF)
+			//fmt.Println("pubsub ", bucket.subscriber.key.String(), " pub  ", pubmsg.Topic.a&0x0FFFF)
 			if ok == false {
 				// no publish possible !
 				// it's sad really when someone sends messages to nobody.
@@ -186,7 +208,8 @@ func (bucket *subscribeBucket) processMessages(me *pubSubManager) {
 					if key != pubmsg.ss.key {
 						if me.checkForBadSS(ss, pubstruct) == false {
 							realName := ss.topicToName[HalfHash(pubmsg.Topic.a)]
-							ss.config.writer(ss, realName, pubmsg.payload)
+
+							ss.config.writer(ss, realName, pubmsg.payload, pubmsg.returnAddress)
 						}
 					}
 				}
@@ -230,7 +253,8 @@ type unsubscribeMessage struct {
 // publishMessage used here
 type publishMessage struct {
 	subscriptionMessage
-	payload []byte
+	payload       []byte
+	returnAddress []byte
 }
 
 // watchedTopic, this is private here
@@ -251,4 +275,7 @@ type pubSubManager struct {
 	allTheSubscriptions []subscribeBucket
 	subscribeEvents     *reporting.StringEventAccumulator
 	key                 HashType
+
+	parents *SockStructConfig
+	clients *SockStructConfig
 }

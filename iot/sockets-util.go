@@ -29,7 +29,7 @@ func MakeBunchOfClients(amt int, addr string, delay time.Duration, config *SockS
 	if config.closecb == nil {
 		config.SetClosecb(servererr)
 	}
-	writef := func(ss *SockStruct, topicName []byte, payload []byte) error {
+	writef := func(ss *SockStruct, topicName []byte, payload []byte, returnAddress []byte) error {
 		fmt.Println("default server write")
 		return errors.New("default server writer")
 	}
@@ -80,6 +80,26 @@ type SockStruct struct {
 	topicToName map[HalfHash][]byte // a tree would be better?
 }
 
+// SetSelfAddress so every publish can have a return address.
+func (ss *SockStruct) SetSelfAddress(top []byte) {
+	ss.topicToName[ss.key] = top
+	if ss.config.subscriber != nil {
+		ss.config.subscriber.SendSubscriptionMessage(top, ss)
+	}
+}
+
+// GetSelfAddress either returns the one set or makes one up.
+// Nobody publishes without sending a return address.
+func (ss *SockStruct) GetSelfAddress() []byte {
+	top, ok := ss.topicToName[ss.key]
+	if !ok {
+		sequencehash := HalfHash((uint64(ss.key) - ss.config.key.a) / 13)
+		top = []byte("iot/" + ss.config.key.String() + "/" + sequencehash.String())
+		ss.SetSelfAddress(top)
+	}
+	return top
+}
+
 // SockStructConfig could be just a stack frame but I'd like to return it.
 // This could be an interface that implements range and len or and the callbacks.
 // Instead we have function pointers.
@@ -88,7 +108,7 @@ type SockStructConfig struct {
 	closecb  func(*SockStruct, error)
 	// This is supposed to implement the protocol when a message happens on a topic
 	// and the socket is supposed to get a copy.
-	writer func(ss *SockStruct, topicName []byte, payload []byte) error
+	writer func(ss *SockStruct, topicName []byte, payload []byte, returnAddress []byte) error
 
 	listener net.Listener
 
@@ -131,7 +151,7 @@ func NewSockStruct(conn net.Conn, config *SockStructConfig) *SockStruct {
 	ss.ele = ss.config.list.PushBack(ss)
 	config.listlock.Unlock()
 
-	ss.key = HalfHash(config.key.a + seq) // unique but poorly random.
+	ss.key = HalfHash(config.key.a + seq*13) // unique but poorly random.
 	return ss
 }
 
@@ -196,12 +216,12 @@ func (ss *SockStruct) GetConn() net.Conn {
 
 // GetSequence is
 func (ss *SockStruct) GetSequence() uint64 {
-	return uint64(ss.key) - ss.config.key.a
+	return (uint64(ss.key) - ss.config.key.a) / 13
 }
 
-// SetSequence is only used by clients who aren't afreaid of messing with the key of a sock
+// SetSequence is
 func (ss *SockStruct) setSequence(seq uint64) {
-	ss.key = HalfHash(ss.config.key.a + seq)
+	ss.key = HalfHash(ss.config.key.a + seq*13)
 }
 
 // SetCallback is
@@ -215,7 +235,7 @@ func (config *SockStructConfig) SetClosecb(closecb func(*SockStruct, error)) {
 }
 
 // SetWriter is
-func (config *SockStructConfig) SetWriter(w func(ss *SockStruct, topicName []byte, payload []byte) error) {
+func (config *SockStructConfig) SetWriter(w func(ss *SockStruct, topicName []byte, payload []byte, returnAddress []byte) error) {
 	config.writer = w
 }
 

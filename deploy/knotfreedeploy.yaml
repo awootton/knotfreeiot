@@ -6,7 +6,6 @@ metadata:
   labels:
     app: "{{NAME}}"
 spec:
-  # 89345678999236962 is magic
   replicas: 89345678999236962
   selector:
     matchLabels:
@@ -20,7 +19,7 @@ spec:
       - name: golang
         imagePullPolicy: Always
         image: gcr.io/fair-theater-238820/knotfreeserver:v2 #golang:1.12.1-stretch
-        command: ["/go/bin/knotfree"]
+        command: ["/go/bin/linux_386/knotfreeiot"] # ["/go/bin/knotfree"]
         args: ["INSERT_COMMAND_HERE"]
         ports:
         - containerPort: 6161
@@ -60,5 +59,7 @@ spec:
     name: mqtt
   - port: 8080
     name: web
+  - port: 7374
+    name: str
   selector:
     run: "{{NAME}}"

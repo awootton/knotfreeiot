@@ -54,17 +54,25 @@ func ServerOfStringsInit(config *iot.SockStructConfig) {
 	config.SetClosecb(servererr)
 
 	//  the writer
-	handleTopicPayload := func(ss *iot.SockStruct, topic []byte, payload []byte) error {
+	handleTopicPayload := func(ss *iot.SockStruct, topic []byte, payload []byte, returnAddress []byte) error {
+
+		cmd := `add "` + string(returnAddress) + `" `
+		// TODO: warning. this will BLOCK and jam up the whole machine.
+		n, err := ss.GetConn().Write([]byte(cmd + "\n"))
+		if err != nil || n != (len(cmd)+1) {
+			return err
+		}
 
 		// make a 'command' (called 'pub'), serialize it and write it to the sock
 		str := string(payload)
-		cmd := `pub "` + string(topic) + `" ` + str
+		cmd = `pub "` + string(topic) + `" ` + str
 		// TODO: warning. this will BLOCK and jam up the whole machine.
-		n, err := ss.GetConn().Write([]byte(cmd + "\n"))
+		n, err = ss.GetConn().Write([]byte(cmd + "\n"))
 		if err != nil || n != (len(cmd)+1) {
 			sosLogThing.Collect("error in str writer") //, n, err, cmd)
 			return err
 		}
+
 		return nil
 	}
 
@@ -124,6 +132,16 @@ func strServeCallback(ss *iot.SockStruct) {
 			} else {
 				ss.SendSubscriptionMessage([]byte(topic))
 				ServerOfStringsWrite(ss, "ok sub "+topic)
+			}
+
+		case "add":
+			returnAddr := strings.Trim(remaining, " ")
+			if len(returnAddr) <= 0 {
+				ServerOfStringsWrite(ss, "error say 'add returnAddr' and not "+text)
+			} else {
+				ss.SetSelfAddress([]byte(returnAddr))
+				ss.SendSubscriptionMessage([]byte(returnAddr))
+				ServerOfStringsWrite(ss, "ok add "+returnAddr)
 			}
 
 		case "unsub":

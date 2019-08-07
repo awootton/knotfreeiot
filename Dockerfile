@@ -16,4 +16,6 @@ ENV GOARCH=386
 
 RUN go install 
 
-CMD ["/go/bin/knotfree"]
+RUN ls -lah /go/bin/linux_386
+
+# see knotfreedeploy.yaml # CMD ["/go/bin/linux_386/knotfreeiot"]

@@ -36,7 +36,7 @@ func (h *HashType) GetFractionalBits(n uint) int {
 	if n < 64 {
 		return int(h.a >> (64 - n))
 	}
-	fmt.Println("FIXME: implmentHashType for > 64")
+	fmt.Println("FIXME: implement GetFractionalBits for > 64")
 	return 0
 
 }
@@ -52,7 +52,7 @@ func (h *HashType) FromString(s string) {
 // The string will get hashed to provide the bits so we'll wish this was faster.
 // It doesn't have to be crypto safe but it does need to be evenly distrubuted.
 func (h *HashType) FromBytes(s []byte) {
-	if 0 == 1-1 {
+	if 0 == 2 {
 		md5er := md5.New()
 		io.WriteString(md5er, string(s))
 		bytes := md5er.Sum(nil)
@@ -67,12 +67,14 @@ func (h *HashType) FromBytes(s []byte) {
 			}
 			hashstartkey = &tmp
 		}
-		hhash, _ := highwayhash.New128(*hashstartkey) // (hash.Hash, error)
-		io.WriteString(hhash, string(s))
+		hhash, _ := highwayhash.New128(*hashstartkey)
+		n, err := hhash.Write(s)
+		_ = n
+		_ = err
 		bytes := hhash.Sum(nil)
 		h.a = binary.BigEndian.Uint64(bytes)
 		h.b = binary.BigEndian.Uint64(bytes[8:])
-		//fmt.Println(h.a, h.b)
+		//fmt.Println("HashType", h.a, h.b)
 	}
 }
 
@@ -97,5 +99,9 @@ func (h *HashType) Random() {
 }
 
 func (h *HashType) String() string {
-	return strconv.FormatUint(h.a, 16)
+	return strconv.FormatUint(h.a, 16) + strconv.FormatUint(h.b, 16)
+}
+
+func (a *HalfHash) String() string {
+	return strconv.FormatUint(uint64(*a), 16)
 }

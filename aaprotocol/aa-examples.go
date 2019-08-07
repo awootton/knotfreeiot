@@ -10,14 +10,16 @@ import (
 	"time"
 )
 
+var aaClientRateDelay = time.Second * 30
+
 // StartServerDemo is to start a server of the Aa protocol.
 // Keep track of the return value or else call Close() on it.
-func StartServerDemo(initialSize int) *iot.SockStructConfig {
+func StartServerDemo(subscribeMgr iot.PubsubIntf) *iot.SockStructConfig {
 
 	clientLogThing.SetQuiet(true)
 
-	var subscribeMgr iot.PubsubIntf
-	subscribeMgr = iot.NewPubsubManager(initialSize)
+	//	var subscribeMgr iot.PubsubIntf
+	//	subscribeMgr = iot.NewPubsubManager(initialSize)
 
 	config := ServerOfAa(subscribeMgr, ":6161")
 
@@ -98,7 +100,7 @@ func runAlight(ss *iot.SockStruct) {
 				hash := iot.HashType{}
 				hash.FromBytes([]byte(topic))
 				//fmt.Println("pub to ", hash.GetA()&0x0FFFF)
-				err := HandleTopicPayload(ss, []byte(topic), payload)
+				err := HandleTopicPayload(ss, []byte(topic), payload, ss.GetSelfAddress())
 				if err != nil {
 					ss.Close(err)
 					done = true
@@ -130,7 +132,7 @@ func runAlight(ss *iot.SockStruct) {
 	myID := ss.GetSequence()
 	idstr := strconv.FormatUint(0x000FFFFF&myID, 16)
 	topic := "aalight_" + idstr
-	//fmt.Println("sub to " + string(topic))
+	ss.SetSelfAddress([]byte(topic))
 	s := subscribe{[]byte(topic)}
 
 	hash := iot.HashType{}
@@ -209,6 +211,7 @@ func runAswitch(ss *iot.SockStruct) {
 	topic := "aaswitch_" + idstr
 	// now convert to command
 	//fmt.Println("ssub to " + string(topic))
+	ss.SetSelfAddress([]byte(topic))
 	cmd := subscribe{[]byte(topic)}
 
 	hash := iot.HashType{}
@@ -227,12 +230,12 @@ func runAswitch(ss *iot.SockStruct) {
 		hash.FromBytes([]byte(topic))
 		//fmt.Println("spub to ", hash.GetA()&0x0FFFF)
 
-		err := HandleTopicPayload(ss, []byte(topic), []byte(ourCommand))
+		err := HandleTopicPayload(ss, []byte(topic), []byte(ourCommand), ss.GetSelfAddress())
 
 		if err != nil {
 			done = true
 		}
-		time.Sleep(10 * time.Second)
+		time.Sleep(aaClientRateDelay) // 10 * time.Second)
 	}
 }
 

@@ -5,12 +5,23 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Python: Current File",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal"
+        },
+        {
             "name": "Launch ./main.go ",
             "type": "go",
             "request": "launch",
             "mode": "debug",
             "program": "main.go",
-            "args": ["-client=100","-server","-str","-aa"] // "-client=10","-server","-aa","-str"
+            "args": [
+                "-server",
+                "-mqtt",
+                "-str"
+            ] // "-client=10","-server","-aa","-str","-mqtt
         },
         {
             "name": "Launch Start Pods",
@@ -19,7 +30,9 @@
             "mode": "debug",
             "program": "deploy/startk8spods.go",
             "env": {},
-            "args": []
+            "args": [
+                "combined"
+            ]
         }
     ]
 }
