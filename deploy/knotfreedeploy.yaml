@@ -30,6 +30,8 @@ spec:
           name : web
         - containerPort: 7374 
           name : str
+        - containerPort: 6762 
+          name : gb
         resources:
           limits:
             cpu: INSERT_CPU_NEEDED_HERE
@@ -61,5 +63,7 @@ spec:
     name: web
   - port: 7374
     name: str
+  - port: 6762
+    name: gb
   selector:
     run: "{{NAME}}"

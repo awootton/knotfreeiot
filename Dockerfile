@@ -4,8 +4,13 @@ FROM golang:1.12.1-stretch
 ENV PORT 8080
 ENV PORT 6161
 ENV PORT 1883
+ENV PORT 7374
+ENV PORT 6762
+
 
 RUN go get -u github.com/minio/highwayhash
+RUN go get -u github.com/eclipse/paho.mqtt.golang
+
 
 WORKDIR /go/src/knotfreeiot/
 
@@ -14,8 +19,7 @@ ADD . /go/src/knotfreeiot
 # We can use the 32 bit version to save pointer space?
 ENV GOARCH=386
 
-RUN go install 
-
-RUN ls -lah /go/bin/linux_386
-
+# RUN ls -lah /go/bin/linux_386
 # see knotfreedeploy.yaml # CMD ["/go/bin/linux_386/knotfreeiot"]
+
+RUN go install 

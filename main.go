@@ -62,10 +62,6 @@ func main() {
 		}
 	}()
 
-	for 1 == 2 {
-		time.Sleep(time.Minute)
-	}
-
 	fmt.Println("starting reporter")
 
 	reportTicker := time.NewTicker(10 * time.Second)

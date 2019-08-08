@@ -163,10 +163,10 @@ func main() {
 	// ["-client=10","-server","-str"","-aa"]
 
 	combinedconfig := Config{
-		Namespace:      "knotfree",
+		Namespace:      "knotfree2",
 		DeploymentName: "knotfreeserver",
-		Replication:    4,
-		Command:        `-server","-client=4000","-str","-aa`,
+		Replication:    2,
+		Command:        `-server","-client=6000","-str","-aa`,
 		CPU:            "250m",
 		Mem:            "800Mi", // 20 * 5000 = 100k socks. 100k * 20kB/sock = 2 Gi
 		YamlFile:       "knotfreedeploy.yaml",

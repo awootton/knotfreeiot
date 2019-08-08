@@ -84,7 +84,7 @@ type SockStruct struct {
 func (ss *SockStruct) SetSelfAddress(top []byte) {
 	ss.topicToName[ss.key] = top
 	if ss.config.subscriber != nil {
-		ss.config.subscriber.SendSubscriptionMessage(top, ss)
+		ss.config.subscriber.SendSubscriptionMessage(ss, top)
 	}
 }
 
@@ -193,7 +193,7 @@ func (ss *SockStruct) Close(err error) {
 		ss.conn.Close()
 		ss.conn = nil
 	}
-	if ss.ele != nil {
+	if ss.ele != nil && ss.config != nil {
 		ss.config.listlock.Lock()
 		ss.config.list.Remove(ss.ele)
 		ss.config.listlock.Unlock()
@@ -207,6 +207,8 @@ func (ss *SockStruct) Close(err error) {
 		}
 		ss.topicToName = nil
 	}
+	ss.key = 0
+	ss.config = nil
 }
 
 // GetConn is
@@ -282,15 +284,15 @@ func SocketSetup(conn net.Conn) error {
 
 // SendSubscriptionMessage will create a message object, copy pointers to it so it'll own them now, and queue the message.
 func (ss *SockStruct) SendSubscriptionMessage(realName []byte) {
-	ss.config.subscriber.SendSubscriptionMessage(realName, ss)
+	ss.config.subscriber.SendSubscriptionMessage(ss, realName)
 }
 
 // SendUnsubscribeMessage will create a message object, copy pointers to it so it'll own them now, and queue the message.
 func (ss *SockStruct) SendUnsubscribeMessage(realName []byte) {
-	ss.config.subscriber.SendUnsubscribeMessage(realName, ss)
+	ss.config.subscriber.SendUnsubscribeMessage(ss, realName)
 }
 
 // SendPublishMessage will create a message object, copy pointers to it so it'll own them now, and queue the message.
-func (ss *SockStruct) SendPublishMessage(realName []byte, payload []byte) {
-	ss.config.subscriber.SendPublishMessage(realName, ss, payload)
+func (ss *SockStruct) SendPublishMessage(realName []byte, payload []byte, returnAddress []byte) {
+	ss.config.subscriber.SendPublishMessage(ss, realName, payload, returnAddress)
 }

@@ -8,6 +8,7 @@ import paho.mqtt.client as paho
 # doesn't work: broker = "broker.hivemq.com"
 broker = "iot.eclipse.org"
 broker = "test.mosquitto.org"
+
 broker = "localhost"
 
 clientid = "client-001"
@@ -43,10 +44,8 @@ client.on_disconnect = on_disconnect
 print("connecting to broker ", broker)
 client.connect(broker)  # connect
 
-client.loop_start()  # start loop to process received messages
-#print("subscribing " + "atw/xsgournklogc/house/bulb1/"+clientid)
-#client.subscribe("atw/xsgournklogc/house/bulb1/"+clientid)  # subscribe
-time.sleep(2)
+client.loop_start()  
+time.sleep(12)
 print("publishing ")
 for x in range(9999):
     print(x)

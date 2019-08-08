@@ -13,10 +13,11 @@ import (
 // is the Write function in the SocketStructConfig which is what the pubsubmgr uses to distribute
 // messages that are published.
 type PubsubIntf interface {
-	SendSubscriptionMessage(topic []byte, ss *SockStruct)
-	SendUnsubscribeMessage(topic []byte, ss *SockStruct)
-	SendPublishMessage(topic []byte, ss *SockStruct, payload []byte)
-	//SendOnlineQuery(topic string, ss *SockStruct )
+	SendSubscriptionMessage(ss *SockStruct, topic []byte)
+	SendUnsubscribeMessage(ss *SockStruct, topic []byte)
+	SendPublishMessage(ss *SockStruct, topic []byte, payload []byte, returnAddress []byte)
+
+	//SendOnlineQuery( ss *SockStruct, topic string, )
 	GetAllSubsCount() (int, int)
 }
 
@@ -61,7 +62,7 @@ func NewPubsubManager(amt int) PubsubIntf {
 }
 
 // SendSubscriptionMessage will create a message object, copy pointers to it so it'll own them now, and queue the message.
-func (me *pubSubManager) SendSubscriptionMessage(realName []byte, ss *SockStruct) {
+func (me *pubSubManager) SendSubscriptionMessage(ss *SockStruct, realName []byte) {
 	topic := HashType{}
 	topic.FromBytes(realName)
 	ss.topicToName[HalfHash(topic.a)] = realName
@@ -74,7 +75,7 @@ func (me *pubSubManager) SendSubscriptionMessage(realName []byte, ss *SockStruct
 }
 
 // SendUnsubscribeMessage will create a message object, copy pointers to it so it'll own them now, and queue the message.
-func (me *pubSubManager) SendUnsubscribeMessage(realName []byte, ss *SockStruct) {
+func (me *pubSubManager) SendUnsubscribeMessage(ss *SockStruct, realName []byte) {
 
 	topic := HashType{}
 	topic.FromBytes(realName)
@@ -91,7 +92,7 @@ func (me *pubSubManager) SendUnsubscribeMessage(realName []byte, ss *SockStruct)
 }
 
 // SendPublishMessage will create a message object, copy pointers to it so it'll own them now, and queue the message.
-func (me *pubSubManager) SendPublishMessage(realName []byte, ss *SockStruct, payload []byte) {
+func (me *pubSubManager) SendPublishMessage(ss *SockStruct, realName []byte, payload []byte, returnAddress []byte) {
 
 	topic := HashType{}
 	topic.FromBytes(realName)
@@ -147,7 +148,7 @@ func (me *pubSubManager) checkForBadSS(badsock *SockStruct, pubstruct *watchedTo
 	}
 	if forgetme {
 		for topic, realName := range badsock.topicToName {
-			me.SendUnsubscribeMessage(realName, badsock)
+			me.SendUnsubscribeMessage(badsock, realName)
 			badsock.topicToName = nil
 			_ = topic
 		}

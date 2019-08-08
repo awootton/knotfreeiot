@@ -24,7 +24,7 @@
             ] // "-client=10","-server","-aa","-str","-mqtt
         },
         {
-            "name": "Launch Start Pods",
+            "name": "Launch startk8spods.go",
             "type": "go",
             "request": "launch",
             "mode": "debug",

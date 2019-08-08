@@ -85,7 +85,7 @@ func mqttServeCallback(ss *iot.SockStruct) {
 			pub := obj.(*packets.PublishPacket)
 			payload := pub.Payload
 			topic := pub.TopicName
-			ss.SendPublishMessage([]byte(topic), payload)
+			ss.SendPublishMessage([]byte(topic), payload, []byte("unknown")) // FIXME:
 			// ack := packets.PubackPacket ... etc
 		case *packets.SubscribePacket:
 			sub := obj.(*packets.SubscribePacket)
@@ -97,7 +97,7 @@ func mqttServeCallback(ss *iot.SockStruct) {
 			for _, topic := range unsub.Topics {
 				ss.SendUnsubscribeMessage([]byte(topic))
 			}
-		case *packets.PubrecPacket:
+		case *packets.PingreqPacket:
 			mqttWrite(ss, &packets.PingrespPacket{})
 		case *packets.DisconnectPacket:
 			// client sent us an error. close.

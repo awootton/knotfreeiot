@@ -161,7 +161,7 @@ func strServeCallback(ss *iot.SockStruct) {
 				topicHash := iot.HashType{}
 				topicHash.FromString(topic)
 				bytes := []byte(payload)
-				ss.SendPublishMessage([]byte(topic), []byte(bytes))
+				ss.SendPublishMessage([]byte(topic), []byte(bytes), []byte("unknown")) // FIXME:
 				ServerOfStringsWrite(ss, "ok pub "+topic+" "+payload)
 			}
 

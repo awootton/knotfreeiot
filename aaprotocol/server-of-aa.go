@@ -105,7 +105,7 @@ func aaServeCallback(ss *iot.SockStruct) {
 			recentTopic = obj.(*setTopic).msg
 		case *publish:
 			payload := obj.(*publish).msg
-			ss.SendPublishMessage(recentTopic, payload)
+			ss.SendPublishMessage(recentTopic, payload, []byte("unknown"))
 		case *subscribe:
 			ss.SendSubscriptionMessage(obj.(*subscribe).msg)
 		case *unsubscribe:
