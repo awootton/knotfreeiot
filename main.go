@@ -18,18 +18,20 @@ package main
 import (
 	"flag"
 	"fmt"
-	"knotfreeiot/aaprotocol"
-	"knotfreeiot/iot"
-	"knotfreeiot/iot/reporting"
-	"knotfreeiot/iot/tiers"
-	"knotfreeiot/mqttprotocol"
-	"knotfreeiot/strprotocol"
 	"net/http"
 	"runtime"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/awootton/knotfreeiot/iot"
+	"github.com/awootton/knotfreeiot/iot/reporting"
+	"github.com/awootton/knotfreeiot/iot/tiers"
+	"github.com/awootton/knotfreeiot/mqttprotocol"
+	"github.com/awootton/knotfreeiot/strprotocol"
+
+	"github.com/awootton/knotfreeiot/aaprotocol"
 )
 
 // Hint: add 127.0.0.1 knotfreeserver to /etc/hosts
