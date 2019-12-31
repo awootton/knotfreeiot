@@ -18,12 +18,13 @@ package aaprotocol
 import (
 	"errors"
 	"fmt"
-	"knotfreeiot/iot/reporting"
 	"reflect"
 	"strconv"
 	"time"
 
-	"knotfreeiot/iot"
+	"github.com/awootton/knotfreeiot/iot/reporting"
+
+	"github.com/awootton/knotfreeiot/iot"
 )
 
 var aaClientRateDelay = time.Second * 30

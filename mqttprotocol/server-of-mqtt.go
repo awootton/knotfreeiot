@@ -18,10 +18,11 @@ package mqttprotocol
 import (
 	"errors"
 	"fmt"
-	"knotfreeiot/iot/reporting"
 	"reflect"
 
-	"knotfreeiot/iot"
+	"github.com/awootton/knotfreeiot/iot/reporting"
+
+	"github.com/awootton/knotfreeiot/iot"
 
 	"github.com/eclipse/paho.mqtt.golang/packets"
 )

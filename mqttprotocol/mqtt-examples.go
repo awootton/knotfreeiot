@@ -17,10 +17,11 @@ package mqttprotocol
 
 import (
 	"fmt"
-	"knotfreeiot/iot"
-	"knotfreeiot/iot/reporting"
 	"strconv"
 	"time"
+
+	"github.com/awootton/knotfreeiot/iot"
+	"github.com/awootton/knotfreeiot/iot/reporting"
 )
 
 var sosClientRateDelay = time.Second * 30

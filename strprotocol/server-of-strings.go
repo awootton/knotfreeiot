@@ -18,8 +18,8 @@ package strprotocol
 import (
 	"bufio"
 	"errors"
-	"knotfreeiot/iot"
-	"knotfreeiot/iot/reporting"
+	"github.com/awootton/knotfreeiot/iot"
+	"github.com/awootton/knotfreeiot/iot/reporting"
 	"strings"
 )
 

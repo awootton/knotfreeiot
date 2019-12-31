@@ -19,11 +19,12 @@ import (
 	"container/list"
 	"errors"
 	"fmt"
-	"knotfreeiot/iot/reporting"
 	"math/rand"
 	"net"
 	"sync"
 	"time"
+
+	"github.com/awootton/knotfreeiot/iot/reporting"
 )
 
 // MakeBunchOfClients a test of making test clients.

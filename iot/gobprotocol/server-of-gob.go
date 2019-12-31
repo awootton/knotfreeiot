@@ -18,9 +18,10 @@ package gobprotocol
 import (
 	"encoding/gob"
 	"errors"
-	"knotfreeiot/iot"
-	"knotfreeiot/iot/reporting"
 	"reflect"
+
+	"github.com/awootton/knotfreeiot/iot"
+	"github.com/awootton/knotfreeiot/iot/reporting"
 )
 
 type subMessage struct {
