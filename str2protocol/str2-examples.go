@@ -15,7 +15,7 @@
 
 package str2protocol
 
-// The following is an example of a Str2 client.
+// The following is an example of a Str2 client. Not a unit test but we'll use it that way elsewhere.
 
 import (
 	"bufio"
