@@ -20,9 +20,9 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/awootton/knotfreeiot/iot/reporting"
+	"knotfreeiot/iot/reporting"
 
-	"github.com/awootton/knotfreeiot/iot"
+	"knotfreeiot/iot"
 
 	"github.com/eclipse/paho.mqtt.golang/packets"
 )

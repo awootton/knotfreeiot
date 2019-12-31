@@ -1,6 +1,6 @@
 # knotfree
 
-![](https://github.com/awootton/knotfreeiot/workflows/Build/badge.svg)
+![](https://knotfreeiot/workflows/Build/badge.svg)
 
 The purpose of this unfinished project is to test auto-scaling of a large system. 
 

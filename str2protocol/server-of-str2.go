@@ -19,8 +19,8 @@ import (
 	"bufio"
 	"errors"
 	"io"
-	"github.com/awootton/knotfreeiot/iot"
-	"github.com/awootton/knotfreeiot/iot/reporting"
+	"knotfreeiot/iot"
+	"knotfreeiot/iot/reporting"
 	"strings"
 )
 

@@ -23,8 +23,8 @@ import (
 	"net"
 	"reflect"
 
-	"github.com/awootton/knotfreeiot/iot"
-	"github.com/awootton/knotfreeiot/iot/reporting"
+	"knotfreeiot/iot"
+	"knotfreeiot/iot/reporting"
 )
 
 /** Here is the protocol. Each command is a string with a preceeding length

@@ -20,8 +20,8 @@ import (
 	"errors"
 	"reflect"
 
-	"github.com/awootton/knotfreeiot/iot"
-	"github.com/awootton/knotfreeiot/iot/reporting"
+	"knotfreeiot/iot"
+	"knotfreeiot/iot/reporting"
 )
 
 type subMessage struct {

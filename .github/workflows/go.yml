@@ -18,8 +18,8 @@ jobs:
 
     - name: Get dependencies
       run: |
-        # go get github.com/awootton/knotfreeiot
-        go get -v -t -d ./...
+        # go get knotfreeiot
+        go get -v -t -d -u -f ./...
         if [ -f Gopkg.toml ]; then
             curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
             dep ensure

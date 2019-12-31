@@ -20,8 +20,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/awootton/knotfreeiot/iot"
-	"github.com/awootton/knotfreeiot/iot/reporting"
+	"knotfreeiot/iot"
+	"knotfreeiot/iot/reporting"
 )
 
 var sosClientRateDelay = time.Second * 30

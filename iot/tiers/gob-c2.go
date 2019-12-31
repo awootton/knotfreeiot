@@ -19,13 +19,13 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/awootton/knotfreeiot/iot"
-	"github.com/awootton/knotfreeiot/iot/reporting"
-	"github.com/awootton/knotfreeiot/strprotocol"
+	"knotfreeiot/iot"
+	"knotfreeiot/iot/reporting"
+	"knotfreeiot/strprotocol"
 
 	"strconv"
 
-	"github.com/awootton/knotfreeiot/iot/gobprotocol"
+	"knotfreeiot/iot/gobprotocol"
 )
 
 // TwoByTwoTest is

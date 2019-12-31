@@ -5,12 +5,13 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
-	"knotfreeiot/kubectl"
 	"os"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"knotfreeiot/kubectl"
 )
 
 // Config is for setting up a typical deployment

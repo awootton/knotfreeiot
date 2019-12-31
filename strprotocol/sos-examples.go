@@ -18,8 +18,8 @@ package strprotocol
 import (
 	"bufio"
 	"fmt"
-	"github.com/awootton/knotfreeiot/iot"
-	"github.com/awootton/knotfreeiot/iot/reporting"
+	"knotfreeiot/iot"
+	"knotfreeiot/iot/reporting"
 	"strconv"
 	"time"
 )
