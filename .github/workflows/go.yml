@@ -33,6 +33,7 @@ jobs:
       run: |
         pwd
         ls -lah
-        echo GOPATH= $GOPATH
+        export GOPATH=/home/runner/work/knotfreeiot
         echo GITHUB_WORKSPACE= $GITHUB_WORKSPACE
+        echo GOPATH= $GOPATH
         go build -v .
