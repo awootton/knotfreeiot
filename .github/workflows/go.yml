@@ -14,7 +14,10 @@ jobs:
       id: go
 
     - name: Check out code into the Go module directory
+      # to $GITHUB_WORKSPACE
       uses: actions/checkout@v1
+      with:
+        path: ''
 
     - name: Get dependencies
       run: |
@@ -31,4 +34,5 @@ jobs:
         pwd
         ls -lah
         echo $GOPATH
+        echo $GITHUB_WORKSPACE
         go build -v .
