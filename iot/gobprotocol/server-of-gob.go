@@ -1,38 +1,53 @@
-package iot
+// Copyright 2019,2020 Alan Tracey Wootton
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+package gobprotocol
 
 import (
 	"encoding/gob"
 	"errors"
-	"fmt"
+	"knotfreeiot/iot"
 	"knotfreeiot/iot/reporting"
 	"reflect"
 )
 
 type subMessage struct {
-	topic HashType
+	topic iot.HashType
 }
 
 // ServerOfGob - use the reader arch and use it to implement sub-servers and master-servers
 // returns a config to keep a handle to the sockets.
-func ServerOfGob(subscribeMgr PubsubIntf, addr string) *SockStructConfig {
+func ServerOfGob(subscribeMgr iot.PubsubIntf, addr string) *iot.SockStructConfig {
 
-	config := NewSockStructConfig(subscribeMgr)
+	config := iot.NewSockStructConfig(subscribeMgr)
 
 	ServerOfGobInit(config)
 
-	ServeFactory(config, addr)
+	iot.ServeFactory(config, addr)
 
 	return config
 }
 
 // ServerOfGobInit is to set default callbacks.
-func ServerOfGobInit(config *SockStructConfig) {
+func ServerOfGobInit(config *iot.SockStructConfig) {
 
 	setupGobTypes()
 
 	//config.SetCallback(aaServeCallback)
 
-	servererr := func(ss *SockStruct, err error) {
+	servererr := func(ss *iot.SockStruct, err error) {
 		gobLogThing.Collect("gob server closing")
 	}
 	config.SetClosecb(servererr)
@@ -42,7 +57,7 @@ func ServerOfGobInit(config *SockStructConfig) {
 
 // GobIntf is
 type GobIntf interface {
-	Write(ss *SockStruct) error
+	Write(ss *iot.SockStruct) error
 }
 
 // ConnectMessage is
@@ -51,7 +66,7 @@ type ConnectMessage struct {
 	name  string
 }
 
-func (m *ConnectMessage) Write(ss *SockStruct) error {
+func (m *ConnectMessage) Write(ss *iot.SockStruct) error {
 	enc := gob.NewEncoder(ss.GetConn())
 	err := enc.Encode(m)
 	return err
@@ -67,7 +82,7 @@ type PublishItem struct {
 // PublishMessage is an array
 type PublishMessage []PublishItem
 
-func (m *PublishMessage) Write(ss *SockStruct) error {
+func (m *PublishMessage) Write(ss *iot.SockStruct) error {
 	enc := gob.NewEncoder(ss.GetConn())
 	err := enc.Encode(m)
 	return err
@@ -87,7 +102,7 @@ type SubscribeItem struct {
 // SubscribeMessage is
 type SubscribeMessage []SubscribeItem
 
-func (m *SubscribeMessage) Write(ss *SockStruct) error {
+func (m *SubscribeMessage) Write(ss *iot.SockStruct) error {
 	enc := gob.NewEncoder(ss.GetConn())
 	err := enc.Encode(m)
 	return err
@@ -101,7 +116,7 @@ type UnsubscribeItem struct {
 // UnsubscribeMessage is
 type UnsubscribeMessage []UnsubscribeItem
 
-func (m *UnsubscribeMessage) Write(ss *SockStruct) error {
+func (m *UnsubscribeMessage) Write(ss *iot.SockStruct) error {
 	enc := gob.NewEncoder(ss.GetConn())
 	err := enc.Encode(m)
 	return err
@@ -116,7 +131,7 @@ func setupGobTypes() {
 }
 
 // gobWrite is redundant
-func xxgobWrite(ss *SockStruct, obj GobIntf) error {
+func xxgobWrite(ss *iot.SockStruct, obj GobIntf) error {
 	err := obj.Write(ss)
 	return err
 }
@@ -124,7 +139,7 @@ func xxgobWrite(ss *SockStruct, obj GobIntf) error {
 // HandleTopicPayload writes a publish onto the  wire.
 // It's also the callback the pubsub uses.
 // we don't have a command with two arguments.
-func HandleTopicPayload(ss *SockStruct, topic []byte, payload []byte, returnAddress []byte) error {
+func HandleTopicPayload(ss *iot.SockStruct, topic []byte, payload []byte, returnAddress []byte) error {
 
 	pub := NewPublishMessage(1)
 	item := pub[0]
@@ -138,7 +153,7 @@ func HandleTopicPayload(ss *SockStruct, topic []byte, payload []byte, returnAddr
 }
 
 // ReadGob is
-func ReadGob(ss *SockStruct) (GobIntf, error) {
+func ReadGob(ss *iot.SockStruct) (GobIntf, error) {
 	dec := gob.NewDecoder(ss.GetConn())
 	var result GobIntf
 	err := dec.Decode(&result)
@@ -149,7 +164,7 @@ func ReadGob(ss *SockStruct) (GobIntf, error) {
 }
 
 // gobServeCallback is
-func gobServeCallback(ss *SockStruct) {
+func gobServeCallback(ss *iot.SockStruct) {
 
 	// implement the protocol
 	connected := false
@@ -177,12 +192,13 @@ func gobServeCallback(ss *SockStruct) {
 			}
 		}
 		// As much fun as it would be to make the following code into virtual methods
-		// of the types involved (and I tried it) it's more annoying and harder to read
+		// (and I tried it) it's more annoying and harder to read
 		// than just doing it all here.
 		switch obj.(type) {
 
 		case *ConnectMessage:
-			fmt.Println("have ConnectMessage")
+			//fmt.Println("have ConnectMessage")
+			gobLogThing.Collect("gob ConnectMessage")
 			connected = true
 		case *PublishMessage:
 			pub := obj.(*PublishMessage)
@@ -201,7 +217,7 @@ func gobServeCallback(ss *SockStruct) {
 			}
 		default:
 			// client sent us junk somehow
-			str := "bad gob type=" + reflect.TypeOf(obj).String()
+			str := "gob type=" + reflect.TypeOf(obj).String()
 			err := errors.New(str)
 			gobLogThing.Collect(str)
 			ss.Close(err)

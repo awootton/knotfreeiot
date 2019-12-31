@@ -1,4 +1,18 @@
 // Copyright 2019 Alan Tracey Wootton
+// Copyright 2019,2020 Alan Tracey Wootton
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 package iot
 
@@ -16,7 +30,7 @@ import (
 
 // HashType represents 128 bits of randomness. We'll use these as keys and ID's. While they are a little fat they're quite resistant
 // to collision provided that they are random.
-// Think of this as a fraction from 0 to 1-1/(2^128) . Like a probability. No negatives.
+// Think of this as a fraction from 0 to 1-1/(2^128) . Like a probability. Unsigned.
 // When we distribute these into buckets we'll start with the high bits in 'a'.
 type HashType struct {
 	a, b uint64
@@ -48,7 +62,7 @@ func (h *HashType) FromString(s string) {
 	h.FromBytes([]byte(s))
 }
 
-// FromBytes will initialize an existing hash from a  .
+// FromBytes will initialize an existing hash from a string .
 // The string will get hashed to provide the bits so we'll wish this was faster.
 // It doesn't have to be crypto safe but it does need to be evenly distrubuted.
 func (h *HashType) FromBytes(s []byte) {

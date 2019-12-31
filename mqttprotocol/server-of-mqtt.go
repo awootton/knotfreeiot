@@ -1,3 +1,18 @@
+// Copyright 2019,2020 Alan Tracey Wootton
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 package mqttprotocol
 
 import (
@@ -43,7 +58,8 @@ func mqttWrite(ss *iot.SockStruct, cmd packets.ControlPacket) error {
 	return err
 }
 
-// mqttServeCallback is
+// mqttServeCallback is what handles a socket after an incomeing mqtt conection is made.
+// it expectes a ConnectPacket and then loops forever dealing with mqtt messages.
 func mqttServeCallback(ss *iot.SockStruct) {
 
 	// implement the protocol
@@ -78,14 +94,15 @@ func mqttServeCallback(ss *iot.SockStruct) {
 		switch obj.(type) {
 
 		case *packets.ConnectPacket:
-			//con := obj.(*packets.ConnectPacket)
+			//conpack := obj.(*packets.ConnectPacket)
 			fmt.Println("have packets.ConnectPacket")
 			connected = true
-		case *packets.PublishPacket:
+		case *packets.PublishPacket: // handle upstream publish
 			pub := obj.(*packets.PublishPacket)
 			payload := pub.Payload
 			topic := pub.TopicName
-			ss.SendPublishMessage([]byte(topic), payload, []byte("unknown")) // FIXME:
+			ss.SendPublishMessage([]byte(topic), payload, []byte("unknown"))
+			// TODO: do we need to ack?
 			// ack := packets.PubackPacket ... etc
 		case *packets.SubscribePacket:
 			sub := obj.(*packets.SubscribePacket)
@@ -117,7 +134,7 @@ func mqttServeCallback(ss *iot.SockStruct) {
 	}
 }
 
-// HandleTopicPayload writes a publish onto the  wire.
+// HandleTopicPayload writes a publish downstream.
 func HandleTopicPayload(ss *iot.SockStruct, topic []byte, payload []byte, returnAddress []byte) error {
 
 	pub := packets.PublishPacket{}

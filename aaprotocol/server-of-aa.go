@@ -1,6 +1,22 @@
+// Copyright 2019,2020 Alan Tracey Wootton
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 package aaprotocol
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
@@ -10,13 +26,12 @@ import (
 	"reflect"
 )
 
-/** Here is the protocol. Each command is a string with a preceeding length byte
+/** Here is the protocol. Each command is a string with a preceeding length
 	followed by a single char to indicate the type of command.
 
 There is no echo back of successful commands. There is not a typical pub command with two arguements.
 Instead there is a set topic command follolwed by a pub command.
-
-
+eg.
 	switch firstChar[0] {
 	case 's':
 		return &subscribe{str}
@@ -25,9 +40,6 @@ Instead there is a set topic command follolwed by a pub command.
 	case 'p':
 		return &publish{str}
 	}
-
-
-
 */
 
 // ServerOfAa - use the reader arch and implement aa
@@ -156,20 +168,20 @@ var emptyBytes = make([]byte, 0)
 // readProtocolAstr will block trying to get a string until the conn times out.
 func readProtocolAa(conn io.Reader) ([]byte, error) {
 
-	ch := []byte{'a'}
+	ch := []byte("aa")
 	n, err := conn.Read(ch)
-	if err != nil || n != 1 {
+	if err != nil || n != 2 {
 		return emptyBytes, err
 	}
-	msglen := int(ch[0]) & 0x00FF
-	pos := 0
+	msglen := binary.LittleEndian.Uint16(ch)
+	pos := uint16(0)
 	buffer := make([]byte, msglen)
 	for pos < msglen {
 		n, err = conn.Read(buffer[pos:msglen])
 		if err != nil {
 			return emptyBytes, err
 		}
-		pos += n
+		pos += uint16(n)
 	}
 	return buffer, nil
 }
@@ -179,19 +191,20 @@ func readProtocolAa(conn io.Reader) ([]byte, error) {
 func writeProtocolAa(conn net.Conn, str []byte) error {
 
 	amount := len(str)
-	if amount > 255 {
+	if amount > 64*1024-1 {
 		aaLogThing.Collect("WriteProtocolAa string too long")
-		amount = 255
+		amount = 64*1024 - 1
 	}
 	strbytes := str[0:amount]
 
-	prefix := []byte{byte(amount)}
+	prefix := []byte("aa")
+	binary.LittleEndian.PutUint16(prefix, uint16(amount))
 	n, err := conn.Write(prefix)
 	if err != nil {
 		return err
 	}
-	if n != 1 {
-		return errors.New("aa expect n==1")
+	if n != 2 {
+		return errors.New("aa expect n==2")
 	}
 	n, err = conn.Write(strbytes)
 	if err != nil {

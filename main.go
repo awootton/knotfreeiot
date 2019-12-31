@@ -1,3 +1,18 @@
+// Copyright 2019,2020 Alan Tracey Wootton
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 package main
 
 import (
@@ -6,6 +21,7 @@ import (
 	"knotfreeiot/aaprotocol"
 	"knotfreeiot/iot"
 	"knotfreeiot/iot/reporting"
+	"knotfreeiot/iot/tiers"
 	"knotfreeiot/mqttprotocol"
 	"knotfreeiot/strprotocol"
 	"net/http"
@@ -20,6 +36,8 @@ import (
 func main() {
 
 	fmt.Println("Hello knotfreeserver")
+
+	tiers.TwoByTwoTest()
 
 	aa := flag.Bool("aa", false, "use aa protocol")
 	str := flag.Bool("str", false, "use str protocol")
@@ -81,22 +99,10 @@ func main() {
 	}
 }
 
-var subscribeMgr iot.PubsubIntf
-var subscribeMgrMutex sync.Mutex
-
-func getSubscribeMgr() iot.PubsubIntf {
-	subscribeMgrMutex.Lock()
-	if subscribeMgr == nil {
-		subscribeMgr = iot.NewPubsubManager(100 * 1000)
-	}
-	subscribeMgrMutex.Unlock()
-	return subscribeMgr
-}
-
 func strProtocolServerDemo() {
 
 	fmt.Println("Starting strProtocolServerDemo")
-	config := strprotocol.StartServerDemo(getSubscribeMgr())
+	config := strprotocol.StartServerDemo(getSubscribeMgr(), "7374")
 	_ = config
 	for {
 		time.Sleep(time.Minute)
@@ -185,4 +191,16 @@ var mainLogThing = reporting.NewStringEventAccumulator(16)
 
 func bToMb(b uint64) uint64 {
 	return b / 1024 / 1024
+}
+
+var subscribeMgr iot.PubsubIntf
+var subscribeMgrMutex sync.Mutex
+
+func getSubscribeMgr() iot.PubsubIntf {
+	subscribeMgrMutex.Lock()
+	if subscribeMgr == nil {
+		subscribeMgr = iot.NewPubsubManager(100 * 1000)
+	}
+	subscribeMgrMutex.Unlock()
+	return subscribeMgr
 }

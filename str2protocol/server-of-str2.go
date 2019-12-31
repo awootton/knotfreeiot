@@ -13,38 +13,138 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-package strprotocol
+package str2protocol
 
 import (
 	"bufio"
 	"errors"
+	"io"
 	"knotfreeiot/iot"
 	"knotfreeiot/iot/reporting"
 	"strings"
 )
 
-/** Here is the protocol. Each line is a command.
-There is command echo with the string "ok" or "error"
+/** Here is the protocol.
 
-eg.
+There is a type byte "P" or "S" or whatever.
 
-sub mytopic1
+Then there is an arg count unsigned byte,
+	so, we're up to two bytes now.
+Then a coded list of int of length arg_count
+	unsigned bytes <= 127 are a length
+	else the lower 7 bits are the msb and the next byte is lsb. etc.
 
-pub yourtopic2 hello to you
-
-unsub mytopic1
-
-returned strings are:
-
-ok sub mytopic1
-
-ok pub yourtopic2 hello to you
-
-ok unsub mytopic1
-
-pub mytopic1 hello from you
 
 */
+
+type CommandType uint8
+
+const (
+	none    = 0
+	connect = iota + 1
+	subscribe
+	unsubscribe
+	publish
+)
+
+// Bstr is like a string but is any bytes
+// it could be utf8. many times it's 16 bytes for 128 bits
+type Bstr []byte
+
+// Str2 is the internal representation.
+type Str2 struct {
+	cmd  CommandType
+	args []Bstr
+}
+
+// Read an Str2 packet.
+func Read(reader io.Reader) (*Str2, error) {
+
+	str := Str2{}
+	b1 := []uint8{0}
+	n, err := reader.Read(b1) // read the command type
+	if err != nil {
+		return &str, err
+	}
+	str.cmd = CommandType(b1[0]) // read the lengths of the followint args
+	n, err = reader.Read(b1)
+	if err != nil {
+		return &str, err
+	}
+	argsLen := uint8(b1[0])
+	lengths := make([]int, argsLen)
+	total := 0
+	for i := uint8(0); i < argsLen; i++ { // read the lengths of the following strings
+		n, err = reader.Read(b1)
+		if err != nil {
+			return &str, err
+		}
+		aval := 0
+		remaining := 3
+		for remaining != 0 {
+			aval <<= 7
+			if b1[0] >= 128 {
+				aval |= int(b1[0]) & 0x7F
+				remaining--
+			} else { // the common case
+				aval |= int(b1[0])
+				remaining = 0
+				break
+			}
+		}
+		lengths[i] = aval
+		total += aval
+
+	}
+	if total > 1024*1024 {
+		return &str, errors.New("packet too long for reality")
+	}
+	// now we can read the rest all at once
+
+	bytes := make([]uint8, total) // alloc the base array
+	n, err = reader.Read(bytes)   // timeout?
+	if err != nil || n != total {
+		return &str, err
+	}
+	// now we can slice the args
+	position := 0
+	str.args = make([]Bstr, len(lengths))
+	for i := 0; i < len(lengths); i++ {
+		str.args[i] = bytes[position : position+lengths[i]]
+		position += lengths[i]
+	}
+	return &str, nil
+}
+
+// Write an Str2 packet.
+func (str *Str2) Write(writer io.Writer) error {
+
+	b1 := []uint8{0}
+	b1[0] = uint8(str.cmd)
+	n, err := writer.Write(b1)
+	if err != nil {
+		return err
+	}
+	b1[0] = uint8(len(str.args))
+	n, err = writer.Write(b1)
+	if err != nil {
+		return err
+	}
+	// write the lengths
+	for i := 0; i < len(str.args); i++ {
+
+	}
+	// write the bytes
+	for i := 0; i < len(str.args); i++ {
+		n, err = writer.Write(str.args[i])
+		if err != nil {
+			return err
+		}
+	}
+
+	_ = n
+	return nil
+}
 
 // ServerOfStrings - implement string messages
 func ServerOfStrings(subscribeMgr iot.PubsubIntf, addr string) *iot.SockStructConfig {

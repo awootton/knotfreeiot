@@ -1,3 +1,18 @@
+// Copyright 2019,2020 Alan Tracey Wootton
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 package iot
 
 import (
@@ -54,7 +69,7 @@ func MakeBunchOfClients(amt int, addr string, delay time.Duration, config *SockS
 			config.callback(ss)
 			// Yikes! our lovely client has returned. Probably a socket error.
 			// We'll delay and then try again.
-			time.Sleep(time.Duration(rand.Intn(60)) * time.Second)
+			time.Sleep(time.Duration(rand.Intn(120)) * time.Second)
 		}
 	}
 
@@ -121,6 +136,10 @@ type SockStructConfig struct {
 	sequence uint64 // every time we factory up a SockStruct we increment this and we never decrement.
 
 	subscriber PubsubIntf
+
+	amap map[string]interface{} // ?
+
+	address string // eg knotfreeserver:7009
 }
 
 // NewSockStructConfig is
@@ -157,6 +176,8 @@ func NewSockStruct(conn net.Conn, config *SockStructConfig) *SockStruct {
 
 // ServeFactory starts a server and then is a factory for SockStruct's
 func ServeFactory(config *SockStructConfig, addr string) {
+
+	config.address = addr
 
 	go func(config *SockStructConfig) {
 		ln, err := net.Listen("tcp", addr)

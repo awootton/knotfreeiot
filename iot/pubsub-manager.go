@@ -1,4 +1,18 @@
 // Copyright 2019 Alan Tracey Wootton
+// Copyright 2019,2020 Alan Tracey Wootton
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 package iot
 
@@ -19,6 +33,8 @@ type PubsubIntf interface {
 
 	//SendOnlineQuery( ss *SockStruct, topic string, )
 	GetAllSubsCount() (int, int)
+
+	SetUpstreamSelector(func(topic HashType) *SockStruct)
 }
 
 // NewPubsubManager makes a SubscriptionsIntf, usually a singleton.
@@ -158,21 +174,6 @@ func (me *pubSubManager) checkForBadSS(badsock *SockStruct, pubstruct *watchedTo
 	return false
 }
 
-type parentsIntf struct {
-	setPublishCallback (func(topic *HashType))
-}
-
-func (*parentsIntf) init(topics []HashType) {
-
-}
-
-func (*parentsIntf) subscibe(topics []HashType) {
-
-}
-func (*parentsIntf) unsubscibe(topics []HashType) {
-
-}
-
 func (bucket *subscribeBucket) processMessages(me *pubSubManager) {
 
 	for {
@@ -194,7 +195,7 @@ func (bucket *subscribeBucket) processMessages(me *pubSubManager) {
 			//fmt.Println("pubsub ", bucket.subscriber.key.String(), " sub ", submsg.Topic.a&0x0FFFF)
 			substruct.watchers[submsg.ss.key] = submsg.ss
 
-			//parent.subscribe(submsg.Topic)
+			//todo: send upstream or parenthandler.subscribe(submsg.Topic)
 
 		case publishMessage:
 			pubmsg := msg.(publishMessage)
@@ -215,6 +216,7 @@ func (bucket *subscribeBucket) processMessages(me *pubSubManager) {
 					}
 				}
 			}
+			// send upstream publish
 
 		case unsubscribeMessage:
 
@@ -226,6 +228,7 @@ func (bucket *subscribeBucket) processMessages(me *pubSubManager) {
 				if len(unstruct.watchers) == 0 {
 					// forget the entire topic
 					delete(bucket.mySubscriptions, *unmsg.Topic)
+					// send upstream unsubscribe
 				}
 			}
 
@@ -258,10 +261,13 @@ type publishMessage struct {
 	returnAddress []byte
 }
 
-// watchedTopic, this is private here
+// watchedTopic is what we'll be collecting a lot of.
+// what if *everyone* is watching this topic?
 type watchedTopic struct {
-	name     HashType                 // not my real name
-	watchers map[HalfHash]*SockStruct // these are ID's for tcp Connection mgr
+	name       HashType // not my real name
+	isUpstream bool
+	//
+	watchers map[HalfHash]*SockStruct // needs a cheaper way.
 }
 
 type subscribeBucket struct {
@@ -277,6 +283,30 @@ type pubSubManager struct {
 	subscribeEvents     *reporting.StringEventAccumulator
 	key                 HashType
 
-	parents *SockStructConfig
-	clients *SockStructConfig
+	//upstream   *SockStructConfig
+	//downstream *SockStructConfig
+
+	upstreamSelector func(topic HashType) *SockStruct
+
+	amap map[string]interface{}
 }
+
+// SetUpstreamSelector convert a topic to an upstream channel.
+func (me *pubSubManager) SetUpstreamSelector(upstreamSelector func(topic HashType) *SockStruct) {
+	me.upstreamSelector = upstreamSelector
+}
+
+// type parentsIntf struct {
+// 	setPublishCallback (func(topic *HashType))
+// }
+
+// func (*parentsIntf) init(topics []HashType) {
+
+// }
+
+// func (*parentsIntf) subscibe(topics []HashType) {
+
+// }
+// func (*parentsIntf) unsubscibe(topics []HashType) {
+
+// }
