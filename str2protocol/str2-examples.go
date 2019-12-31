@@ -15,6 +15,8 @@
 
 package str2protocol
 
+// The following is an example of a Str2 client.
+
 import (
 	"bufio"
 	"fmt"

@@ -33,10 +33,16 @@ Then there is an arg count unsigned byte,
 Then a coded list of int of length arg_count
 	unsigned bytes <= 127 are a length
 	else the lower 7 bits are the msb and the next byte is lsb. etc.
+Finally, all the bytes of the args
 
+so, in chars, the command "P topic msg" becomes:
+P 2 5 3 t o p i c m s g
+where 2 is the number of args 5 is the len of "topic" and 3 is the len of "msg"
+followed by the string "topicmsg"
 
 */
 
+// CommandType is
 type CommandType uint8
 
 const (
@@ -75,22 +81,9 @@ func Read(reader io.Reader) (*Str2, error) {
 	lengths := make([]int, argsLen)
 	total := 0
 	for i := uint8(0); i < argsLen; i++ { // read the lengths of the following strings
-		n, err = reader.Read(b1)
+		aval, err := readVarLen(reader)
 		if err != nil {
 			return &str, err
-		}
-		aval := 0
-		remaining := 3
-		for remaining != 0 {
-			aval <<= 7
-			if b1[0] >= 128 {
-				aval |= int(b1[0]) & 0x7F
-				remaining--
-			} else { // the common case
-				aval |= int(b1[0])
-				remaining = 0
-				break
-			}
 		}
 		lengths[i] = aval
 		total += aval
@@ -132,7 +125,10 @@ func (str *Str2) Write(writer io.Writer) error {
 	}
 	// write the lengths
 	for i := 0; i < len(str.args); i++ {
-
+		err = writeVarLen(uint32(len(str.args[i])), uint32(0x00), writer)
+		if err != nil {
+			return err
+		}
 	}
 	// write the bytes
 	for i := 0; i < len(str.args); i++ {
@@ -141,9 +137,50 @@ func (str *Str2) Write(writer io.Writer) error {
 			return err
 		}
 	}
-
 	_ = n
 	return nil
+}
+
+func writeVarLen(len uint32, mask uint32, writer io.Writer) error {
+	if len > 127 {
+		// write the lsb first
+		err := writeVarLen(len>>7, 0x80, writer)
+		if err != nil {
+			return err
+		}
+	}
+	{
+		b1 := []uint8{0}
+		b1[0] = uint8((len & 0x7F) | mask)
+		_, err := writer.Write(b1)
+		return err
+	}
+}
+
+func readVarLen(reader io.Reader) (int, error) {
+	b1 := []uint8{0}
+	_, err := reader.Read(b1)
+	if err != nil {
+		return 0, err
+	}
+	aval := 0
+	remaining := 4
+	for remaining != 0 {
+		aval <<= 7
+		if b1[0] >= 128 {
+			aval |= int(b1[0]) & 0x7F
+			remaining--
+			_, err := reader.Read(b1)
+			if err != nil {
+				return 0, err
+			}
+		} else { // the common case
+			aval |= int(b1[0])
+			remaining = 0
+			break
+		}
+	}
+	return aval, nil
 }
 
 // ServerOfStrings - implement string messages

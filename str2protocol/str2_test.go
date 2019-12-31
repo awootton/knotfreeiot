@@ -16,44 +16,54 @@
 package str2protocol
 
 import (
+	"bytes"
 	"fmt"
 )
 
-// ExampleGetFirstWord is a test. I do with I didn't have to make GetFirstWord public just to write this test.
-func ExampleGetFirstWord() {
+type TestPacketStuff int
 
-	a, b := GetFirstWord("aa bb cc")
-	if a != "aa" || b != "bb cc" {
-		fmt.Println("oops")
-	}
-	a, b = GetFirstWord(b)
-	if a != "bb" || b != "cc" {
-		fmt.Println("oops2")
-	}
+// ExampleTestPacketStuff is a test.
+func ExampleTestPacketStuff() {
 
-	a, b = GetFirstWord("")
-	if a != "" || b != "" {
-		fmt.Println("oops3")
-	}
+	examples := []int{0x200000 - 1, 10, 127, 128, 0x200, 0x4000 - 1, 0x4000, 0x432100}
+	for _, val := range examples {
 
-	a, b = GetFirstWord("aaa")
-	if a != "aaa" || b != "" {
-		fmt.Println("oops4")
-	}
+		var b bytes.Buffer // A Buffer needs no initialization.
 
-	a, b = GetFirstWord("aaa  bbb  ")
-	if a != "aaa" || b != "bbb" {
-		fmt.Println("oops5")
+		err := writeVarLen(uint32(val), uint32(0), &b)
+		if err != nil {
+			fmt.Println(err)
+		}
+		got, err := readVarLen(&b)
+		if err != nil {
+			fmt.Println(err)
+		}
+		if got != val {
+			fmt.Println(val, " vs ", got)
+		}
 	}
-
-	a, b = GetFirstWord("  aaa      bbb cc dd     ")
-	if a != "aaa" || b != "bbb cc dd" {
-		fmt.Println("oops6")
-	}
-
-	a, b = GetFirstWord(" \" bbb ccc \"  \" ddd eee \" ")
-	if a != "bbb ccc" || b != "\" ddd eee \"" {
-		fmt.Println("oops7")
+	{
+		var b bytes.Buffer
+		str := Str2{}
+		str.cmd = 'A' // aka 65
+		str.args = []Bstr{Bstr("aa"), Bstr("B"), Bstr("cccccccccc")}
+		err := str.Write(&b)
+		if err != nil {
+			fmt.Println(err)
+		}
+		str2, err := Read(&b)
+		if len(str2.args) != 3 {
+			fmt.Println("len(str2.args) != 3")
+		}
+		if string(str.args[0]) != "aa" {
+			fmt.Println("string(str.args[0]) != aa")
+		}
+		if string(str.args[1]) != "B" {
+			fmt.Println("string(str.args[1]) != B")
+		}
+		if string(str.args[2]) != "cccccccccc" {
+			fmt.Println("string(str.args[2]) != cccccccccc")
+		}
 	}
 
 	fmt.Println("done")
