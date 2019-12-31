@@ -17,7 +17,7 @@ jobs:
       # to $GITHUB_WORKSPACE
       uses: actions/checkout@v1
       with:
-        path: 'src'
+        path: 'src/knotfreeiot'
 
     - name: Get dependencies
       run: |
@@ -32,7 +32,7 @@ jobs:
     - name: Build
       run: |
         pwd
-        ls -lah
+        ls -lah /home/runner/work/knotfreeiot/src/knotfreeiot
         export GOPATH=/home/runner/work/knotfreeiot
         echo GITHUB_WORKSPACE= $GITHUB_WORKSPACE
         echo GOPATH= $GOPATH
