@@ -21,6 +21,7 @@ jobs:
 
     - name: Get dependencies
       run: |
+        export GOPATH=/home/runner/work/knotfreeiot
         go get -u github.com/minio/highwayhash
         go get -u github.com/eclipse/paho.mqtt.golang
         #go get -v -t -d ./...
