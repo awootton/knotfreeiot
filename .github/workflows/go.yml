@@ -17,7 +17,7 @@ jobs:
       # to $GITHUB_WORKSPACE
       uses: actions/checkout@v1
       with:
-        path: ''
+        path: 'src'
 
     - name: Get dependencies
       run: |
@@ -33,6 +33,6 @@ jobs:
       run: |
         pwd
         ls -lah
-        echo $GOPATH
-        echo $GITHUB_WORKSPACE
+        echo GOPATH= $GOPATH
+        echo GITHUB_WORKSPACE= $GITHUB_WORKSPACE
         go build -v .
