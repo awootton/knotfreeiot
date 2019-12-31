@@ -18,8 +18,9 @@ jobs:
 
     - name: Get dependencies
       run: |
-        # go get knotfreeiot
-        go get -v -t -d -u -f ./...
+        go get github.com/minio/highwayhash
+        go get github.com/eclipse/paho.mqtt.golang
+        #go get -v -t -d ./...
         if [ -f Gopkg.toml ]; then
             curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
             dep ensure
