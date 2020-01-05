@@ -18,7 +18,6 @@ package str2protocol
 // The following is an example of a Str2 client. Not a unit test but we'll use it that way elsewhere.
 
 import (
-	"bufio"
 	"fmt"
 	"knotfreeiot/iot"
 	"knotfreeiot/iot/reporting"
@@ -37,7 +36,7 @@ func StartServerDemo(subscribeMgr iot.PubsubIntf, address string) *iot.SockStruc
 	//	var subscribeMgr iot.PubsubIntf
 	//	subscribeMgr = iot.NewPubsubManager(initialSize)
 
-	config := ServerOfStrings(subscribeMgr, address) // "knotfree:"+strconv.Itoa(port))
+	config := ServerOfStr2(subscribeMgr, address) // "knotfree:"+strconv.Itoa(port))
 
 	aReportFunc := func(seconds float32) []string {
 		strlist := make([]string, 0, 1)
@@ -61,9 +60,9 @@ func StartClientsDemo(clientCount int) (*iot.SockStructConfig, *iot.SockStructCo
 	addr := "knotfreeserver:7374"
 
 	lights := iot.NewSockStructConfig(nil)
-	ServerOfStringsInit(lights)
+	ServerOfStr2Init(lights)
 	switches := iot.NewSockStructConfig(nil)
-	ServerOfStringsInit(switches)
+	ServerOfStr2Init(switches)
 
 	aReportFunc := func(seconds float32) []string {
 		strlist := make([]string, 0, 2)
@@ -94,31 +93,31 @@ func runAlight(ss *iot.SockStruct) {
 	done := false
 	// start the reading thread.
 	go func(ss *iot.SockStruct) {
-		reader := bufio.NewReader(ss.GetConn())
-		for { // our reading loop
-			text, err := reader.ReadString('\n')
-			if err != nil {
-				ss.Close(err)
-				done = true
-				return
-			}
-			str := text[0 : len(text)-1]
-			//fmt.Println("Light received", str)
-			cmd, payload := GetFirstWord(str)
-			if cmd == "pub" {
-				// just pub back to switch
-				topicfrom, payload := GetFirstWord(payload)
-				myID := ss.GetSequence()
-				topic := "strswitch_" + strconv.FormatUint(0x000FFFFF&myID, 16)
+		// reader := bufio.NewReader(ss.GetConn())
+		// for { // our reading loop
+		// 	text, err := reader.ReadString('\n')
+		// 	if err != nil {
+		// 		ss.Close(err)
+		// 		done = true
+		// 		return
+		// 	}
+		// 	str := text[0 : len(text)-1]
+		// 	//fmt.Println("Light received", str)
+		// 	cmd, payload := GetFirstWord(str)
+		// 	if cmd == "pub" {
+		// 		// just pub back to switch
+		// 		topicfrom, payload := GetFirstWord(payload)
+		// 		myID := ss.GetSequence()
+		// 		topic := "strswitch_" + strconv.FormatUint(0x000FFFFF&myID, 16)
 
-				command := "pub " + topic + " " + payload
-				ServerOfStringsWrite(ss, command)
-				_ = topicfrom
-			} else {
-				// it's just the echo of out own pub and sub commands.
-				// fmt.Println("not handled", cmd, payload)
-			}
-		}
+		// 		command := "pub " + topic + " " + payload
+		// 		ServerOfStringsWrite(ss, command)
+		// 		_ = topicfrom
+		// 	} else {
+		// 		// it's just the echo of out own pub and sub commands.
+		// 		// fmt.Println("not handled", cmd, payload)
+		// 	}
+		// }
 	}(ss)
 
 	myID := ss.GetSequence()
@@ -128,8 +127,8 @@ func runAlight(ss *iot.SockStruct) {
 	ss.SetSelfAddress([]byte(topic))
 	// now convert to command
 	cmd := "sub " + topic
-	ServerOfStringsWrite(ss, cmd) // send subscribe command to server
-
+	//	ServerOfStringsWrite(ss, cmd) // send subscribe command to server
+	_ = cmd
 	for !done {
 		// our sending loop, but the light doesn't send.
 		time.Sleep(time.Second)
@@ -146,51 +145,53 @@ func runAswitch(ss *iot.SockStruct) {
 	done := false
 	when := time.Now()
 
+	_ = when // fixme finish
 	// start the reading thread.
 	go func(ss *iot.SockStruct) {
-		reader := bufio.NewReader(ss.GetConn())
-		for { // our reading loop
-			text, err := reader.ReadString('\n')
-			if err != nil {
-				done = true
-				ss.Close(err)
-				return
-			}
-			str := text[0 : len(text)-1] // remove the \n
-			cmd, tmp := GetFirstWord(str)
-			topic, payload := GetFirstWord(tmp)
-			if cmd == "pub" {
-				if payload == ourCommand {
-					// we got the message back from the light
-					duration := time.Now().Sub(when)
-					// log it in buckets:
-					if duration < time.Millisecond*100 {
-						clientLogThing.Collect("str happy joy") // under 100 ms
-					} else if duration < time.Second {
-						clientLogThing.Collect("str ok") // under one sec
-					} else {
-						clientLogThing.Collect("str too slow") // everything else
-					}
-				}
-			}
-			_ = topic
-		}
+		// reader := bufio.NewReader(ss.GetConn())
+		// for { // our reading loop
+		// 	text, err := reader.ReadString('\n')
+		// 	if err != nil {
+		// 		done = true
+		// 		ss.Close(err)
+		// 		return
+		// 	}
+		// 	str := text[0 : len(text)-1] // remove the \n
+		// 	cmd, tmp := GetFirstWord(str)
+		// 	topic, payload := GetFirstWord(tmp)
+		// 	if cmd == "pub" {
+		// 		if payload == ourCommand {
+		// 			// we got the message back from the light
+		// 			duration := time.Now().Sub(when)
+		// 			// log it in buckets:
+		// 			if duration < time.Millisecond*100 {
+		// 				clientLogThing.Collect("str happy joy") // under 100 ms
+		// 			} else if duration < time.Second {
+		// 				clientLogThing.Collect("str ok") // under one sec
+		// 			} else {
+		// 				clientLogThing.Collect("str too slow") // everything else
+		// 			}
+		// 		}
+		// 	}
+		// 	_ = topic
+		// }
 	}(ss)
 
 	topic := "strswitch_" + idstr
 	// now convert to command
 	cmd := "sub " + topic
-	ServerOfStringsWrite(ss, cmd) // send subscribe command to se
-
+	// /ServerOfStringsWrite(ss, cmd) // send subscribe command to se
+	_ = cmd
 	for !done {
 		// our sending loop
 		topic := "strlight_" + idstr
 		command := "pub " + topic + " " + ourCommand
 		when = time.Now()
-		err := ServerOfStringsWrite(ss, command) // send pub command to server
-		if err != nil {
-			done = true
-		}
+		_ = command // finish m
+		// err := ServerOfStringsWrite(ss, command) // send pub command to server
+		// if err != nil {
+		// 	done = true
+		// }
 		time.Sleep(sosClientRateDelay) // 10 * time.Second)
 	}
 }

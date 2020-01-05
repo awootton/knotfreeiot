@@ -24,6 +24,8 @@ import (
 	"knotfreeiot/iot/reporting"
 )
 
+// atw DELETE ME not using this later
+
 type subMessage struct {
 	topic iot.HashType
 }

@@ -30,11 +30,11 @@ func ExampleTestPacketStuff() {
 
 		var b bytes.Buffer // A Buffer needs no initialization.
 
-		err := writeVarLen(uint32(val), uint32(0), &b)
+		err := WriteVarLenInt(uint32(val), uint8(0), &b)
 		if err != nil {
 			fmt.Println(err)
 		}
-		got, err := readVarLen(&b)
+		got, err := ReadVarLenInt(&b)
 		if err != nil {
 			fmt.Println(err)
 		}
@@ -51,7 +51,7 @@ func ExampleTestPacketStuff() {
 		if err != nil {
 			fmt.Println(err)
 		}
-		str2, err := Read(&b)
+		str2, err := ReadStr2(&b)
 		if len(str2.args) != 3 {
 			fmt.Println("len(str2.args) != 3")
 		}
