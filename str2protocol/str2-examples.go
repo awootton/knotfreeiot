@@ -16,6 +16,7 @@
 package str2protocol
 
 // The following is an example of a Str2 client. Not a unit test but we'll use it that way elsewhere.
+// We'll make some 'light switches' and some 'controllers'.
 
 import (
 	"fmt"
@@ -32,9 +33,6 @@ var sosClientRateDelay = time.Second * 30
 func StartServerDemo(subscribeMgr iot.PubsubIntf, address string) *iot.SockStructConfig {
 
 	clientLogThing.SetQuiet(true)
-
-	//	var subscribeMgr iot.PubsubIntf
-	//	subscribeMgr = iot.NewPubsubManager(initialSize)
 
 	config := ServerOfStr2(subscribeMgr, address) // "knotfree:"+strconv.Itoa(port))
 
@@ -93,31 +91,29 @@ func runAlight(ss *iot.SockStruct) {
 	done := false
 	// start the reading thread.
 	go func(ss *iot.SockStruct) {
-		// reader := bufio.NewReader(ss.GetConn())
-		// for { // our reading loop
-		// 	text, err := reader.ReadString('\n')
-		// 	if err != nil {
-		// 		ss.Close(err)
-		// 		done = true
-		// 		return
-		// 	}
-		// 	str := text[0 : len(text)-1]
-		// 	//fmt.Println("Light received", str)
-		// 	cmd, payload := GetFirstWord(str)
-		// 	if cmd == "pub" {
-		// 		// just pub back to switch
-		// 		topicfrom, payload := GetFirstWord(payload)
-		// 		myID := ss.GetSequence()
-		// 		topic := "strswitch_" + strconv.FormatUint(0x000FFFFF&myID, 16)
 
-		// 		command := "pub " + topic + " " + payload
-		// 		ServerOfStringsWrite(ss, command)
-		// 		_ = topicfrom
-		// 	} else {
-		// 		// it's just the echo of out own pub and sub commands.
-		// 		// fmt.Println("not handled", cmd, payload)
-		// 	}
-		// }
+		for { // our reading loop
+			cmd, err := ReadPacket(ss.GetConn())
+			if err != nil {
+				ss.Close(err)
+				done = true
+				return
+			}
+			//fmt.Println("Light received", str)
+			p, ok := cmd.(*Send)
+			if ok {
+				// just echo back to switch
+				myID := ss.GetSequence()
+				topic := "str2switch_" + strconv.FormatUint(0x000FFFFF&myID, 16)
+				reply := Send{}
+				reply.source = p.destination
+				reply.destination = []byte(topic)
+				reply.data = p.data // echo
+				reply.Write(ss.GetConn())
+			} else {
+				fmt.Println("not handled", cmd)
+			}
+		}
 	}(ss)
 
 	myID := ss.GetSequence()
@@ -177,7 +173,7 @@ func runAswitch(ss *iot.SockStruct) {
 		// }
 	}(ss)
 
-	topic := "strswitch_" + idstr
+	topic := "str2switch_" + idstr
 	// now convert to command
 	cmd := "sub " + topic
 	// /ServerOfStringsWrite(ss, cmd) // send subscribe command to se

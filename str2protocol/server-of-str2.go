@@ -71,7 +71,7 @@ func str2ServeCallback(ss *iot.SockStruct) {
 		packet, err := ReadPacket(ss.GetConn())
 		if err != nil {
 			dis := Disconnect{}
-			dis.options["error"] = Bstr(err.Error())
+			dis.options["error"] = []byte(err.Error())
 			err2 := dis.Write(ss.GetConn())
 			_ = err2
 			ss.Close(err)
@@ -90,6 +90,10 @@ func str2ServeCallback(ss *iot.SockStruct) {
 			p := packet.(*Unsubscribe)
 			ss.SendSubscriptionMessage(p.destination)
 
+		case *Send:
+			p := packet.(*Send)
+			ss.SendPublishMessage(p.destination, p.data, p.source)
+
 		case *Connect:
 			p := packet.(*Connect)
 			// TODO copy out the JWT
@@ -103,60 +107,10 @@ func str2ServeCallback(ss *iot.SockStruct) {
 
 		default:
 			dis := Disconnect{}
-			dis.options["error"] = Bstr("error unknown command")
+			dis.options["error"] = []byte("error unknown command")
 			err2 := dis.Write(ss.GetConn())
 			_ = err2
 		}
-
-		// 	switch first {
-		// 	case "exit":
-		// 		ServerOfStringsWrite(ss, "exit")
-		// 		err := errors.New("exit")
-		// 		ss.Close(err)
-
-		// 	case "sub":
-		// 		topic := strings.Trim(remaining, " ")
-		// 		if len(topic) <= 0 {
-		// 			ServerOfStringsWrite(ss, "error say 'sub mytopic' and not "+text)
-		// 		} else {
-		// 			ss.SendSubscriptionMessage([]byte(topic))
-		// 			ServerOfStringsWrite(ss, "ok sub "+topic)
-		// 		}
-
-		// 	case "add":
-		// 		returnAddr := strings.Trim(remaining, " ")
-		// 		if len(returnAddr) <= 0 {
-		// 			ServerOfStringsWrite(ss, "error say 'add returnAddr' and not "+text)
-		// 		} else {
-		// 			ss.SetSelfAddress([]byte(returnAddr))
-		// 			ss.SendSubscriptionMessage([]byte(returnAddr))
-		// 			ServerOfStringsWrite(ss, "ok add "+returnAddr)
-		// 		}
-
-		// 	case "unsub":
-		// 		topic := strings.Trim(remaining, " ")
-		// 		if len(topic) <= 0 {
-		// 			ServerOfStringsWrite(ss, "error say 'unsub mytopic' and not "+text)
-		// 		} else {
-		// 			ss.SendUnsubscribeMessage([]byte(topic))
-		// 			ServerOfStringsWrite(ss, "ok unsub "+topic)
-		// 		}
-
-		// 	case "pub":
-		// 		topic, payload := GetFirstWord(remaining)
-		// 		if len(topic) <= 0 || len(payload) < 0 {
-		// 			ServerOfStringsWrite(ss, "error say 'pub mytopic mymessage' and not "+text)
-		// 		} else {
-		// 			topicHash := iot.HashType{}
-		// 			topicHash.FromString(topic)
-		// 			bytes := []byte(payload)
-		// 			ss.SendPublishMessage([]byte(topic), []byte(bytes), []byte("unknown")) // FIXME:
-		// 			ServerOfStringsWrite(ss, "ok pub "+topic+" "+payload)
-		// 		}
-
-		// 	default:
-		// 		ServerOfStringsWrite(ss, "error unknown command "+text)
-		// 	}
 	}
 }
 

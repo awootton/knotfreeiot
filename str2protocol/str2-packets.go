@@ -16,9 +16,12 @@
 package str2protocol
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"io"
 	"net"
+	"unicode/utf8"
 )
 
 /** There is a struct (Str2) that can represent any packet.
@@ -28,25 +31,32 @@ It may seem like we're duplicating data and making a mess but the structs
 are full of slices backed by the same data.
 */
 
-// PacketCommon is stuff the packets all have
+// PacketIntf is virtual functions for all packets.
+// Basically versions of marshal and unmarshal.
+type PacketIntf interface {
+	Write(conn net.Conn) error // write to Str2 and then to conn
+	Fill(*Str2) error          // copy data from Str2 that was just read
+	ToJSON() ([]byte, error)
+}
+
+// PacketCommon is stuff the packets all have, like options.
 type PacketCommon struct {
 
 	// for internal use only:
-	src     *Str2           // might be nil
-	options map[string]Bstr //OptionsMap // optional
+	backingstr2 *Str2             // might be nil, a write will fill it.
+	options     map[string][]byte // OptionsMap // optional
 }
 
 // MessageCommon is
 type MessageCommon struct {
 	PacketCommon
-
 	// the fields:
 	source      []byte
 	destination []byte
 }
 
 // OptionsMap is often nil
-type OptionsMap map[string]Bstr
+//type OptionsMap map[string]Bstr
 
 // Send aka 'publish' sends data to destination possibly expecting a reply to source.
 //
@@ -110,34 +120,27 @@ type CommandType uint8
 
 // Bstr is like a string but is bytes. I just don't like to declare [][]byte below.
 // it could be utf8. many times it's 16 bytes for 128 bits
-type Bstr []byte
+// type Bstr []byte
 
 // Str2 is the internal representation.
 type Str2 struct {
 	cmd  CommandType
-	args []Bstr
-}
-
-// Packet is virtual functions for all packets.
-// Basically versions of marshal and unmarshal.
-type Packet interface {
-	Write(conn net.Conn) error // write to Str2 and then to conn
-	Fill(*Str2) error          // copy data from Str2 that was just read
+	args [][]byte
 }
 
 // GetIPV6Option is an example of using options
-func GetIPV6Option(p *PacketCommon) []byte {
+func (p *PacketCommon) GetIPV6Option() []byte {
 	return p.options["ip"]
 }
 
 // ReadPacket attempts to obtain a valid Packet from the stream
-func ReadPacket(reader io.Reader) (Packet, error) {
+func ReadPacket(reader io.Reader) (PacketIntf, error) {
 
 	str, err := ReadStr2(reader)
 	if err != nil {
 		return nil, err
 	}
-	var p Packet
+	var p PacketIntf
 	switch str.cmd {
 	case 'P': // Send aka Publish
 		p = &Send{}
@@ -150,8 +153,18 @@ func ReadPacket(reader io.Reader) (Packet, error) {
 	return p, nil
 }
 
-func unpackOptions(args []Bstr, options *map[string]Bstr) {
-
+// The args slice is key then value in pairs
+func unpackOptions(args [][]byte, optionsP *map[string][]byte) {
+	if *optionsP == nil {
+		*optionsP = make(map[string][]byte, len(args)/2)
+	}
+	key := "none"
+	for i, arg := range args {
+		if i&1 == 1 { // on odd numbers
+			(*optionsP)[key] = arg
+		}
+		key = string(arg)
+	}
 }
 
 // Fill implements the 2nd part of an unmarshal.
@@ -205,77 +218,182 @@ func (p *Disconnect) Fill(str *Str2) error {
 	return nil
 }
 
-func packOptions(args []Bstr, options *map[string]Bstr) []Bstr {
+func packOptions(args [][]byte, options *map[string][]byte) [][]byte {
 	for k, v := range *options {
-		args = append(args, Bstr(k))
+		args = append(args, []byte(k))
 		args = append(args, v)
 	}
 	return args
 }
 
+func str2ToJSON(str *Str2) ([]byte, error) {
+
+	amap := make(map[string]interface{})
+
+	amap["cmd"] = string(str.cmd)
+
+	argArr := make([]map[string]interface{}, 0, len(str.args))
+	for i, bstr := range str.args {
+		isascii := true
+		val := make(map[string]interface{})
+		for _, b := range bstr {
+			if b < 32 || b > 127 {
+				isascii = false
+				break
+			}
+		}
+		if isascii {
+			val["a"] = string(bstr) // ascii
+		} else {
+			if utf8.Valid(bstr) {
+				val["utf8"] = string(bstr)
+			} else {
+				val["b64"] = base64.StdEncoding.WithPadding(-1).EncodeToString(bstr)
+			}
+		}
+		argArr = append(argArr, val)
+		_ = i
+	}
+
+	amap["args"] = argArr
+	bytes, err := json.Marshal(amap)
+	if err != nil {
+		return []byte(""), err
+	}
+	return bytes, err
+}
+
+// ToJSON to output a json version
+func (p *Send) ToJSON() ([]byte, error) {
+	p.Write(nil) // force existance of backingstr2
+	bytes, err := str2ToJSON(p.backingstr2)
+	return bytes, err
+}
+
+// ToJSON is not that efficient
+func (p *Subscribe) ToJSON() ([]byte, error) {
+	p.Write(nil) // force existance of backingstr2
+	bytes, err := str2ToJSON(p.backingstr2)
+	return bytes, err
+}
+
+// ToJSON is something that wastes memory.
+func (p *Unsubscribe) ToJSON() ([]byte, error) {
+	p.Write(nil) // force existance of backingstr2
+	bytes, err := str2ToJSON(p.backingstr2)
+	return bytes, err
+}
+
+// ToJSON is
+func (p *Connect) ToJSON() ([]byte, error) {
+	p.Write(nil) // force existance of backingstr2
+	bytes, err := str2ToJSON(p.backingstr2)
+	return bytes, err
+}
+
+// ToJSON is all the same
+func (p *Disconnect) ToJSON() ([]byte, error) {
+	p.Write(nil) // force existance of backingstr2
+	bytes, err := str2ToJSON(p.backingstr2)
+	return bytes, err
+}
+
+func (str *Str2) String() string {
+	b, _ := str2ToJSON(str)
+	return string(b)
+}
+
+func (p *Send) String() string {
+	b, _ := p.ToJSON()
+	return string(b)
+}
+
+func (p *Subscribe) String() string {
+	b, _ := p.ToJSON()
+	return string(b)
+}
+
+// ToJSON is something that churns memory.
+func (p *Unsubscribe) String() string {
+	b, _ := p.ToJSON()
+	return string(b)
+}
+
+func (p *Connect) String() string {
+	b, _ := p.ToJSON()
+	return string(b)
+}
+
+func (p *Disconnect) String() string {
+	b, _ := p.ToJSON()
+	return string(b)
+}
+
 // Write implements a marshal operation.
 func (p *Subscribe) Write(conn net.Conn) error {
-	if p.src == nil {
+	if p.backingstr2 == nil {
 		str := new(Str2)
-		p.src = str
+		p.backingstr2 = str
 		str.cmd = 'S' //
-		str.args = make([]Bstr, 1+len(p.options)*2)
+		str.args = make([][]byte, 0, 1+len(p.options)*2)
 		str.args = append(str.args, p.destination)
 		str.args = packOptions(str.args, &p.options)
 	}
-	err := p.src.Write(conn)
+	err := p.backingstr2.Write(conn)
 	return err
 }
 
+// Write marshals to binary
 func (p *Unsubscribe) Write(conn net.Conn) error {
-	if p.src == nil {
+	if p.backingstr2 == nil {
 		str := new(Str2)
-		p.src = str
+		p.backingstr2 = str
 		str.cmd = 'U' //
-		str.args = make([]Bstr, 1+len(p.options)*2)
+		str.args = make([][]byte, 0, 1+len(p.options)*2)
 		str.args = append(str.args, p.destination)
 		str.args = packOptions(str.args, &p.options)
 	}
-	err := p.src.Write(conn)
+	err := p.backingstr2.Write(conn)
 	return err
 }
 
+// Write forces backingstr2
 func (p *Send) Write(conn net.Conn) error {
-	if p.src == nil {
+	if p.backingstr2 == nil {
 		str := new(Str2)
-		p.src = str
+		p.backingstr2 = str
 		str.cmd = 'P' // Publish
-		str.args = make([]Bstr, 3+len(p.options)*2)
+		str.args = make([][]byte, 0, 3+len(p.options)*2)
 		str.args = append(str.args, p.source)
 		str.args = append(str.args, p.destination)
 		str.args = append(str.args, p.data)
 		str.args = packOptions(str.args, &p.options)
 	}
-	err := p.src.Write(conn)
+	err := p.backingstr2.Write(conn)
 	return err
 }
 
 func (p *Connect) Write(conn net.Conn) error {
-	if p.src == nil {
+	if p.backingstr2 == nil {
 		str := new(Str2)
-		p.src = str
+		p.backingstr2 = str
 		str.cmd = 'C'
-		str.args = make([]Bstr, 0+len(p.options)*2)
+		str.args = make([][]byte, 0, 0+len(p.options)*2)
 		str.args = packOptions(str.args, &p.options)
 	}
-	err := p.src.Write(conn)
+	err := p.backingstr2.Write(conn)
 	return err
 }
 
 func (p *Disconnect) Write(conn net.Conn) error {
-	if p.src == nil {
+	if p.backingstr2 == nil {
 		str := new(Str2)
-		p.src = str
+		p.backingstr2 = str
 		str.cmd = 'D'
-		str.args = make([]Bstr, 0+len(p.options)*2)
+		str.args = make([][]byte, 0, 0+len(p.options)*2)
 		str.args = packOptions(str.args, &p.options)
 	}
-	err := p.src.Write(conn)
+	err := p.backingstr2.Write(conn)
 	return err
 }
 
@@ -292,46 +410,12 @@ func ReadStr2(reader io.Reader) (*Str2, error) {
 
 	// read array of byte arrays
 	str.args, err = ReadArrayOfByteArray(reader)
-
-	// n, err = reader.Read(oneByte)
-	// if err != nil {
-	// 	return &str, err
-	// }
-	// argsLen := uint8(oneByte[0])
-	// lengths := make([]int, argsLen)
-	// total := 0
-	// for i := uint8(0); i < argsLen; i++ { // read the lengths of the following strings
-	// 	aval, err := readVarLen(reader)
-	// 	if err != nil {
-	// 		return &str, err
-	// 	}
-	// 	lengths[i] = aval
-	// 	total += aval
-
-	// }
-	// if total > 1024*1024 {
-	// 	return &str, errors.New("packet too long for reality")
-	// }
-	// // now we can read the rest all at once
-
-	// bytes := make([]uint8, total) // alloc the base array
-	// n, err = reader.Read(bytes)   // timeout?
-	// if err != nil || n != total {
-	// 	return &str, err
-	// }
-	// // now we can slice the args
-	// position := 0
-	// str.args = make([]Bstr, len(lengths))
-	// for i := 0; i < len(lengths); i++ {
-	// 	str.args[i] = bytes[position : position+lengths[i]]
-	// 	position += lengths[i]
-	// }
 	_ = n
 	return &str, err
 }
 
 // ReadArrayOfByteArray to read an array of byte arrays
-func ReadArrayOfByteArray(reader io.Reader) ([]Bstr, error) {
+func ReadArrayOfByteArray(reader io.Reader) ([][]byte, error) {
 
 	oneByte := []uint8{0}
 	// read the lengths of the following args
@@ -363,7 +447,7 @@ func ReadArrayOfByteArray(reader io.Reader) ([]Bstr, error) {
 	}
 	// now we can slice the args
 	position := 0
-	args := make([]Bstr, argsLen) // array of slices
+	args := make([][]byte, argsLen) // array of slices
 	for i := 0; i < int(argsLen); i++ {
 		args[i] = bytes[position : position+lengths[i]]
 		position += lengths[i]
@@ -374,39 +458,23 @@ func ReadArrayOfByteArray(reader io.Reader) ([]Bstr, error) {
 // Write an Str2 packet.
 func (str *Str2) Write(writer io.Writer) error {
 
+	if writer == nil {
+		return nil
+	}
+
 	oneByte := []uint8{0}
 	oneByte[0] = uint8(str.cmd)
 	n, err := writer.Write(oneByte)
 	if err != nil {
 		return err
 	}
-
 	err = WriteArrayOfByteArray(str.args, writer)
-	// oneByte[0] = uint8(len(str.args))
-	// n, err = writer.Write(oneByte)
-	// if err != nil {
-	// 	return err
-	// }
-	// // write the lengths
-	// for i := 0; i < len(str.args); i++ {
-	// 	err = writeVarLen(uint32(len(str.args[i])), uint32(0x00), writer)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// }
-	// // write the bytes
-	// for i := 0; i < len(str.args); i++ {
-	// 	n, err = writer.Write(str.args[i])
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// }
 	_ = n
 	return nil
 }
 
 // WriteArrayOfByteArray write count then lengths and then bytes
-func WriteArrayOfByteArray(args []Bstr, writer io.Writer) error {
+func WriteArrayOfByteArray(args [][]byte, writer io.Writer) error {
 	oneByte := []uint8{0}
 	oneByte[0] = uint8(len(args))
 	n, err := writer.Write(oneByte)

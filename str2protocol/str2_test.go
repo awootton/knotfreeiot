@@ -17,7 +17,9 @@ package str2protocol
 
 import (
 	"bytes"
+	"encoding/hex"
 	"fmt"
+	"strings"
 )
 
 type TestPacketStuff int
@@ -46,7 +48,8 @@ func ExampleTestPacketStuff() {
 		var b bytes.Buffer
 		str := Str2{}
 		str.cmd = 'A' // aka 65
-		str.args = []Bstr{Bstr("aa"), Bstr("B"), Bstr("cccccccccc")}
+		str.args = [][]byte{[]byte("aa"), []byte("B"), []byte("cccccccccc")}
+
 		err := str.Write(&b)
 		if err != nil {
 			fmt.Println(err)
@@ -65,17 +68,44 @@ func ExampleTestPacketStuff() {
 			fmt.Println("string(str.args[2]) != cccccccccc")
 		}
 	}
-
 	fmt.Println("done")
 
 	// Output: done
 
 }
 
-func bToMb(b uint64) uint64 {
-	return b / 1024 / 1024
-}
+type ToJSON int
 
-func bToKb(b uint64) uint64 {
-	return b / 1024
+// ExampleToJSON is a test.
+func ExampleToJSON() {
+	cmd := Send{}
+	cmd.source = []byte("sourceaddr")
+	cmd.destination = []byte("destaddr")
+	cmd.data = []byte("some data")
+	cmd.options = make(map[string][]byte)
+	cmd.options["option1"] = []byte("test")
+	addr := "2001:0db8:85a3:0000:0000:8a2e:0370:7334"
+	hexstr := strings.ReplaceAll(addr, ":", "")
+	decoded, err := hex.DecodeString(hexstr)
+	if err != nil {
+		fmt.Println("wrong")
+	}
+	cmd.options["ip"] = decoded
+	decoded, err = hex.DecodeString("FFFF00000000000000ABCDEF")
+	if err != nil {
+		fmt.Println("wrong2")
+	}
+	cmd.options["z"] = decoded
+	cmd.options["option2"] = []byte("На берегу пустынных волн")
+
+	jdata, err := (&cmd).ToJSON()
+	fmt.Println(string(jdata))
+	_ = err
+
+	//  GetIPV6Option
+	fmt.Println(cmd.GetIPV6Option())
+
+	// Output: {"args":[{"a":"sourceaddr"},{"a":"destaddr"},{"a":"some data"},{"a":"z"},{"b64":"//8AAAAAAAAAq83v"},{"a":"option2"},{"utf8":"На берегу пустынных волн"},{"a":"option1"},{"a":"test"},{"a":"ip"},{"b64":"IAENuIWjAAAAAIouA3BzNA"}],"cmd":"P"}
+	// [32 1 13 184 133 163 0 0 0 0 138 46 3 112 115 52]
+
 }
