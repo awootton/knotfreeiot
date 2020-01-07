@@ -7,9 +7,19 @@ The purpose of this project is to test auto-scaling of a large system.
 
 To get started with that there is a pub/sub iot server in package iot. MQTT is supported and other formats are proposed.
 
-## The Essay
-    draft notes:
-## We're going to need a bigger internet for the things. 
+Draft notes:
+
+## The Question
+
+Are the mqtt brokers of the intranets of things ever going to join into one big IoT network?
+
+By now the architectural patterns of IoT systems are becoming clear. Pub/Sub, eg. MQTT, is the dominate paradigm. The virtue is that messages can be sent to devices when the devices have a channel that they subscribe to. This is the IoT equivalent of the devices having network addresses, like devices on The Internet have. Google Cloud IoT and Amazon IoT offer services but what they offer is isolated networks where devices from different manufacturers cannot message each other. This is the IoT equivalent of an intranet. 
+
+If all IoT devices shared the same address space then interoperability would be greatly enhanced. Isn't that inevitable? When? How about now?
+
+Why is Ipv6 and a better DNS not taking care of this already? 
+
+## We're going to need a better internet for the things. 
 
 The Internet that we all know and love is inadequate for IOT (Internet Of Things) in that 'things' cannot communicate with one another without help and this results in fragmentation into intranets and lack of interoperability between suppliers. One can, and will, predict that this situation won't continue and that soon there will be a new 'internet' for the things (The Internet For Things or I4T ). It's time to discuss the difficulties and requirements for The I4T.
 

@@ -14,7 +14,7 @@ jobs:
       id: go
 
     - name: Check out code into the Go module directory
-      # to $GITHUB_WORKSPACE
+      # to $GITHUB_WORKSPACE TODO: (atw) learn to use go modules 
       uses: actions/checkout@v1
       with:
         path: 'src/knotfreeiot'
