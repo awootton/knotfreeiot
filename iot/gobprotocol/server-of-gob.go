@@ -20,8 +20,8 @@ import (
 	"errors"
 	"reflect"
 
-	"knotfreeiot/iot"
-	"knotfreeiot/iot/reporting"
+	"github.com/awootton/knotfreeiot/iot"
+	"github.com/awootton/knotfreeiot/iot/reporting"
 )
 
 // atw DELETE ME not using this later

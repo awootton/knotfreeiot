@@ -24,7 +24,7 @@ import (
 	"sync"
 	"time"
 
-	"knotfreeiot/iot/reporting"
+	"github.com/awootton/knotfreeiot/iot/reporting"
 )
 
 // MakeBunchOfClients a test of making test clients.

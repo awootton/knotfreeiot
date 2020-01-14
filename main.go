@@ -25,13 +25,13 @@ import (
 	"sync"
 	"time"
 
-	"knotfreeiot/iot"
-	"knotfreeiot/iot/reporting"
-	"knotfreeiot/iot/tiers"
-	"knotfreeiot/mqttprotocol"
-	"knotfreeiot/strprotocol"
+	"github.com/awootton/knotfreeiot/iot"
+	"github.com/awootton/knotfreeiot/iot/reporting"
+	"github.com/awootton/knotfreeiot/iot/tiers"
+	"github.com/awootton/knotfreeiot/mqttprotocol"
+	"github.com/awootton/knotfreeiot/strprotocol"
 
-	"knotfreeiot/aaprotocol"
+	"github.com/awootton/knotfreeiot/aaprotocol"
 )
 
 // Hint: add 127.0.0.1 knotfreeserver to /etc/hosts

@@ -21,7 +21,7 @@ import (
 
 	"strconv"
 
-	"knotfreeiot/iot/reporting"
+	"github.com/awootton/knotfreeiot/iot/reporting"
 )
 
 // PubsubIntf is stuff that deals with pub/sub. The other part of this interface though

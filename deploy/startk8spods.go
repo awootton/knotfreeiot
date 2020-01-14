@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	"knotfreeiot/kubectl"
+	"github.com/awootton/knotfreeiot/kubectl"
 )
 
 // Config is for setting up a typical deployment

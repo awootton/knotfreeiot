@@ -22,8 +22,8 @@ import (
 	"strconv"
 	"time"
 
-	"knotfreeiot/iot"
-	"knotfreeiot/iot/reporting"
+	"github.com/awootton/knotfreeiot/iot"
+	"github.com/awootton/knotfreeiot/iot/reporting"
 )
 
 // UpstreamConn will reference a pod!

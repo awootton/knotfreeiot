@@ -17,8 +17,8 @@ package str2protocol
 
 import (
 	"errors"
-	"knotfreeiot/iot"
-	"knotfreeiot/iot/reporting"
+	"github.com/awootton/knotfreeiot/iot"
+	"github.com/awootton/knotfreeiot/iot/reporting"
 )
 
 // ServerOfStr2 - implement string messages

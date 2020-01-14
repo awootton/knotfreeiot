@@ -20,8 +20,8 @@ package str2protocol
 
 import (
 	"fmt"
-	"knotfreeiot/iot"
-	"knotfreeiot/iot/reporting"
+	"github.com/awootton/knotfreeiot/iot"
+	"github.com/awootton/knotfreeiot/iot/reporting"
 	"strconv"
 	"time"
 )
