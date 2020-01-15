@@ -43,11 +43,13 @@ func main() {
 
 	aa := flag.Bool("aa", false, "use aa protocol")
 	str := flag.Bool("str", false, "use str protocol")
+	str2 := flag.Bool("str2", false, "use str2 protocol")
 	mqtt := flag.Bool("mqtt", false, "use mqtt protocol")
 	client := flag.Int("client", 0, "start a client test with an int of clients.")
 	server := flag.Bool("server", false, "start a server.")
 
 	// eg. ["-client=10","-server","-str"","-aa"]  starts 10 clients in each of two protocols
+	_ = str2 // atw FIXME
 
 	flag.Parse()
 

@@ -55,9 +55,6 @@ type MessageCommon struct {
 	destination []byte
 }
 
-// OptionsMap is often nil
-//type OptionsMap map[string]Bstr
-
 // Send aka 'publish' sends data to destination possibly expecting a reply to source.
 //
 type Send struct {
@@ -65,9 +62,10 @@ type Send struct {
 	data []byte
 }
 
-// Online returns information on the dest to source.
+// Lookup returns information on the dest to source.
 // can be used to verify existance of an endpoint prior to subscribe.
-type Online struct {
+// If the topic metadata has one subscriber and an ipv6 address then this is the same as a dns lookup.
+type Lookup struct {
 	MessageCommon
 }
 

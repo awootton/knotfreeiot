@@ -15,8 +15,15 @@
 
 package iot
 
+import "github.com/awootton/knotfreeiot/iot/iotfakes"
+
+//go:generate counterfeiter net.Conn
+
 type dummy int
 
 func Exampledummy() {
+
+	fakeConn := new(iotfakes.FakeConn)
+	_ = fakeConn
 
 }

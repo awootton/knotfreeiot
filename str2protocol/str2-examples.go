@@ -36,6 +36,7 @@ func StartServerDemo(subscribeMgr iot.PubsubIntf, address string) *iot.SockStruc
 
 	config := ServerOfStr2(subscribeMgr, address) // "knotfree:"+strconv.Itoa(port))
 
+	// FIXME: re-imagine reporting. add reservations vs used
 	aReportFunc := func(seconds float32) []string {
 		strlist := make([]string, 0, 1)
 		count := config.Len()

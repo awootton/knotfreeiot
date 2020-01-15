@@ -57,14 +57,14 @@ func (h *HashType) GetFractionalBits(n uint) int {
 
 var hashstartkey *[]byte
 
-// FromString will
+// FromString will hash the string and init the HashType
 func (h *HashType) FromString(s string) {
 	h.FromBytes([]byte(s))
 }
 
 // FromBytes will initialize an existing hash from a string .
 // The string will get hashed to provide the bits so we'll wish this was faster.
-// It doesn't have to be crypto safe but it does need to be evenly distrubuted.
+// It doesn't have to be crypto safe but it does need to be evenly distributed.
 func (h *HashType) FromBytes(s []byte) {
 	if 0 == 2 {
 		md5er := md5.New()

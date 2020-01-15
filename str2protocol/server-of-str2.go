@@ -21,7 +21,7 @@ import (
 	"github.com/awootton/knotfreeiot/iot/reporting"
 )
 
-// ServerOfStr2 - implement string messages
+// ServerOfStr2 - implement Str2 messages
 func ServerOfStr2(subscribeMgr iot.PubsubIntf, addr string) *iot.SockStructConfig {
 
 	config := iot.NewSockStructConfig(subscribeMgr)
@@ -62,7 +62,7 @@ func ServerOfStr2Init(config *iot.SockStructConfig) {
 	config.SetWriter(handleTopicPayload)
 }
 
-// str2ServeCallback is the default callback which implements an api
+// str2ServeCallback is the default callback which calls the api
 // to the pub sub manager.
 //
 func str2ServeCallback(ss *iot.SockStruct) {

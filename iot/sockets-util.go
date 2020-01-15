@@ -56,7 +56,7 @@ func MakeBunchOfClients(amt int, addr string, delay time.Duration, config *SockS
 	// here's the gc factory:
 	dialFunc := func(sequence int) {
 		for {
-			conn, err := net.DialTimeout("tcp", addr, 60*time.Second)
+			conn, err := net.DialTimeout("tcp", addr, 10*time.Second)
 			if err != nil {
 
 				if logThing != nil {
@@ -89,10 +89,14 @@ func MakeBunchOfClients(amt int, addr string, delay time.Duration, config *SockS
 // It might be better to just add a next and prev to this struct and write a linked list.
 // I'm not using a map as a set of these because we don't look them up.
 type SockStruct struct {
-	ele         *list.Element // tempted to get rid of this
-	conn        net.Conn
-	config      *SockStructConfig
-	key         HalfHash
+	ele    *list.Element // tempted to get rid of this
+	conn   net.Conn
+	config *SockStructConfig
+	key    HalfHash
+
+	// not sure about this one. At the root levels a socket could own millons of these.
+	// and maybe the root doesn't want the real names.
+	// but then how do we unsubscribe when the tcp conn fails?
 	topicToName map[HalfHash][]byte // a tree would be better?
 }
 
@@ -106,7 +110,7 @@ func (ss *SockStruct) SetSelfAddress(top []byte) {
 
 // GetSelfAddress either returns the one set or makes one up.
 // Nobody publishes without sending a return address.
-func (ss *SockStruct) GetSelfAddress() []byte {
+func (ss *SockStruct) xxxGetSelfAddress() []byte {
 	top, ok := ss.topicToName[ss.key]
 	if !ok {
 		sequencehash := HalfHash((uint64(ss.key) - ss.config.key.a) / 13)

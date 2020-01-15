@@ -19,7 +19,13 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
+	"net"
 	"strings"
+	"sync"
+	"time"
+
+	"github.com/awootton/knotfreeiot/iot"
+	"github.com/awootton/knotfreeiot/iot/iotfakes"
 )
 
 type TestPacketStuff int
@@ -76,7 +82,7 @@ func ExampleTestPacketStuff() {
 
 type ToJSON int
 
-// ExampleToJSON is a test.
+// ExampleToJSON is a test as well as an example.
 func ExampleToJSON() {
 	cmd := Send{}
 	cmd.source = []byte("sourceaddr")
@@ -99,13 +105,90 @@ func ExampleToJSON() {
 	cmd.options["option2"] = []byte("На берегу пустынных волн")
 
 	jdata, err := (&cmd).ToJSON()
+	// the ToJSON iterates a map and that is not deterministic.
 	fmt.Println(string(jdata))
 	_ = err
 
 	//  GetIPV6Option
 	fmt.Println(cmd.GetIPV6Option())
 
-	// Output: {"args":[{"a":"sourceaddr"},{"a":"destaddr"},{"a":"some data"},{"a":"z"},{"b64":"//8AAAAAAAAAq83v"},{"a":"option2"},{"utf8":"На берегу пустынных волн"},{"a":"option1"},{"a":"test"},{"a":"ip"},{"b64":"IAENuIWjAAAAAIouA3BzNA"}],"cmd":"P"}
+	// Output: {"args":[{"a":"sourceaddr"},{"a":"destaddr"},{"a":"some data"},{"a":"option1"},{"a":"test"},{"a":"ip"},{"b64":"IAENuIWjAAAAAIouA3BzNA"},{"a":"z"},{"b64":"//8AAAAAAAAAq83v"},{"a":"option2"},{"utf8":"На берегу пустынных волн"}],"cmd":"P"}
 	// [32 1 13 184 133 163 0 0 0 0 138 46 3 112 115 52]
 
+}
+
+type TestPubSub1 int
+
+// Just operate the pubsub without real tcp sockets.
+func ExampleTestPubSub1() {
+
+	subscribeMgr := iot.NewPubsubManager(100)
+	config := iot.NewSockStructConfig(subscribeMgr)
+
+	config.SetCallback(func(ss *iot.SockStruct) {
+		fmt.Println("not using sockets in this test")
+	})
+
+	config.SetClosecb(func(ss *iot.SockStruct, err error) {
+		fmt.Println("not closing sockets in this test")
+	})
+
+	queue := make(chan *Send, 100)
+
+	// the writer just stuffs the q and we'll check that later.
+	config.SetWriter(func(ss *iot.SockStruct, topic []byte, payload []byte, returnAddress []byte) error {
+
+		fmt.Println("have publish", string(topic))
+		cmd := new(Send)
+		cmd.source = returnAddress
+		cmd.destination = topic
+		cmd.data = payload
+		queue <- cmd
+
+		return nil
+	})
+
+	conn1 := new(iotfakes.FakeConn)
+	conn2 := new(iotfakes.FakeConn)
+
+	//
+	fauxSock := iot.NewSockStruct(net.Conn(conn1), config)
+	fauxSock2 := iot.NewSockStruct(net.Conn(conn2), config)
+
+	subscribeMgr.SendSubscriptionMessage(fauxSock, []byte("Topic1"))
+	subscribeMgr.SendSubscriptionMessage(fauxSock2, []byte("Topic2"))
+
+	subscribeMgr.SendPublishMessage(fauxSock2, []byte("Topic1"), []byte("message from 2 to 1"), []byte("Topic2"))
+
+	mmm := <-queue
+	fmt.Println(mmm)
+
+	fauxSock.SetSelfAddress([]byte("Topic1"))
+	fauxSock2.SetSelfAddress([]byte("Topic2"))
+
+	subscribeMgr.SendPublishMessage(fauxSock2, []byte("Topic1"), []byte("message from 2 to 1 again"), []byte("Topic2xx"))
+	mmm = <-queue
+	fmt.Println(mmm)
+
+	time.Sleep(time.Millisecond * 100)
+	fmt.Println("done")
+
+	// Output: have publish Topic1
+	// {"args":[{"a":"Topic2"},{"a":"Topic1"},{"a":"message from 2 to 1"}],"cmd":"P"}
+	// have publish Topic1
+	// {"args":[{"a":"Topic2xx"},{"a":"Topic1"},{"a":"message from 2 to 1 again"}],"cmd":"P"}
+	// done
+
+}
+
+var subscribeMgr iot.PubsubIntf
+var subscribeMgrMutex sync.Mutex
+
+func getSubscribeMgr() iot.PubsubIntf {
+	subscribeMgrMutex.Lock()
+	if subscribeMgr == nil {
+		subscribeMgr = iot.NewPubsubManager(1000)
+	}
+	subscribeMgrMutex.Unlock()
+	return subscribeMgr
 }

@@ -40,14 +40,15 @@ type PubsubIntf interface {
 
 // NewPubsubManager makes a SubscriptionsIntf, usually a singleton.
 // In the tests we call here and then use the result to init a server.
-func NewPubsubManager(amt int) PubsubIntf {
+// Starts 64 go routines that are hung in their q's
+func NewPubsubManager(projectedTopicCount int) PubsubIntf {
 	psMgr := pubSubManager{}
 	psMgr.key.Random()
-	fmt.Println("NewPubsubManager", psMgr.key.String())
-	portion := amt / int(theBucketsSize)
-	portion2 := amt >> theBucketsSizeLog2 // we can init the hash maps big
+	//fmt.Println("NewPubsubManager", psMgr.key.String())
+	portion := projectedTopicCount / int(theBucketsSize)
+	portion2 := projectedTopicCount >> theBucketsSizeLog2 // we can init the hash maps big
 	if portion != portion2 {
-		fmt.Println("theBucketsSizeLog2 != uint(math.Log2(float64(theBucketsSize)))")
+		fmt.Println("EPIC FAIL theBucketsSizeLog2 != uint(math.Log2(float64(theBucketsSize)))")
 	}
 	psMgr.allTheSubscriptions = make([]subscribeBucket, theBucketsSize)
 	for i := uint(0); i < theBucketsSize; i++ {
@@ -62,6 +63,7 @@ func NewPubsubManager(amt int) PubsubIntf {
 	subscribeEvents.SetQuiet(true)
 	psMgr.subscribeEvents = subscribeEvents
 
+	// TODO the whole reporting thing needs to be redone
 	subscrFRepofrtFunct := func(seconds float32) []string {
 		strlist := make([]string, 0, 5)
 		count := 0
@@ -72,8 +74,6 @@ func NewPubsubManager(amt int) PubsubIntf {
 		return strlist
 	}
 	reporting.NewGenericEventAccumulator(subscrFRepofrtFunct)
-
-	// parents := *iot.SockStructConfig
 
 	return &psMgr
 }
@@ -118,7 +118,7 @@ func (me *pubSubManager) SendPublishMessage(ss *SockStruct, realName []byte, pay
 	msg.Topic = &topic
 	msg.payload = payload
 	msg.ss = ss
-	msg.returnAddress = ss.GetSelfAddress()
+	msg.returnAddress = returnAddress // ss.GetSelfAddress()
 
 	i := topic.GetFractionalBits(theBucketsSizeLog2)
 	b := me.allTheSubscriptions[i]
@@ -154,6 +154,7 @@ func (me *pubSubManager) GetAllSubsCount() (int, int) {
 // 	*b.incoming <- msg
 // }
 
+// A grab bag of paranoid ideas about bad states. FIXME: let's be more formal.
 func (me *pubSubManager) checkForBadSS(badsock *SockStruct, pubstruct *watchedTopic) bool {
 
 	forgetme := false
@@ -189,7 +190,7 @@ func (bucket *subscribeBucket) processMessages(me *pubSubManager) {
 				substruct.name.FromHashType(submsg.Topic)
 				substruct.watchers = make(map[HalfHash]*SockStruct, 0)
 				bucket.mySubscriptions[*submsg.Topic] = substruct
-				bucket.subscriber.subscribeEvents.Collect("subscription")
+				bucket.subscriber.subscribeEvents.Collect("subscription") // TODO find another way
 			}
 			// this is the important part:
 			// add the caller to  the set
@@ -205,13 +206,12 @@ func (bucket *subscribeBucket) processMessages(me *pubSubManager) {
 			if ok == false {
 				// no publish possible !
 				// it's sad really when someone sends messages to nobody.
-				// TODO: we need an Online function for topics.
+				// TODO: we need an Online aka Lookup function for topics.
 			} else {
 				for key, ss := range pubstruct.watchers {
 					if key != pubmsg.ss.key {
 						if me.checkForBadSS(ss, pubstruct) == false {
 							realName := ss.topicToName[HalfHash(pubmsg.Topic.a)]
-
 							ss.config.writer(ss, realName, pubmsg.payload, pubmsg.returnAddress)
 						}
 					}
@@ -239,10 +239,10 @@ func (bucket *subscribeBucket) processMessages(me *pubSubManager) {
 	}
 }
 
-// theBucketsSize is 4 for debug and 1024 for prod
+// theBucketsSize is 64 for debug and 64 for prod
 // it's just to keep the threads busy.
-const theBucketsSize = uint(8) // uint(1024)
-const theBucketsSizeLog2 = 3   // 10 // uint(math.Log2(float64(theBucketsSize)))
+const theBucketsSize = uint(64) // uint(1024)
+const theBucketsSizeLog2 = 6    // 10 // uint(math.Log2(float64(theBucketsSize)))
 
 type subscriptionMessage struct {
 	Topic *HashType // not my real name

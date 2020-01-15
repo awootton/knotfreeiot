@@ -14,6 +14,8 @@ import (
 	"github.com/awootton/knotfreeiot/kubectl"
 )
 
+// TODO: This could maybe be Helm instead someday.
+
 // Config is for setting up a typical deployment
 type Config struct {
 	Namespace      string
