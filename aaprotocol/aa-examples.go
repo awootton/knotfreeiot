@@ -119,7 +119,7 @@ func runAlight(ss *iot.SockStruct) {
 				hash.FromBytes([]byte(topic))
 				//fmt.Println("pub to ", hash.GetA()&0x0FFFF)
 				returnAddr := []byte("none") //ss.GetSelfAddress()
-				err := HandleTopicPayload(ss, []byte(topic), payload, returnAddr)
+				err := HandleTopicPayload(ss, []byte(topic), nil, returnAddr, nil, payload)
 				if err != nil {
 					ss.Close(err)
 					done = true
@@ -249,7 +249,7 @@ func runAswitch(ss *iot.SockStruct) {
 		hash.FromBytes([]byte(topic))
 		//fmt.Println("spub to ", hash.GetA()&0x0FFFF)
 		returnAddr := []byte("none") //ss.GetSelfAddress()
-		err := HandleTopicPayload(ss, []byte(topic), []byte(ourCommand), returnAddr)
+		err := HandleTopicPayload(ss, []byte(topic), nil, returnAddr, nil, []byte(ourCommand))
 
 		if err != nil {
 			done = true

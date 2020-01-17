@@ -45,11 +45,11 @@ func MakeBunchOfClients(amt int, addr string, delay time.Duration, config *SockS
 	if config.closecb == nil {
 		config.SetClosecb(servererr)
 	}
-	writef := func(ss *SockStruct, topicName []byte, payload []byte, returnAddress []byte) error {
+	writef := func(ss *SockStruct, topicName []byte, topicAlias *HashType, returnAddress []byte, returnAlias *HashType, payload []byte) error {
 		fmt.Println("default server write")
 		return errors.New("default server writer")
 	}
-	if config.writer == nil {
+	if config.writecb == nil {
 		config.SetWriter(writef)
 	}
 
@@ -89,6 +89,7 @@ func MakeBunchOfClients(amt int, addr string, delay time.Duration, config *SockS
 // It might be better to just add a next and prev to this struct and write a linked list.
 // I'm not using a map as a set of these because we don't look them up.
 type SockStruct struct {
+	//
 	ele    *list.Element // tempted to get rid of this
 	conn   net.Conn
 	config *SockStructConfig
@@ -113,12 +114,20 @@ func (ss *SockStruct) SetSelfAddress(top []byte) {
 func (ss *SockStruct) xxxGetSelfAddress() []byte {
 	top, ok := ss.topicToName[ss.key]
 	if !ok {
-		sequencehash := HalfHash((uint64(ss.key) - ss.config.key.a) / 13)
+		sequencehash := HalfHash((uint64(ss.key) - ss.config.key.GetA()) / 13)
 		top = []byte("iot/" + ss.config.key.String() + "/" + sequencehash.String())
 		ss.SetSelfAddress(top)
 	}
 	return top
 }
+
+// WriteCallback is convenient
+type WriteCallback func(ss *SockStruct,
+	topicName []byte, // aka address aka destination
+	topicAlias *HashType,
+	returnAddress []byte,
+	returnAlias *HashType,
+	payload []byte) error
 
 // SockStructConfig could be just a stack frame but I'd like to return it.
 // This could be an interface that implements range and len or and the callbacks.
@@ -128,7 +137,7 @@ type SockStructConfig struct {
 	closecb  func(*SockStruct, error)
 	// This is supposed to implement the protocol when a message happens on a topic
 	// and the socket is supposed to get a copy.
-	writer func(ss *SockStruct, topicName []byte, payload []byte, returnAddress []byte) error
+	writecb WriteCallback
 
 	listener net.Listener
 
@@ -175,7 +184,7 @@ func NewSockStruct(conn net.Conn, config *SockStructConfig) *SockStruct {
 	ss.ele = ss.config.list.PushBack(ss)
 	config.listlock.Unlock()
 
-	ss.key = HalfHash(config.key.a + seq*13) // unique but poorly random.
+	ss.key = HalfHash(config.key.GetA() + seq*13) // unique but poorly random.
 	return ss
 }
 
@@ -244,12 +253,12 @@ func (ss *SockStruct) GetConn() net.Conn {
 
 // GetSequence is
 func (ss *SockStruct) GetSequence() uint64 {
-	return (uint64(ss.key) - ss.config.key.a) / 13
+	return (uint64(ss.key) - ss.config.key.GetA()) / 13
 }
 
 // SetSequence is
 func (ss *SockStruct) setSequence(seq uint64) {
-	ss.key = HalfHash(ss.config.key.a + seq*13)
+	ss.key = HalfHash(ss.config.key.GetA() + seq*13)
 }
 
 // SetCallback is
@@ -263,8 +272,8 @@ func (config *SockStructConfig) SetClosecb(closecb func(*SockStruct, error)) {
 }
 
 // SetWriter is
-func (config *SockStructConfig) SetWriter(w func(ss *SockStruct, topicName []byte, payload []byte, returnAddress []byte) error) {
-	config.writer = w
+func (config *SockStructConfig) SetWriter(w WriteCallback) {
+	config.writecb = w
 }
 
 // Len is an obvious wrapper

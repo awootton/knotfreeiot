@@ -44,12 +44,12 @@ func ServerOfStr2Init(config *iot.SockStructConfig) {
 	config.SetClosecb(servererr)
 
 	//  the writer
-	handleTopicPayload := func(ss *iot.SockStruct, topic []byte, payload []byte, returnAddress []byte) error {
+	handleTopicPayload := func(ss *iot.SockStruct, topic []byte, topicAlias *iot.HashType, returnAddress []byte, returnAlias *iot.HashType, payload []byte) error {
 
 		cmd := Send{}
 		cmd.source = returnAddress
-		cmd.destination = topic
-		cmd.data = payload
+		cmd.address = topic
+		cmd.payload = payload
 
 		err := cmd.Write(ss.GetConn())
 		if err != nil {
@@ -84,15 +84,15 @@ func str2ServeCallback(ss *iot.SockStruct) {
 
 		case *Subscribe:
 			p := packet.(*Subscribe)
-			ss.SendSubscriptionMessage(p.destination)
+			ss.SendSubscriptionMessage(p.address)
 
 		case *Unsubscribe:
 			p := packet.(*Unsubscribe)
-			ss.SendSubscriptionMessage(p.destination)
+			ss.SendSubscriptionMessage(p.address)
 
 		case *Send:
 			p := packet.(*Send)
-			ss.SendPublishMessage(p.destination, p.data, p.source)
+			ss.SendPublishMessage(p.address, p.payload, p.source)
 
 		case *Connect:
 			p := packet.(*Connect)

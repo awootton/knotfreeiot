@@ -69,7 +69,7 @@ func ServerOfStringsInit(config *iot.SockStructConfig) {
 	config.SetClosecb(servererr)
 
 	//  the writer
-	handleTopicPayload := func(ss *iot.SockStruct, topic []byte, payload []byte, returnAddress []byte) error {
+	handleTopicPayload := func(ss *iot.SockStruct, topic []byte, topicAlias *iot.HashType, returnAddress []byte, returnAlias *iot.HashType, payload []byte) error {
 
 		cmd := `add "` + string(returnAddress) + `" `
 		// TODO: warning. this will BLOCK and jam up the whole machine.

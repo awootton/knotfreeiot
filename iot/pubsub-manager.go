@@ -82,7 +82,7 @@ func NewPubsubManager(projectedTopicCount int) PubsubIntf {
 func (me *pubSubManager) SendSubscriptionMessage(ss *SockStruct, realName []byte) {
 	topic := HashType{}
 	topic.FromBytes(realName)
-	ss.topicToName[HalfHash(topic.a)] = realName
+	ss.topicToName[HalfHash(topic.GetA())] = realName
 	msg := subscriptionMessage{}
 	msg.Topic = &topic
 	msg.ss = ss
@@ -97,7 +97,7 @@ func (me *pubSubManager) SendUnsubscribeMessage(ss *SockStruct, realName []byte)
 	topic := HashType{}
 	topic.FromBytes(realName)
 
-	delete(ss.topicToName, HalfHash(topic.a))
+	delete(ss.topicToName, HalfHash(topic.GetA()))
 
 	msg := unsubscribeMessage{}
 	msg.Topic = &topic
@@ -211,8 +211,8 @@ func (bucket *subscribeBucket) processMessages(me *pubSubManager) {
 				for key, ss := range pubstruct.watchers {
 					if key != pubmsg.ss.key {
 						if me.checkForBadSS(ss, pubstruct) == false {
-							realName := ss.topicToName[HalfHash(pubmsg.Topic.a)]
-							ss.config.writer(ss, realName, pubmsg.payload, pubmsg.returnAddress)
+							realName := ss.topicToName[HalfHash(pubmsg.Topic.GetA())]
+							ss.config.writecb(ss, realName, pubmsg.Topic, pubmsg.returnAddress, nil, pubmsg.payload)
 						}
 					}
 				}
@@ -246,8 +246,7 @@ const theBucketsSizeLog2 = 6    // 10 // uint(math.Log2(float64(theBucketsSize))
 
 type subscriptionMessage struct {
 	Topic *HashType // not my real name
-	//	ConnectionID *HashType
-	ss *SockStruct
+	ss    *SockStruct
 }
 
 // unsubscribeMessage for real
@@ -258,17 +257,17 @@ type unsubscribeMessage struct {
 // publishMessage used here
 type publishMessage struct {
 	subscriptionMessage
-	payload       []byte
 	returnAddress []byte
+	payload       []byte
 }
 
 // watchedTopic is what we'll be collecting a lot of.
-// what if *everyone* is watching this topic?
+// what if *everyone* is watching this topic? and then the watchers is huge.
 type watchedTopic struct {
 	name       HashType // not my real name
 	isUpstream bool
 	//
-	watchers map[HalfHash]*SockStruct // needs a cheaper way.
+	watchers map[HalfHash]*SockStruct // needs a cheaper way. should be a tree
 }
 
 type subscribeBucket struct {

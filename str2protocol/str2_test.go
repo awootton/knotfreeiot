@@ -86,8 +86,8 @@ type ToJSON int
 func ExampleToJSON() {
 	cmd := Send{}
 	cmd.source = []byte("sourceaddr")
-	cmd.destination = []byte("destaddr")
-	cmd.data = []byte("some data")
+	cmd.address = []byte("destaddr")
+	cmd.payload = []byte("some data")
 	cmd.options = make(map[string][]byte)
 	cmd.options["option1"] = []byte("test")
 	addr := "2001:0db8:85a3:0000:0000:8a2e:0370:7334"
@@ -112,7 +112,7 @@ func ExampleToJSON() {
 	//  GetIPV6Option
 	fmt.Println(cmd.GetIPV6Option())
 
-	// Output: {"args":[{"a":"sourceaddr"},{"a":"destaddr"},{"a":"some data"},{"a":"option1"},{"a":"test"},{"a":"ip"},{"b64":"IAENuIWjAAAAAIouA3BzNA"},{"a":"z"},{"b64":"//8AAAAAAAAAq83v"},{"a":"option2"},{"utf8":"На берегу пустынных волн"}],"cmd":"P"}
+	// {"args":[{"ascii":"destaddr"},{"ascii":""},{"ascii":"sourceaddr"},{"ascii":""},{"ascii":"some data"},{"ascii":"option1"},{"ascii":"test"},{"ascii":"ip"},{"b64":"IAENuIWjAAAAAIouA3BzNA"},{"ascii":"z"},{"b64":"//8AAAAAAAAAq83v"},{"ascii":"option2"},{"utf8":"На берегу пустынных волн"}],"cmd":"P"}
 	// [32 1 13 184 133 163 0 0 0 0 138 46 3 112 115 52]
 
 }
@@ -136,13 +136,13 @@ func ExampleTestPubSub1() {
 	queue := make(chan *Send, 100)
 
 	// the writer just stuffs the q and we'll check that later.
-	config.SetWriter(func(ss *iot.SockStruct, topic []byte, payload []byte, returnAddress []byte) error {
+	config.SetWriter(func(ss *iot.SockStruct, topic []byte, topicAlias *iot.HashType, returnAddress []byte, returnAlias *iot.HashType, payload []byte) error {
 
 		fmt.Println("have publish", string(topic))
 		cmd := new(Send)
 		cmd.source = returnAddress
-		cmd.destination = topic
-		cmd.data = payload
+		cmd.address = topic
+		cmd.payload = payload
 		queue <- cmd
 
 		return nil
@@ -174,9 +174,9 @@ func ExampleTestPubSub1() {
 	fmt.Println("done")
 
 	// Output: have publish Topic1
-	// {"args":[{"a":"Topic2"},{"a":"Topic1"},{"a":"message from 2 to 1"}],"cmd":"P"}
+	// {"args":[{"ascii":"Topic1"},{"ascii":""},{"ascii":"Topic2"},{"ascii":""},{"ascii":"message from 2 to 1"}],"cmd":"P"}
 	// have publish Topic1
-	// {"args":[{"a":"Topic2xx"},{"a":"Topic1"},{"a":"message from 2 to 1 again"}],"cmd":"P"}
+	// {"args":[{"ascii":"Topic1"},{"ascii":""},{"ascii":"Topic2xx"},{"ascii":""},{"ascii":"message from 2 to 1 again"}],"cmd":"P"}
 	// done
 
 }

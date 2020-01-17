@@ -33,12 +33,16 @@ import (
 // Think of this as a fraction from 0 to 1-1/(2^128) . Like a probability. Unsigned.
 // When we distribute these into buckets we'll start with the high bits in 'a'.
 type HashType struct {
-	a, b uint64
+	//a, b uint64
+	bytes [16]byte
 }
 
 // GetA just for debug
 func (h *HashType) GetA() uint64 {
-	return h.a
+
+	return binary.BigEndian.Uint64(h.bytes[0:8])
+
+	//return h.a
 }
 
 // HalfHash represents 64 bits of randomness. HalfHash is half of HashType. At 64 bits we might expect some collisions with a billion items
@@ -48,7 +52,9 @@ type HalfHash uint64
 // GetFractionalBits returns a slice of n bits. Values of n greater than 64 are not implemented.
 func (h *HashType) GetFractionalBits(n uint) int {
 	if n < 64 {
-		return int(h.a >> (64 - n))
+		//a := h.a
+		a := h.GetA()
+		return int(a >> (64 - n))
 	}
 	fmt.Println("FIXME: implement GetFractionalBits for > 64")
 	return 0
@@ -70,8 +76,9 @@ func (h *HashType) FromBytes(s []byte) {
 		md5er := md5.New()
 		io.WriteString(md5er, string(s))
 		bytes := md5er.Sum(nil)
-		h.a = binary.BigEndian.Uint64(bytes)
-		h.b = binary.BigEndian.Uint64(bytes[8:])
+		copy(h.bytes[:], bytes[0:16])
+		//h.a = binary.BigEndian.Uint64(bytes)
+		//h.b = binary.BigEndian.Uint64(bytes[8:])
 		//fmt.Println(h.a, h.b)
 	} else {
 		if hashstartkey == nil {
@@ -86,24 +93,30 @@ func (h *HashType) FromBytes(s []byte) {
 		_ = n
 		_ = err
 		bytes := hhash.Sum(nil)
-		h.a = binary.BigEndian.Uint64(bytes)
-		h.b = binary.BigEndian.Uint64(bytes[8:])
+		copy(h.bytes[:], bytes[0:16])
+
+		//h.a = binary.BigEndian.Uint64(bytes)
+		//h.b = binary.BigEndian.Uint64(bytes[8:])
 		//fmt.Println("HashType", h.a, h.b)
 	}
 }
 
 // FromHashType init an existing hash from another - basically a copy
 func (h *HashType) FromHashType(src *HashType) {
-	h.a = src.a
-	h.b = src.b
+	//h.a = src.a
+	//h.b = src.b
+	h.bytes = src.bytes
 }
 
 // Random HashType initializes with random bits.
 // We don't need to hash these more do we?
 func (h *HashType) Random() {
 
-	h.a = rand.Uint64()
-	h.b = rand.Uint64()
+	rand.Read(h.bytes[0:16])
+	//h.a = rand.Uint64()
+	//h.b = rand.Uint64()
+
+	// or ?
 	// randomStr := strconv.FormatInt(rand.Int63(), 16) + strconv.FormatInt(rand.Int63(), 16)
 	// md5er := md5.New()
 	// io.WriteString(md5er, randomStr)
@@ -113,7 +126,8 @@ func (h *HashType) Random() {
 }
 
 func (h *HashType) String() string {
-	return strconv.FormatUint(h.a, 16) + strconv.FormatUint(h.b, 16)
+	//return strconv.FormatUint(h.a, 16) + strconv.FormatUint(h.b, 16)
+	return hex.EncodeToString(h.bytes[0:16])
 }
 
 func (a *HalfHash) String() string {

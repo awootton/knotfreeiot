@@ -15,6 +15,8 @@
 
 package tiers
 
+// atw fix me this is unfinished
+
 import (
 	"fmt"
 	"sync"

@@ -107,9 +107,9 @@ func runAlight(ss *iot.SockStruct) {
 				myID := ss.GetSequence()
 				topic := "str2switch_" + strconv.FormatUint(0x000FFFFF&myID, 16)
 				reply := Send{}
-				reply.source = p.destination
-				reply.destination = []byte(topic)
-				reply.data = p.data // echo
+				reply.source = p.address
+				reply.address = []byte(topic)
+				reply.payload = p.payload // echo
 				reply.Write(ss.GetConn())
 			} else {
 				fmt.Println("not handled", cmd)

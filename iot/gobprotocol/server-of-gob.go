@@ -142,7 +142,7 @@ func xxgobWrite(ss *iot.SockStruct, obj GobIntf) error {
 // HandleTopicPayload writes a publish onto the  wire.
 // It's also the callback the pubsub uses.
 // we don't have a command with two arguments.
-func HandleTopicPayload(ss *iot.SockStruct, topic []byte, payload []byte, returnAddress []byte) error {
+func HandleTopicPayload(ss *iot.SockStruct, topic []byte, topicAlias *iot.HashType, returnAddress []byte, returnAlias *iot.HashType, payload []byte) error {
 
 	pub := NewPublishMessage(1)
 	item := pub[0]

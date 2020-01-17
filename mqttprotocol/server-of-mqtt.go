@@ -137,7 +137,7 @@ func mqttServeCallback(ss *iot.SockStruct) {
 }
 
 // HandleTopicPayload writes a publish downstream.
-func HandleTopicPayload(ss *iot.SockStruct, topic []byte, payload []byte, returnAddress []byte) error {
+func HandleTopicPayload(ss *iot.SockStruct, topic []byte, topicAlias *iot.HashType, returnAddress []byte, returnAlias *iot.HashType, payload []byte) error {
 
 	pub := packets.PublishPacket{}
 	pub.TopicName = string(topic)
