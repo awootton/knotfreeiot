@@ -1,4 +1,3 @@
-// Copyright 2019 Alan Tracey Wootton
 // Copyright 2019,2020 Alan Tracey Wootton
 //
 // This program is free software: you can redistribute it and/or modify
@@ -17,6 +16,7 @@
 // Package kubectl has some utilty functions that will issue kubectl commands.
 // It is assumed that kubectl in your envrionment, typically a workstation, is setup
 // and configured to access a running k8s cluster.
+
 package kubectl
 
 import (
@@ -30,12 +30,13 @@ import (
 var quiet = false
 
 // I'm doing kubernetes cluster namespace configuration using the
-// command line technique. There is also a technique using go-client.
+// command line technique. There is also a better technique using go-client.
+// In the end there will be a controller using go-client.
 
-// K8s runs a kubectl command like "kubectl get nodes"
+// K8s here runs a kubectl command like "kubectl get nodes"
 // except it's really just another shell gadget.
-// returns what the command outputs and not before it's done.
-// and that's annoying because I kinds like watching Docker build.
+// Returns what the command outputs and not before it's done.
+// and that's annoying because I kinda like watching Docker build.
 func K8s(command string, input string) (string, error) {
 	if !quiet {
 		fmt.Println(">" + command)

@@ -28,22 +28,22 @@ import (
 	"github.com/awootton/knotfreeiot/iot"
 	"github.com/awootton/knotfreeiot/iot/reporting"
 	"github.com/awootton/knotfreeiot/iot/tiers"
+	"github.com/awootton/knotfreeiot/iotprotocol"
 	"github.com/awootton/knotfreeiot/mqttprotocol"
 	"github.com/awootton/knotfreeiot/strprotocol"
-
-	"github.com/awootton/knotfreeiot/aaprotocol"
+	//"github.com/awootton/knotfreeiot/aaprotocol"
 )
 
-// Hint: add 127.0.0.1 knotfreeserver to /etc/hosts
+// Hint: add "127.0.0.1 knotfreeserver" to /etc/hosts
 func main() {
 
 	fmt.Println("Hello knotfreeserver")
 
 	tiers.TwoByTwoTest()
 
-	aa := flag.Bool("aa", false, "use aa protocol")
+	//aa := flag.Bool("aa", false, "use aa protocol")
 	str := flag.Bool("str", false, "use str protocol")
-	str2 := flag.Bool("str2", false, "use str2 protocol")
+	str2 := flag.Bool("str2", false, "use str2 protocol") // aka iot protocol
 	mqtt := flag.Bool("mqtt", false, "use mqtt protocol")
 	client := flag.Int("client", 0, "start a client test with an int of clients.")
 	server := flag.Bool("server", false, "start a server.")
@@ -54,8 +54,8 @@ func main() {
 	flag.Parse()
 
 	if *server {
-		if *aa {
-			go aaProtocolServerDemo()
+		if *str2 {
+			go str2ProtocolServerDemo()
 		}
 		if *str {
 			go strProtocolServerDemo()
@@ -65,9 +65,9 @@ func main() {
 		}
 	}
 	if *client > 0 {
-		if *aa {
-			go aaProtocolClientDemo(*client)
-		}
+		// if *aa {
+		// 	go aaProtocolClientDemo(*client)
+		// }
 		if *str {
 			go strProtocolClientDemo(*client)
 		}
@@ -113,15 +113,25 @@ func strProtocolServerDemo() {
 	}
 }
 
-func aaProtocolServerDemo() {
+func str2ProtocolServerDemo() {
 
-	fmt.Println("Starting aaProtocolServerDemo")
-	config := aaprotocol.StartServerDemo(getSubscribeMgr())
+	fmt.Println("Starting str2ProtocolServerDemo")
+	config := iotprotocol.StartServerDemo(getSubscribeMgr(), "8384")
 	_ = config
 	for {
 		time.Sleep(time.Minute)
 	}
 }
+
+// func aaProtocolServerDemo() {
+
+// 	fmt.Println("Starting aaProtocolServerDemo")
+// 	config := aaprotocol.StartServerDemo(getSubscribeMgr())
+// 	_ = config
+// 	for {
+// 		time.Sleep(time.Minute)
+// 	}
+// }
 
 func mqttProtocolServerDemo() {
 
@@ -145,18 +155,18 @@ func strProtocolClientDemo(count int) {
 	_ = switches
 }
 
-func aaProtocolClientDemo(count int) {
+// func aaProtocolClientDemo(count int) {
 
-	fmt.Println("Starting aaProtocolClientDemo", count)
-	lights, switches := aaprotocol.StartClientsDemo(count)
+// 	fmt.Println("Starting aaProtocolClientDemo", count)
+// 	lights, switches := aaprotocol.StartClientsDemo(count)
 
-	for 1 == 1 {
-		time.Sleep(time.Minute)
-	}
-	_ = lights
-	_ = switches
+// 	for 1 == 1 {
+// 		time.Sleep(time.Minute)
+// 	}
+// 	_ = lights
+// 	_ = switches
 
-}
+// }
 
 func mqttProtocolClientDemo(count int) {
 

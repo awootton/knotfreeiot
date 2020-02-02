@@ -1,0 +1,8 @@
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBY2E1C8YfbnU2HVS7YROziFcPsaxUEo7qeLL0nOXn3O awootton@mbp-atw-2.lan
+
+pub key is 32 bytes or 4/3 * 32 = 42.66 b64 chars 
+
+I think it's the part after the 2nd AAAA (3 zero bytes)
+or, 43 back from the end.
+
+-- or -- use the decoder in go duh - which is for ssh and that package hides the details. 

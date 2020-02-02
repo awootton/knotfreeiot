@@ -26,8 +26,6 @@ import (
 	"github.com/awootton/knotfreeiot/strprotocol"
 
 	"strconv"
-
-	"github.com/awootton/knotfreeiot/iot/gobprotocol"
 )
 
 // TwoByTwoTest is
@@ -44,8 +42,8 @@ func TwoByTwoTest() {
 	aaa := strprotocol.StartServerDemo(aaasub, "localhost:7374")
 	bbb := strprotocol.StartServerDemo(bbbsub, "localhost:7375")
 
-	gcc := gobprotocol.ServerOfGob(cccsub, "localhost:2000")
-	gdd := gobprotocol.ServerOfGob(dddsub, "localhost:2001")
+	//	gcc := gobprotocol.ServerOfGob(cccsub, "localhost:2000")
+	//	gdd := gobprotocol.ServerOfGob(dddsub, "localhost:2001")
 
 	// two clients from aaa to ccc and ddd
 	// two clients from bbb to ccc and ddd
@@ -63,8 +61,8 @@ func TwoByTwoTest() {
 	_ = aaa
 	_ = bbb
 
-	_ = gcc
-	_ = gdd
+	_ = cccsub
+	_ = dddsub
 	var splitterA = func(t iot.HashType) *iot.SockStruct {
 		return nil
 	}
@@ -83,7 +81,7 @@ func addClient(config *iot.SockStructConfig, addr string) {
 func makeClient() *iot.SockStructConfig {
 
 	pods := iot.NewSockStructConfig(nil)
-	gobprotocol.ServerOfGobInit(pods)
+	//	gobprotocol.ServerOfGobInit(pods)
 	_ = pods
 
 	aReportFunc := func(seconds float32) []string {

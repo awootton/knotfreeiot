@@ -22,8 +22,8 @@ spec:
         command: ["/go/bin/linux_386/knotfreeiot"] # ["/go/bin/knotfree"]
         args: ["INSERT_COMMAND_HERE"]
         ports:
-        - containerPort: 6161
-          name : aa
+        - containerPort: 8384
+          name : iot
         - containerPort: 1883
           name : mqtt
         - containerPort: 8080 

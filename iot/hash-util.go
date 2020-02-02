@@ -18,6 +18,7 @@ package iot
 
 import (
 	"crypto/md5"
+	"encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
@@ -126,8 +127,8 @@ func (h *HashType) Random() {
 }
 
 func (h *HashType) String() string {
-	//return strconv.FormatUint(h.a, 16) + strconv.FormatUint(h.b, 16)
-	return hex.EncodeToString(h.bytes[0:16])
+	//return hex.EncodeToString(h.bytes[0:16])
+	return base64.StdEncoding.EncodeToString(h.bytes[:])
 }
 
 func (a *HalfHash) String() string {
