@@ -36,7 +36,7 @@ type Segment interface {
 	setNext(s Segment)
 }
 
-// Chop up a line of text into segments. Calling it a parser would be over stating it.
+// Chop up a line of text into segments. Calling it a parser would be overstating.
 // Returns a head of a list, the number of bytes consumed, and maybe an error.
 // TODO: don't recurse.
 func Chop(inputLineOfText string) (Segment, error) {

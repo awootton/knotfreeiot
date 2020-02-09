@@ -16,6 +16,8 @@
 package badjson_test
 
 import (
+	"encoding/base64"
+	"encoding/hex"
 	"fmt"
 	"reflect"
 	"strings"
@@ -60,14 +62,39 @@ func ExampleChop() {
 	// output it
 	output := badjson.ToString(segment)
 	fmt.Println(output)
+
+	someText = `"abc""def""ghi""jkl"`
+	segment, err = badjson.Chop(someText)
+	if err != nil {
+		fmt.Println(err)
+	}
+	output = badjson.ToString(segment)
+	fmt.Println(output)
+
 	// Expect: *badjson.RuneArray
 	// *badjson.RuneArray
 	// *badjson.RuneArray
 	// *badjson.RuneArray
 	// ["abc","def","ghi","jkl"]
+	// ["abc","def","ghi","jkl"]
+}
+
+func binaryTests() {
+
+	fmt.Println("abc", hex.EncodeToString([]byte("abc")))
+	fmt.Println("def", hex.EncodeToString([]byte("def")))
+	fmt.Println("ghi", hex.EncodeToString([]byte("ghi")))
+	fmt.Println("jkl", hex.EncodeToString([]byte("jkl")))
+
+	fmt.Println("abc", base64.RawStdEncoding.EncodeToString([]byte("abc")))
+	fmt.Println("def", base64.RawStdEncoding.EncodeToString([]byte("def")))
+	fmt.Println("ghi", base64.RawStdEncoding.EncodeToString([]byte("ghi")))
+	fmt.Println("jkl", base64.RawStdEncoding.EncodeToString([]byte("jkl")))
+
 }
 
 func TestExample(t *testing.T) {
+	binaryTests()
 	ExampleChop()
 }
 

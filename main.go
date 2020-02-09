@@ -27,10 +27,10 @@ import (
 
 	"github.com/awootton/knotfreeiot/iot"
 	"github.com/awootton/knotfreeiot/iot/reporting"
-	"github.com/awootton/knotfreeiot/iot/tiers"
-	"github.com/awootton/knotfreeiot/iotprotocol"
-	"github.com/awootton/knotfreeiot/mqttprotocol"
-	"github.com/awootton/knotfreeiot/strprotocol"
+	// "github.com/awootton/knotfreeiot/iot/tiers"
+	// "github.com/awootton/knotfreeiot/iotprotocol"
+	// "github.com/awootton/knotfreeiot/mqttprotocol"
+	// "github.com/awootton/knotfreeiot/strprotocol"
 	//"github.com/awootton/knotfreeiot/aaprotocol"
 )
 
@@ -39,12 +39,12 @@ func main() {
 
 	fmt.Println("Hello knotfreeserver")
 
-	tiers.TwoByTwoTest()
+	//	tiers.TwoByTwoTest()
 
 	//aa := flag.Bool("aa", false, "use aa protocol")
-	str := flag.Bool("str", false, "use str protocol")
+	//	str := flag.Bool("str", false, "use str protocol")
 	str2 := flag.Bool("str2", false, "use str2 protocol") // aka iot protocol
-	mqtt := flag.Bool("mqtt", false, "use mqtt protocol")
+	//	mqtt := flag.Bool("mqtt", false, "use mqtt protocol")
 	client := flag.Int("client", 0, "start a client test with an int of clients.")
 	server := flag.Bool("server", false, "start a server.")
 
@@ -54,26 +54,26 @@ func main() {
 	flag.Parse()
 
 	if *server {
-		if *str2 {
-			go str2ProtocolServerDemo()
-		}
-		if *str {
-			go strProtocolServerDemo()
-		}
-		if *mqtt {
-			go mqttProtocolServerDemo()
-		}
+		// if *str2 {
+		// 	go str2ProtocolServerDemo()
+		// }
+		// if *str {
+		// 	go strProtocolServerDemo()
+		// }
+		// if *mqtt {
+		// 	go mqttProtocolServerDemo()
+		// }
 	}
 	if *client > 0 {
 		// if *aa {
 		// 	go aaProtocolClientDemo(*client)
 		// }
-		if *str {
-			go strProtocolClientDemo(*client)
-		}
-		if *mqtt {
-			go mqttProtocolClientDemo(*client)
-		}
+		// if *str {
+		// 	go strProtocolClientDemo(*client)
+		// }
+		// if *mqtt {
+		// 	go mqttProtocolClientDemo(*client)
+		// }
 	}
 
 	go func() {
@@ -106,8 +106,8 @@ func main() {
 func strProtocolServerDemo() {
 
 	fmt.Println("Starting strProtocolServerDemo")
-	config := strprotocol.StartServerDemo(getSubscribeMgr(), "7374")
-	_ = config
+	// config := strprotocol.StartServerDemo(getSubscribeMgr(), "7374")
+	// _ = config
 	for {
 		time.Sleep(time.Minute)
 	}
@@ -116,8 +116,8 @@ func strProtocolServerDemo() {
 func str2ProtocolServerDemo() {
 
 	fmt.Println("Starting str2ProtocolServerDemo")
-	config := iotprotocol.StartServerDemo(getSubscribeMgr(), "8384")
-	_ = config
+	// config := iotprotocol.StartServerDemo(getSubscribeMgr(), "8384")
+	// _ = config
 	for {
 		time.Sleep(time.Minute)
 	}
@@ -133,27 +133,27 @@ func str2ProtocolServerDemo() {
 // 	}
 // }
 
-func mqttProtocolServerDemo() {
+// func mqttProtocolServerDemo() {
 
-	fmt.Println("Starting mqttProtocolServerDemo")
-	config := mqttprotocol.StartServerDemo(getSubscribeMgr())
-	_ = config
-	for {
-		time.Sleep(time.Minute)
-	}
-}
+// 	fmt.Println("Starting mqttProtocolServerDemo")
+// 	config := mqttprotocol.StartServerDemo(getSubscribeMgr())
+// 	_ = config
+// 	for {
+// 		time.Sleep(time.Minute)
+// 	}
+// }
 
-func strProtocolClientDemo(count int) {
+// func strProtocolClientDemo(count int) {
 
-	fmt.Println("Starting strProtocolClientDemo", count)
-	lights, switches := strprotocol.StartClientsDemo(count)
+// 	fmt.Println("Starting strProtocolClientDemo", count)
+// 	lights, switches := strprotocol.StartClientsDemo(count)
 
-	for 1 == 1 {
-		time.Sleep(time.Minute)
-	}
-	_ = lights
-	_ = switches
-}
+// 	for 1 == 1 {
+// 		time.Sleep(time.Minute)
+// 	}
+// 	_ = lights
+// 	_ = switches
+// }
 
 // func aaProtocolClientDemo(count int) {
 
@@ -168,17 +168,17 @@ func strProtocolClientDemo(count int) {
 
 // }
 
-func mqttProtocolClientDemo(count int) {
+// func mqttProtocolClientDemo(count int) {
 
-	fmt.Println("Starting mqttProtocolClientDemo", count)
-	lights, switches := mqttprotocol.StartClientsDemo(count)
-	for 1 == 1 {
-		time.Sleep(time.Minute)
-	}
-	_ = lights
-	_ = switches
+// 	fmt.Println("Starting mqttProtocolClientDemo", count)
+// 	lights, switches := mqttprotocol.StartClientsDemo(count)
+// 	for 1 == 1 {
+// 		time.Sleep(time.Minute)
+// 	}
+// 	_ = lights
+// 	_ = switches
 
-}
+// }
 
 // HelloServer is
 func HelloServer(w http.ResponseWriter, r *http.Request) {
