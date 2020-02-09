@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-package test
+package badjson_test
 
 import (
 	"fmt"
@@ -408,6 +408,14 @@ func TestParseZ(t *testing.T) {
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
 	}
+
+	abase := badjson.Base{}
+	got = abase.String()
+	want = `""`
+	if got != want {
+		t.Errorf("got %v, want %v", got, want)
+	}
+
 }
 
 func tryParseAndUnparse(str string) string {

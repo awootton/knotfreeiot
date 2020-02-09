@@ -158,9 +158,9 @@ func (me *pubSubManager) GetAllSubsCount() (int, int) {
 func (me *pubSubManager) checkForBadSS(badsock *SockStruct, pubstruct *watchedTopic) bool {
 
 	forgetme := false
-	if badsock.conn == nil {
-		forgetme = true
-	}
+	//if badsock.conn == nil {
+	//	forgetme = true
+	//}
 	if badsock.ele == nil {
 		forgetme = true
 	}

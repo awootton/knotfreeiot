@@ -89,9 +89,13 @@ func MakeBunchOfClients(amt int, addr string, delay time.Duration, config *SockS
 // It might be better to just add a next and prev to this struct and write a linked list.
 // I'm not using a map as a set of these because we don't look them up.
 type SockStruct struct {
+
+	// atw fixme get rid of net.Conn her and use channels and
+	// then attach a net.Conn to the channel
+	conn net.Conn
 	//
-	ele    *list.Element // tempted to get rid of this
-	conn   net.Conn
+	ele *list.Element // tempted to get rid of this
+	//conn   net.Conn
 	config *SockStructConfig
 	key    HalfHash
 

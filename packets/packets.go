@@ -13,16 +13,18 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-package iotprotocol
+package packets
 
 import (
+	"bytes"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
+	"unicode/utf8"
 
 	"io"
 	"net"
-	"unicode/utf8"
+
+	"github.com/awootton/knotfreeiot/badjson"
 )
 
 /** There is a struct (Universal) that can represent any packet.
@@ -46,10 +48,10 @@ type PacketCommon struct {
 
 	// for internal use only:
 	backingUniversal *Universal        // might be nil, a write will fill it.
-	options          map[string][]byte // OptionsMap // optional
+	Options          map[string][]byte // OptionsMap // optional
 }
 
-// StandardAlias is really a HashType in bytes or [16]byte
+// StandardAlias is really a HashType in bytes or [20]byte. enforced elsewhere.
 type StandardAlias []byte
 
 // MessageCommon is
@@ -57,20 +59,21 @@ type MessageCommon struct {
 	PacketCommon
 	// the fields:
 	// address can be empty if sourceAlias is not. None should be null.
-	address      []byte
-	addressAlias StandardAlias
+	// aka destination.
+	Address      []byte
+	AddressAlias StandardAlias
 }
 
-// Send aka 'publish' sends data to destination possibly expecting a reply to source.
+// Send aka 'publish' aka 'push' sends data to destination possibly expecting a reply to source.
 //
 type Send struct {
 	MessageCommon // address
 
 	// a return address
-	source      []byte
-	sourceAlias StandardAlias
+	Source      []byte
+	SourceAlias StandardAlias
 
-	payload []byte
+	Payload []byte
 }
 
 // Lookup returns information on the dest to source.
@@ -79,8 +82,8 @@ type Send struct {
 type Lookup struct {
 	MessageCommon
 	// a return address
-	source      []byte
-	sourceAlias StandardAlias
+	Source      []byte
+	SourceAlias StandardAlias
 }
 
 // Subscribe is to declare that the Thing has an address.
@@ -112,7 +115,7 @@ type Disconnect struct {
 There is a type rune "P" or "S" or whatever.
 
 Then there is an arg count: unsigned byte,
-	so, we're up to two bytes now.
+	so, we're up to two bytes now and we could have 256 args.
 Then a compressed list of integers, which are lengths of the args.
 	unsigned bytes <= 127 are a length
 	else the lower 7 bits are the msb and the next byte is lsb. etc.
@@ -122,7 +125,6 @@ So, in chars, the command "P topic msg" becomes:
 P 2 5 3 t o p i c m s g
 where 2 is the number of args 5 is the len of "topic" and 3 is the len of "msg"
 followed by the bytes "topicmsg"
-
 */
 
 // CommandType is usually ascii
@@ -130,13 +132,13 @@ type CommandType rune
 
 // Universal is the wire representation.
 type Universal struct {
-	cmd  CommandType
-	args [][]byte
+	Cmd  CommandType
+	Args [][]byte
 }
 
 // GetIPV6Option is an example of using options
 func (p *PacketCommon) GetIPV6Option() []byte {
-	return p.options["ipv6"]
+	return p.Options["IPv6"]
 }
 
 // ReadPacket attempts to obtain a valid Packet from the stream
@@ -147,7 +149,7 @@ func ReadPacket(reader io.Reader) (PacketIntf, error) {
 		return nil, err
 	}
 	var p PacketIntf
-	switch str.cmd {
+	switch str.Cmd {
 	case 'P': // Send aka Publish
 		p = &Send{}
 		err := p.Fill(str)
@@ -207,76 +209,76 @@ func unpackOptions(args [][]byte, optionsP *map[string][]byte) {
 // See ReadPacket
 func (p *Subscribe) Fill(str *Universal) error {
 
-	if len(str.args) < 2 {
+	if len(str.Args) < 2 {
 		return errors.New("too few args for Subscribe")
 	}
-	p.address = str.args[0]
-	p.addressAlias = str.args[1]
+	p.Address = str.Args[0]
+	p.AddressAlias = str.Args[1]
 
-	unpackOptions(str.args[2:], &p.options)
+	unpackOptions(str.Args[2:], &p.Options)
 	return nil
 }
 
 // Fill implements the 2nd part of an unmarshal.
 func (p *Unsubscribe) Fill(str *Universal) error {
 
-	if len(str.args) < 2 {
+	if len(str.Args) < 2 {
 		return errors.New("too few args for Unsubscribe")
 	}
-	p.address = str.args[0]
-	p.addressAlias = str.args[1]
+	p.Address = str.Args[0]
+	p.AddressAlias = str.Args[1]
 
-	unpackOptions(str.args[2:], &p.options)
+	unpackOptions(str.Args[2:], &p.Options)
 	return nil
 }
 
 // Fill implements the 2nd part of an unmarshal
 func (p *Send) Fill(str *Universal) error {
 
-	if len(str.args) < 5 {
+	if len(str.Args) < 5 {
 		return errors.New("too few args for Send")
 	}
 
-	p.address = str.args[0]
-	p.addressAlias = str.args[1]
+	p.Address = str.Args[0]
+	p.AddressAlias = str.Args[1]
 
-	p.source = str.args[2]
-	p.sourceAlias = str.args[3]
+	p.Source = str.Args[2]
+	p.SourceAlias = str.Args[3]
 
-	p.payload = str.args[4]
+	p.Payload = str.Args[4]
 
-	unpackOptions(str.args[5:], &p.options)
+	unpackOptions(str.Args[5:], &p.Options)
 	return nil
 }
 
 // Fill implements the 2nd part of an unmarshal.
 func (p *Connect) Fill(str *Universal) error {
 
-	unpackOptions(str.args[0:], &p.options)
+	unpackOptions(str.Args[0:], &p.Options)
 	return nil
 }
 
 // Fill implements the 2nd part of an unmarshal.
 func (p *Disconnect) Fill(str *Universal) error {
 
-	unpackOptions(str.args[0:], &p.options)
+	unpackOptions(str.Args[0:], &p.Options)
 	return nil
 }
 
 // Fill implements the 2nd part of an unmarshal.
 func (p *Lookup) Fill(str *Universal) error {
 
-	if len(str.args) < 4 {
+	if len(str.Args) < 4 {
 		return errors.New("too few args for Lookup")
 	}
 
-	p.address = str.args[0]
-	p.addressAlias = str.args[1]
+	p.Address = str.Args[0]
+	p.AddressAlias = str.Args[1]
 
-	p.source = str.args[2]
-	p.sourceAlias = str.args[3]
+	p.Source = str.Args[2]
+	p.SourceAlias = str.Args[3]
 
-	unpackOptions(str.args[4:], &p.options)
+	unpackOptions(str.Args[4:], &p.Options)
 	return nil
 }
 
@@ -289,47 +291,87 @@ func packOptions(args [][]byte, options *map[string][]byte) [][]byte {
 }
 
 // UniversalToJSON outputs an array of strings.
+// in a bad json like syntax. It's just for debugging.
+// It should be parseable by badjson.
 func UniversalToJSON(str *Universal) ([]byte, error) {
 
-	amap := make(map[string]interface{})
+	var bb bytes.Buffer
 
-	amap["cmd"] = string(str.cmd)
+	bb.WriteByte('[')
+	bb.WriteRune(rune(str.Cmd))
 
-	argArr := make([]map[string]interface{}, 0, len(str.args))
-	for i, bstr := range str.args {
-		isascii := true
-		val := make(map[string]interface{})
-		for _, b := range bstr {
-			if b < 32 || b > 127 {
-				isascii = false
-				break
-			}
-		}
-		// we need to do something about this: FIXME:
-		if isascii {
-			val["asc"] = string(bstr) // ascii
-		} else {
-			if utf8.Valid(bstr) {
-				val["utf"] = string(bstr)
-			} else {
-				val["b64"] = base64.StdEncoding.WithPadding(-1).EncodeToString(bstr)
-			}
-		}
-		argArr = append(argArr, val)
+	for i, bstr := range str.Args {
 		_ = i
+
+		isascii, hasdelimeters := badjson.IsASCII(bstr)
+		if isascii {
+			bb.WriteByte(',')
+			if hasdelimeters {
+				bb.WriteByte('"')
+				bb.WriteString(badjson.MakeEscaped(string(bstr), 0))
+				bb.WriteByte('"')
+			} else {
+				bb.Write(bstr)
+			}
+		} else if utf8.Valid(bstr) {
+			bb.WriteByte(',')
+
+			bb.WriteByte('"')
+
+			bb.WriteString(badjson.MakeEscaped(string(bstr), 0))
+			bb.WriteByte('"')
+
+		} else {
+			bb.WriteByte(',')
+			bb.WriteByte('=')
+			tmp := base64.RawStdEncoding.EncodeToString(bstr)
+			bb.WriteString(tmp)
+		}
 	}
 
-	amap["args"] = argArr
-	bytes, err := json.Marshal(amap)
-	if err != nil {
-		return []byte(""), err
-	}
-	return bytes, err
+	bb.WriteByte(']')
+
+	return bb.Bytes(), nil
+
+	// amap := make(map[string]interface{})
+
+	// amap["cmd"] = string(str.Cmd)
+
+	// argArr := make([]map[string]interface{}, 0, len(str.Args))
+	// for i, bstr := range str.Args {
+	// 	isascii := true
+	// 	val := make(map[string]interface{})
+	// 	for _, b := range bstr {
+	// 		if b < 32 || b > 127 {
+	// 			isascii = false
+	// 			break
+	// 		}
+	// 	}
+	// 	// we need to do something about this: FIXME:
+	// 	if isascii {
+	// 		val["asc"] = string(bstr) // ascii
+	// 	} else {
+	// 		if utf8.Valid(bstr) {
+	// 			val["utf"] = string(bstr)
+	// 		} else {
+	// 			val["b64"] = base64.StdEncoding.WithPadding(-1).EncodeToString(bstr)
+	// 		}
+	// 	}
+	// 	argArr = append(argArr, val)
+	// 	_ = i
+	// }
+
+	// amap["args"] = argArr
+	// bytes, err := json.Marshal(amap)
+	// if err != nil {
+	// 	return []byte(""), err
+	// }
+	// return bytes, err
 }
 
 // these are all the same:
 
-// ToJSON to output a json version
+// ToJSON to output a bad json version
 func (p *Send) ToJSON() ([]byte, error) {
 	p.Write(nil) // force existance of backingUniversal
 	bytes, err := UniversalToJSON(p.backingUniversal)
@@ -414,11 +456,11 @@ func (p *Subscribe) Write(conn net.Conn) error {
 	if p.backingUniversal == nil {
 		str := new(Universal)
 		p.backingUniversal = str
-		str.cmd = 'S' //
-		str.args = make([][]byte, 0, 2+len(p.options)*2)
-		str.args = append(str.args, p.address)
-		str.args = append(str.args, p.addressAlias)
-		str.args = packOptions(str.args, &p.options)
+		str.Cmd = 'S' //
+		str.Args = make([][]byte, 0, 2+len(p.Options)*2)
+		str.Args = append(str.Args, p.Address)
+		str.Args = append(str.Args, p.AddressAlias)
+		str.Args = packOptions(str.Args, &p.Options)
 	}
 	err := p.backingUniversal.Write(conn)
 	return err
@@ -429,11 +471,11 @@ func (p *Unsubscribe) Write(conn net.Conn) error {
 	if p.backingUniversal == nil {
 		str := new(Universal)
 		p.backingUniversal = str
-		str.cmd = 'U' //
-		str.args = make([][]byte, 0, 2+len(p.options)*2)
-		str.args = append(str.args, p.address)
-		str.args = append(str.args, p.addressAlias)
-		str.args = packOptions(str.args, &p.options)
+		str.Cmd = 'U' //
+		str.Args = make([][]byte, 0, 2+len(p.Options)*2)
+		str.Args = append(str.Args, p.Address)
+		str.Args = append(str.Args, p.AddressAlias)
+		str.Args = packOptions(str.Args, &p.Options)
 	}
 	err := p.backingUniversal.Write(conn)
 	return err
@@ -444,14 +486,14 @@ func (p *Send) Write(conn net.Conn) error {
 	if p.backingUniversal == nil {
 		str := new(Universal)
 		p.backingUniversal = str
-		str.cmd = 'P' // Publish
-		str.args = make([][]byte, 0, 5+len(p.options)*2)
-		str.args = append(str.args, p.address)
-		str.args = append(str.args, p.addressAlias)
-		str.args = append(str.args, p.source)
-		str.args = append(str.args, p.sourceAlias)
-		str.args = append(str.args, p.payload)
-		str.args = packOptions(str.args, &p.options)
+		str.Cmd = 'P' // Publish
+		str.Args = make([][]byte, 0, 5+len(p.Options)*2)
+		str.Args = append(str.Args, p.Address)
+		str.Args = append(str.Args, p.AddressAlias)
+		str.Args = append(str.Args, p.Source)
+		str.Args = append(str.Args, p.SourceAlias)
+		str.Args = append(str.Args, p.Payload)
+		str.Args = packOptions(str.Args, &p.Options)
 	}
 	err := p.backingUniversal.Write(conn)
 	return err
@@ -461,9 +503,9 @@ func (p *Connect) Write(conn net.Conn) error {
 	if p.backingUniversal == nil {
 		str := new(Universal)
 		p.backingUniversal = str
-		str.cmd = 'C'
-		str.args = make([][]byte, 0, 0+len(p.options)*2)
-		str.args = packOptions(str.args, &p.options)
+		str.Cmd = 'C'
+		str.Args = make([][]byte, 0, 0+len(p.Options)*2)
+		str.Args = packOptions(str.Args, &p.Options)
 	}
 	err := p.backingUniversal.Write(conn)
 	return err
@@ -473,9 +515,9 @@ func (p *Disconnect) Write(conn net.Conn) error {
 	if p.backingUniversal == nil {
 		str := new(Universal)
 		p.backingUniversal = str
-		str.cmd = 'D'
-		str.args = make([][]byte, 0, 0+len(p.options)*2)
-		str.args = packOptions(str.args, &p.options)
+		str.Cmd = 'D'
+		str.Args = make([][]byte, 0, 0+len(p.Options)*2)
+		str.Args = packOptions(str.Args, &p.Options)
 	}
 	err := p.backingUniversal.Write(conn)
 	return err
@@ -485,12 +527,12 @@ func (p *Lookup) Write(conn net.Conn) error {
 	if p.backingUniversal == nil {
 		str := new(Universal)
 		p.backingUniversal = str
-		str.cmd = 'D'
-		str.args = make([][]byte, 0, 4+len(p.options)*2)
-		str.args = append(str.args, p.address)
-		str.args = append(str.args, p.addressAlias)
-		str.args = append(str.args, p.source)
-		str.args = append(str.args, p.sourceAlias)
+		str.Cmd = 'D'
+		str.Args = make([][]byte, 0, 4+len(p.Options)*2)
+		str.Args = append(str.Args, p.Address)
+		str.Args = append(str.Args, p.AddressAlias)
+		str.Args = append(str.Args, p.Source)
+		str.Args = append(str.Args, p.SourceAlias)
 	}
 	err := p.backingUniversal.Write(conn)
 	return err
@@ -505,10 +547,10 @@ func ReadUniversal(reader io.Reader) (*Universal, error) {
 	if err != nil {
 		return &str, err
 	}
-	str.cmd = CommandType(oneByte[0])
+	str.Cmd = CommandType(oneByte[0])
 
 	// read array of byte arrays
-	str.args, err = ReadArrayOfByteArray(reader)
+	str.Args, err = ReadArrayOfByteArray(reader)
 	_ = n
 	return &str, err
 }
@@ -540,7 +582,7 @@ func ReadArrayOfByteArray(reader io.Reader) ([][]byte, error) {
 		total += aval
 
 	}
-	if total > 1024*1024 {
+	if total > 1024*16 {
 		return nil, errors.New("Packet too long for this reality")
 	}
 	// now we can read the rest all at once
@@ -568,12 +610,12 @@ func (str *Universal) Write(writer io.Writer) error {
 	}
 
 	oneByte := []uint8{0}
-	oneByte[0] = uint8(str.cmd)
+	oneByte[0] = uint8(str.Cmd)
 	n, err := writer.Write(oneByte)
 	if err != nil {
 		return err
 	}
-	err = WriteArrayOfByteArray(str.args, writer)
+	err = WriteArrayOfByteArray(str.Args, writer)
 	_ = n
 	return nil
 }

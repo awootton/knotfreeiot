@@ -38,6 +38,7 @@ type Segment interface {
 
 // Chop up a line of text into segments. Calling it a parser would be over stating it.
 // Returns a head of a list, the number of bytes consumed, and maybe an error.
+// TODO: don't recurse.
 func Chop(inputLineOfText string) (Segment, error) {
 	s, _, err := chop(inputLineOfText, utf8.RuneError, 0)
 	return s, err
@@ -53,7 +54,7 @@ func chop(inputLineOfText string, closer rune, depth int) (Segment, int, error) 
 		return nil, 0, errors.New("recursed 16 deep")
 	}
 	// we're returning a linked list, head.Next() which may be nil
-	var head base
+	var head Base
 	var tail Segment
 	tail = &head
 
@@ -140,7 +141,7 @@ func chop(inputLineOfText string, closer rune, depth int) (Segment, int, error) 
 					break
 				}
 			}
-			tail = NewRuneArray(currentString(), tail, hasEscape)
+			tail = NewRuneArray(currentString(), tail, hasEscape, true)
 			if pop() {
 				break
 			}
@@ -159,8 +160,7 @@ func chop(inputLineOfText string, closer rune, depth int) (Segment, int, error) 
 				}
 			}
 			if (r == '+' || r == '-') && previousr == 'e' {
-				if pop() {
-				} else {
+				if pop() == false {
 					goto morenum
 				}
 			}
@@ -211,7 +211,7 @@ func chop(inputLineOfText string, closer rune, depth int) (Segment, int, error) 
 					break
 				}
 			}
-			tail = NewRuneArray(currentString(), tail, false)
+			tail = NewRuneArray(currentString(), tail, false, true)
 		}
 	}
 }
@@ -257,28 +257,29 @@ func getJSONinternal(s Segment, dest strings.Builder, isArray bool) (strings.Bui
 	return dest, nil
 }
 
-// they will all decend from base
-type base struct {
+// Base - they will all decend from Base
+type Base struct {
 	nexts Segment
 	input string
 }
 
-func (b *base) String() string {
+func (b *Base) String() string {
 	return `""`
 }
 
-func (b *base) Next() Segment {
+// Next returns the next segment or nil
+func (b *Base) Next() Segment {
 	return b.nexts
 }
 
-func (b *base) setNext(n Segment) {
+func (b *Base) setNext(n Segment) {
 	b.nexts = n
 }
 
 // Base64Bytes for when there's a block of data in base64
 type Base64Bytes struct {
-	base
-	output []byte
+	Base
+	//output []byte
 }
 
 // NewBase64Bytes is a factory
@@ -293,7 +294,6 @@ func NewBase64Bytes(data string, previous Segment) Segment {
 func (b *Base64Bytes) GetBytes() []byte {
 	decoded, err := base64.RawStdEncoding.DecodeString(b.input)
 	if err != nil {
-		//fmt.Println("decode error:", err)
 		return []byte("")
 	}
 	return decoded
@@ -307,7 +307,7 @@ func (b *Base64Bytes) String() string {
 
 // HexBytes is for when there's a block of data in hex.
 type HexBytes struct {
-	base
+	Base
 }
 
 // NewHexBytes is a factory
@@ -325,7 +325,7 @@ func (b *HexBytes) GetBytes() []byte {
 		in = in + "0"
 	}
 	decoded, err := hex.DecodeString(in)
-	// it's impossible to get test coberage for this:
+	// it's impossible to get test coverage for this:
 	// if err != nil {
 	// 	fmt.Println("decode error:", err)
 	// 	return []byte("")
@@ -342,16 +342,18 @@ func (b *HexBytes) String() string {
 
 // RuneArray aka string
 type RuneArray struct {
-	base
-	hasEscape bool
+	Base
+	hasEscape  bool
+	needsQuote bool
 }
 
 // NewRuneArray is a factory
-func NewRuneArray(data string, previous Segment, hasEscape bool) Segment {
+func NewRuneArray(data string, previous Segment, hasEscape bool, needsQuote bool) Segment {
 	b := new(RuneArray)
 	b.input = data
 	previous.setNext(b)
 	b.hasEscape = hasEscape
+	b.needsQuote = needsQuote
 	return b
 }
 
@@ -374,7 +376,9 @@ func (b *RuneArray) GetString() string {
 	return b.input
 }
 
-func needsEscape(str string) int {
+// NeedsEscape returns a count of how much longer the escaped version
+// of the string would be. This is not for strings with \n or \r or \t in them.
+func NeedsEscape(str string) int {
 	count := 0
 	for _, r := range str {
 		if r == '\\' || r == '\'' || r == '"' {
@@ -384,7 +388,11 @@ func needsEscape(str string) int {
 	return count
 }
 
-func makeEscaped(str string, sizeHint int) string {
+// MakeEscaped will return an 'escaped' version of the string
+// if the string contains \ or " or '
+// The sizeHint is for we already know how many much longer
+// the output will be. See NeedsEscape
+func MakeEscaped(str string, sizeHint int) string {
 	var sb strings.Builder
 	sb.Grow(len(str) + sizeHint)
 	for _, r := range str {
@@ -399,16 +407,19 @@ func makeEscaped(str string, sizeHint int) string {
 // Return the string in json format
 func (b *RuneArray) String() string {
 	str := b.GetString()
-	needAmt := needsEscape(str)
+	needAmt := NeedsEscape(str)
 	if needAmt > 0 {
-		str = makeEscaped(str, needAmt)
+		str = MakeEscaped(str, needAmt)
 	}
-	return `"` + str + `"`
+	if b.needsQuote {
+		return `"` + str + `"`
+	}
+	return str
 }
 
 // Number is a float64
 type Number struct {
-	base
+	Base
 	wasNegative bool
 }
 
@@ -457,7 +468,7 @@ func (b *Number) String() string {
 
 // Parent has a sub-list
 type Parent struct {
-	base
+	Base
 	children Segment
 	wasArray bool
 }
@@ -475,11 +486,6 @@ func (b *Parent) String() string {
 	var sb strings.Builder
 	sb, _ = getJSONinternal(b.children, sb, b.wasArray)
 	return sb.String()
-}
-
-// Dummy is dumb
-func Dummy() {
-	// and stupid
 }
 
 const encodeStd = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
@@ -512,4 +518,30 @@ func init() {
 		HexMap['A'+i-10] = byte(i)
 	}
 
+}
+
+// IsASCII is true if all chars are >= ' ' and <= 127
+// the 2nd bool is if the string has delimeters so it would need quotes.
+func IsASCII(bstr []byte) (bool, bool) {
+	isascii := true
+	hasdelimeters := false
+	r, runeLength := utf8.DecodeRune(bstr)
+	if runeLength == 1 {
+		if r == '"' || r == ',' || r == ':' || r == ' ' || r == '$' || r == '+' || r == '-' || r == '=' || r == '[' || r == '{' {
+			hasdelimeters = true
+		}
+	}
+
+	for _, b := range bstr {
+		if b < 32 || b > 127 {
+			isascii = false
+
+		} else {
+			if b == ' ' || b == ':' || b == ',' { // ] and } ?
+				hasdelimeters = true
+			}
+		}
+	}
+
+	return isascii, hasdelimeters
 }
