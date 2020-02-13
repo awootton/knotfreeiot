@@ -15,8 +15,8 @@ spec:
       serviceAccountName: app-operator
       containers:
         - name: app-operator
-          # Replace this with the built image name
-          image: gcr.io/fair-theater-238820/app-operator
+          # Replaced this is the built image name
+          image: gcr.io/fair-theater-238820/app-operatorc
           command:
           - app-operator
           imagePullPolicy: Always

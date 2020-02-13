@@ -2,8 +2,13 @@ module github.com/awootton/knotfreeiot
 
 go 1.12
 
+replace github.com/awootton/knotfreeiot/packets => packets
+
+replace github.com/awootton/knotfreeiot/badjson => badjson
+
+replace github.com/awootton/knotfreeiot/iot => iot
+
 require (
-	github.com/awootton/knotfreeiot/badjson v0.0.0-20200203065844-87bfdb666dc4 // indirect
 	github.com/eclipse/paho.mqtt.golang v1.2.0
 	github.com/kr/pretty v0.2.0 // indirect
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.2.2

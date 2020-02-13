@@ -1,7 +1,8 @@
 github.com/awootton/knotfreeiot v0.0.0-20200203065844-87bfdb666dc4 h1:XyYONNoRWIdVENzGGfiLuxCH/gM3C1wXb51oXdc+Mzg=
 github.com/awootton/knotfreeiot v0.0.0-20200203065844-87bfdb666dc4/go.mod h1:j+8y2UL4+QSwnlftDKvY7JbVV/EtiJa0dEVgyLTMXQo=
-
 github.com/eclipse/paho.mqtt.golang v1.2.0/go.mod h1:H9keYFcgq3Qr5OUJm/JZI/i6U7joQ8SYLhZwfeOo6Ts=
+github.com/emirpasic/gods v1.12.0 h1:QAUIPSaCu4G+POclxeqb3F+WPpdKqFGlw36+yOzGlrg=
+github.com/emirpasic/gods v1.12.0/go.mod h1:YfzfFFoVP/catgzJb4IKIqXjX78Ha8FMSDh3ymbK86o=
 github.com/fsnotify/fsnotify v1.4.7/go.mod h1:jwhsz4b93w/PPRr/qN1Yymfu8t87LnFCMoQvtojpjFo=
 github.com/golang/protobuf v1.2.0/go.mod h1:6lQm79b+lXiMfvg/cZm0SGofjICqVBUtrP5yJMmIC1U=
 github.com/golang/protobuf v1.3.1/go.mod h1:6lQm79b+lXiMfvg/cZm0SGofjICqVBUtrP5yJMmIC1U=

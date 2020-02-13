@@ -2,6 +2,10 @@ module github.com/example-inc/app-operator
 
 go 1.13
 
+replace github.com/awootton/knotfreeiot/packets => ../packets
+
+replace github.com/awootton/knotfreeiot/badjson => ../badjson
+
 require (
 	github.com/operator-framework/operator-sdk v0.14.1
 	github.com/spf13/pflag v1.0.5

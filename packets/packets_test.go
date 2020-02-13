@@ -20,11 +20,279 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/awootton/knotfreeiot/packets"
 )
+
+func TestSend(t *testing.T) {
+
+	got := ""
+	want := ""
+
+	cmd := packets.Send{}
+	cmd.Source = []byte(`source`)
+	cmd.Address = []byte("dest")
+	cmd.Payload = []byte("some_data")
+
+	var bb bytes.Buffer
+	err := (&cmd).Write(&bb)
+	_ = err
+
+	got = hex.EncodeToString(bb.Bytes())
+	want = `5005040006000964657374736f75726365736f6d655f64617461` // P followed by 5 strings, two are zero len.
+	if got != want {
+		t.Errorf("got %v, want %v", got, want)
+	}
+
+	uni, err := packets.ReadUniversal(&bb)
+
+	bytes, err := packets.UniversalToJSON(uni)
+	got = string(bytes)
+	want = `[P,dest,,source,,some_data]`
+	if got != want {
+		t.Errorf("got %v, want %v", got, want)
+	}
+
+	got = cmd.String()
+	if got != want {
+		t.Errorf("got %v, want %v", got, want)
+	}
+
+	bb.Reset()
+	err = (&cmd).Write(&bb)
+	_ = err
+
+	pack, err := packets.ReadPacket(&bb)
+	bytes, err = pack.ToJSON()
+	got = string(bytes)
+	want = `[P,dest,,source,,some_data]`
+	if got != want {
+		t.Errorf("got %v, want %v", got, want)
+	}
+
+}
+
+func TestSub(t *testing.T) {
+
+	got := "a"
+	want := "b"
+
+	cmd := packets.Subscribe{}
+	cmd.Address = []byte("destination address")
+
+	var bb bytes.Buffer
+	err := (&cmd).Write(&bb)
+	_ = err
+	got = hex.EncodeToString(bb.Bytes())
+	want = `5302130064657374696e6174696f6e2061646472657373`
+	if got != want {
+		t.Errorf("got %v, want %v", got, want)
+	}
+
+	uni, err := packets.ReadUniversal(&bb)
+
+	bytes, err := packets.UniversalToJSON(uni)
+	got = string(bytes)
+	want = `[S,"destination address",]`
+	if got != want {
+		t.Errorf("got %v, want %v", got, want)
+	}
+	got = cmd.String()
+	if got != want {
+		t.Errorf("got %v, want %v", got, want)
+	}
+
+	bb.Reset()
+	err = (&cmd).Write(&bb)
+	_ = err
+
+	pack, err := packets.ReadPacket(&bb)
+	bytes, err = pack.ToJSON()
+	got = string(bytes)
+	want = `[S,"destination address",]`
+	if got != want {
+		t.Errorf("got %v, want %v", got, want)
+	}
+
+}
+
+func TestUnSub(t *testing.T) {
+
+	got := "a"
+	want := "b"
+
+	cmd := packets.Unsubscribe{}
+	cmd.Address = []byte("destination address")
+
+	var bb bytes.Buffer
+	err := (&cmd).Write(&bb)
+	_ = err
+	got = hex.EncodeToString(bb.Bytes())
+	want = `5502130064657374696e6174696f6e2061646472657373`
+	if got != want {
+		t.Errorf("got %v, want %v", got, want)
+	}
+
+	uni, err := packets.ReadUniversal(&bb)
+
+	bytes, err := packets.UniversalToJSON(uni) // ([]byte, error)
+	got = string(bytes)
+	want = `[U,"destination address",]`
+	if got != want {
+		t.Errorf("got %v, want %v", got, want)
+	}
+	got = cmd.String()
+	if got != want {
+		t.Errorf("got %v, want %v", got, want)
+	}
+
+	bb.Reset()
+	err = (&cmd).Write(&bb)
+	_ = err
+
+	pack, err := packets.ReadPacket(&bb)
+	bytes, err = pack.ToJSON()
+	got = string(bytes)
+	want = `[U,"destination address",]`
+	if got != want {
+		t.Errorf("got %v, want %v", got, want)
+	}
+}
+
+func TestConnect(t *testing.T) {
+
+	got := "a"
+	want := "b"
+
+	cmd := packets.Connect{}
+	cmd.PutOption("key1", []byte("value1"))
+	cmd.PutOption("key2", []byte("value2"))
+
+	var bb bytes.Buffer
+	err := (&cmd).Write(&bb)
+	_ = err
+	got = hex.EncodeToString(bb.Bytes())
+	want = `4304040604066b65793176616c7565316b65793276616c756532` //
+	if got != want {
+		t.Errorf("got %v, want %v", got, want)
+	}
+
+	uni, err := packets.ReadUniversal(&bb)
+
+	bytes, err := packets.UniversalToJSON(uni) // ([]byte, error)
+	got = string(bytes)
+	want = `[C,key1,value1,key2,value2]`
+	if got != want {
+		t.Errorf("got %v, want %v", got, want)
+	}
+	got = cmd.String()
+	if got != want {
+		t.Errorf("got %v, want %v", got, want)
+	}
+
+	bb.Reset()
+	err = (&cmd).Write(&bb)
+	_ = err
+
+	pack, err := packets.ReadPacket(&bb)
+	bytes, err = pack.ToJSON()
+	got = string(bytes)
+	want = `[C,key1,value1,key2,value2]`
+	if got != want {
+		t.Errorf("got %v, want %v", got, want)
+	}
+}
+
+func TestDis(t *testing.T) {
+
+	got := "a"
+	want := "b"
+
+	cmd := packets.Disconnect{}
+	cmd.PutOption("key1", []byte("value1"))
+	cmd.PutOption("key2", []byte("value2"))
+
+	var bb bytes.Buffer
+	err := (&cmd).Write(&bb)
+	_ = err
+	got = hex.EncodeToString(bb.Bytes())
+	want = `4404040604066b65793176616c7565316b65793276616c756532` //
+	if got != want {
+		t.Errorf("got %v, want %v", got, want)
+	}
+
+	uni, err := packets.ReadUniversal(&bb)
+
+	bytes, err := packets.UniversalToJSON(uni) // ([]byte, error)
+	got = string(bytes)
+	want = `[D,key1,value1,key2,value2]`
+	if got != want {
+		t.Errorf("got %v, want %v", got, want)
+	}
+	got = cmd.String()
+	if got != want {
+		t.Errorf("got %v, want %v", got, want)
+	}
+
+	bb.Reset()
+	err = (&cmd).Write(&bb)
+	_ = err
+
+	pack, err := packets.ReadPacket(&bb)
+	bytes, err = pack.ToJSON()
+	got = string(bytes)
+	want = `[D,key1,value1,key2,value2]`
+	if got != want {
+		t.Errorf("got %v, want %v", got, want)
+	}
+}
+
+func TestLookup(t *testing.T) {
+
+	got := "a"
+	want := "b"
+
+	cmd := packets.Lookup{}
+	cmd.Address = []byte("look me up")
+	cmd.Source = []byte("reply to me")
+
+	var bb bytes.Buffer
+	err := (&cmd).Write(&bb)
+	_ = err
+	got = hex.EncodeToString(bb.Bytes())
+	want = `4c040a000b006c6f6f6b206d652075707265706c7920746f206d65` //
+	if got != want {
+		t.Errorf("got %v, want %v", got, want)
+	}
+
+	uni, err := packets.ReadUniversal(&bb)
+
+	bytes, err := packets.UniversalToJSON(uni) // ([]byte, error)
+	got = string(bytes)
+	want = `[L,"look me up",,"reply to me",]`
+	if got != want {
+		t.Errorf("got %v, want %v", got, want)
+	}
+	got = cmd.String()
+	if got != want {
+		t.Errorf("got %v, want %v", got, want)
+	}
+
+	bb.Reset()
+	err = (&cmd).Write(&bb)
+	_ = err
+
+	pack, err := packets.ReadPacket(&bb)
+	bytes, err = pack.ToJSON()
+	got = string(bytes)
+	want = `[L,"look me up",,"reply to me",]`
+	if got != want {
+		t.Errorf("got %v, want %v", got, want)
+	}
+}
 
 type TestPacketStuff int
 
@@ -86,21 +354,21 @@ func ExampleToJSON() {
 	cmd.Source = []byte("sourceaddr")
 	cmd.Address = []byte("destaddr")
 	cmd.Payload = []byte("some data")
-	cmd.Options = make(map[string][]byte)
-	cmd.Options["option1"] = []byte("test")
+	cmd.PutOption("option1", []byte("test"))
+
 	addr := "2001:0db8:85a3:0000:0000:8a2e:0370:7334"
 	hexstr := strings.ReplaceAll(addr, ":", "")
 	decoded, err := hex.DecodeString(hexstr)
 	if err != nil {
 		fmt.Println("wrong")
 	}
-	cmd.Options["IPv6"] = decoded
+	cmd.PutOption("IPv6", decoded)
 	decoded, err = hex.DecodeString("FFFF00000000000000ABCDEF")
 	if err != nil {
 		fmt.Println("wrong2")
 	}
-	cmd.Options["z"] = decoded
-	cmd.Options["option2"] = []byte("На берегу пустынных волн")
+	cmd.PutOption("z", decoded)
+	cmd.PutOption("option2", []byte("На берегу пустынных волн"))
 
 	jdata, err := (&cmd).ToJSON()
 	fmt.Println(string(jdata))
@@ -109,7 +377,7 @@ func ExampleToJSON() {
 	//  GetIPV6Option
 	fmt.Println(cmd.GetIPV6Option())
 
-	// Output: [P,destaddr,,sourceaddr,,"some data",option1,test,IPv6,=IAENuIWjAAAAAIouA3BzNA,z,=//8AAAAAAAAAq83v,option2,"На берегу пустынных волн"]
+	// Output: [P,destaddr,,sourceaddr,,"some data",IPv6,=IAENuIWjAAAAAIouA3BzNA,option1,test,option2,"На берегу пустынных волн",z,=//8AAAAAAAAAq83v]
 	// [32 1 13 184 133 163 0 0 0 0 138 46 3 112 115 52]
 
 }
@@ -142,6 +410,205 @@ func StandardAliasHash(longName []byte) []byte {
 	h := sha256.New()
 	h.Write(longName)
 	return h.Sum(nil)
+}
+
+func TestForZombies(t *testing.T) {
+
+	cmd := packets.Send{}
+	val, ok := cmd.GetOption("key9")
+
+	got := "notok"
+	want := "notok"
+	if ok == true {
+		got = "ok"
+	}
+	if got != want {
+		t.Errorf("got %v, want %v", got, want)
+	}
+	got = string(val)
+	want = ""
+	if got != want {
+		t.Errorf("got %v, want %v", got, want)
+	}
+
+	cmd.PutOption("key1", []byte("val1"))
+	val, ok = cmd.GetOption("key9")
+
+	got = "notok"
+	want = "notok"
+	if ok == true {
+		got = "ok"
+	}
+	if got != want {
+		t.Errorf("got %v, want %v", got, want)
+	}
+	got = string(val)
+	want = ""
+	if got != want {
+		t.Errorf("got %v, want %v", got, want)
+	}
+
+	val = cmd.GetIPV6Option()
+	got = string(val)
+	want = ""
+	if got != want {
+		t.Errorf("got %v, want %v", got, want)
+	}
+
+	var bb bytes.Buffer
+	bb.Reset()
+	bb.WriteString("")
+	uni, err := packets.ReadUniversal(&bb)
+	_ = uni
+	_ = err
+	got = err.Error()
+	want = "EOF"
+	if got != want {
+		t.Errorf("got %v, want %v", got, want)
+	}
+
+	bb.Reset()
+	bb.WriteString("P") // not enough data
+	uni, err = packets.ReadUniversal(&bb)
+	_ = uni
+	_ = err
+	got = err.Error()
+	want = "EOF"
+	if got != want {
+		t.Errorf("got %v, want %v", got, want)
+	}
+
+	bb.Reset()
+	bb.WriteString("P")
+	bb.WriteByte(0x05) // still not enough
+	uni, err = packets.ReadUniversal(&bb)
+	_ = uni
+	_ = err
+	got = err.Error()
+	want = "EOF"
+	if got != want {
+		t.Errorf("got %v, want %v", got, want)
+	}
+
+	bb.Reset()
+	bytes, err := hex.DecodeString(`5005040006`)
+	bb.Write(bytes) // still not enough
+	uni, err = packets.ReadUniversal(&bb)
+	_ = uni
+	_ = err
+	got = err.Error()
+	want = "EOF"
+	if got != want {
+		t.Errorf("got %v, want %v", got, want)
+	}
+
+	bb.Reset()
+	bytes, err = hex.DecodeString(`5085040006`)
+	bb.Write(bytes) // too many args
+	uni, err = packets.ReadUniversal(&bb)
+	_ = uni
+	_ = err
+	got = err.Error()
+	want = "Too many strings"
+	if got != want {
+		t.Errorf("got %v, want %v", got, want)
+	}
+
+	bb.Reset()
+	bytes, err = hex.DecodeString(`500504000600`)
+	bb.Write(bytes) // too few string lengths
+	uni, err = packets.ReadUniversal(&bb)
+	_ = uni
+	_ = err
+	got = err.Error()
+	want = "EOF"
+	if got != want {
+		t.Errorf("got %v, want %v", got, want)
+	}
+
+	bb.Reset()
+	bytes, err = hex.DecodeString(`500504000600`)
+	bb.Write(bytes) // too few string lengths
+	aPacket, err := packets.ReadPacket(&bb)
+	_ = aPacket
+	got = err.Error()
+	want = "EOF"
+	if got != want {
+		t.Errorf("got %v, want %v", got, want)
+	}
+
+}
+
+func TestForZombies2(t *testing.T) {
+
+	got := "notok"
+	want := "notok"
+	var bb bytes.Buffer
+
+	bb.Reset()
+	bytes, err := hex.DecodeString(`5005040006000964657374736f75726365736f6d655f646174`)
+	bb.Write(bytes) // short by one byte
+	uni, err := packets.ReadUniversal(&bb)
+	_ = uni
+	_ = err
+	got = err.Error()
+	want = "Too few bytes"
+	if got != want {
+		t.Errorf("got %v, want %v", got, want)
+	}
+
+	bb.Reset()
+	bytes, err = hex.DecodeString(`500504000600`)
+	bb.Write(bytes) // too few string lengths
+	aPacket, err := packets.ReadPacket(&bb)
+	_ = aPacket
+	got = err.Error()
+	want = "EOF"
+	if got != want {
+		t.Errorf("got %v, want %v", got, want)
+	}
+
+	cmd := packets.Send{}
+	cmd.Source = []byte(`source`)
+	cmd.Address = []byte("dest")
+	cmd.Payload = []byte("some_data")
+	for i := 0; i < 65; i++ {
+		val := "SomeTextSomeTextSomeTextSomeText"
+		val = val + val
+		val = val + val
+		val = val + val
+		cmd.PutOption("a very long key name"+strconv.Itoa(i), []byte(val))
+	}
+	bb.Reset()
+	err = (&cmd).Write(&bb)
+	got = err.Error()
+	want = "Too many args"
+	if got != want {
+		t.Errorf("got %v, want %v", got, want)
+	}
+
+	cmd = packets.Send{}
+	cmd.Source = []byte(`source`)
+	cmd.Address = []byte("dest")
+	cmd.Payload = []byte("some_data")
+	for i := 0; i < 60; i++ {
+		val := "SomeTextSomeTextSomeTextSomeText"
+		val = val + val
+		val = val + val
+		val = val + val
+		cmd.PutOption("a very long key name"+strconv.Itoa(i), []byte(val))
+	}
+	bb.Reset()
+	err = (&cmd).Write(&bb)
+	fmt.Println("buffer size", bb.Len())
+	aPacket, err = packets.ReadPacket(&bb)
+	_ = aPacket
+	got = err.Error()
+	want = "Packet too long for this reality"
+	if got != want {
+		t.Errorf("got %v, want %v", got, want)
+	}
+
 }
 
 //type TestPubSub1 int

@@ -2,6 +2,7 @@ package appservice
 
 import (
 	"context"
+	"fmt"
 
 	appv1alpha1 "github.com/example-inc/app-operator/pkg/apis/app/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
@@ -99,6 +100,9 @@ func (r *ReconcileAppService) Reconcile(request reconcile.Request) (reconcile.Re
 		// Error reading the object - requeue the request.
 		return reconcile.Result{}, err
 	}
+	// else instance is the service!
+	fmt.Println("spec size", instance.Spec.Size)
+	fmt.Println("status size", instance.Status.Size)
 
 	// Define a new Pod object
 	pod := newPodForCR(instance)
@@ -126,6 +130,20 @@ func (r *ReconcileAppService) Reconcile(request reconcile.Request) (reconcile.Re
 
 	// Pod already exists - don't requeue
 	reqLogger.Info("Skip reconcile: Pod already exists", "Pod.Namespace", found.Namespace, "Pod.Name", found.Name)
+
+	items2 := &corev1.NodeList{}
+
+	err2 := r.client.List(context.TODO(), items2)
+	_ = err2
+	if err2 == nil {
+		//reqLogger.Info("list found ", "list:", *items)
+		for i, node := range items2.Items {
+			nname := node.GetName()
+			fmt.Println("node/", nname)
+			_ = i
+		}
+	}
+
 	return reconcile.Result{}, nil
 }
 
