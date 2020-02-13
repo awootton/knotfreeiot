@@ -24,8 +24,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/awootton/knotfreeiot/iot"
 )
 
 // Hint: add "127.0.0.1 knotfreeserver" to /etc/hosts
@@ -176,7 +174,7 @@ func str2ProtocolServerDemo() {
 
 // HelloServer is
 func HelloServer(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Hello, %s! %v \n", r.URL.Path[1:]) //, reporting.GetLatestReport())
+	fmt.Fprintf(w, "Hello, %s! %v \n", r.URL.Path[1:], nil) //, reporting.GetLatestReport())
 }
 
 //var mainLogThing = reporting.NewStringEventAccumulator(16)
@@ -201,14 +199,14 @@ func bToMb(b uint64) uint64 {
 	return b / 1024 / 1024
 }
 
-var subscribeMgr iot.PubsubIntf
+//var subscribeMgr iot.PubsubIntf
 var subscribeMgrMutex sync.Mutex
 
-func getSubscribeMgr() iot.PubsubIntf {
-	subscribeMgrMutex.Lock()
-	if subscribeMgr == nil {
-		subscribeMgr = iot.NewPubsubManager(100 * 1000)
-	}
-	subscribeMgrMutex.Unlock()
-	return subscribeMgr
-}
+// func getSubscribeMgr() iot.PubsubIntf {
+// 	subscribeMgrMutex.Lock()
+// 	if subscribeMgr == nil {
+// 		subscribeMgr = iot.NewPubsubManager(100 * 1000)
+// 	}
+// 	subscribeMgrMutex.Unlock()
+// 	return subscribeMgr
+// }
