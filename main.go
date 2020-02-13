@@ -26,12 +26,6 @@ import (
 	"time"
 
 	"github.com/awootton/knotfreeiot/iot"
-	"github.com/awootton/knotfreeiot/iot/reporting"
-	// "github.com/awootton/knotfreeiot/iot/tiers"
-	// "github.com/awootton/knotfreeiot/iotprotocol"
-	// "github.com/awootton/knotfreeiot/mqttprotocol"
-	// "github.com/awootton/knotfreeiot/strprotocol"
-	//"github.com/awootton/knotfreeiot/aaprotocol"
 )
 
 // Hint: add "127.0.0.1 knotfreeserver" to /etc/hosts
@@ -182,10 +176,10 @@ func str2ProtocolServerDemo() {
 
 // HelloServer is
 func HelloServer(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Hello, %s! %v \n", r.URL.Path[1:], reporting.GetLatestReport())
+	fmt.Fprintf(w, "Hello, %s! %v \n", r.URL.Path[1:]) //, reporting.GetLatestReport())
 }
 
-var mainLogThing = reporting.NewStringEventAccumulator(16)
+//var mainLogThing = reporting.NewStringEventAccumulator(16)
 
 // func startReportingHere() {
 // 	aReportFunc := func(seconds float32) []string {
