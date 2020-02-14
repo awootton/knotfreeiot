@@ -48,10 +48,13 @@ type ContactInterface interface {
 
 	WriteDownstream(cmd packets.Interface)
 
+	WriteUpstream(cmd packets.Interface)
+
 	// the upstream write is Push (below)
 }
 
 // Push to deal with an incoming message going up.
+// todo: upgrade and consolidate the address logic.
 func Push(ssi ContactInterface, p packets.Interface) error {
 
 	config := ssi.GetConfig()
@@ -129,7 +132,7 @@ type ContactStructConfig struct {
 	address string // eg knotfreeserver:7009
 }
 
-// AddContactStruct does the -not-new, initializes everything, and puts the new ss on the global
+// AddContactStruct initializes a contact, and puts the new ss on the global
 // list. It also increments the sequence number in SockStructConfig.
 func AddContactStruct(ss *ContactStruct, config *ContactStructConfig) *ContactStruct {
 
@@ -144,6 +147,15 @@ func AddContactStruct(ss *ContactStruct, config *ContactStructConfig) *ContactSt
 
 	ss.ele = ss.config.list.PushBack(ss)
 	config.listlock.Unlock()
+
+	return ss
+}
+
+// InitUpperContactStruct because upper contacts are different
+// they are not linked like the others, they are saved in a map in lookup
+func InitUpperContactStruct(ss *ContactStruct) *ContactStruct {
+
+	ss.topicToName = make(map[HalfHash][]byte)
 
 	return ss
 }

@@ -19,6 +19,7 @@ package iot
 import (
 	"fmt"
 	"strconv"
+	"sync"
 
 	"github.com/awootton/knotfreeiot/packets"
 	"github.com/emirpasic/gods/trees/redblacktree"
@@ -32,29 +33,96 @@ type LookupTableStruct struct {
 	//
 	allTheSubscriptions []subscribeBucket
 
-	key HashType
+	key HashType // unique name for me.
+
+	upstreamRouter *UpstreamRouterStruct
+
+	NameResolver func(name string) (ContactInterface, error)
+}
+
+// UpstreamRouterStruct is maybe virtual in the future
+type UpstreamRouterStruct struct {
+	contacts [1024]ContactInterface
+	names    [1024]string
+
+	name2contact map[string]ContactInterface
+	mux          sync.Mutex
+}
+
+// PushUp is
+func (me *LookupTableStruct) PushUp(p packets.Interface, h HashType) error {
+
+	up := me.upstreamRouter
+
+	i := h.GetFractionalBits(10)
+
+	if up.contacts[i] != nil {
+		up.contacts[i].WriteUpstream(p)
+	}
+
+	return nil
+}
+
+// SetUpstreamNames is
+func (me *LookupTableStruct) SetUpstreamNames(names [1024]string) {
+
+	up := me.upstreamRouter
+
+	for i := 0; i < 1024; i++ {
+		if up.names[i] != names[i] {
+
+			go func(me *LookupTableStruct, i int) {
+				up := me.upstreamRouter
+
+				name := names[i]
+
+				up.mux.Lock()
+				newContact, ok := up.name2contact[name]
+				var err error
+				if !ok {
+					newContact, err = me.NameResolver(names[i])
+					if err != nil {
+						// now what?
+						newContact = nil
+					}
+					up.name2contact[name] = newContact
+				}
+				up.mux.Unlock()
+
+				if up.contacts[i] != nil {
+					// something? close the old one?
+				}
+				up.contacts[i] = newContact
+				up.names[i] = name
+
+				// order subscriptions to be forwarded to the new UpContact.
+			}(me, i)
+		}
+	}
 }
 
 // NewLookupTable makes a LookupTableStruct, usually a singleton.
 // In the tests we call here and then use the result to init a server.
 // Starts 64 go routines that are hung on their q's
 func NewLookupTable(projectedTopicCount int) *LookupTableStruct {
-	psMgr := LookupTableStruct{}
-	psMgr.key.Random()
+	me := LookupTableStruct{}
+	me.key.Random()
 	portion := projectedTopicCount / int(theBucketsSize)
 	portion2 := projectedTopicCount >> theBucketsSizeLog2 // we can init the hash maps big
 	if portion != portion2 {
 		fmt.Println("EPIC FAIL theBucketsSizeLog2 != uint(math.Log2(float64(theBucketsSize)))")
 	}
-	psMgr.allTheSubscriptions = make([]subscribeBucket, theBucketsSize)
+	me.allTheSubscriptions = make([]subscribeBucket, theBucketsSize)
 	for i := uint(0); i < theBucketsSize; i++ {
-		psMgr.allTheSubscriptions[i].mySubscriptions = make(map[HashType]*watchedTopic, portion)
+		me.allTheSubscriptions[i].mySubscriptions = make(map[HashType]*watchedTopic, portion)
 		tmp := make(chan interface{}, 32)
-		psMgr.allTheSubscriptions[i].incoming = &tmp
-		psMgr.allTheSubscriptions[i].subscriber = &psMgr
-		go psMgr.allTheSubscriptions[i].processMessages(&psMgr)
+		me.allTheSubscriptions[i].incoming = &tmp
+		me.allTheSubscriptions[i].looker = &me
+		go me.allTheSubscriptions[i].processMessages(&me)
 	}
-	return &psMgr
+	me.upstreamRouter = new(UpstreamRouterStruct)
+	me.upstreamRouter.name2contact = make(map[string]ContactInterface)
+	return &me
 }
 
 // sendSubscriptionMessage will create a message object, copy pointers to it so it'll own them now, and queue the message.
@@ -120,29 +188,6 @@ func (me *LookupTableStruct) GetAllSubsCount() (int, int) {
 
 // TODO: implement a pool of the incoming types.
 
-// A grab bag of paranoid ideas about bad states. FIXME: let's be more formal.
-func (me *LookupTableStruct) checkForBadSS(badsock ContactInterface, pubstruct *watchedTopic) bool {
-
-	// forgetme := false
-	// //if badsock.conn == nil {
-	// //	forgetme = true
-	// //}
-	// if badsock.ele == nil {
-	// 	forgetme = true
-	// }
-	// if forgetme {
-	// 	for topic, realName := range badsock.topicToName {
-	// 		//me.SendUnsubscribeMessage(badsock, realName)
-	// 		_ = realName
-	// 		badsock.topicToName = nil
-	// 		_ = topic
-	// 	}
-	// 	delete(pubstruct.watchers, badsock.key)
-	// 	return true
-	// }
-	return false
-}
-
 func (bucket *subscribeBucket) processMessages(me *LookupTableStruct) {
 
 	for {
@@ -150,28 +195,32 @@ func (bucket *subscribeBucket) processMessages(me *LookupTableStruct) {
 		switch msg.(type) {
 		case subscriptionMessage:
 			submsg := msg.(subscriptionMessage)
-			substruct := bucket.mySubscriptions[submsg.h]
-			if substruct == nil {
-				substruct = &watchedTopic{}
-				substruct.name = submsg.h
-				substruct.watchers = NewWithInt64Comparator() //make(map[HalfHash]ContactInterface, 0)
-				bucket.mySubscriptions[submsg.h] = substruct
+			watcheditem := bucket.mySubscriptions[submsg.h]
+			if watcheditem == nil {
+				watcheditem = &watchedTopic{}
+				watcheditem.name = submsg.h
+				watcheditem.watchers = NewWithInt64Comparator() //make(map[HalfHash]ContactInterface, 0)
+				bucket.mySubscriptions[submsg.h] = watcheditem
 				topicsAdded.Inc()
 			}
 			// this is the important part:  add the caller to  the set
-			substruct.watchers.Put(uint64(submsg.ss.GetKey()), submsg.ss)
+			watcheditem.watchers.Put(uint64(submsg.ss.GetKey()), submsg.ss)
 			namesAdded.Inc()
+			err := bucket.looker.PushUp(submsg.p, submsg.h)
+			if err != nil {
+				// what? we're sad? todo: man up
+			}
 
 		case publishMessage:
 			pubmsg := msg.(publishMessage)
-			pubstruct, ok := bucket.mySubscriptions[pubmsg.h]
+			watcheditem, ok := bucket.mySubscriptions[pubmsg.h]
 			if ok == false {
 				// no publish possible !
 				// it's sad really when someone sends messages to nobody.
 				missedPushes.Inc()
 				// send upstream publish
 			} else {
-				it := pubstruct.watchers.Iterator()
+				it := watcheditem.watchers.Iterator()
 				for it.Next() {
 					tmp, ok := it.Key().(uint64)
 					if !ok {
@@ -183,43 +232,54 @@ func (bucket *subscribeBucket) processMessages(me *LookupTableStruct) {
 						continue // real bad
 					}
 					if key != pubmsg.ss.GetKey() {
-						if me.checkForBadSS(ss, pubstruct) == false {
+						if me.checkForBadSS(ss, watcheditem) == false {
 							ss.WriteDownstream(pubmsg.p)
 							sentMessages.Inc()
 						}
 					}
 				}
-				// send upstream publish
+				err := bucket.looker.PushUp(pubmsg.p, pubmsg.h)
+				if err != nil {
+					// what? we're sad? todo: man up
+					// we should die and reconnect
+				}
 			}
 
 		case unsubscribeMessage:
 
 			unmsg := msg.(unsubscribeMessage)
-			unstruct, ok := bucket.mySubscriptions[unmsg.h]
+			watcheditem, ok := bucket.mySubscriptions[unmsg.h]
 			if ok == true {
-				unstruct.watchers.Remove(uint64(unmsg.ss.GetKey()))
-				if unstruct.watchers.Size() == 0 {
+				watcheditem.watchers.Remove(uint64(unmsg.ss.GetKey()))
+				if watcheditem.watchers.Size() == 0 {
 					delete(bucket.mySubscriptions, unmsg.h)
 				}
 				topicsRemoved.Inc()
 			}
-			// send upstream unsubscribe
+			err := bucket.looker.PushUp(unmsg.p, unmsg.h)
+			if err != nil {
+				// we should die and reconnect
+			}
 
 		case lookupMessage:
 
 			lookmsg := msg.(lookupMessage)
-			pubstruct, ok := bucket.mySubscriptions[lookmsg.h]
+			watcheditem, ok := bucket.mySubscriptions[lookmsg.h]
 			count := uint32(0) // people watching
 			if ok == false {
 				// nobody watching
 			} else {
-				count = uint32(pubstruct.watchers.Size())
+				count = uint32(watcheditem.watchers.Size())
 				// todo: add more info
 			}
 			// set count, in decimal
 			str := strconv.FormatUint(uint64(count), 10)
 			lookmsg.p.SetOption("count", []byte(str))
 			lookmsg.ss.WriteDownstream(lookmsg.p)
+			err := bucket.looker.PushUp(lookmsg.p, lookmsg.h)
+			if err != nil {
+				// we should be ashamed
+			}
 
 		default:
 			// no match. do nothing. apnic?
@@ -228,10 +288,10 @@ func (bucket *subscribeBucket) processMessages(me *LookupTableStruct) {
 	}
 }
 
-// theBucketsSize is 64 for debug and 64 for prod
+// theBucketsSize is 1024 for debug and 1024 for prod
 // it's just to keep the threads busy.
-const theBucketsSize = uint(64) // uint(1024)
-const theBucketsSizeLog2 = 6    // 10 // uint(math.Log2(float64(theBucketsSize)))
+const theBucketsSize = uint(1024)
+const theBucketsSizeLog2 = 10
 
 type subscriptionMessage struct {
 	p  *packets.Subscribe
@@ -269,7 +329,7 @@ type watchedTopic struct {
 type subscribeBucket struct {
 	mySubscriptions map[HashType]*watchedTopic
 	incoming        *chan interface{} //SubscriptionMessage
-	subscriber      *LookupTableStruct
+	looker          *LookupTableStruct
 }
 
 var (
@@ -307,4 +367,27 @@ var (
 // NewWithInt64Comparator for HalfHash
 func NewWithInt64Comparator() *redblacktree.Tree {
 	return &redblacktree.Tree{Comparator: utils.UInt64Comparator}
+}
+
+// A grab bag of paranoid ideas about bad states. FIXME: let's be more formal.
+func (me *LookupTableStruct) checkForBadSS(badsock ContactInterface, pubstruct *watchedTopic) bool {
+
+	// forgetme := false
+	// //if badsock.conn == nil {
+	// //	forgetme = true
+	// //}
+	// if badsock.ele == nil {
+	// 	forgetme = true
+	// }
+	// if forgetme {
+	// 	for topic, realName := range badsock.topicToName {
+	// 		//me.SendUnsubscribeMessage(badsock, realName)
+	// 		_ = realName
+	// 		badsock.topicToName = nil
+	// 		_ = topic
+	// 	}
+	// 	delete(pubstruct.watchers, badsock.key)
+	// 	return true
+	// }
+	return false
 }
