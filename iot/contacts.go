@@ -48,7 +48,7 @@ type ContactInterface interface {
 
 	WriteDownstream(cmd packets.Interface)
 
-	WriteUpstream(cmd packets.Interface)
+	WriteUpstream(cmd packets.Interface) // called by LookupTableStruct.PushUp
 
 	// the upstream write is Push (below)
 }
@@ -102,6 +102,67 @@ func Push(ssi ContactInterface, p packets.Interface) error {
 			v.AddressAlias = sh.Sum(nil)
 		}
 		looker.sendPublishMessage(ssi, v)
+
+	default:
+		fmt.Printf("I don't know about type %T!\n", v)
+	}
+
+	_ = destination
+	_ = looker
+
+	//	looker.Send(ss, p)
+	return nil
+}
+
+// PushDown to deal with an incoming message going up.
+// todo: upgrade and consolidate the address logic.
+func PushDown(ssi ContactInterface, p packets.Interface) error {
+
+	config := ssi.GetConfig()
+	looker := config.GetLookup()
+	var destination *HashType
+
+	switch v := p.(type) {
+	case *packets.Connect:
+		fmt.Println(v)
+	case *packets.Disconnect:
+		fmt.Println(v)
+		ssi.Close(errors.New("got disconnect"))
+	case *packets.Subscribe:
+		//fmt.Println(v)
+		if len(v.AddressAlias) < 24 {
+			v.AddressAlias = make([]byte, 24)
+			sh := sha256.New()
+			sh.Write(v.Address)
+			v.AddressAlias = sh.Sum(nil)
+		}
+		looker.sendSubscriptionMessageDown(ssi, v)
+	case *packets.Unsubscribe:
+		if len(v.AddressAlias) < 24 {
+			v.AddressAlias = make([]byte, 24)
+			sh := sha256.New()
+			sh.Write(v.Address)
+			v.AddressAlias = sh.Sum(nil)
+		}
+		looker.sendUnsubscribeMessageDown(ssi, v)
+	case *packets.Lookup:
+		//fmt.Println(v)
+		if len(v.AddressAlias) < 24 {
+			v.AddressAlias = make([]byte, 24)
+			sh := sha256.New()
+			sh.Write(v.Address)
+			v.AddressAlias = sh.Sum(nil)
+		}
+		looker.sendLookupMessageDown(ssi, v)
+	case *packets.Send:
+		//fmt.Println(v)
+		if len(v.AddressAlias) < 24 {
+			v.AddressAlias = make([]byte, 24)
+			sh := sha256.New()
+			sh.Write(v.Address)
+			v.AddressAlias = sh.Sum(nil)
+		}
+		looker.sendPublishMessageDown(ssi, v)
 
 	default:
 		fmt.Printf("I don't know about type %T!\n", v)

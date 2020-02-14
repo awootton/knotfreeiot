@@ -103,7 +103,7 @@ func (me *LookupTableStruct) SetUpstreamNames(names [1024]string) {
 
 // NewLookupTable makes a LookupTableStruct, usually a singleton.
 // In the tests we call here and then use the result to init a server.
-// Starts 64 go routines that are hung on their q's
+// Starts 16 go routines that are hung on their 32 deep q's
 func NewLookupTable(projectedTopicCount int) *LookupTableStruct {
 	me := LookupTableStruct{}
 	me.key.Random()
@@ -153,6 +153,54 @@ func (me *LookupTableStruct) sendUnsubscribeMessage(ss ContactInterface, p *pack
 func (me *LookupTableStruct) sendLookupMessage(ss ContactInterface, p *packets.Lookup) {
 
 	msg := lookupMessage{}
+	msg.ss = ss
+	msg.p = p
+	msg.h.InitFromBytes(p.AddressAlias)
+	i := msg.h.GetFractionalBits(theBucketsSizeLog2)
+	b := me.allTheSubscriptions[i]
+	*b.incoming <- msg
+}
+
+// SendPublishMessage will create a message object, copy pointers to it so it'll own them now, and queue the message.
+func (me *LookupTableStruct) sendPublishMessageDown(ss ContactInterface, p *packets.Send) {
+
+	msg := publishMessageDown{}
+	msg.ss = ss
+	msg.p = p
+	msg.h.InitFromBytes(p.AddressAlias)
+	i := msg.h.GetFractionalBits(theBucketsSizeLog2)
+	b := me.allTheSubscriptions[i]
+	*b.incoming <- msg
+}
+
+// sendSubscriptionMessage will create a message object, copy pointers to it so it'll own them now, and queue the message.
+func (me *LookupTableStruct) sendSubscriptionMessageDown(ss ContactInterface, p *packets.Subscribe) {
+
+	msg := subscriptionMessageDown{}
+	msg.ss = ss
+	msg.p = p
+	msg.h.InitFromBytes(p.AddressAlias)
+	i := msg.h.GetFractionalBits(theBucketsSizeLog2)
+	b := me.allTheSubscriptions[i]
+	*b.incoming <- msg
+}
+
+// SendUnsubscribeMessage will create a message object, copy pointers to it so it'll own them now, and queue the message.
+func (me *LookupTableStruct) sendUnsubscribeMessageDown(ss ContactInterface, p *packets.Unsubscribe) {
+
+	msg := unsubscribeMessageDown{}
+	msg.ss = ss
+	msg.p = p
+	msg.h.InitFromBytes(p.AddressAlias)
+	i := msg.h.GetFractionalBits(theBucketsSizeLog2)
+	b := me.allTheSubscriptions[i]
+	*b.incoming <- msg
+}
+
+// SendUnsubscribeMessage will create a message object, copy pointers to it so it'll own them now, and queue the message.
+func (me *LookupTableStruct) sendLookupMessageDown(ss ContactInterface, p *packets.Lookup) {
+
+	msg := lookupMessageDown{}
 	msg.ss = ss
 	msg.p = p
 	msg.h.InitFromBytes(p.AddressAlias)
@@ -288,10 +336,10 @@ func (bucket *subscribeBucket) processMessages(me *LookupTableStruct) {
 	}
 }
 
-// theBucketsSize is 1024 for debug and 1024 for prod
-// it's just to keep the threads busy.
-const theBucketsSize = uint(1024)
-const theBucketsSizeLog2 = 10
+// theBucketsSize is 16 for debug and 1024 for prod
+// it's just to keep the threads busy. When it's bug debugging is slow.
+const theBucketsSize = uint(16)
+const theBucketsSizeLog2 = 4
 
 type subscriptionMessage struct {
 	p  *packets.Subscribe
@@ -314,6 +362,32 @@ type publishMessage struct {
 }
 
 type lookupMessage struct {
+	p  *packets.Lookup
+	ss ContactInterface
+	h  HashType // 3*8 bytes
+}
+
+type subscriptionMessageDown struct {
+	p  *packets.Subscribe
+	ss ContactInterface
+	h  HashType // 3*8 bytes
+}
+
+// unsubscribeMessage for real
+type unsubscribeMessageDown struct {
+	p  *packets.Unsubscribe
+	ss ContactInterface
+	h  HashType // 3*8 bytes
+}
+
+// publishMessage used here
+type publishMessageDown struct {
+	p  *packets.Send
+	ss ContactInterface
+	h  HashType // 3*8 bytes
+}
+
+type lookupMessageDown struct {
 	p  *packets.Lookup
 	ss ContactInterface
 	h  HashType // 3*8 bytes

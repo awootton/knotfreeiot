@@ -35,7 +35,14 @@ type testContact struct {
 type testUpperContact struct {
 	iot.ContactStruct
 
-	downMessages chan packets.Interface
+	//downMessages chan packets.Interface
+	bridgeBottomContact *testContact
+}
+
+// called by Lookup PushUp
+func (cc *testUpperContact) WriteUpstream(cmd packets.Interface) {
+	// call the Push
+	iot.Push(cc.bridgeBottomContact, cmd)
 }
 
 func TestTwoLevel(t *testing.T) {
@@ -56,17 +63,25 @@ func TestTwoLevel(t *testing.T) {
 	config2 := iot.NewContactStructConfig(mgr2)
 
 	mgr1.NameResolver = func(name string) (iot.ContactInterface, error) {
-		if name == "top0" {
+		if name == "top0" { // todo: better names.
 			// IRL this is a tcp connect with contactTop1 as tcp client
 			// this is the contect that mgr1 and mgr2 will be using at the top
 			contactTop1 := testUpperContact{}
-			contactTop1.downMessages = make(chan packets.Interface, 1000)
+			//contactTop1.downMessages = make(chan packets.Interface, 1000)
 			iot.InitUpperContactStruct(&contactTop1.ContactStruct)
 			// This is the one attaching to the bottom of mgrTop0
 			// this work would be done after the socket accept
 			newLowerContact := testContact{}
 			newLowerContact.downMessages = make(chan packets.Interface, 1000)
 			iot.AddContactStruct(&newLowerContact.ContactStruct, configTop0)
+
+			// wire them up
+			contactTop1.bridgeBottomContact = &newLowerContact
+			go func() {
+				cmd := <-newLowerContact.downMessages
+				fmt.Println("cmd moving down")
+				iot.PushDown(&contactTop1, cmd)
+			}()
 
 			return &contactTop1, nil
 		} else {
@@ -98,9 +113,9 @@ func TestTwoLevel(t *testing.T) {
 	subs.Address = []byte("contact1 address")
 	err = iot.Push(&contact1, &subs)
 
-	subs = packets.Subscribe{}
-	subs.Address = []byte("contact2 address")
-	err = iot.Push(&contact2, &subs)
+	// subs = packets.Subscribe{}
+	// subs.Address = []byte("contact2 address")
+	// err = iot.Push(&contact2, &subs)
 
 	got = contact1.getResultAsString()
 	want = "no message received<nil>"
@@ -237,11 +252,6 @@ func (cc *testContact) WriteDownstream(cmd packets.Interface) {
 }
 
 func (cc *testContact) WriteUpstream(cmd packets.Interface) {
-	fmt.Println("FIXME received from below", cmd, reflect.TypeOf(cmd))
-	//cc.downMessages <- cmd
-}
-
-func (cc *testUpperContact) WriteUpstream(cmd packets.Interface) {
 	fmt.Println("FIXME received from below", cmd, reflect.TypeOf(cmd))
 	//cc.downMessages <- cmd
 }
