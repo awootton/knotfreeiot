@@ -46,16 +46,16 @@ type ContactInterface interface {
 
 	GetConfig() *ContactStructConfig
 
-	WriteDownstream(cmd packets.Interface)
+	WriteDownstream(cmd packets.Interface, timestamp uint32)
 
-	WriteUpstream(cmd packets.Interface) // called by LookupTableStruct.PushUp
+	WriteUpstream(cmd packets.Interface, timestamp uint32) // called by LookupTableStruct.PushUp
 
 	// the upstream write is Push (below)
 }
 
 // Push to deal with an incoming message going up.
 // todo: upgrade and consolidate the address logic.
-func Push(ssi ContactInterface, p packets.Interface) error {
+func Push(ssi ContactInterface, p packets.Interface, timestamp uint32) error {
 
 	config := ssi.GetConfig()
 	looker := config.GetLookup()
@@ -75,7 +75,7 @@ func Push(ssi ContactInterface, p packets.Interface) error {
 			sh.Write(v.Address)
 			v.AddressAlias = sh.Sum(nil)
 		}
-		looker.sendSubscriptionMessage(ssi, v)
+		looker.sendSubscriptionMessage(ssi, v, timestamp)
 	case *packets.Unsubscribe:
 		if len(v.AddressAlias) < 24 {
 			v.AddressAlias = make([]byte, 24)
@@ -83,7 +83,7 @@ func Push(ssi ContactInterface, p packets.Interface) error {
 			sh.Write(v.Address)
 			v.AddressAlias = sh.Sum(nil)
 		}
-		looker.sendUnsubscribeMessage(ssi, v)
+		looker.sendUnsubscribeMessage(ssi, v, timestamp)
 	case *packets.Lookup:
 		//fmt.Println(v)
 		if len(v.AddressAlias) < 24 {
@@ -92,7 +92,7 @@ func Push(ssi ContactInterface, p packets.Interface) error {
 			sh.Write(v.Address)
 			v.AddressAlias = sh.Sum(nil)
 		}
-		looker.sendLookupMessage(ssi, v)
+		looker.sendLookupMessage(ssi, v, timestamp)
 	case *packets.Send:
 		//fmt.Println(v)
 		if len(v.AddressAlias) < 24 {
@@ -101,7 +101,7 @@ func Push(ssi ContactInterface, p packets.Interface) error {
 			sh.Write(v.Address)
 			v.AddressAlias = sh.Sum(nil)
 		}
-		looker.sendPublishMessage(ssi, v)
+		looker.sendPublishMessage(ssi, v, timestamp)
 
 	default:
 		fmt.Printf("I don't know about type %T!\n", v)
@@ -116,7 +116,7 @@ func Push(ssi ContactInterface, p packets.Interface) error {
 
 // PushDown to deal with an incoming message going up.
 // todo: upgrade and consolidate the address logic.
-func PushDown(ssi ContactInterface, p packets.Interface) error {
+func PushDown(ssi ContactInterface, p packets.Interface, timestamp uint32) error {
 
 	config := ssi.GetConfig()
 	looker := config.GetLookup()
@@ -136,7 +136,7 @@ func PushDown(ssi ContactInterface, p packets.Interface) error {
 			sh.Write(v.Address)
 			v.AddressAlias = sh.Sum(nil)
 		}
-		looker.sendSubscriptionMessageDown(ssi, v)
+		looker.sendSubscriptionMessageDown(ssi, v, timestamp)
 	case *packets.Unsubscribe:
 		if len(v.AddressAlias) < 24 {
 			v.AddressAlias = make([]byte, 24)
@@ -144,7 +144,7 @@ func PushDown(ssi ContactInterface, p packets.Interface) error {
 			sh.Write(v.Address)
 			v.AddressAlias = sh.Sum(nil)
 		}
-		looker.sendUnsubscribeMessageDown(ssi, v)
+		looker.sendUnsubscribeMessageDown(ssi, v, timestamp)
 	case *packets.Lookup:
 		//fmt.Println(v)
 		if len(v.AddressAlias) < 24 {
@@ -153,7 +153,7 @@ func PushDown(ssi ContactInterface, p packets.Interface) error {
 			sh.Write(v.Address)
 			v.AddressAlias = sh.Sum(nil)
 		}
-		looker.sendLookupMessageDown(ssi, v)
+		looker.sendLookupMessageDown(ssi, v, timestamp)
 	case *packets.Send:
 		//fmt.Println(v)
 		if len(v.AddressAlias) < 24 {
@@ -162,7 +162,7 @@ func PushDown(ssi ContactInterface, p packets.Interface) error {
 			sh.Write(v.Address)
 			v.AddressAlias = sh.Sum(nil)
 		}
-		looker.sendPublishMessageDown(ssi, v)
+		looker.sendPublishMessageDown(ssi, v, timestamp)
 
 	default:
 		fmt.Printf("I don't know about type %T!\n", v)
@@ -214,9 +214,10 @@ func AddContactStruct(ss *ContactStruct, config *ContactStructConfig) *ContactSt
 
 // InitUpperContactStruct because upper contacts are different
 // they are not linked like the others, they are saved in a map in lookup
-func InitUpperContactStruct(ss *ContactStruct) *ContactStruct {
+func InitUpperContactStruct(ss *ContactStruct, config *ContactStructConfig) *ContactStruct {
 
 	ss.topicToName = make(map[HalfHash][]byte)
+	ss.config = config
 
 	return ss
 }
@@ -225,6 +226,7 @@ func InitUpperContactStruct(ss *ContactStruct) *ContactStruct {
 func NewContactStructConfig(looker *LookupTableStruct) *ContactStructConfig {
 	config := ContactStructConfig{}
 	config.lookup = looker
+	looker.config = &config
 	var alock sync.RWMutex
 	config.listlock = &alock
 	config.list = list.New()
@@ -244,7 +246,7 @@ func (ss *ContactStruct) GetConfig() *ContactStructConfig {
 }
 
 // WriteDownstream needs to be overridden
-func (ss *ContactStruct) WriteDownstream(cmd packets.Interface) {
+func (ss *ContactStruct) WriteDownstream(cmd packets.Interface, timestamp uint32) {
 	panic("WriteDownstream needs to be overridden")
 }
 

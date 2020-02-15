@@ -1,4 +1,3 @@
-// Copyright 2019 Alan Tracey Wootton
 // Copyright 2019,2020 Alan Tracey Wootton
 //
 // This program is free software: you can redistribute it and/or modify
@@ -18,7 +17,7 @@ package iot
 
 import (
 	"fmt"
-	"strconv"
+	"reflect"
 	"sync"
 
 	"github.com/awootton/knotfreeiot/packets"
@@ -37,7 +36,9 @@ type LookupTableStruct struct {
 
 	upstreamRouter *UpstreamRouterStruct
 
-	NameResolver func(name string) (ContactInterface, error)
+	NameResolver func(name string, config *ContactStructConfig) (ContactInterface, error)
+
+	config *ContactStructConfig
 }
 
 // UpstreamRouterStruct is maybe virtual in the future
@@ -50,14 +51,14 @@ type UpstreamRouterStruct struct {
 }
 
 // PushUp is
-func (me *LookupTableStruct) PushUp(p packets.Interface, h HashType) error {
+func (me *LookupTableStruct) PushUp(p packets.Interface, h HashType, timestamp uint32) error {
 
 	up := me.upstreamRouter
 
 	i := h.GetFractionalBits(10)
 
 	if up.contacts[i] != nil {
-		up.contacts[i].WriteUpstream(p)
+		up.contacts[i].WriteUpstream(p, timestamp)
 	}
 
 	return nil
@@ -80,7 +81,7 @@ func (me *LookupTableStruct) SetUpstreamNames(names [1024]string) {
 				newContact, ok := up.name2contact[name]
 				var err error
 				if !ok {
-					newContact, err = me.NameResolver(names[i])
+					newContact, err = me.NameResolver(names[i], me.config)
 					if err != nil {
 						// now what?
 						newContact = nil
@@ -116,7 +117,7 @@ func NewLookupTable(projectedTopicCount int) *LookupTableStruct {
 	for i := uint(0); i < theBucketsSize; i++ {
 		me.allTheSubscriptions[i].mySubscriptions = make(map[HashType]*watchedTopic, portion)
 		tmp := make(chan interface{}, 32)
-		me.allTheSubscriptions[i].incoming = &tmp
+		me.allTheSubscriptions[i].incoming = tmp
 		me.allTheSubscriptions[i].looker = &me
 		go me.allTheSubscriptions[i].processMessages(&me)
 	}
@@ -126,7 +127,7 @@ func NewLookupTable(projectedTopicCount int) *LookupTableStruct {
 }
 
 // sendSubscriptionMessage will create a message object, copy pointers to it so it'll own them now, and queue the message.
-func (me *LookupTableStruct) sendSubscriptionMessage(ss ContactInterface, p *packets.Subscribe) {
+func (me *LookupTableStruct) sendSubscriptionMessage(ss ContactInterface, p *packets.Subscribe, timestamp uint32) {
 
 	msg := subscriptionMessage{}
 	msg.ss = ss
@@ -134,11 +135,11 @@ func (me *LookupTableStruct) sendSubscriptionMessage(ss ContactInterface, p *pac
 	msg.h.InitFromBytes(p.AddressAlias)
 	i := msg.h.GetFractionalBits(theBucketsSizeLog2)
 	b := me.allTheSubscriptions[i]
-	*b.incoming <- msg
+	b.incoming <- &msg
 }
 
 // SendUnsubscribeMessage will create a message object, copy pointers to it so it'll own them now, and queue the message.
-func (me *LookupTableStruct) sendUnsubscribeMessage(ss ContactInterface, p *packets.Unsubscribe) {
+func (me *LookupTableStruct) sendUnsubscribeMessage(ss ContactInterface, p *packets.Unsubscribe, timestamp uint32) {
 
 	msg := unsubscribeMessage{}
 	msg.ss = ss
@@ -146,11 +147,11 @@ func (me *LookupTableStruct) sendUnsubscribeMessage(ss ContactInterface, p *pack
 	msg.h.InitFromBytes(p.AddressAlias)
 	i := msg.h.GetFractionalBits(theBucketsSizeLog2)
 	b := me.allTheSubscriptions[i]
-	*b.incoming <- msg
+	b.incoming <- &msg
 }
 
 // SendUnsubscribeMessage will create a message object, copy pointers to it so it'll own them now, and queue the message.
-func (me *LookupTableStruct) sendLookupMessage(ss ContactInterface, p *packets.Lookup) {
+func (me *LookupTableStruct) sendLookupMessage(ss ContactInterface, p *packets.Lookup, timestamp uint32) {
 
 	msg := lookupMessage{}
 	msg.ss = ss
@@ -158,11 +159,11 @@ func (me *LookupTableStruct) sendLookupMessage(ss ContactInterface, p *packets.L
 	msg.h.InitFromBytes(p.AddressAlias)
 	i := msg.h.GetFractionalBits(theBucketsSizeLog2)
 	b := me.allTheSubscriptions[i]
-	*b.incoming <- msg
+	b.incoming <- &msg
 }
 
 // SendPublishMessage will create a message object, copy pointers to it so it'll own them now, and queue the message.
-func (me *LookupTableStruct) sendPublishMessageDown(ss ContactInterface, p *packets.Send) {
+func (me *LookupTableStruct) sendPublishMessageDown(ss ContactInterface, p *packets.Send, timestamp uint32) {
 
 	msg := publishMessageDown{}
 	msg.ss = ss
@@ -170,11 +171,11 @@ func (me *LookupTableStruct) sendPublishMessageDown(ss ContactInterface, p *pack
 	msg.h.InitFromBytes(p.AddressAlias)
 	i := msg.h.GetFractionalBits(theBucketsSizeLog2)
 	b := me.allTheSubscriptions[i]
-	*b.incoming <- msg
+	b.incoming <- &msg
 }
 
 // sendSubscriptionMessage will create a message object, copy pointers to it so it'll own them now, and queue the message.
-func (me *LookupTableStruct) sendSubscriptionMessageDown(ss ContactInterface, p *packets.Subscribe) {
+func (me *LookupTableStruct) sendSubscriptionMessageDown(ss ContactInterface, p *packets.Subscribe, timestamp uint32) {
 
 	msg := subscriptionMessageDown{}
 	msg.ss = ss
@@ -182,11 +183,11 @@ func (me *LookupTableStruct) sendSubscriptionMessageDown(ss ContactInterface, p 
 	msg.h.InitFromBytes(p.AddressAlias)
 	i := msg.h.GetFractionalBits(theBucketsSizeLog2)
 	b := me.allTheSubscriptions[i]
-	*b.incoming <- msg
+	b.incoming <- &msg
 }
 
 // SendUnsubscribeMessage will create a message object, copy pointers to it so it'll own them now, and queue the message.
-func (me *LookupTableStruct) sendUnsubscribeMessageDown(ss ContactInterface, p *packets.Unsubscribe) {
+func (me *LookupTableStruct) sendUnsubscribeMessageDown(ss ContactInterface, p *packets.Unsubscribe, timestamp uint32) {
 
 	msg := unsubscribeMessageDown{}
 	msg.ss = ss
@@ -194,11 +195,11 @@ func (me *LookupTableStruct) sendUnsubscribeMessageDown(ss ContactInterface, p *
 	msg.h.InitFromBytes(p.AddressAlias)
 	i := msg.h.GetFractionalBits(theBucketsSizeLog2)
 	b := me.allTheSubscriptions[i]
-	*b.incoming <- msg
+	b.incoming <- &msg
 }
 
 // SendUnsubscribeMessage will create a message object, copy pointers to it so it'll own them now, and queue the message.
-func (me *LookupTableStruct) sendLookupMessageDown(ss ContactInterface, p *packets.Lookup) {
+func (me *LookupTableStruct) sendLookupMessageDown(ss ContactInterface, p *packets.Lookup, timestamp uint32) {
 
 	msg := lookupMessageDown{}
 	msg.ss = ss
@@ -206,11 +207,11 @@ func (me *LookupTableStruct) sendLookupMessageDown(ss ContactInterface, p *packe
 	msg.h.InitFromBytes(p.AddressAlias)
 	i := msg.h.GetFractionalBits(theBucketsSizeLog2)
 	b := me.allTheSubscriptions[i]
-	*b.incoming <- msg
+	b.incoming <- &msg
 }
 
 // SendPublishMessage will create a message object, copy pointers to it so it'll own them now, and queue the message.
-func (me *LookupTableStruct) sendPublishMessage(ss ContactInterface, p *packets.Send) {
+func (me *LookupTableStruct) sendPublishMessage(ss ContactInterface, p *packets.Send, timestamp uint32) {
 
 	msg := publishMessage{}
 	msg.ss = ss
@@ -218,7 +219,7 @@ func (me *LookupTableStruct) sendPublishMessage(ss ContactInterface, p *packets.
 	msg.h.InitFromBytes(p.AddressAlias)
 	i := msg.h.GetFractionalBits(theBucketsSizeLog2)
 	b := me.allTheSubscriptions[i]
-	*b.incoming <- msg
+	b.incoming <- &msg
 }
 
 // GetAllSubsCount returns the count of subscriptions and the
@@ -228,7 +229,7 @@ func (me *LookupTableStruct) GetAllSubsCount() (int, int) {
 	qdepth := 0
 	for _, b := range me.allTheSubscriptions {
 		count += len(b.mySubscriptions)
-		qdepth += (len(*b.incoming))
+		qdepth += (len(b.incoming))
 	}
 	qdepth = qdepth / len(me.allTheSubscriptions)
 	return count, qdepth
@@ -239,98 +240,32 @@ func (me *LookupTableStruct) GetAllSubsCount() (int, int) {
 func (bucket *subscribeBucket) processMessages(me *LookupTableStruct) {
 
 	for {
-		msg := <-*bucket.incoming // wait right here
+		msg := <-bucket.incoming // wait right here
 		switch msg.(type) {
-		case subscriptionMessage:
-			submsg := msg.(subscriptionMessage)
-			watcheditem := bucket.mySubscriptions[submsg.h]
-			if watcheditem == nil {
-				watcheditem = &watchedTopic{}
-				watcheditem.name = submsg.h
-				watcheditem.watchers = NewWithInt64Comparator() //make(map[HalfHash]ContactInterface, 0)
-				bucket.mySubscriptions[submsg.h] = watcheditem
-				topicsAdded.Inc()
-			}
-			// this is the important part:  add the caller to  the set
-			watcheditem.watchers.Put(uint64(submsg.ss.GetKey()), submsg.ss)
-			namesAdded.Inc()
-			err := bucket.looker.PushUp(submsg.p, submsg.h)
-			if err != nil {
-				// what? we're sad? todo: man up
-			}
 
-		case publishMessage:
-			pubmsg := msg.(publishMessage)
-			watcheditem, ok := bucket.mySubscriptions[pubmsg.h]
-			if ok == false {
-				// no publish possible !
-				// it's sad really when someone sends messages to nobody.
-				missedPushes.Inc()
-				// send upstream publish
-			} else {
-				it := watcheditem.watchers.Iterator()
-				for it.Next() {
-					tmp, ok := it.Key().(uint64)
-					if !ok {
-						continue // this is bad
-					}
-					key := HalfHash(tmp)
-					ss, ok := it.Value().(ContactInterface)
-					if !ok {
-						continue // real bad
-					}
-					if key != pubmsg.ss.GetKey() {
-						if me.checkForBadSS(ss, watcheditem) == false {
-							ss.WriteDownstream(pubmsg.p)
-							sentMessages.Inc()
-						}
-					}
-				}
-				err := bucket.looker.PushUp(pubmsg.p, pubmsg.h)
-				if err != nil {
-					// what? we're sad? todo: man up
-					// we should die and reconnect
-				}
-			}
+		case *subscriptionMessage:
+			processSubscribe(me, bucket, msg.(*subscriptionMessage))
+		case *subscriptionMessageDown:
+			processSubscribeDown(me, bucket, msg.(*subscriptionMessage))
 
-		case unsubscribeMessage:
+		case *lookupMessage:
+			processLookup(me, bucket, msg.(*lookupMessage))
+		case *lookupMessageDown:
+			processLookupDown(me, bucket, msg.(*lookupMessage))
 
-			unmsg := msg.(unsubscribeMessage)
-			watcheditem, ok := bucket.mySubscriptions[unmsg.h]
-			if ok == true {
-				watcheditem.watchers.Remove(uint64(unmsg.ss.GetKey()))
-				if watcheditem.watchers.Size() == 0 {
-					delete(bucket.mySubscriptions, unmsg.h)
-				}
-				topicsRemoved.Inc()
-			}
-			err := bucket.looker.PushUp(unmsg.p, unmsg.h)
-			if err != nil {
-				// we should die and reconnect
-			}
+		case *publishMessage:
+			processPublish(me, bucket, msg.(*publishMessage))
+		case *publishMessageDown:
+			processPublishDown(me, bucket, msg.(*publishMessageDown))
 
-		case lookupMessage:
-
-			lookmsg := msg.(lookupMessage)
-			watcheditem, ok := bucket.mySubscriptions[lookmsg.h]
-			count := uint32(0) // people watching
-			if ok == false {
-				// nobody watching
-			} else {
-				count = uint32(watcheditem.watchers.Size())
-				// todo: add more info
-			}
-			// set count, in decimal
-			str := strconv.FormatUint(uint64(count), 10)
-			lookmsg.p.SetOption("count", []byte(str))
-			lookmsg.ss.WriteDownstream(lookmsg.p)
-			err := bucket.looker.PushUp(lookmsg.p, lookmsg.h)
-			if err != nil {
-				// we should be ashamed
-			}
+		case *unsubscribeMessage:
+			processUnsubscribe(me, bucket, msg.(*unsubscribeMessage))
+		case *unsubscribeMessageDown:
+			processUnsubscribeDown(me, bucket, msg.(*unsubscribeMessageDown))
 
 		default:
 			// no match. do nothing. apnic?
+			fmt.Println("FIXME missing case for ", reflect.TypeOf(msg))
 			fatalMessups.Inc()
 		}
 	}
@@ -341,56 +276,54 @@ func (bucket *subscribeBucket) processMessages(me *LookupTableStruct) {
 const theBucketsSize = uint(16)
 const theBucketsSizeLog2 = 4
 
+type common struct {
+	ss        ContactInterface
+	h         HashType // 3*8 bytes
+	timestamp uint32   // timestamp
+}
+
 type subscriptionMessage struct {
-	p  *packets.Subscribe
-	ss ContactInterface
-	h  HashType // 3*8 bytes
+	common
+	p *packets.Subscribe
 }
 
 // unsubscribeMessage for real
 type unsubscribeMessage struct {
-	p  *packets.Unsubscribe
-	ss ContactInterface
-	h  HashType // 3*8 bytes
+	common
+	p *packets.Unsubscribe
 }
 
 // publishMessage used here
 type publishMessage struct {
-	p  *packets.Send
-	ss ContactInterface
-	h  HashType // 3*8 bytes
+	common
+	p *packets.Send
 }
 
 type lookupMessage struct {
-	p  *packets.Lookup
-	ss ContactInterface
-	h  HashType // 3*8 bytes
+	common
+	p *packets.Lookup
 }
 
 type subscriptionMessageDown struct {
-	p  *packets.Subscribe
-	ss ContactInterface
-	h  HashType // 3*8 bytes
+	common
+	p *packets.Subscribe
 }
 
 // unsubscribeMessage for real
 type unsubscribeMessageDown struct {
-	p  *packets.Unsubscribe
-	ss ContactInterface
-	h  HashType // 3*8 bytes
+	common
+	p *packets.Unsubscribe
 }
 
 // publishMessage used here
 type publishMessageDown struct {
-	p  *packets.Send
-	ss ContactInterface
-	h  HashType // 3*8 bytes
+	common
+	p *packets.Send
 }
 
 type lookupMessageDown struct {
-	p  *packets.Lookup
-	ss ContactInterface
-	h  HashType // 3*8 bytes
+	common
+	p *packets.Lookup
 }
 
 // watchedTopic is what we'll be collecting a lot of.
@@ -402,7 +335,7 @@ type watchedTopic struct {
 
 type subscribeBucket struct {
 	mySubscriptions map[HashType]*watchedTopic
-	incoming        *chan interface{} //SubscriptionMessage
+	incoming        chan interface{} //SubscriptionMessage
 	looker          *LookupTableStruct
 }
 
@@ -411,8 +344,8 @@ var (
 		Name: "look_names_added",
 		Help: "The total number of subscriptions requests",
 	})
-
-	topicsAdded = promauto.NewCounter(prometheus.CounterOpts{
+	// TopicsAdded is
+	TopicsAdded = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "look_topics_added",
 		Help: "The total number new topics/subscriptions] added",
 	})

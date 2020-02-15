@@ -14,4 +14,5 @@ require (
 	github.com/emirpasic/gods v1.12.0
 	github.com/minio/highwayhash v1.0.0
 	github.com/prometheus/client_golang v1.4.1
+	github.com/prometheus/client_model v0.2.0
 )

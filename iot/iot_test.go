@@ -24,12 +24,17 @@ import (
 
 	"github.com/awootton/knotfreeiot/iot"
 	"github.com/awootton/knotfreeiot/packets"
+	"github.com/prometheus/client_golang/prometheus"
+
+	dto "github.com/prometheus/client_model/go"
 )
+
+const starttime = uint32(1577840400) // Wednesday, January 1, 2020 1:00:00 AM
 
 type testContact struct {
 	iot.ContactStruct
 
-	downMessages chan packets.Interface
+	downMessages chan timedPacket
 }
 
 type testUpperContact struct {
@@ -39,10 +44,15 @@ type testUpperContact struct {
 	bridgeBottomContact *testContact
 }
 
+type timedPacket struct {
+	packet    packets.Interface
+	timestamp uint32
+}
+
 // called by Lookup PushUp
-func (cc *testUpperContact) WriteUpstream(cmd packets.Interface) {
+func (cc *testUpperContact) WriteUpstream(cmd packets.Interface, timestamp uint32) {
 	// call the Push
-	iot.Push(cc.bridgeBottomContact, cmd)
+	iot.Push(cc.bridgeBottomContact, cmd, timestamp)
 }
 
 func TestTwoLevel(t *testing.T) {
@@ -62,25 +72,25 @@ func TestTwoLevel(t *testing.T) {
 	mgr2 := iot.NewLookupTable(100)
 	config2 := iot.NewContactStructConfig(mgr2)
 
-	mgr1.NameResolver = func(name string) (iot.ContactInterface, error) {
+	mgr1.NameResolver = func(name string, config *iot.ContactStructConfig) (iot.ContactInterface, error) {
 		if name == "top0" { // todo: better names.
 			// IRL this is a tcp connect with contactTop1 as tcp client
 			// this is the contect that mgr1 and mgr2 will be using at the top
 			contactTop1 := testUpperContact{}
 			//contactTop1.downMessages = make(chan packets.Interface, 1000)
-			iot.InitUpperContactStruct(&contactTop1.ContactStruct)
+			iot.InitUpperContactStruct(&contactTop1.ContactStruct, config)
 			// This is the one attaching to the bottom of mgrTop0
 			// this work would be done after the socket accept
 			newLowerContact := testContact{}
-			newLowerContact.downMessages = make(chan packets.Interface, 1000)
+			newLowerContact.downMessages = make(chan timedPacket, 1000)
 			iot.AddContactStruct(&newLowerContact.ContactStruct, configTop0)
 
 			// wire them up
 			contactTop1.bridgeBottomContact = &newLowerContact
 			go func() {
 				cmd := <-newLowerContact.downMessages
-				fmt.Println("cmd moving down")
-				iot.PushDown(&contactTop1, cmd)
+				fmt.Println("cmd moving down", cmd)
+				iot.PushDown(&contactTop1, cmd.packet, cmd.timestamp)
 			}()
 
 			return &contactTop1, nil
@@ -100,22 +110,18 @@ func TestTwoLevel(t *testing.T) {
 
 	// make a contact
 	contact1 := testContact{}
-	contact1.downMessages = make(chan packets.Interface, 1000)
+	contact1.downMessages = make(chan timedPacket, 1000)
 	iot.AddContactStruct(&contact1.ContactStruct, config1)
 	// another
 	contact2 := testContact{}
-	contact2.downMessages = make(chan packets.Interface, 1000)
+	contact2.downMessages = make(chan timedPacket, 1000)
 	iot.AddContactStruct(&contact2.ContactStruct, config2)
 	// note that they are in different lookups
 
 	// subscribe
 	subs := packets.Subscribe{}
 	subs.Address = []byte("contact1 address")
-	err = iot.Push(&contact1, &subs)
-
-	// subs = packets.Subscribe{}
-	// subs.Address = []byte("contact2 address")
-	// err = iot.Push(&contact2, &subs)
+	err = iot.Push(&contact1, &subs, starttime)
 
 	got = contact1.getResultAsString()
 	want = "no message received<nil>"
@@ -123,17 +129,24 @@ func TestTwoLevel(t *testing.T) {
 		t.Errorf("got %v, want %v", got, want)
 	}
 
+	val := readCounter(iot.TopicsAdded)
+	got = fmt.Sprint("topics collected ", val)
+	// want = "topics collected 2"
+	// if got != want {
+	// 	t.Errorf("got %v, want %v", got, want)
+	// }
+
 	sendmessage := packets.Send{}
 	sendmessage.Address = []byte("contact1 address")
 	sendmessage.Source = []byte("contact2 address")
 	sendmessage.Payload = []byte("can you hear me now?")
 
-	iot.Push(&contact2, &sendmessage)
+	iot.Push(&contact2, &sendmessage, starttime)
 
 	got = contact1.getResultAsString()
-	want = `[P,"contact1 address",=ygRnE97Kfx0usxBqx5cygy4enA1eojeRWdV/XMwSGzw,"contact2 address",,"hello, can you hear me"]`
+	want = `[P,"contact1 address",=ygRnE97Kfx0usxBqx5cygy4enA1eojeRWdV/XMwSGzw,"contact2 address",,"can you hear me now?"]`
 	if got != want {
-		// atw FIXME: t.Errorf("got %v, want %v", got, want)
+		t.Errorf("got %v, want %v", got, want)
 	}
 
 	_ = got
@@ -143,6 +156,8 @@ func TestTwoLevel(t *testing.T) {
 	_ = configTop0
 	_ = err
 	_ = ok
+
+	//	time.Sleep(100 * time.Second)
 
 }
 
@@ -159,20 +174,20 @@ func TestSend(t *testing.T) {
 
 	// make a contact
 	contact1 := testContact{}
-	contact1.downMessages = make(chan packets.Interface, 1000)
+	contact1.downMessages = make(chan timedPacket, 1000)
 	iot.AddContactStruct(&contact1.ContactStruct, config)
 	// another
 	contact2 := testContact{}
-	contact2.downMessages = make(chan packets.Interface, 1000)
+	contact2.downMessages = make(chan timedPacket, 1000)
 	iot.AddContactStruct(&contact2.ContactStruct, config)
 
 	// subscribe
 	subs := packets.Subscribe{}
 	subs.Address = []byte("contact1 address")
-	err = iot.Push(&contact1, &subs)
+	err = iot.Push(&contact1, &subs, starttime)
 	subs = packets.Subscribe{}
 	subs.Address = []byte("contact2 address")
-	err = iot.Push(&contact2, &subs)
+	err = iot.Push(&contact2, &subs, starttime)
 
 	got = contact1.getResultAsString()
 	want = "no message received<nil>"
@@ -180,12 +195,19 @@ func TestSend(t *testing.T) {
 		t.Errorf("got %v, want %v", got, want)
 	}
 
+	val := readCounter(iot.TopicsAdded)
+	got = fmt.Sprint("topics collected ", val)
+	want = "topics collected 2"
+	// if got != want {
+	// 	t.Errorf("got %v, want %v", got, want)
+	// }
+
 	sendmessage := packets.Send{}
 	sendmessage.Address = []byte("contact1 address")
 	sendmessage.Source = []byte("contact2 address")
 	sendmessage.Payload = []byte("hello, can you hear me")
 
-	iot.Push(&contact2, &sendmessage)
+	iot.Push(&contact2, &sendmessage, starttime)
 
 	got = contact1.getResultAsString()
 	want = `[P,"contact1 address",=ygRnE97Kfx0usxBqx5cygy4enA1eojeRWdV/XMwSGzw,"contact2 address",,"hello, can you hear me"]`
@@ -197,7 +219,7 @@ func TestSend(t *testing.T) {
 	lookmsg := packets.Lookup{}
 	lookmsg.Address = []byte("contact1 address")
 	lookmsg.Source = []byte("contact2 address")
-	iot.Push(&contact2, &lookmsg)
+	iot.Push(&contact2, &lookmsg, starttime)
 
 	got = contact2.getResultAsString()
 	want = `[L,"contact1 address",=ygRnE97Kfx0usxBqx5cygy4enA1eojeRWdV/XMwSGzw,"contact2 address",,count,1]`
@@ -207,12 +229,12 @@ func TestSend(t *testing.T) {
 
 	unsub := packets.Unsubscribe{}
 	unsub.Address = []byte("contact1 address")
-	err = iot.Push(&contact1, &unsub)
+	err = iot.Push(&contact1, &unsub, starttime)
 
 	lookmsg = packets.Lookup{}
 	lookmsg.Address = []byte("contact1 address")
 	lookmsg.Source = []byte("contact2 address")
-	iot.Push(&contact2, &lookmsg)
+	iot.Push(&contact2, &lookmsg, starttime)
 
 	got = contact2.getResultAsString()
 	// note that the count is ZERO
@@ -229,7 +251,7 @@ func TestSend(t *testing.T) {
 func (cc *testContact) get() (packets.Interface, bool) {
 	select {
 	case msg := <-cc.downMessages:
-		return msg, true
+		return msg.packet, true
 	case <-time.After(10 * time.Millisecond):
 		return nil, false
 	}
@@ -246,12 +268,18 @@ func (cc *testContact) getResultAsString() string {
 	return got
 }
 
-func (cc *testContact) WriteDownstream(cmd packets.Interface) {
+func (cc *testContact) WriteDownstream(cmd packets.Interface, timestamp uint32) {
 	//fmt.Println("received from above", cmd, reflect.TypeOf(cmd))
-	cc.downMessages <- cmd
+	cc.downMessages <- timedPacket{cmd, timestamp}
 }
 
-func (cc *testContact) WriteUpstream(cmd packets.Interface) {
+func (cc *testContact) WriteUpstream(cmd packets.Interface, timestamp uint32) {
 	fmt.Println("FIXME received from below", cmd, reflect.TypeOf(cmd))
 	//cc.downMessages <- cmd
+}
+
+func readCounter(m prometheus.Counter) float64 {
+	pb := &dto.Metric{}
+	m.Write(pb)
+	return pb.GetCounter().GetValue()
 }

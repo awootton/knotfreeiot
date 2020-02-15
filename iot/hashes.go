@@ -1,4 +1,3 @@
-// Copyright 2019 Alan Tracey Wootton
 // Copyright 2019,2020 Alan Tracey Wootton
 //
 // This program is free software: you can redistribute it and/or modify
