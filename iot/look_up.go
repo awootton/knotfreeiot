@@ -115,7 +115,10 @@ func NewLookupTable(projectedTopicCount int) *LookupTableStruct {
 	}
 	me.allTheSubscriptions = make([]subscribeBucket, theBucketsSize)
 	for i := uint(0); i < theBucketsSize; i++ {
-		me.allTheSubscriptions[i].mySubscriptions = make(map[HashType]*watchedTopic, portion)
+		// mySubscriptions is an array of 64 maps
+		for j := 0; j < len(me.allTheSubscriptions[i].mySubscriptions); j++ {
+			me.allTheSubscriptions[i].mySubscriptions[j] = make(map[HashType]*watchedTopic, portion)
+		}
 		tmp := make(chan interface{}, 32)
 		me.allTheSubscriptions[i].incoming = tmp
 		me.allTheSubscriptions[i].looker = &me
@@ -133,7 +136,7 @@ func (me *LookupTableStruct) sendSubscriptionMessage(ss ContactInterface, p *pac
 	msg.ss = ss
 	msg.p = p
 	msg.h.InitFromBytes(p.AddressAlias)
-	i := msg.h.GetFractionalBits(theBucketsSizeLog2)
+	i := msg.h.GetFractionalBits(theBucketsSizeLog2) // is 4. The first 4 bits of the hash.
 	b := me.allTheSubscriptions[i]
 	b.incoming <- &msg
 }
@@ -271,11 +274,6 @@ func (bucket *subscribeBucket) processMessages(me *LookupTableStruct) {
 	}
 }
 
-// theBucketsSize is 16 for debug and 1024 for prod
-// it's just to keep the threads busy. When it's bug debugging is slow.
-const theBucketsSize = uint(16)
-const theBucketsSizeLog2 = 4
-
 type common struct {
 	ss        ContactInterface
 	h         HashType // 3*8 bytes
@@ -333,8 +331,14 @@ type watchedTopic struct {
 	watchers *redblacktree.Tree
 }
 
+// theBucketsSize is 16 and there's 16 channels
+// it's just to keep the threads busy.
+const theBucketsSize = uint(16)
+const theBucketsSizeLog2 = 4
+
+// each bucket has 64 maps so 1024 maps total
 type subscribeBucket struct {
-	mySubscriptions map[HashType]*watchedTopic
+	mySubscriptions [64]map[HashType]*watchedTopic
 	incoming        chan interface{} //SubscriptionMessage
 	looker          *LookupTableStruct
 }
@@ -397,4 +401,28 @@ func (me *LookupTableStruct) checkForBadSS(badsock ContactInterface, pubstruct *
 	// 	return true
 	// }
 	return false
+}
+
+func getWatchers(bucket *subscribeBucket, h *HashType) (*watchedTopic, bool) {
+
+	// the first 4 bits were used to select the bucket
+	// the next 6 will select the hash table inside the bucket.
+	sixbits := h.GetFractionalBits(10) & 0x3F
+	hashtable := bucket.mySubscriptions[sixbits]
+	watcheditem, ok := hashtable[*h]
+	return watcheditem, ok
+}
+
+func setWatchers(bucket *subscribeBucket, h *HashType, watcher *watchedTopic) {
+
+	// the first 4 bits were used to select the bucket
+	// the next 6 will select the hash table inside the bucket.
+	sixbits := h.GetFractionalBits(10) & 0x3F
+	hashtable := bucket.mySubscriptions[sixbits]
+	if watcher != nil {
+		hashtable[*h] = watcher
+	} else {
+		delete(hashtable, *h)
+	}
+
 }

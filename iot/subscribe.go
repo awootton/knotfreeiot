@@ -19,12 +19,13 @@ import "fmt"
 
 func processSubscribe(me *LookupTableStruct, bucket *subscribeBucket, submsg *subscriptionMessage) {
 
-	watcheditem, ok := bucket.mySubscriptions[submsg.h]
+	watcheditem, ok := getWatchers(bucket, &submsg.h) //bucket.mySubscriptions[submsg.h]
 	if !ok {
 		watcheditem = &watchedTopic{}
 		watcheditem.name = submsg.h
 		watcheditem.watchers = NewWithInt64Comparator() //make(map[HalfHash]ContactInterface, 0)
-		bucket.mySubscriptions[submsg.h] = watcheditem
+		//bucket.mySubscriptions[submsg.h] = watcheditem
+		setWatchers(bucket, &submsg.h, watcheditem)
 		TopicsAdded.Inc()
 	}
 	// this is the important part:  add the caller to  the set
@@ -40,23 +41,24 @@ func processSubscribe(me *LookupTableStruct, bucket *subscribeBucket, submsg *su
 
 func processSubscribeDown(me *LookupTableStruct, bucket *subscribeBucket, submsg *subscriptionMessage) {
 
-	watcheditem, ok := bucket.mySubscriptions[submsg.h]
+	watcheditem, ok := getWatchers(bucket, &submsg.h) //bucket.mySubscriptions[submsg.h]
 	if !ok {
-		fmt.Println("FIXME no such thing as subscribe down kad")
+		fmt.Println("FIXME no such thing as subscribe down kadoo")
 	} else {
-		fmt.Println("FIXME no such thing as subscribe down 2")
+		fmt.Println("FIXME no such thing as subscribe down asert2")
 	}
 	_ = watcheditem
 }
 
 func processUnsubscribe(me *LookupTableStruct, bucket *subscribeBucket, unmsg *unsubscribeMessage) {
 
-	watcheditem, ok := bucket.mySubscriptions[unmsg.h]
+	watcheditem, ok := getWatchers(bucket, &unmsg.h) //bucket.mySubscriptions[unmsg.h]
 	if ok == true {
 		watcheditem.watchers.Remove(uint64(unmsg.ss.GetKey()))
 		if watcheditem.watchers.Size() == 0 {
 			// if nobody here is subscribing anymore then delete the entry in the hash
-			delete(bucket.mySubscriptions, unmsg.h)
+			//delete(bucket.mySubscriptions, unmsg.h)
+			setWatchers(bucket, &unmsg.h, nil)
 			// and also tell upstream that we're not interested anymore.
 			err := bucket.looker.PushUp(unmsg.p, unmsg.h, unmsg.timestamp)
 			if err != nil {
@@ -70,7 +72,7 @@ func processUnsubscribe(me *LookupTableStruct, bucket *subscribeBucket, unmsg *u
 
 func processUnsubscribeDown(me *LookupTableStruct, bucket *subscribeBucket, unmsg *unsubscribeMessageDown) {
 
-	watcheditem, ok := bucket.mySubscriptions[unmsg.h]
+	watcheditem, ok := getWatchers(bucket, &unmsg.h) //bucket.mySubscriptions[unmsg.h]
 	if !ok {
 		fmt.Println("FIXME no such thing as UN subscribe down kad")
 	} else {

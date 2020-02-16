@@ -53,7 +53,73 @@ type ContactInterface interface {
 	// the upstream write is Push (below)
 }
 
-// Push to deal with an incoming message going up.
+func (ss *ContactStruct) String() string {
+	return fmt.Sprint("Contact" + ss.key.String() + ss.config.Name)
+}
+
+// ContactStructConfig could be just a stack frame but I'd like to return it.
+// This could be an interface that implements range and len or and the callbacks.
+// Instead we have function pointers. TODO: revisit.
+type ContactStructConfig struct {
+
+	// a linked list of all the *Contacts that are open and not Close'd
+	list     *list.List
+	listlock *sync.RWMutex // so it's thread safe
+
+	key HashType // everyone needs to feel special and unique
+
+	sequence uint64 // every time we factory init a Contact we increment this and we never decrement.
+
+	lookup *LookupTableStruct // LookupTableInterface
+
+	address string // eg knotfreeserver:7009
+
+	Name string // for debug
+}
+
+// AddContactStruct initializes a contact, and puts the new ss on the global
+// list. It also increments the sequence number in SockStructConfig.
+func AddContactStruct(ss *ContactStruct, config *ContactStructConfig) *ContactStruct {
+
+	ss.config = config
+
+	ss.topicToName = make(map[HalfHash][]byte)
+
+	config.listlock.Lock()
+	seq := config.sequence
+	config.sequence++
+	ss.key = HalfHash(seq + config.key.GetUint64())
+
+	ss.ele = ss.config.list.PushBack(ss)
+	config.listlock.Unlock()
+
+	return ss
+}
+
+// InitUpperContactStruct because upper contacts are different
+// they are not linked like the others, they are saved in a map in lookup
+func InitUpperContactStruct(ss *ContactStruct, config *ContactStructConfig) *ContactStruct {
+
+	ss.topicToName = make(map[HalfHash][]byte)
+	ss.config = config
+
+	return ss
+}
+
+// NewContactStructConfig is
+func NewContactStructConfig(looker *LookupTableStruct) *ContactStructConfig {
+	config := ContactStructConfig{}
+	config.lookup = looker
+	looker.config = &config
+	var alock sync.RWMutex
+	config.listlock = &alock
+	config.list = list.New()
+	config.key.Random()
+	config.sequence = 1
+	return &config
+}
+
+// Push to deal with an incoming message on a bottom contact heading up.
 // todo: upgrade and consolidate the address logic.
 func Push(ssi ContactInterface, p packets.Interface, timestamp uint32) error {
 
@@ -114,7 +180,8 @@ func Push(ssi ContactInterface, p packets.Interface, timestamp uint32) error {
 	return nil
 }
 
-// PushDown to deal with an incoming message going up.
+// PushDown to deal with an incoming message going down.
+// typically called by an upper Contact receiving a packet via tcp.
 // todo: upgrade and consolidate the address logic.
 func PushDown(ssi ContactInterface, p packets.Interface, timestamp uint32) error {
 
@@ -146,7 +213,6 @@ func PushDown(ssi ContactInterface, p packets.Interface, timestamp uint32) error
 		}
 		looker.sendUnsubscribeMessageDown(ssi, v, timestamp)
 	case *packets.Lookup:
-		//fmt.Println(v)
 		if len(v.AddressAlias) < 24 {
 			v.AddressAlias = make([]byte, 24)
 			sh := sha256.New()
@@ -155,7 +221,6 @@ func PushDown(ssi ContactInterface, p packets.Interface, timestamp uint32) error
 		}
 		looker.sendLookupMessageDown(ssi, v, timestamp)
 	case *packets.Send:
-		//fmt.Println(v)
 		if len(v.AddressAlias) < 24 {
 			v.AddressAlias = make([]byte, 24)
 			sh := sha256.New()
@@ -173,66 +238,6 @@ func PushDown(ssi ContactInterface, p packets.Interface, timestamp uint32) error
 
 	//	looker.Send(ss, p)
 	return nil
-}
-
-// ContactStructConfig could be just a stack frame but I'd like to return it.
-// This could be an interface that implements range and len or and the callbacks.
-// Instead we have function pointers. TODO: revisit.
-type ContactStructConfig struct {
-
-	// a linked list of all the *Contacts that are open and not Close'd
-	list     *list.List
-	listlock *sync.RWMutex // so it's thread safe
-
-	key HashType // everyone needs to feel special and unique
-
-	sequence uint64 // every time we factory init a Contact we increment this and we never decrement.
-
-	lookup *LookupTableStruct // LookupTableInterface
-
-	address string // eg knotfreeserver:7009
-}
-
-// AddContactStruct initializes a contact, and puts the new ss on the global
-// list. It also increments the sequence number in SockStructConfig.
-func AddContactStruct(ss *ContactStruct, config *ContactStructConfig) *ContactStruct {
-
-	ss.config = config
-
-	ss.topicToName = make(map[HalfHash][]byte)
-
-	config.listlock.Lock()
-	seq := config.sequence
-	config.sequence++
-	ss.key = HalfHash(seq + config.key.GetUint64())
-
-	ss.ele = ss.config.list.PushBack(ss)
-	config.listlock.Unlock()
-
-	return ss
-}
-
-// InitUpperContactStruct because upper contacts are different
-// they are not linked like the others, they are saved in a map in lookup
-func InitUpperContactStruct(ss *ContactStruct, config *ContactStructConfig) *ContactStruct {
-
-	ss.topicToName = make(map[HalfHash][]byte)
-	ss.config = config
-
-	return ss
-}
-
-// NewContactStructConfig is
-func NewContactStructConfig(looker *LookupTableStruct) *ContactStructConfig {
-	config := ContactStructConfig{}
-	config.lookup = looker
-	looker.config = &config
-	var alock sync.RWMutex
-	config.listlock = &alock
-	config.list = list.New()
-	config.key.Random()
-	config.sequence = 1
-	return &config
 }
 
 // GetKey is because we're passing around an interface

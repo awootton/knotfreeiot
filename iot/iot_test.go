@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"runtime"
 	"testing"
 	"time"
 
@@ -31,6 +32,7 @@ import (
 
 const starttime = uint32(1577840400) // Wednesday, January 1, 2020 1:00:00 AM
 
+// a typical bottom contact with a q instead of a writer
 type testContact struct {
 	iot.ContactStruct
 
@@ -40,8 +42,7 @@ type testContact struct {
 type testUpperContact struct {
 	iot.ContactStruct
 
-	//downMessages chan packets.Interface
-	bridgeBottomContact *testContact
+	guruBottomContact *testContact
 }
 
 type timedPacket struct {
@@ -52,7 +53,13 @@ type timedPacket struct {
 // called by Lookup PushUp
 func (cc *testUpperContact) WriteUpstream(cmd packets.Interface, timestamp uint32) {
 	// call the Push
-	iot.Push(cc.bridgeBottomContact, cmd, timestamp)
+	iot.Push(cc.guruBottomContact, cmd, timestamp)
+}
+
+var guruNameToConfig map[string]*iot.Executive
+
+func init() {
+	guruNameToConfig = make(map[string]*iot.Executive)
 }
 
 func TestTwoLevel(t *testing.T) {
@@ -63,60 +70,32 @@ func TestTwoLevel(t *testing.T) {
 	var err error
 
 	// set up
-	mgrTop0 := iot.NewLookupTable(100)
-	configTop0 := iot.NewContactStructConfig(mgrTop0)
+	guru0 := iot.NewExecutive(100, "guru0")
+	guruNameToConfig["guru0"] = guru0
 
-	mgr1 := iot.NewLookupTable(100)
-	config1 := iot.NewContactStructConfig(mgr1)
+	aide1 := iot.NewExecutive(100, "aide1")
+	aide2 := iot.NewExecutive(100, "aide2")
 
-	mgr2 := iot.NewLookupTable(100)
-	config2 := iot.NewContactStructConfig(mgr2)
-
-	mgr1.NameResolver = func(name string, config *iot.ContactStructConfig) (iot.ContactInterface, error) {
-		if name == "top0" { // todo: better names.
-			// IRL this is a tcp connect with contactTop1 as tcp client
-			// this is the contect that mgr1 and mgr2 will be using at the top
-			contactTop1 := testUpperContact{}
-			//contactTop1.downMessages = make(chan packets.Interface, 1000)
-			iot.InitUpperContactStruct(&contactTop1.ContactStruct, config)
-			// This is the one attaching to the bottom of mgrTop0
-			// this work would be done after the socket accept
-			newLowerContact := testContact{}
-			newLowerContact.downMessages = make(chan timedPacket, 1000)
-			iot.AddContactStruct(&newLowerContact.ContactStruct, configTop0)
-
-			// wire them up
-			contactTop1.bridgeBottomContact = &newLowerContact
-			go func() {
-				cmd := <-newLowerContact.downMessages
-				fmt.Println("cmd moving down", cmd)
-				iot.PushDown(&contactTop1, cmd.packet, cmd.timestamp)
-			}()
-
-			return &contactTop1, nil
-		} else {
-			return &testUpperContact{}, errors.New("unknown name " + name)
-		}
-	}
-	mgr2.NameResolver = mgr1.NameResolver
-	// we have to tell mgr1 to connect to mgrTop1
-	// send it an array of 1024 strings
+	aide1.Looker.NameResolver = testNameResolver
+	aide2.Looker.NameResolver = testNameResolver
+	// we have to tell aides to connect to guru
+	// send an array of 1024 strings
 	var names [1024]string
 	for i := range names {
-		names[i] = "top0"
+		names[i] = "guru0"
 	}
-	mgr1.SetUpstreamNames(names)
-	mgr2.SetUpstreamNames(names)
+	aide1.Looker.SetUpstreamNames(names)
+	aide2.Looker.SetUpstreamNames(names)
 
 	// make a contact
 	contact1 := testContact{}
 	contact1.downMessages = make(chan timedPacket, 1000)
-	iot.AddContactStruct(&contact1.ContactStruct, config1)
+	iot.AddContactStruct(&contact1.ContactStruct, aide1.Config)
 	// another
 	contact2 := testContact{}
 	contact2.downMessages = make(chan timedPacket, 1000)
-	iot.AddContactStruct(&contact2.ContactStruct, config2)
-	// note that they are in different lookups
+	iot.AddContactStruct(&contact2.ContactStruct, aide2.Config)
+	// note that they are in *different* lookups so normally they could not communicate but here we have a guru.
 
 	// subscribe
 	subs := packets.Subscribe{}
@@ -131,7 +110,7 @@ func TestTwoLevel(t *testing.T) {
 
 	val := readCounter(iot.TopicsAdded)
 	got = fmt.Sprint("topics collected ", val)
-	// want = "topics collected 2"
+	// want = "topics collected 2" // this works poorly when running all the tests.
 	// if got != want {
 	// 	t.Errorf("got %v, want %v", got, want)
 	// }
@@ -149,14 +128,33 @@ func TestTwoLevel(t *testing.T) {
 		t.Errorf("got %v, want %v", got, want)
 	}
 
+	got = contact1.getResultAsString()
+	want = `no message received<nil>`
+	if got != want {
+		t.Errorf("got %v, want %v", got, want)
+	}
+
+	sendmessage2 := packets.Send{}
+	sendmessage2.Address = []byte("contact1 address")
+	sendmessage2.Source = []byte("contact2 address")
+	sendmessage2.Payload = []byte("how about now?")
+
+	iot.Push(&contact2, &sendmessage2, starttime)
+
+	got = contact1.getResultAsString()
+	want = `[P,"contact1 address",=ygRnE97Kfx0usxBqx5cygy4enA1eojeRWdV/XMwSGzw,"contact2 address",,"how about now?"]`
+	if got != want {
+		t.Errorf("got %v, want %v", got, want)
+	}
+
 	_ = got
 	_ = want
-	_ = config1
-	_ = config2
-	_ = configTop0
 	_ = err
 	_ = ok
 
+	for i := 0; i < 1000; i++ {
+		runtime.Gosched()
+	}
 	//	time.Sleep(100 * time.Second)
 
 }
@@ -169,17 +167,16 @@ func TestSend(t *testing.T) {
 	var err error
 
 	// set up
-	mgr := iot.NewLookupTable(100)
-	config := iot.NewContactStructConfig(mgr)
+	guru := iot.NewExecutive(100, "guru")
 
 	// make a contact
 	contact1 := testContact{}
 	contact1.downMessages = make(chan timedPacket, 1000)
-	iot.AddContactStruct(&contact1.ContactStruct, config)
+	iot.AddContactStruct(&contact1.ContactStruct, guru.Config)
 	// another
 	contact2 := testContact{}
 	contact2.downMessages = make(chan timedPacket, 1000)
-	iot.AddContactStruct(&contact2.ContactStruct, config)
+	iot.AddContactStruct(&contact2.ContactStruct, guru.Config)
 
 	// subscribe
 	subs := packets.Subscribe{}
@@ -246,6 +243,32 @@ func TestSend(t *testing.T) {
 	_ = ok
 	_ = err
 
+}
+
+func testNameResolver(name string, config *iot.ContactStructConfig) (iot.ContactInterface, error) {
+	exec, ok := guruNameToConfig[name]
+	if ok && exec != nil { // todo: better names.
+		// IRL this is a tcp connect to the guru
+		// this is the contect that aide1 and aide2 will be using at their top
+		contactTop1 := testUpperContact{}
+		iot.InitUpperContactStruct(&contactTop1.ContactStruct, config)
+		// This is the one attaching to the bottom of guru0
+		// this work would be done after the socket accept by guru0
+		newLowerContact := testContact{}
+		newLowerContact.downMessages = make(chan timedPacket, 1000)
+		iot.AddContactStruct(&newLowerContact.ContactStruct, exec.Config)
+		// wire them up
+		contactTop1.guruBottomContact = &newLowerContact
+		go func() {
+			for { // add timeout?
+				cmd := <-newLowerContact.downMessages
+				iot.PushDown(&contactTop1, cmd.packet, cmd.timestamp)
+			}
+		}()
+		return &contactTop1, nil
+	} else {
+		return &testUpperContact{}, errors.New("unknown name " + name)
+	}
 }
 
 func (cc *testContact) get() (packets.Interface, bool) {

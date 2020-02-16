@@ -22,8 +22,8 @@ import (
 
 func processLookup(me *LookupTableStruct, bucket *subscribeBucket, lookmsg *lookupMessage) {
 
-	watcheditem, ok := bucket.mySubscriptions[lookmsg.h]
-	count := uint32(0) // people watching
+	watcheditem, ok := getWatchers(bucket, &lookmsg.h) // bucket.mySubscriptions[lookmsg.h]
+	count := uint32(0)                                 // people watching
 	if ok == false {
 		// nobody watching
 	} else {
@@ -44,8 +44,8 @@ func processLookup(me *LookupTableStruct, bucket *subscribeBucket, lookmsg *look
 
 func processLookupDown(me *LookupTableStruct, bucket *subscribeBucket, lookmsg *lookupMessage) {
 
-	watcheditem, ok := bucket.mySubscriptions[lookmsg.h]
-	count := uint32(0) // people watching
+	watcheditem, ok := getWatchers(bucket, &lookmsg.h) //bucket.mySubscriptions[lookmsg.h]
+	count := uint32(0)                                 // people watching
 	if ok == false {
 		// nobody watching
 	} else {

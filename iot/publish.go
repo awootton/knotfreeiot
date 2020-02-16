@@ -19,7 +19,7 @@ import "fmt"
 
 func processPublish(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *publishMessage) {
 
-	watcheditem, ok := bucket.mySubscriptions[pubmsg.h]
+	watcheditem, ok := getWatchers(bucket, &pubmsg.h) //[pubmsg.h]
 	if ok == false {
 		// no publish possible !
 		// it's sad really when someone sends messages to nobody.
@@ -61,7 +61,7 @@ func processPublish(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *publ
 
 func processPublishDown(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *publishMessageDown) {
 
-	watcheditem, ok := bucket.mySubscriptions[pubmsg.h]
+	watcheditem, ok := getWatchers(bucket, &pubmsg.h) //bucket.mySubscriptions[pubmsg.h]
 	if ok == false {
 		// no publish possible !
 		// it's sad really when someone sends messages to nobody.
