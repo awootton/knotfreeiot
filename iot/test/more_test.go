@@ -16,25 +16,34 @@
 package iot_test
 
 import (
+	"errors"
 	"fmt"
-	"strconv"
+	"reflect"
 	"testing"
 
 	"github.com/awootton/knotfreeiot/iot"
+	"github.com/awootton/knotfreeiot/packets"
 )
 
+var globalClusterExec *iot.ClusterExecutive
+
+// test auto scale in the minions and also reconnect when a minion is lost.
 func TestExec(t *testing.T) {
 
 	got := ""
 	want := ""
 
+	allContacts := make([]*testContact, 0)
+
 	ce := iot.MakeSimplestCluster(getTime, testNameResolver)
+	globalClusterExec = ce
 
 	c1 := ce.GetNewContact(MakeTestContact)
-	SendText(c1, "S chan1")
+	allContacts = append(allContacts, c1.(*testContact))
+	SendText(c1, "S "+c1.String()) // subscribe to my name
 
 	ct := c1.(*testContact)
-	got = ct.getResultAsString()
+	got = ct.getResultAsString() // // pause for a moment
 
 	// there one in the aide and one in the guru
 	got = fmt.Sprint("topics collected ", ce.GetSubsCount())
@@ -46,19 +55,79 @@ func TestExec(t *testing.T) {
 	// add a contact a minute and see what happens.
 	for i := 0; i < 100; i++ {
 		ci := ce.GetNewContact(MakeTestContact)
-		SendText(ci, "S chan"+strconv.FormatInt(int64(i), 10))
+		allContacts = append(allContacts, ci.(*testContact))
+		SendText(ci, "S "+ci.String())
 		currentTime += 60 // a minute
 		ce.Operate()
 	}
 
-	got = ct.getResultAsString()
-	// there one in the aide and one in the guru
+	got = ct.getResultAsString() // pause for a moment
+
 	got = fmt.Sprint("topics collected ", ce.GetSubsCount())
-	want = "topics collected 200"
+	want = "topics collected 202"
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
 	}
-
 	fmt.Println("total minions", len(ce.Aides))
+
+	// check that they all get messages
+	for _, cc := range allContacts {
+		command := "P " + cc.String() + " dalias saddr salias a_test_message" + cc.String()
+		//fmt.Println(command)
+		SendText(c1, command) // publish to cc from c1
+	}
+	got = ct.getResultAsString() // pause for a moment
+	for i, cc := range allContacts {
+		if i == 0 {
+			continue // the first one has no message
+		}
+		got = "none"
+		want = "a_test_message" + cc.String()
+		p := cc.mostRecent
+		if p != nil && reflect.TypeOf(p) == reflect.TypeOf(&packets.Send{}) {
+			send := p.(*packets.Send)
+			got = string(send.Payload)
+			if got != want {
+				t.Errorf("got %v, want %v", got, want)
+			}
+		}
+	}
+
+	// now. kill one of the minions and see if it reconnects and works
+	i := 3
+	minion := ce.Aides[i]
+	ce.Aides[i] = ce.Aides[len(ce.Aides)-1] // Copy last element to index i.
+	ce.Aides[len(ce.Aides)-1] = nil         // Erase last element (write zero value).
+	ce.Aides = ce.Aides[:len(ce.Aides)-1]   // shorten list
+
+	l := minion.Config.GetContactsList()
+	e := l.Front()
+	for ; e != nil; e = e.Next() {
+		cc := e.Value.(iot.ContactInterface)
+		cc.Close(errors.New("test close"))
+	}
+
+	for _, cc := range allContacts {
+		command := "P " + cc.String() + " dalias saddr salias a_test_message2" + cc.String()
+		//fmt.Println(command)
+		SendText(c1, command) // publish to cc from c1
+	}
+	got = ct.getResultAsString() // pause for a moment
+
+	for i, cc := range allContacts {
+		if i == 0 {
+			continue // the first one has no message
+		}
+		got = "none"
+		want = "a_test_message2" + cc.String()
+		p := cc.mostRecent
+		if p != nil && reflect.TypeOf(p) == reflect.TypeOf(&packets.Send{}) {
+			send := p.(*packets.Send)
+			got = string(send.Payload)
+		}
+		if got != want {
+			t.Errorf("got %v, want %v", got, want)
+		}
+	}
 
 }

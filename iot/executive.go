@@ -15,7 +15,9 @@
 
 package iot
 
-import "strconv"
+import (
+	"strconv"
+)
 
 // Utility and controller struct and functions for LookupTable
 
@@ -74,6 +76,27 @@ func (ce *ClusterExecutive) Operate() {
 
 // GetNewContact add a contect to the least used of the aides
 func (ce *ClusterExecutive) GetNewContact(factory ContactFactory) ContactInterface {
+	min := 1 << 30
+	var smallestAide *Executive
+	for _, aide := range ce.Aides {
+		cons, fract := aide.Looker.GetAllSubsCount()
+		if cons < min {
+			min = cons
+			smallestAide = aide
+		}
+		_ = fract
+	}
+	if smallestAide == nil {
+		return nil // fixme return error
+	}
+	//fmt.Println("smallest aide is ", smallestAide.Name)
+	cc := factory(smallestAide.Config)
+	return cc
+}
+
+// AttachContact add a contect to the least used of the aides
+// it's for an existing contact that's reconnecting.
+func (ce *ClusterExecutive) AttachContact(cc ContactInterface, attacher ContactAttach) {
 	max := -1
 	var smallestAide *Executive
 	for _, aide := range ce.Aides {
@@ -85,10 +108,9 @@ func (ce *ClusterExecutive) GetNewContact(factory ContactFactory) ContactInterfa
 		_ = fract
 	}
 	if smallestAide == nil {
-		return nil // fixme return error
+		return // fixme return error
 	}
-	cc := factory(smallestAide.Config)
-	return cc
+	attacher(cc, smallestAide.Config)
 }
 
 // MakeSimplestCluster is

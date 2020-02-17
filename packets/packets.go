@@ -154,7 +154,7 @@ func FillPacket(uni *Universal) (Interface, error) {
 	var p Interface
 	switch uni.Cmd {
 	case 'P': // Send aka Publish
-		p = &Send{}
+		p = new(Send)
 		err := p.Fill(uni)
 		if err != nil {
 			return nil, err

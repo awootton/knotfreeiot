@@ -28,6 +28,7 @@ import (
 
 // ContactStruct is our idea of channel or socket to downstream from us.
 type ContactStruct struct {
+	//
 	ele *list.Element
 
 	config *ContactStructConfig
@@ -53,10 +54,11 @@ type ContactInterface interface {
 	WriteUpstream(cmd packets.Interface) // called by LookupTableStruct.PushUp
 
 	// the upstream write is Push (below)
+	String() string // used as a default channel name in test
 }
 
 func (ss *ContactStruct) String() string {
-	return fmt.Sprint("Contact" + ss.key.String() + ss.config.Name)
+	return fmt.Sprint("Contact" + ss.key.String())
 }
 
 // ContactStructConfig could be just a stack frame but I'd like to return it.
@@ -79,6 +81,11 @@ type ContactStructConfig struct {
 	Name string // for debug
 }
 
+// GetContactsList so we can disconnect them in test
+func (config *ContactStructConfig) GetContactsList() *list.List {
+	return config.list
+}
+
 // AddContactStruct initializes a contact, and puts the new ss on the global
 // list. It also increments the sequence number in SockStructConfig.
 func AddContactStruct(ss *ContactStruct, config *ContactStructConfig) *ContactStruct {
@@ -88,10 +95,11 @@ func AddContactStruct(ss *ContactStruct, config *ContactStructConfig) *ContactSt
 	ss.topicToName = make(map[HalfHash][]byte)
 
 	config.listlock.Lock()
-	seq := config.sequence
-	config.sequence++
-	ss.key = HalfHash(seq + config.key.GetUint64())
-
+	if ss.key == 0 {
+		seq := config.sequence
+		config.sequence++
+		ss.key = HalfHash(seq + config.key.GetUint64())
+	}
 	ss.ele = ss.config.list.PushBack(ss)
 	config.listlock.Unlock()
 
@@ -282,7 +290,7 @@ func (ss *ContactStruct) Close(err error) {
 		}
 		ss.topicToName = nil
 	}
-	ss.key = 0
+	//ss.key = 0
 	ss.config = nil
 }
 
@@ -311,3 +319,6 @@ func (ss *ContactStruct) WriteUpstream(cmd packets.Interface) {
 
 // ContactFactory is for exec
 type ContactFactory func(config *ContactStructConfig) ContactInterface
+
+// ContactAttach for when the contact exists and we want to attach it to the config
+type ContactAttach func(cc ContactInterface, config *ContactStructConfig)

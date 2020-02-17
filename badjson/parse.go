@@ -34,6 +34,7 @@ type Segment interface {
 	String() string // as json so 123 or "abc" or "=ABC" or "$414243"
 	Next() Segment
 	setNext(s Segment)
+	Raw() string // unquoted
 }
 
 // Chop up a line of text into segments. Calling it a parser would be overstating.
@@ -267,6 +268,11 @@ func (b *Base) String() string {
 	return `""`
 }
 
+// Raw has no quotes
+func (b *Base) Raw() string {
+	return ``
+}
+
 // Next returns the next segment or nil
 func (b *Base) Next() Segment {
 	return b.nexts
@@ -305,6 +311,13 @@ func (b *Base64Bytes) String() string {
 	return `"=` + str + `"`
 }
 
+// Raw is
+func (b *Base64Bytes) Raw() string {
+	bytes := b.GetBytes()
+	str := base64.RawStdEncoding.EncodeToString(bytes)
+	return `=` + str + ``
+}
+
 // HexBytes is for when there's a block of data in hex.
 type HexBytes struct {
 	Base
@@ -338,6 +351,13 @@ func (b *HexBytes) String() string {
 	bytes := b.GetBytes()
 	encodedStr := hex.EncodeToString(bytes)
 	return `"$` + encodedStr + `"`
+}
+
+// Raw is unquoted
+func (b *HexBytes) Raw() string {
+	bytes := b.GetBytes()
+	encodedStr := hex.EncodeToString(bytes)
+	return `$` + encodedStr + ``
 }
 
 // RuneArray aka string
@@ -417,6 +437,19 @@ func (b *RuneArray) String() string {
 	return str
 }
 
+// Raw is
+func (b *RuneArray) Raw() string {
+	str := b.GetString()
+	needAmt := NeedsEscape(str)
+	if needAmt > 0 {
+		str = MakeEscaped(str, needAmt)
+	}
+	if b.needsQuote {
+		return `` + str + ``
+	}
+	return str
+}
+
 // Number is a float64
 type Number struct {
 	Base
@@ -466,6 +499,11 @@ func (b *Number) String() string {
 	return prefix + strconv.FormatFloat(val, 'g', -1, 64)
 }
 
+// Raw is
+func (b *Number) Raw() string {
+	return b.String()
+}
+
 // Parent has a sub-list
 type Parent struct {
 	Base
@@ -483,6 +521,13 @@ func NewParent(previous Segment, children Segment, wasArray bool) Segment {
 }
 
 func (b *Parent) String() string {
+	var sb strings.Builder
+	sb, _ = getJSONinternal(b.children, sb, b.wasArray)
+	return sb.String()
+}
+
+// Raw is should we st
+func (b *Parent) Raw() string {
 	var sb strings.Builder
 	sb, _ = getJSONinternal(b.children, sb, b.wasArray)
 	return sb.String()

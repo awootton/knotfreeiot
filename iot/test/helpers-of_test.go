@@ -50,8 +50,30 @@ type testUpperContact struct {
 func MakeTestContact(config *iot.ContactStructConfig) iot.ContactInterface {
 	contact1 := testContact{}
 	contact1.downMessages = make(chan packets.Interface, 1000)
+
+	go func(cc *testContact) {
+		for {
+			thing := <-contact1.downMessages
+			cc.mostRecent = thing
+			if reflect.TypeOf(thing) == reflect.TypeOf(&packets.Disconnect{}) {
+				// now we have to reconnect
+				fmt.Println("contact reattaching", cc)
+				globalClusterExec.AttachContact(cc, AttachTestContact)
+				// we should also reiterate our connect and our subscription.
+				SendText(cc, "S "+cc.String())
+			}
+		}
+	}(&contact1)
 	iot.AddContactStruct(&contact1.ContactStruct, config)
 	return &contact1
+}
+
+// the contact is already made but got closed or something and needs to
+// re-attach
+func AttachTestContact(cc iot.ContactInterface, config *iot.ContactStructConfig) {
+	contact1 := cc.(*testContact)
+	contact1.downMessages = make(chan packets.Interface, 1000)
+	iot.AddContactStruct(&contact1.ContactStruct, config)
 }
 
 // called by Lookup PushUp
@@ -99,6 +121,15 @@ func (cc *testContact) get() (packets.Interface, bool) {
 	}
 }
 
+func (cc *testContact) Close(err error) {
+	ss := cc.ContactStruct
+	ss.Close(err)
+
+	dis := packets.Disconnect{}
+	dis.SetOption("error", []byte(err.Error()))
+	cc.WriteDownstream(&dis)
+}
+
 func (cc *testContact) getResultAsString() string {
 	gotmsg, ok := cc.get()
 	got := ""
@@ -136,14 +167,15 @@ func SendText(cc iot.ContactInterface, text string) {
 	}
 	uni := packets.Universal{}
 	uni.Args = make([][]byte, 64) // much too big
-	tmp := segment.String()       // will be quoted
-	uni.Cmd = packets.CommandType(tmp[1])
+	tmp := segment.Raw()          // will not be quoted
+	uni.Cmd = packets.CommandType(tmp[0])
 	segment = segment.Next()
 
 	// traverse the result
 	i := 0
 	for s := segment; s != nil; s = s.Next() {
-		uni.Args[i] = []byte(s.String())
+		stmp := s.Raw()
+		uni.Args[i] = []byte(stmp)
 		i++
 		if i > 10 {
 			break
