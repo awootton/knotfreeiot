@@ -25,7 +25,7 @@ func processPublish(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *publ
 		// it's sad really when someone sends messages to nobody.
 		missedPushes.Inc()
 		// send upstream publish
-		err := bucket.looker.PushUp(pubmsg.p, pubmsg.h, pubmsg.timestamp)
+		err := bucket.looker.PushUp(pubmsg.p, pubmsg.h)
 		if err != nil {
 			// what? we're sad? todo: man up
 			// we should die and reconnect
@@ -44,12 +44,12 @@ func processPublish(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *publ
 			}
 			if key != pubmsg.ss.GetKey() {
 				if me.checkForBadSS(ss, watcheditem) == false {
-					ss.WriteDownstream(pubmsg.p, pubmsg.timestamp)
+					ss.WriteDownstream(pubmsg.p)
 					sentMessages.Inc()
 				}
 			}
 		}
-		err := bucket.looker.PushUp(pubmsg.p, pubmsg.h, pubmsg.timestamp)
+		err := bucket.looker.PushUp(pubmsg.p, pubmsg.h)
 		if err != nil {
 			// what? we're sad? todo: man up
 			// we should die and reconnect
@@ -83,7 +83,7 @@ func processPublishDown(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *
 			}
 			if key != pubmsg.ss.GetKey() {
 				if me.checkForBadSS(ss, watcheditem) == false {
-					ss.WriteDownstream(pubmsg.p, pubmsg.timestamp)
+					ss.WriteDownstream(pubmsg.p)
 					sentMessages.Inc()
 				}
 			}

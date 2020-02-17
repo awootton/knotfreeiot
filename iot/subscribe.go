@@ -31,7 +31,7 @@ func processSubscribe(me *LookupTableStruct, bucket *subscribeBucket, submsg *su
 	// this is the important part:  add the caller to  the set
 	watcheditem.watchers.Put(uint64(submsg.ss.GetKey()), submsg.ss)
 	namesAdded.Inc()
-	err := bucket.looker.PushUp(submsg.p, submsg.h, submsg.timestamp)
+	err := bucket.looker.PushUp(submsg.p, submsg.h)
 	if err != nil {
 		// what? we're sad? todo: man up
 		fmt.Println("FIXME kad")
@@ -60,7 +60,7 @@ func processUnsubscribe(me *LookupTableStruct, bucket *subscribeBucket, unmsg *u
 			//delete(bucket.mySubscriptions, unmsg.h)
 			setWatchers(bucket, &unmsg.h, nil)
 			// and also tell upstream that we're not interested anymore.
-			err := bucket.looker.PushUp(unmsg.p, unmsg.h, unmsg.timestamp)
+			err := bucket.looker.PushUp(unmsg.p, unmsg.h)
 			if err != nil {
 				// we should reconnect or what?
 				fmt.Println("FIXME jkd334j")

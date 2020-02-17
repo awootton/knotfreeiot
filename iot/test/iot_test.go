@@ -16,51 +16,13 @@
 package iot_test
 
 import (
-	"errors"
 	"fmt"
-	"reflect"
 	"runtime"
 	"testing"
-	"time"
 
 	"github.com/awootton/knotfreeiot/iot"
 	"github.com/awootton/knotfreeiot/packets"
-	"github.com/prometheus/client_golang/prometheus"
-
-	dto "github.com/prometheus/client_model/go"
 )
-
-const starttime = uint32(1577840400) // Wednesday, January 1, 2020 1:00:00 AM
-
-// a typical bottom contact with a q instead of a writer
-type testContact struct {
-	iot.ContactStruct
-
-	downMessages chan timedPacket
-}
-
-type testUpperContact struct {
-	iot.ContactStruct
-
-	guruBottomContact *testContact
-}
-
-type timedPacket struct {
-	packet    packets.Interface
-	timestamp uint32
-}
-
-// called by Lookup PushUp
-func (cc *testUpperContact) WriteUpstream(cmd packets.Interface, timestamp uint32) {
-	// call the Push
-	iot.Push(cc.guruBottomContact, cmd, timestamp)
-}
-
-var guruNameToConfig map[string]*iot.Executive
-
-func init() {
-	guruNameToConfig = make(map[string]*iot.Executive)
-}
 
 func TestTwoLevel(t *testing.T) {
 
@@ -68,13 +30,14 @@ func TestTwoLevel(t *testing.T) {
 	want := ""
 	ok := true
 	var err error
+	currentTime = starttime
 
 	// set up
-	guru0 := iot.NewExecutive(100, "guru0")
-	guruNameToConfig["guru0"] = guru0
+	guru0 := iot.NewExecutive(100, "guru0", getTime)
+	iot.GuruNameToConfigMap["guru0"] = guru0
 
-	aide1 := iot.NewExecutive(100, "aide1")
-	aide2 := iot.NewExecutive(100, "aide2")
+	aide1 := iot.NewExecutive(100, "aide1", getTime)
+	aide2 := iot.NewExecutive(100, "aide2", getTime)
 
 	aide1.Looker.NameResolver = testNameResolver
 	aide2.Looker.NameResolver = testNameResolver
@@ -89,18 +52,18 @@ func TestTwoLevel(t *testing.T) {
 
 	// make a contact
 	contact1 := testContact{}
-	contact1.downMessages = make(chan timedPacket, 1000)
+	contact1.downMessages = make(chan packets.Interface, 1000)
 	iot.AddContactStruct(&contact1.ContactStruct, aide1.Config)
 	// another
 	contact2 := testContact{}
-	contact2.downMessages = make(chan timedPacket, 1000)
+	contact2.downMessages = make(chan packets.Interface, 1000)
 	iot.AddContactStruct(&contact2.ContactStruct, aide2.Config)
 	// note that they are in *different* lookups so normally they could not communicate but here we have a guru.
 
 	// subscribe
 	subs := packets.Subscribe{}
 	subs.Address = []byte("contact1 address")
-	err = iot.Push(&contact1, &subs, starttime)
+	err = iot.Push(&contact1, &subs)
 
 	got = contact1.getResultAsString()
 	want = "no message received<nil>"
@@ -110,17 +73,19 @@ func TestTwoLevel(t *testing.T) {
 
 	val := readCounter(iot.TopicsAdded)
 	got = fmt.Sprint("topics collected ", val)
-	// want = "topics collected 2" // this works poorly when running all the tests.
-	// if got != want {
-	// 	t.Errorf("got %v, want %v", got, want)
-	// }
-
+	count, fract := guru0.GetSubsCount()
+	_ = fract
+	got = fmt.Sprint("topics collected ", count)
+	want = "topics collected 1"
+	if got != want {
+		t.Errorf("got %v, want %v", got, want)
+	}
 	sendmessage := packets.Send{}
 	sendmessage.Address = []byte("contact1 address")
 	sendmessage.Source = []byte("contact2 address")
 	sendmessage.Payload = []byte("can you hear me now?")
 
-	iot.Push(&contact2, &sendmessage, starttime)
+	iot.Push(&contact2, &sendmessage)
 
 	got = contact1.getResultAsString()
 	want = `[P,"contact1 address",=ygRnE97Kfx0usxBqx5cygy4enA1eojeRWdV/XMwSGzw,"contact2 address",,"can you hear me now?"]`
@@ -139,7 +104,7 @@ func TestTwoLevel(t *testing.T) {
 	sendmessage2.Source = []byte("contact2 address")
 	sendmessage2.Payload = []byte("how about now?")
 
-	iot.Push(&contact2, &sendmessage2, starttime)
+	iot.Push(&contact2, &sendmessage2)
 
 	got = contact1.getResultAsString()
 	want = `[P,"contact1 address",=ygRnE97Kfx0usxBqx5cygy4enA1eojeRWdV/XMwSGzw,"contact2 address",,"how about now?"]`
@@ -165,26 +130,27 @@ func TestSend(t *testing.T) {
 	want := ""
 	ok := true
 	var err error
+	currentTime = starttime
 
 	// set up
-	guru := iot.NewExecutive(100, "guru")
+	guru := iot.NewExecutive(100, "guru", getTime)
 
 	// make a contact
 	contact1 := testContact{}
-	contact1.downMessages = make(chan timedPacket, 1000)
+	contact1.downMessages = make(chan packets.Interface, 1000)
 	iot.AddContactStruct(&contact1.ContactStruct, guru.Config)
 	// another
 	contact2 := testContact{}
-	contact2.downMessages = make(chan timedPacket, 1000)
+	contact2.downMessages = make(chan packets.Interface, 1000)
 	iot.AddContactStruct(&contact2.ContactStruct, guru.Config)
 
 	// subscribe
 	subs := packets.Subscribe{}
 	subs.Address = []byte("contact1 address")
-	err = iot.Push(&contact1, &subs, starttime)
+	err = iot.Push(&contact1, &subs)
 	subs = packets.Subscribe{}
 	subs.Address = []byte("contact2 address")
-	err = iot.Push(&contact2, &subs, starttime)
+	err = iot.Push(&contact2, &subs)
 
 	got = contact1.getResultAsString()
 	want = "no message received<nil>"
@@ -194,17 +160,20 @@ func TestSend(t *testing.T) {
 
 	val := readCounter(iot.TopicsAdded)
 	got = fmt.Sprint("topics collected ", val)
+	count, fract := guru.GetSubsCount()
+	_ = fract
+	got = fmt.Sprint("topics collected ", count)
 	want = "topics collected 2"
-	// if got != want {
-	// 	t.Errorf("got %v, want %v", got, want)
-	// }
+	if got != want {
+		t.Errorf("got %v, want %v", got, want)
+	}
 
 	sendmessage := packets.Send{}
 	sendmessage.Address = []byte("contact1 address")
 	sendmessage.Source = []byte("contact2 address")
 	sendmessage.Payload = []byte("hello, can you hear me")
 
-	iot.Push(&contact2, &sendmessage, starttime)
+	iot.Push(&contact2, &sendmessage)
 
 	got = contact1.getResultAsString()
 	want = `[P,"contact1 address",=ygRnE97Kfx0usxBqx5cygy4enA1eojeRWdV/XMwSGzw,"contact2 address",,"hello, can you hear me"]`
@@ -216,7 +185,7 @@ func TestSend(t *testing.T) {
 	lookmsg := packets.Lookup{}
 	lookmsg.Address = []byte("contact1 address")
 	lookmsg.Source = []byte("contact2 address")
-	iot.Push(&contact2, &lookmsg, starttime)
+	iot.Push(&contact2, &lookmsg)
 
 	got = contact2.getResultAsString()
 	want = `[L,"contact1 address",=ygRnE97Kfx0usxBqx5cygy4enA1eojeRWdV/XMwSGzw,"contact2 address",,count,1]`
@@ -226,12 +195,12 @@ func TestSend(t *testing.T) {
 
 	unsub := packets.Unsubscribe{}
 	unsub.Address = []byte("contact1 address")
-	err = iot.Push(&contact1, &unsub, starttime)
+	err = iot.Push(&contact1, &unsub)
 
 	lookmsg = packets.Lookup{}
 	lookmsg.Address = []byte("contact1 address")
 	lookmsg.Source = []byte("contact2 address")
-	iot.Push(&contact2, &lookmsg, starttime)
+	iot.Push(&contact2, &lookmsg)
 
 	got = contact2.getResultAsString()
 	// note that the count is ZERO
@@ -243,66 +212,4 @@ func TestSend(t *testing.T) {
 	_ = ok
 	_ = err
 
-}
-
-func testNameResolver(name string, config *iot.ContactStructConfig) (iot.ContactInterface, error) {
-	exec, ok := guruNameToConfig[name]
-	if ok && exec != nil { // todo: better names.
-		// IRL this is a tcp connect to the guru
-		// this is the contect that aide1 and aide2 will be using at their top
-		contactTop1 := testUpperContact{}
-		iot.InitUpperContactStruct(&contactTop1.ContactStruct, config)
-		// This is the one attaching to the bottom of guru0
-		// this work would be done after the socket accept by guru0
-		newLowerContact := testContact{}
-		newLowerContact.downMessages = make(chan timedPacket, 1000)
-		iot.AddContactStruct(&newLowerContact.ContactStruct, exec.Config)
-		// wire them up
-		contactTop1.guruBottomContact = &newLowerContact
-		go func() {
-			for { // add timeout?
-				cmd := <-newLowerContact.downMessages
-				iot.PushDown(&contactTop1, cmd.packet, cmd.timestamp)
-			}
-		}()
-		return &contactTop1, nil
-	} else {
-		return &testUpperContact{}, errors.New("unknown name " + name)
-	}
-}
-
-func (cc *testContact) get() (packets.Interface, bool) {
-	select {
-	case msg := <-cc.downMessages:
-		return msg.packet, true
-	case <-time.After(10 * time.Millisecond):
-		return nil, false
-	}
-}
-
-func (cc *testContact) getResultAsString() string {
-	gotmsg, ok := cc.get()
-	got := ""
-	if ok {
-		got = gotmsg.String()
-	} else {
-		got = fmt.Sprint("no message received", gotmsg)
-	}
-	return got
-}
-
-func (cc *testContact) WriteDownstream(cmd packets.Interface, timestamp uint32) {
-	//fmt.Println("received from above", cmd, reflect.TypeOf(cmd))
-	cc.downMessages <- timedPacket{cmd, timestamp}
-}
-
-func (cc *testContact) WriteUpstream(cmd packets.Interface, timestamp uint32) {
-	fmt.Println("FIXME received from below", cmd, reflect.TypeOf(cmd))
-	//cc.downMessages <- cmd
-}
-
-func readCounter(m prometheus.Counter) float64 {
-	pb := &dto.Metric{}
-	m.Write(pb)
-	return pb.GetCounter().GetValue()
 }

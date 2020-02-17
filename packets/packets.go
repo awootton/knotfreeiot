@@ -149,54 +149,101 @@ func (p *PacketCommon) GetIPV6Option() []byte {
 	return got
 }
 
-// ReadPacket attempts to obtain a valid Packet from the stream
-func ReadPacket(reader io.Reader) (Interface, error) {
-
-	str, err := ReadUniversal(reader)
-	if err != nil {
-		return nil, err
-	}
+// FillPacket construct a packet from supplied Universal
+func FillPacket(uni *Universal) (Interface, error) {
 	var p Interface
-	switch str.Cmd {
+	switch uni.Cmd {
 	case 'P': // Send aka Publish
 		p = &Send{}
-		err := p.Fill(str)
+		err := p.Fill(uni)
 		if err != nil {
 			return nil, err
 		}
 	case 'S': //
 		p = &Subscribe{}
-		err := p.Fill(str)
+		err := p.Fill(uni)
 		if err != nil {
 			return nil, err
 		}
 	case 'U': //
 		p = &Unsubscribe{}
-		err := p.Fill(str)
+		err := p.Fill(uni)
 		if err != nil {
 			return nil, err
 		}
 	case 'L': //
 		p = &Lookup{}
-		err := p.Fill(str)
+		err := p.Fill(uni)
 		if err != nil {
 			return nil, err
 		}
 	case 'C': //
 		p = &Connect{}
-		err := p.Fill(str)
+		err := p.Fill(uni)
 		if err != nil {
 			return nil, err
 		}
 	case 'D': //
 		p = &Disconnect{}
-		err := p.Fill(str)
+		err := p.Fill(uni)
 		if err != nil {
 			return nil, err
 		}
+	default:
+		return nil, errors.New("unknown command " + string(uni.Cmd))
 	}
-
 	return p, nil
+}
+
+// ReadPacket attempts to obtain a valid Packet from the stream
+func ReadPacket(reader io.Reader) (Interface, error) {
+
+	uni, err := ReadUniversal(reader)
+	if err != nil {
+		return nil, err
+	}
+	return FillPacket(uni)
+	// var p Interface
+	// switch uni.Cmd {
+	// case 'P': // Send aka Publish
+	// 	p = &Send{}
+	// 	err := p.Fill(uni)
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// case 'S': //
+	// 	p = &Subscribe{}
+	// 	err := p.Fill(uni)
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// case 'U': //
+	// 	p = &Unsubscribe{}
+	// 	err := p.Fill(uni)
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// case 'L': //
+	// 	p = &Lookup{}
+	// 	err := p.Fill(uni)
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// case 'C': //
+	// 	p = &Connect{}
+	// 	err := p.Fill(uni)
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// case 'D': //
+	// 	p = &Disconnect{}
+	// 	err := p.Fill(uni)
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// }
+
+	// return p, nil
 }
 
 // The args slice is key then value in pairs
@@ -204,7 +251,9 @@ func (p *PacketCommon) unpackOptions(args [][]byte) {
 	key := "none"
 	for i, arg := range args {
 		if i&1 == 1 { // on odd numbers
-			p.SetOption(key, arg)
+			if key != "" {
+				p.SetOption(key, arg)
+			}
 		}
 		key = string(arg)
 	}

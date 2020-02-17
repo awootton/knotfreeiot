@@ -15,16 +15,110 @@
 
 package iot
 
+import "strconv"
+
 // Utility and controller struct and functions for LookupTable
 
-// Executive is
+// Executive is one instance of server
 type Executive struct {
 	Looker *LookupTableStruct
 	Config *ContactStructConfig
+	Name   string
+
+	getTime func() uint32
+
+	Limits *ExecutiveLimits
 }
 
-// NewExecutive A wrapper to hold and operate a  and the c
-func NewExecutive(sizeEstimate int, aname string) *Executive {
+// ClusterExecutive is a list of Executive
+// helpful for testing.
+type ClusterExecutive struct {
+	Aides              []*Executive
+	Gurus              []*Executive
+	limits             *ExecutiveLimits
+	currentNameMapping [1024]string
+}
+
+// ExecutiveLimits will be how we tell if the ex is 'full'
+type ExecutiveLimits struct {
+	connections int
+	buffers     float32 // 1.0 is fill
+	bytesPerSec int
+}
+
+// TestLimits is for tests
+var TestLimits = ExecutiveLimits{16, 0.5, 10}
+
+// Operate where we pretend to be an Operator and resize the cluster.
+func (ce *ClusterExecutive) Operate() {
+	needsNewAide := false
+	for _, ex := range ce.Aides {
+		c, fract := ex.GetSubsCount()
+		if c > ce.limits.connections {
+			needsNewAide = true
+		}
+		if fract > ce.limits.buffers {
+			needsNewAide = true
+		}
+	}
+	if needsNewAide {
+		anaide := ce.Aides[0]
+		n := strconv.FormatInt(int64(len(ce.Aides)), 10)
+		aide1 := NewExecutive(100, "aide"+n, anaide.getTime)
+		ce.Aides = append(ce.Aides, aide1)
+		aide1.Looker.NameResolver = anaide.Looker.NameResolver
+
+		aide1.Looker.SetUpstreamNames(ce.currentNameMapping)
+	}
+}
+
+// GetNewContact add a contect to the least used of the aides
+func (ce *ClusterExecutive) GetNewContact(factory ContactFactory) ContactInterface {
+	max := -1
+	var smallestAide *Executive
+	for _, aide := range ce.Aides {
+		cons, fract := aide.Looker.GetAllSubsCount()
+		if cons > max {
+			max = cons
+			smallestAide = aide
+		}
+		_ = fract
+	}
+	if smallestAide == nil {
+		return nil // fixme return error
+	}
+	cc := factory(smallestAide.Config)
+	return cc
+}
+
+// MakeSimplestCluster is
+func MakeSimplestCluster(timegetter func() uint32, nameResolver GuruNameResolver) *ClusterExecutive {
+
+	ce := ClusterExecutive{}
+
+	ce.limits = &TestLimits
+
+	// set up
+	guru0 := NewExecutive(100, "guru0", timegetter)
+	GuruNameToConfigMap["guru0"] = guru0
+
+	ce.Gurus = append(ce.Gurus, guru0)
+
+	aide1 := NewExecutive(100, "aide1", timegetter)
+	ce.Aides = append(ce.Aides, aide1)
+	aide1.Looker.NameResolver = nameResolver
+
+	// we have to tell aides to connect to guru
+	// send an array of 1024 strings
+	for i := range ce.currentNameMapping {
+		ce.currentNameMapping[i] = "guru0"
+	}
+	aide1.Looker.SetUpstreamNames(ce.currentNameMapping)
+	return &ce
+}
+
+// NewExecutive A wrapper to hold and operate
+func NewExecutive(sizeEstimate int, aname string, timegetter func() uint32) *Executive {
 
 	look0 := NewLookupTable(sizeEstimate)
 	config0 := NewContactStructConfig(look0)
@@ -33,6 +127,43 @@ func NewExecutive(sizeEstimate int, aname string) *Executive {
 	e := Executive{}
 	e.Looker = look0
 	e.Config = config0
+	e.Name = aname + "_ex"
+	e.getTime = timegetter
+	e.Limits = &TestLimits
 	return &e
 
+}
+
+// GetSubsCount returns a count of how many names it's remembering.
+// it also returns a fraction of buffer usage where 0.0 is empty and 1.0 is full.
+func (ex *Executive) GetSubsCount() (int, float32) {
+	subscriptions, queuefraction := ex.Looker.GetAllSubsCount()
+	return subscriptions, queuefraction
+}
+
+// GetLowerContactsCount is how many tcp sessions do we have going on at the bottom
+func (ex *Executive) GetLowerContactsCount() int {
+	return ex.Config.list.Len()
+}
+
+// GuruNameToConfigMap for ease of unit test.
+var GuruNameToConfigMap map[string]*Executive
+
+func init() {
+	GuruNameToConfigMap = make(map[string]*Executive)
+}
+
+// GetSubsCount returns count of all the subscriptions in all the lookup tables.
+// this is really only good for test.
+func (ce *ClusterExecutive) GetSubsCount() int {
+	count := 0
+	for _, ex := range ce.Aides {
+		c, _ := ex.GetSubsCount()
+		count += c
+	}
+	for _, ex := range ce.Gurus {
+		c, _ := ex.GetSubsCount()
+		count += c
+	}
+	return count
 }

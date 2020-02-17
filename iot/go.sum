@@ -4,6 +4,7 @@ github.com/alecthomas/units v0.0.0-20151022065526-2efee857e7cf/go.mod h1:ybxpYRF
 github.com/alecthomas/units v0.0.0-20190717042225-c3de453c63f4/go.mod h1:ybxpYRFXyAe+OPACYpWeL0wqObRcbAqCMya13uyzqw0=
 github.com/awootton/knotfreeiot v0.0.0-20200209083903-d4a3aec2fcb1 h1:Mov99RmUnD6MBfb6oEKgIb1gIxCl2ibeyq7CM+UU1HE=
 github.com/awootton/knotfreeiot v0.0.0-20200209083903-d4a3aec2fcb1/go.mod h1:kWDBrM3z/tS6GQDDzs8ySZsywWkJb2rcsbVXM4yO/ms=
+github.com/awootton/knotfreeiot v0.0.0-20200216063828-7fb2841e3f67 h1:3lI4OI8scjJVh+w+vU4nyrOhsRDBrztmNnYQybLmoOQ=
 github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973/go.mod h1:Dwedo/Wpr24TaqPxmxbtue+5NUziq4I4S80YR8gNf3Q=
 github.com/beorn7/perks v1.0.0/go.mod h1:KWe93zE9D1o94FZ5RNwFwVgaQK1VOXiVxmqh+CedLV8=
 github.com/beorn7/perks v1.0.1 h1:VlbKKnNfV8bJzeqoa4cOKqO6bYr3WgKZxO8Z16+hsOM=

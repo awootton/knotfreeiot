@@ -36,10 +36,15 @@ type LookupTableStruct struct {
 
 	upstreamRouter *UpstreamRouterStruct
 
-	NameResolver func(name string, config *ContactStructConfig) (ContactInterface, error)
+	NameResolver GuruNameResolver
 
 	config *ContactStructConfig
 }
+
+// GuruNameResolver will return an upper contact from a name
+// in prod it's a DNS lookup followed by a tcp connect
+// in unit test there's a global map that can be consulted. see
+type GuruNameResolver func(name string, config *ContactStructConfig) (ContactInterface, error)
 
 // UpstreamRouterStruct is maybe virtual in the future
 type UpstreamRouterStruct struct {
@@ -51,14 +56,13 @@ type UpstreamRouterStruct struct {
 }
 
 // PushUp is
-func (me *LookupTableStruct) PushUp(p packets.Interface, h HashType, timestamp uint32) error {
+func (me *LookupTableStruct) PushUp(p packets.Interface, h HashType) error {
 
 	up := me.upstreamRouter
 
 	i := h.GetFractionalBits(10)
-
 	if up.contacts[i] != nil {
-		up.contacts[i].WriteUpstream(p, timestamp)
+		up.contacts[i].WriteUpstream(p)
 	}
 
 	return nil
@@ -130,7 +134,7 @@ func NewLookupTable(projectedTopicCount int) *LookupTableStruct {
 }
 
 // sendSubscriptionMessage will create a message object, copy pointers to it so it'll own them now, and queue the message.
-func (me *LookupTableStruct) sendSubscriptionMessage(ss ContactInterface, p *packets.Subscribe, timestamp uint32) {
+func (me *LookupTableStruct) sendSubscriptionMessage(ss ContactInterface, p *packets.Subscribe) {
 
 	msg := subscriptionMessage{}
 	msg.ss = ss
@@ -142,7 +146,7 @@ func (me *LookupTableStruct) sendSubscriptionMessage(ss ContactInterface, p *pac
 }
 
 // SendUnsubscribeMessage will create a message object, copy pointers to it so it'll own them now, and queue the message.
-func (me *LookupTableStruct) sendUnsubscribeMessage(ss ContactInterface, p *packets.Unsubscribe, timestamp uint32) {
+func (me *LookupTableStruct) sendUnsubscribeMessage(ss ContactInterface, p *packets.Unsubscribe) {
 
 	msg := unsubscribeMessage{}
 	msg.ss = ss
@@ -154,7 +158,7 @@ func (me *LookupTableStruct) sendUnsubscribeMessage(ss ContactInterface, p *pack
 }
 
 // SendUnsubscribeMessage will create a message object, copy pointers to it so it'll own them now, and queue the message.
-func (me *LookupTableStruct) sendLookupMessage(ss ContactInterface, p *packets.Lookup, timestamp uint32) {
+func (me *LookupTableStruct) sendLookupMessage(ss ContactInterface, p *packets.Lookup) {
 
 	msg := lookupMessage{}
 	msg.ss = ss
@@ -166,7 +170,7 @@ func (me *LookupTableStruct) sendLookupMessage(ss ContactInterface, p *packets.L
 }
 
 // SendPublishMessage will create a message object, copy pointers to it so it'll own them now, and queue the message.
-func (me *LookupTableStruct) sendPublishMessageDown(ss ContactInterface, p *packets.Send, timestamp uint32) {
+func (me *LookupTableStruct) sendPublishMessageDown(ss ContactInterface, p *packets.Send) {
 
 	msg := publishMessageDown{}
 	msg.ss = ss
@@ -178,7 +182,7 @@ func (me *LookupTableStruct) sendPublishMessageDown(ss ContactInterface, p *pack
 }
 
 // sendSubscriptionMessage will create a message object, copy pointers to it so it'll own them now, and queue the message.
-func (me *LookupTableStruct) sendSubscriptionMessageDown(ss ContactInterface, p *packets.Subscribe, timestamp uint32) {
+func (me *LookupTableStruct) sendSubscriptionMessageDown(ss ContactInterface, p *packets.Subscribe) {
 
 	msg := subscriptionMessageDown{}
 	msg.ss = ss
@@ -190,7 +194,7 @@ func (me *LookupTableStruct) sendSubscriptionMessageDown(ss ContactInterface, p 
 }
 
 // SendUnsubscribeMessage will create a message object, copy pointers to it so it'll own them now, and queue the message.
-func (me *LookupTableStruct) sendUnsubscribeMessageDown(ss ContactInterface, p *packets.Unsubscribe, timestamp uint32) {
+func (me *LookupTableStruct) sendUnsubscribeMessageDown(ss ContactInterface, p *packets.Unsubscribe) {
 
 	msg := unsubscribeMessageDown{}
 	msg.ss = ss
@@ -202,7 +206,7 @@ func (me *LookupTableStruct) sendUnsubscribeMessageDown(ss ContactInterface, p *
 }
 
 // SendUnsubscribeMessage will create a message object, copy pointers to it so it'll own them now, and queue the message.
-func (me *LookupTableStruct) sendLookupMessageDown(ss ContactInterface, p *packets.Lookup, timestamp uint32) {
+func (me *LookupTableStruct) sendLookupMessageDown(ss ContactInterface, p *packets.Lookup) {
 
 	msg := lookupMessageDown{}
 	msg.ss = ss
@@ -214,7 +218,7 @@ func (me *LookupTableStruct) sendLookupMessageDown(ss ContactInterface, p *packe
 }
 
 // SendPublishMessage will create a message object, copy pointers to it so it'll own them now, and queue the message.
-func (me *LookupTableStruct) sendPublishMessage(ss ContactInterface, p *packets.Send, timestamp uint32) {
+func (me *LookupTableStruct) sendPublishMessage(ss ContactInterface, p *packets.Send) {
 
 	msg := publishMessage{}
 	msg.ss = ss
@@ -227,15 +231,19 @@ func (me *LookupTableStruct) sendPublishMessage(ss ContactInterface, p *packets.
 
 // GetAllSubsCount returns the count of subscriptions and the
 // average depth of the channels.
-func (me *LookupTableStruct) GetAllSubsCount() (int, int) {
+func (me *LookupTableStruct) GetAllSubsCount() (int, float32) {
 	count := 0
+	totalCapacity := 0
 	qdepth := 0
-	for _, b := range me.allTheSubscriptions {
-		count += len(b.mySubscriptions)
-		qdepth += (len(b.incoming))
+	for _, bucket := range me.allTheSubscriptions {
+		for _, htable := range bucket.mySubscriptions {
+			count += len(htable)
+		}
+		qdepth += len(bucket.incoming)
+		totalCapacity += cap(bucket.incoming)
 	}
-	qdepth = qdepth / len(me.allTheSubscriptions)
-	return count, qdepth
+	fract := float32(qdepth) / float32(totalCapacity)
+	return count, fract
 }
 
 // TODO: implement a pool of the incoming types.
@@ -275,9 +283,9 @@ func (bucket *subscribeBucket) processMessages(me *LookupTableStruct) {
 }
 
 type common struct {
-	ss        ContactInterface
-	h         HashType // 3*8 bytes
-	timestamp uint32   // timestamp
+	ss ContactInterface
+	h  HashType // 3*8 bytes
+	// lookup has a time getter timestamp uint32   // timestamp
 }
 
 type subscriptionMessage struct {

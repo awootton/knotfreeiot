@@ -168,8 +168,8 @@ func TestConnect(t *testing.T) {
 	want := "b"
 
 	cmd := packets.Connect{}
-	cmd.PutOption("key1", []byte("value1"))
-	cmd.PutOption("key2", []byte("value2"))
+	cmd.SetOption("key1", []byte("value1"))
+	cmd.SetOption("key2", []byte("value2"))
 
 	var bb bytes.Buffer
 	err := (&cmd).Write(&bb)
@@ -212,8 +212,8 @@ func TestDis(t *testing.T) {
 	want := "b"
 
 	cmd := packets.Disconnect{}
-	cmd.PutOption("key1", []byte("value1"))
-	cmd.PutOption("key2", []byte("value2"))
+	cmd.SetOption("key1", []byte("value1"))
+	cmd.SetOption("key2", []byte("value2"))
 
 	var bb bytes.Buffer
 	err := (&cmd).Write(&bb)
@@ -354,7 +354,7 @@ func ExampleToJSON() {
 	cmd.Source = []byte("sourceaddr")
 	cmd.Address = []byte("destaddr")
 	cmd.Payload = []byte("some data")
-	cmd.PutOption("option1", []byte("test"))
+	cmd.SetOption("option1", []byte("test"))
 
 	addr := "2001:0db8:85a3:0000:0000:8a2e:0370:7334"
 	hexstr := strings.ReplaceAll(addr, ":", "")
@@ -362,13 +362,13 @@ func ExampleToJSON() {
 	if err != nil {
 		fmt.Println("wrong")
 	}
-	cmd.PutOption("IPv6", decoded)
+	cmd.SetOption("IPv6", decoded)
 	decoded, err = hex.DecodeString("FFFF00000000000000ABCDEF")
 	if err != nil {
 		fmt.Println("wrong2")
 	}
-	cmd.PutOption("z", decoded)
-	cmd.PutOption("option2", []byte("На берегу пустынных волн"))
+	cmd.SetOption("z", decoded)
+	cmd.SetOption("option2", []byte("На берегу пустынных волн"))
 
 	jdata, err := (&cmd).ToJSON()
 	fmt.Println(string(jdata))
@@ -431,7 +431,7 @@ func TestForZombies(t *testing.T) {
 		t.Errorf("got %v, want %v", got, want)
 	}
 
-	cmd.PutOption("key1", []byte("val1"))
+	cmd.SetOption("key1", []byte("val1"))
 	val, ok = cmd.GetOption("key9")
 
 	got = "notok"
@@ -577,7 +577,7 @@ func TestForZombies2(t *testing.T) {
 		val = val + val
 		val = val + val
 		val = val + val
-		cmd.PutOption("a very long key name"+strconv.Itoa(i), []byte(val))
+		cmd.SetOption("a very long key name"+strconv.Itoa(i), []byte(val))
 	}
 	bb.Reset()
 	err = (&cmd).Write(&bb)
@@ -596,7 +596,7 @@ func TestForZombies2(t *testing.T) {
 		val = val + val
 		val = val + val
 		val = val + val
-		cmd.PutOption("a very long key name"+strconv.Itoa(i), []byte(val))
+		cmd.SetOption("a very long key name"+strconv.Itoa(i), []byte(val))
 	}
 	bb.Reset()
 	err = (&cmd).Write(&bb)

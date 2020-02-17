@@ -33,8 +33,8 @@ func processLookup(me *LookupTableStruct, bucket *subscribeBucket, lookmsg *look
 	// set count, in decimal
 	str := strconv.FormatUint(uint64(count), 10)
 	lookmsg.p.SetOption("count", []byte(str))
-	lookmsg.ss.WriteDownstream(lookmsg.p, lookmsg.timestamp)
-	err := bucket.looker.PushUp(lookmsg.p, lookmsg.h, lookmsg.timestamp)
+	lookmsg.ss.WriteDownstream(lookmsg.p)
+	err := bucket.looker.PushUp(lookmsg.p, lookmsg.h)
 	if err != nil {
 		// we should be ashamed
 		fmt.Println("FIXME x-sw")
@@ -55,6 +55,6 @@ func processLookupDown(me *LookupTableStruct, bucket *subscribeBucket, lookmsg *
 	// set count, in decimal
 	str := strconv.FormatUint(uint64(count), 10)
 	lookmsg.p.SetOption("count", []byte(str))
-	lookmsg.ss.WriteDownstream(lookmsg.p, lookmsg.timestamp)
+	lookmsg.ss.WriteDownstream(lookmsg.p)
 
 }

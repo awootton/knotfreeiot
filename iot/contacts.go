@@ -20,6 +20,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"reflect"
 	"sync"
 
 	"github.com/awootton/knotfreeiot/packets"
@@ -36,6 +37,7 @@ type ContactStruct struct {
 	// and maybe the root doesn't want the real names.
 	// but then how do we unsubscribe when the tcp conn fails? (don't, timeout)
 	topicToName map[HalfHash][]byte // a tree would be better?
+
 }
 
 // ContactInterface is usually supplied by a tcp connection
@@ -46,9 +48,9 @@ type ContactInterface interface {
 
 	GetConfig() *ContactStructConfig
 
-	WriteDownstream(cmd packets.Interface, timestamp uint32)
+	WriteDownstream(cmd packets.Interface)
 
-	WriteUpstream(cmd packets.Interface, timestamp uint32) // called by LookupTableStruct.PushUp
+	WriteUpstream(cmd packets.Interface) // called by LookupTableStruct.PushUp
 
 	// the upstream write is Push (below)
 }
@@ -121,7 +123,7 @@ func NewContactStructConfig(looker *LookupTableStruct) *ContactStructConfig {
 
 // Push to deal with an incoming message on a bottom contact heading up.
 // todo: upgrade and consolidate the address logic.
-func Push(ssi ContactInterface, p packets.Interface, timestamp uint32) error {
+func Push(ssi ContactInterface, p packets.Interface) error {
 
 	config := ssi.GetConfig()
 	looker := config.GetLookup()
@@ -141,7 +143,7 @@ func Push(ssi ContactInterface, p packets.Interface, timestamp uint32) error {
 			sh.Write(v.Address)
 			v.AddressAlias = sh.Sum(nil)
 		}
-		looker.sendSubscriptionMessage(ssi, v, timestamp)
+		looker.sendSubscriptionMessage(ssi, v)
 	case *packets.Unsubscribe:
 		if len(v.AddressAlias) < 24 {
 			v.AddressAlias = make([]byte, 24)
@@ -149,7 +151,7 @@ func Push(ssi ContactInterface, p packets.Interface, timestamp uint32) error {
 			sh.Write(v.Address)
 			v.AddressAlias = sh.Sum(nil)
 		}
-		looker.sendUnsubscribeMessage(ssi, v, timestamp)
+		looker.sendUnsubscribeMessage(ssi, v)
 	case *packets.Lookup:
 		//fmt.Println(v)
 		if len(v.AddressAlias) < 24 {
@@ -158,7 +160,7 @@ func Push(ssi ContactInterface, p packets.Interface, timestamp uint32) error {
 			sh.Write(v.Address)
 			v.AddressAlias = sh.Sum(nil)
 		}
-		looker.sendLookupMessage(ssi, v, timestamp)
+		looker.sendLookupMessage(ssi, v)
 	case *packets.Send:
 		//fmt.Println(v)
 		if len(v.AddressAlias) < 24 {
@@ -167,7 +169,7 @@ func Push(ssi ContactInterface, p packets.Interface, timestamp uint32) error {
 			sh.Write(v.Address)
 			v.AddressAlias = sh.Sum(nil)
 		}
-		looker.sendPublishMessage(ssi, v, timestamp)
+		looker.sendPublishMessage(ssi, v)
 
 	default:
 		fmt.Printf("I don't know about type %T!\n", v)
@@ -183,7 +185,7 @@ func Push(ssi ContactInterface, p packets.Interface, timestamp uint32) error {
 // PushDown to deal with an incoming message going down.
 // typically called by an upper Contact receiving a packet via tcp.
 // todo: upgrade and consolidate the address logic.
-func PushDown(ssi ContactInterface, p packets.Interface, timestamp uint32) error {
+func PushDown(ssi ContactInterface, p packets.Interface) error {
 
 	config := ssi.GetConfig()
 	looker := config.GetLookup()
@@ -203,7 +205,7 @@ func PushDown(ssi ContactInterface, p packets.Interface, timestamp uint32) error
 			sh.Write(v.Address)
 			v.AddressAlias = sh.Sum(nil)
 		}
-		looker.sendSubscriptionMessageDown(ssi, v, timestamp)
+		looker.sendSubscriptionMessageDown(ssi, v)
 	case *packets.Unsubscribe:
 		if len(v.AddressAlias) < 24 {
 			v.AddressAlias = make([]byte, 24)
@@ -211,7 +213,7 @@ func PushDown(ssi ContactInterface, p packets.Interface, timestamp uint32) error
 			sh.Write(v.Address)
 			v.AddressAlias = sh.Sum(nil)
 		}
-		looker.sendUnsubscribeMessageDown(ssi, v, timestamp)
+		looker.sendUnsubscribeMessageDown(ssi, v)
 	case *packets.Lookup:
 		if len(v.AddressAlias) < 24 {
 			v.AddressAlias = make([]byte, 24)
@@ -219,7 +221,7 @@ func PushDown(ssi ContactInterface, p packets.Interface, timestamp uint32) error
 			sh.Write(v.Address)
 			v.AddressAlias = sh.Sum(nil)
 		}
-		looker.sendLookupMessageDown(ssi, v, timestamp)
+		looker.sendLookupMessageDown(ssi, v)
 	case *packets.Send:
 		if len(v.AddressAlias) < 24 {
 			v.AddressAlias = make([]byte, 24)
@@ -227,7 +229,7 @@ func PushDown(ssi ContactInterface, p packets.Interface, timestamp uint32) error
 			sh.Write(v.Address)
 			v.AddressAlias = sh.Sum(nil)
 		}
-		looker.sendPublishMessageDown(ssi, v, timestamp)
+		looker.sendPublishMessageDown(ssi, v)
 
 	default:
 		fmt.Printf("I don't know about type %T!\n", v)
@@ -251,7 +253,7 @@ func (ss *ContactStruct) GetConfig() *ContactStructConfig {
 }
 
 // WriteDownstream needs to be overridden
-func (ss *ContactStruct) WriteDownstream(cmd packets.Interface, timestamp uint32) {
+func (ss *ContactStruct) WriteDownstream(cmd packets.Interface) {
 	panic("WriteDownstream needs to be overridden")
 }
 
@@ -271,13 +273,15 @@ func (ss *ContactStruct) Close(err error) {
 		ss.config.listlock.Unlock()
 		ss.ele = nil
 	}
-	// if ss.topicToName != nil {
-	// 	for key, realName := range ss.topicToName {
-	// 		// FIXME: ss.SendUnsubscribeMessage(realName)
-	// 		_ = key
-	// 	}
-	// 	ss.topicToName = nil
-	// }
+	if ss.topicToName != nil {
+		for key, realName := range ss.topicToName {
+			p := new(packets.Unsubscribe)
+			p.Address = realName
+			ss.config.lookup.sendUnsubscribeMessage(ss, p)
+			_ = key
+		}
+		ss.topicToName = nil
+	}
 	ss.key = 0
 	ss.config = nil
 }
@@ -299,3 +303,11 @@ func (config *ContactStructConfig) Len() int {
 	config.listlock.Unlock()
 	return val
 }
+
+// WriteUpstream will be overridden
+func (ss *ContactStruct) WriteUpstream(cmd packets.Interface) {
+	fmt.Println("FIXME unused", cmd, reflect.TypeOf(cmd)) // fixme panic
+}
+
+// ContactFactory is for exec
+type ContactFactory func(config *ContactStructConfig) ContactInterface
