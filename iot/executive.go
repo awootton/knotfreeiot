@@ -35,24 +35,26 @@ type Executive struct {
 // ClusterExecutive is a list of Executive
 // helpful for testing.
 type ClusterExecutive struct {
-	Aides              []*Executive
-	Gurus              []*Executive
-	limits             *ExecutiveLimits
-	currentNameMapping [1024]string
+	Aides           []*Executive
+	Gurus           []*Executive
+	limits          *ExecutiveLimits
+	currentGuruList []string
 }
 
 // ExecutiveLimits will be how we tell if the ex is 'full'
 type ExecutiveLimits struct {
-	connections int
-	buffers     float32 // 1.0 is fill
-	bytesPerSec int
+	connections   int
+	buffers       float32 // 1.0 is fill
+	bytesPerSec   int
+	subscriptions int
 }
 
 // TestLimits is for tests
-var TestLimits = ExecutiveLimits{16, 0.5, 10}
+var TestLimits = ExecutiveLimits{16, 0.5, 10, 75}
 
 // Operate where we pretend to be an Operator and resize the cluster.
 func (ce *ClusterExecutive) Operate() {
+
 	needsNewAide := false
 	for _, ex := range ce.Aides {
 		c, fract := ex.GetSubsCount()
@@ -62,16 +64,47 @@ func (ce *ClusterExecutive) Operate() {
 		if fract > ce.limits.buffers {
 			needsNewAide = true
 		}
+		// check bps and subscriptions
+		// TODO calc % for each category and return largest and then grow on >0.85 and shrink at <0.75
 	}
+
 	if needsNewAide {
 		anaide := ce.Aides[0]
 		n := strconv.FormatInt(int64(len(ce.Aides)), 10)
 		aide1 := NewExecutive(100, "aide"+n, anaide.getTime)
 		ce.Aides = append(ce.Aides, aide1)
 		aide1.Looker.NameResolver = anaide.Looker.NameResolver
-
-		aide1.Looker.SetUpstreamNames(ce.currentNameMapping)
+		aide1.Looker.SetUpstreamNames(ce.currentGuruList)
 	}
+
+	needsNewGuru := false
+	for _, ex := range ce.Gurus {
+		c, fract := ex.GetSubsCount()
+		if c > ce.limits.connections {
+			needsNewGuru = true
+		}
+		if fract > ce.limits.buffers {
+			needsNewGuru = true
+		}
+		// check bps and subscriptions
+		// TODO calc % for each category and return largest and then grow on >0.85 and shrink at <0.75
+	}
+
+	if needsNewGuru && false {
+		sample := ce.Gurus[0]
+		n := strconv.FormatInt(int64(len(ce.Gurus)), 10)
+		newName := "guru" + n
+		n1 := NewExecutive(100, newName, sample.getTime)
+		ce.Gurus = append(ce.Gurus, n1)
+		GuruNameToConfigMap[newName] = n1
+		n1.Looker.NameResolver = sample.Looker.NameResolver
+		ce.currentGuruList = append(ce.currentGuruList, newName)
+
+		for _, aide := range ce.Aides {
+			aide.Looker.SetUpstreamNames(ce.currentGuruList)
+		}
+	}
+
 }
 
 // GetNewContact add a contect to the least used of the aides
@@ -130,12 +163,9 @@ func MakeSimplestCluster(timegetter func() uint32, nameResolver GuruNameResolver
 	ce.Aides = append(ce.Aides, aide1)
 	aide1.Looker.NameResolver = nameResolver
 
-	// we have to tell aides to connect to guru
-	// send an array of 1024 strings
-	for i := range ce.currentNameMapping {
-		ce.currentNameMapping[i] = "guru0"
-	}
-	aide1.Looker.SetUpstreamNames(ce.currentNameMapping)
+	ce.currentGuruList = []string{"guru0"}
+	aide1.Looker.SetUpstreamNames(ce.currentGuruList)
+
 	return &ce
 }
 

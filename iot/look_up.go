@@ -16,16 +16,21 @@
 package iot
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 	"sync"
 
 	"github.com/awootton/knotfreeiot/packets"
+	"github.com/dgryski/go-maglev"
 	"github.com/emirpasic/gods/trees/redblacktree"
 	"github.com/emirpasic/gods/utils"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
+
+// DEBUG because I don't know a better way.
+const DEBUG = true
 
 // LookupTableStruct is what we're up to
 type LookupTableStruct struct {
@@ -48,62 +53,98 @@ type GuruNameResolver func(name string, config *ContactStructConfig) (ContactInt
 
 // UpstreamRouterStruct is maybe virtual in the future
 type UpstreamRouterStruct struct {
-	contacts [1024]ContactInterface
-	names    [1024]string
+	//
+	names    []string
+	contacts []ContactInterface
 
-	name2contact map[string]ContactInterface
+	maglev         *maglev.Table
+	previousmaglev *maglev.Table
+
+	name2contact map[string]common
 	mux          sync.Mutex
 }
 
-// PushUp is
+// GetUpperContact returns which contact handles i
+func (router *UpstreamRouterStruct) GetUpperContact(h uint64) ContactInterface {
+	index := router.maglev.Lookup(h)
+	return router.contacts[index]
+}
+
+// PushUp is. may need q per contact
 func (me *LookupTableStruct) PushUp(p packets.Interface, h HashType) error {
 
-	up := me.upstreamRouter
-
-	i := h.GetFractionalBits(10)
-	if up.contacts[i] != nil {
-		up.contacts[i].WriteUpstream(p)
+	router := me.upstreamRouter
+	if router.maglev == nil {
+		// some of us don't have superiors
+		return nil
 	}
-
+	cc := router.GetUpperContact(h.GetUint64())
+	if cc != nil {
+		cc.WriteUpstream(p)
+	} else {
+		fmt.Println("where is our socket?")
+		return errors.New("missing upper contact")
+	}
 	return nil
 }
 
 // SetUpstreamNames is
-func (me *LookupTableStruct) SetUpstreamNames(names [1024]string) {
+func (me *LookupTableStruct) SetUpstreamNames(names []string) {
 
-	up := me.upstreamRouter
+	router := me.upstreamRouter
 
-	for i := 0; i < 1024; i++ {
-		if up.names[i] != names[i] {
+	router.contacts = make([]ContactInterface, len(names))
+	router.names = make([]string, len(names))
 
-			go func(me *LookupTableStruct, i int) {
-				up := me.upstreamRouter
+	var wg sync.WaitGroup
 
-				name := names[i]
-
-				up.mux.Lock()
-				newContact, ok := up.name2contact[name]
-				var err error
-				if !ok {
-					newContact, err = me.NameResolver(names[i], me.config)
-					if err != nil {
-						// now what?
-						newContact = nil
-					}
-					up.name2contact[name] = newContact
+	for i, name := range names {
+		wg.Add(1)
+		go func(me *LookupTableStruct, i int, name string) {
+			defer wg.Done()
+			me.upstreamRouter.mux.Lock()
+			com, ok := me.upstreamRouter.name2contact[name]
+			var err error
+			var newContact ContactInterface
+			if !ok {
+				newContact, err = me.NameResolver(name, me.config)
+				if err != nil {
+					// now what?
+					fmt.Println("we cna't have this fixme", name)
+					newContact = nil
+					newContact, err = me.NameResolver(name, me.config)
 				}
-				up.mux.Unlock()
+				com = common{newContact, HashType{}}
+				me.upstreamRouter.name2contact[name] = com
+			} else {
+				newContact = com.ss
+			}
+			me.upstreamRouter.mux.Unlock()
+			me.upstreamRouter.contacts[i] = newContact
+			//fmt.Println("set", newContact)
+			me.upstreamRouter.names[i] = name
 
-				if up.contacts[i] != nil {
-					// something? close the old one?
-				}
-				up.contacts[i] = newContact
-				up.names[i] = name
+		}(me, i, name)
 
-				// order subscriptions to be forwarded to the new UpContact.
-			}(me, i)
+	}
+
+	router.previousmaglev = router.maglev
+	maglevsize := maglev.SmallM
+	if DEBUG {
+		maglevsize = 97
+	}
+	router.maglev = maglev.New(names, uint64(maglevsize))
+	// order subscriptions to be forwarded to the new UpContact.
+
+	// wait for the contacts to fill in
+	wg.Wait()
+	//fmt.Println("")
+	for _, cc := range router.contacts {
+		if cc == nil {
+			fmt.Println("fixm 88")
 		}
 	}
+
 }
 
 // NewLookupTable makes a LookupTableStruct, usually a singleton.
@@ -129,7 +170,10 @@ func NewLookupTable(projectedTopicCount int) *LookupTableStruct {
 		go me.allTheSubscriptions[i].processMessages(&me)
 	}
 	me.upstreamRouter = new(UpstreamRouterStruct)
-	me.upstreamRouter.name2contact = make(map[string]ContactInterface)
+	me.upstreamRouter.name2contact = make(map[string]common)
+	// default is no upstream gurus. SetUpstreamNames to change that
+	me.upstreamRouter.maglev = nil // maglev.New([]string{"none"}, maglev.SmallM)
+	me.upstreamRouter.previousmaglev = me.upstreamRouter.maglev
 	return &me
 }
 

@@ -19,10 +19,13 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strconv"
 	"testing"
 
 	"github.com/awootton/knotfreeiot/iot"
 	"github.com/awootton/knotfreeiot/packets"
+	"github.com/awootton/knotfreeiot/tickets"
+	"github.com/gbrlsnchs/jwt/v3"
 )
 
 var globalClusterExec *iot.ClusterExecutive
@@ -32,6 +35,8 @@ func TestExec(t *testing.T) {
 
 	got := ""
 	want := ""
+
+	contactStressSize := 100
 
 	allContacts := make([]*testContact, 0)
 
@@ -53,7 +58,7 @@ func TestExec(t *testing.T) {
 	}
 
 	// add a contact a minute and see what happens.
-	for i := 0; i < 100; i++ {
+	for i := 0; i < contactStressSize; i++ {
 		ci := ce.GetNewContact(MakeTestContact)
 		allContacts = append(allContacts, ci.(*testContact))
 		SendText(ci, "S "+ci.String())
@@ -64,7 +69,7 @@ func TestExec(t *testing.T) {
 	got = ct.getResultAsString() // pause for a moment
 
 	got = fmt.Sprint("topics collected ", ce.GetSubsCount())
-	want = "topics collected 202"
+	want = "topics collected " + strconv.FormatInt(int64(contactStressSize*2+2), 10)
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
 	}
@@ -72,7 +77,7 @@ func TestExec(t *testing.T) {
 
 	// check that they all get messages
 	for _, cc := range allContacts {
-		command := "P " + cc.String() + " dalias saddr salias a_test_message" + cc.String()
+		command := "P " + cc.String() + " x x x a_test_message" + cc.String()
 		//fmt.Println(command)
 		SendText(c1, command) // publish to cc from c1
 	}
@@ -87,28 +92,33 @@ func TestExec(t *testing.T) {
 		if p != nil && reflect.TypeOf(p) == reflect.TypeOf(&packets.Send{}) {
 			send := p.(*packets.Send)
 			got = string(send.Payload)
-			if got != want {
-				t.Errorf("got %v, want %v", got, want)
-			}
+		} else {
+			fmt.Println("expected Send, got ", reflect.TypeOf(p))
+		}
+		if got != want {
+			fmt.Println("no most recent", i, cc)
+			t.Errorf("got %v, want %v", got, want)
 		}
 	}
 
 	// now. kill one of the minions and see if it reconnects and works
-	i := 3
-	minion := ce.Aides[i]
-	ce.Aides[i] = ce.Aides[len(ce.Aides)-1] // Copy last element to index i.
-	ce.Aides[len(ce.Aides)-1] = nil         // Erase last element (write zero value).
-	ce.Aides = ce.Aides[:len(ce.Aides)-1]   // shorten list
+	if true {
+		i := 3
+		minion := ce.Aides[i]
+		ce.Aides[i] = ce.Aides[len(ce.Aides)-1] // Copy last element to index i.
+		ce.Aides[len(ce.Aides)-1] = nil         // Erase last element (write zero value).
+		ce.Aides = ce.Aides[:len(ce.Aides)-1]   // shorten list
 
-	l := minion.Config.GetContactsList()
-	e := l.Front()
-	for ; e != nil; e = e.Next() {
-		cc := e.Value.(iot.ContactInterface)
-		cc.Close(errors.New("test close"))
+		l := minion.Config.GetContactsList()
+		e := l.Front()
+		for ; e != nil; e = e.Next() {
+			cc := e.Value.(iot.ContactInterface)
+			cc.Close(errors.New("test close"))
+		}
 	}
 
 	for _, cc := range allContacts {
-		command := "P " + cc.String() + " dalias saddr salias a_test_message2" + cc.String()
+		command := "P " + cc.String() + " x x x a_test_message2" + cc.String()
 		//fmt.Println(command)
 		SendText(c1, command) // publish to cc from c1
 	}
@@ -124,10 +134,49 @@ func TestExec(t *testing.T) {
 		if p != nil && reflect.TypeOf(p) == reflect.TypeOf(&packets.Send{}) {
 			send := p.(*packets.Send)
 			got = string(send.Payload)
+		} else {
+			fmt.Println("i expected Send, got ", reflect.TypeOf(p))
 		}
 		if got != want {
+			fmt.Println("i no most recent", i, cc)
 			t.Errorf("got %v, want %v", got, want)
+
 		}
 	}
 
+}
+
+// 123480 ns/op	    1248 B/op	      22 allocs/op  	~8000/sec
+func BenchmarkCheckToken(b *testing.B) {
+	ticket := []byte("eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiSldUIn0.eyJleHAiOjE2MDk0NjI4MDAsImlzcyI6IjFpVnQiLCJqdGkiOiIxMjM0NTYiLCJpbiI6NzAwMDAsIm91dCI6NzAwMDAsInN1IjoyLCJjbyI6Mn0.N22xJiYz_FMQu_nG_cxlQk7gnvbeO9zOiuzbkZYWpxSzAPtQ_WyCVwWYBPZtA-0Oj-AggWakTNsmGoe8JIzaAg")
+	publicKey := tickets.GetSamplePublic()
+	// run the verify function b.N times
+	for n := 0; n < b.N; n++ {
+
+		p, ok := tickets.VerifyTicket(ticket, publicKey)
+		_ = p
+		_ = ok
+
+	}
+}
+
+// 122662 ns/op	    1088 B/op	      19 allocs/op 	~8000/sec
+func BenchmarkCheckToken2(b *testing.B) {
+	ticket := []byte("eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiSldUIn0.eyJleHAiOjE2MDk0NjI4MDAsImlzcyI6IjFpVnQiLCJqdGkiOiIxMjM0NTYiLCJpbiI6NzAwMDAsIm91dCI6NzAwMDAsInN1IjoyLCJjbyI6Mn0.N22xJiYz_FMQu_nG_cxlQk7gnvbeO9zOiuzbkZYWpxSzAPtQ_WyCVwWYBPZtA-0Oj-AggWakTNsmGoe8JIzaAg")
+	publicKey := tickets.GetSamplePublic()
+	payload := tickets.KnotFreePayload{}
+	algo := jwt.NewEd25519(jwt.Ed25519PublicKey(publicKey))
+
+	// run the verify function b.N times
+	for n := 0; n < b.N; n++ {
+
+		hd, err := jwt.Verify([]byte(ticket), algo, &payload)
+		_ = hd
+		_ = err
+		if payload.Connections != 2 {
+			fmt.Println("wrong")
+		}
+		payload.Connections = -1
+
+	}
 }

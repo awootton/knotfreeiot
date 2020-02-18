@@ -42,13 +42,12 @@ func TestTwoLevel(t *testing.T) {
 	aide1.Looker.NameResolver = testNameResolver
 	aide2.Looker.NameResolver = testNameResolver
 	// we have to tell aides to connect to guru
-	// send an array of 1024 strings
-	var names [1024]string
-	for i := range names {
-		names[i] = "guru0"
-	}
+	names := []string{"guru0"}
 	aide1.Looker.SetUpstreamNames(names)
 	aide2.Looker.SetUpstreamNames(names)
+	for i := 0; i < 1000; i++ {
+		runtime.Gosched()
+	}
 
 	// make a contact
 	contact1 := testContact{}
