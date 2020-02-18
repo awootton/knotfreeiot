@@ -11,9 +11,7 @@ replace github.com/awootton/knotfreeiot/iot => ../iot
 replace github.com/awootton/knotfreeiot/tickets => ../tickets
 
 require (
-	github.com/awootton/knotfreeiot/badjson v0.0.0-00010101000000-000000000000
-	github.com/awootton/knotfreeiot/packets v0.0.0-00010101000000-000000000000
-	github.com/awootton/knotfreeiot/tickets v0.0.0-00010101000000-000000000000
+
 	github.com/dchest/siphash v1.2.1 // indirect
 	github.com/dgryski/go-maglev v0.0.0-20170623041913-a123f15678dd
 	github.com/eclipse/paho.mqtt.golang v1.2.0
