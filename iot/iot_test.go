@@ -33,11 +33,11 @@ func TestTwoLevel(t *testing.T) {
 	currentTime = starttime
 
 	// set up
-	guru0 := iot.NewExecutive(100, "guru0", getTime)
+	guru0 := iot.NewExecutive(100, "guru0", getTime, true)
 	iot.GuruNameToConfigMap["guru0"] = guru0
 
-	aide1 := iot.NewExecutive(100, "aide1", getTime)
-	aide2 := iot.NewExecutive(100, "aide2", getTime)
+	aide1 := iot.NewExecutive(100, "aide1", getTime, false)
+	aide2 := iot.NewExecutive(100, "aide2", getTime, false)
 
 	aide1.Looker.NameResolver = testNameResolver
 	aide2.Looker.NameResolver = testNameResolver
@@ -51,11 +51,11 @@ func TestTwoLevel(t *testing.T) {
 
 	// make a contact
 	contact1 := testContact{}
-	contact1.downMessages = make(chan packets.Interface, 1000)
+	contact1.downMessages = make(chan packets.Interface, 100)
 	iot.AddContactStruct(&contact1.ContactStruct, aide1.Config)
 	// another
 	contact2 := testContact{}
-	contact2.downMessages = make(chan packets.Interface, 1000)
+	contact2.downMessages = make(chan packets.Interface, 100)
 	iot.AddContactStruct(&contact2.ContactStruct, aide2.Config)
 	// note that they are in *different* lookups so normally they could not communicate but here we have a guru.
 
@@ -132,7 +132,7 @@ func TestSend(t *testing.T) {
 	currentTime = starttime
 
 	// set up
-	guru := iot.NewExecutive(100, "guru", getTime)
+	guru := iot.NewExecutive(100, "guru", getTime, true)
 
 	// make a contact
 	contact1 := testContact{}

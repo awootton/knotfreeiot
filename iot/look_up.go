@@ -39,6 +39,10 @@ type LookupTableStruct struct {
 
 	key HashType // unique name for me.
 
+	myname string
+
+	isGuru bool
+
 	upstreamRouter *UpstreamRouterStruct
 
 	NameResolver GuruNameResolver
@@ -67,6 +71,9 @@ type UpstreamRouterStruct struct {
 // GetUpperContact returns which contact handles i
 func (router *UpstreamRouterStruct) GetUpperContact(h uint64) ContactInterface {
 	index := router.maglev.Lookup(h)
+	if index >= len(router.contacts) {
+		fmt.Println("oops")
+	}
 	return router.contacts[index]
 }
 
@@ -74,8 +81,8 @@ func (router *UpstreamRouterStruct) GetUpperContact(h uint64) ContactInterface {
 func (me *LookupTableStruct) PushUp(p packets.Interface, h HashType) error {
 
 	router := me.upstreamRouter
-	if router.maglev == nil {
-		// some of us don't have superiors
+	if me.isGuru || router.maglev == nil {
+		// some of us don't have superiors so no pushup
 		return nil
 	}
 	cc := router.GetUpperContact(h.GetUint64())
@@ -88,13 +95,73 @@ func (me *LookupTableStruct) PushUp(p packets.Interface, h HashType) error {
 	return nil
 }
 
+// SetGuruUpstreamNames because the guru needs to know also
+func (me *LookupTableStruct) SetGuruUpstreamNames(names []string) {
+
+	router := me.upstreamRouter
+
+	router.previousmaglev = router.maglev
+	maglevsize := maglev.SmallM
+	if DEBUG {
+		maglevsize = 97
+	}
+	router.maglev = maglev.New(names, uint64(maglevsize))
+
+	myindex := -1
+	for i, n := range names {
+		if n == me.myname {
+			myindex = i
+		}
+	}
+
+	// iterate all subscriptions and delete the ones that don't map here anymore.
+	command := callBackCommand{}
+	command.callback = guruDeleteRemappedAndGoneTopics // inline?
+	command.index = myindex
+
+	//var wg sync.WaitGroup
+	for _, bucket := range me.allTheSubscriptions {
+		bucket.incoming <- &command
+	}
+	//wg.Wait()
+}
+
+type callBackCommand struct { // todo make interface
+	callback func(me *LookupTableStruct, bucket *subscribeBucket, cmd *callBackCommand)
+	index    int
+}
+
+func guruDeleteRemappedAndGoneTopics(me *LookupTableStruct, bucket *subscribeBucket, cmd *callBackCommand) {
+	//fmt.Println("bucket", len(bucket.incoming))
+	for _, s := range bucket.mySubscriptions {
+		for h, watchedTopic := range s {
+			index := me.upstreamRouter.maglev.Lookup(h.GetUint64())
+			// if the index is not me then delete the topic and tell upstream.
+			if index != cmd.index {
+				unsub := packets.Unsubscribe{}
+				unsub.AddressAlias = make([]byte, 24)
+				h.GetBytes(unsub.AddressAlias)
+				me.PushUp(&unsub, h)
+				delete(s, h)
+			}
+			_ = watchedTopic
+		}
+	}
+}
+
 // SetUpstreamNames is
 func (me *LookupTableStruct) SetUpstreamNames(names []string) {
+
+	if me.isGuru {
+		me.SetGuruUpstreamNames(names)
+		return
+	}
 
 	router := me.upstreamRouter
 
 	router.contacts = make([]ContactInterface, len(names))
 	router.names = make([]string, len(names))
+	copy(router.names, names)
 
 	var wg sync.WaitGroup
 
@@ -122,11 +189,14 @@ func (me *LookupTableStruct) SetUpstreamNames(names []string) {
 			me.upstreamRouter.mux.Unlock()
 			me.upstreamRouter.contacts[i] = newContact
 			//fmt.Println("set", newContact)
-			me.upstreamRouter.names[i] = name
+			//me.upstreamRouter.names[i] = name
 
 		}(me, i, name)
 
 	}
+
+	// wait for the contacts to fill in
+	wg.Wait()
 
 	router.previousmaglev = router.maglev
 	maglevsize := maglev.SmallM
@@ -136,22 +206,52 @@ func (me *LookupTableStruct) SetUpstreamNames(names []string) {
 	router.maglev = maglev.New(names, uint64(maglevsize))
 	// order subscriptions to be forwarded to the new UpContact.
 
-	// wait for the contacts to fill in
-	wg.Wait()
+	// iterate all the subscriptions and push up (again) the ones that have been remapped.
+	// iterate all subscriptions and delete the ones that don't map here anymore.
+	command := callBackCommand{}
+	command.callback = reSubscribeRemappedTopics
+
+	//var wg sync.WaitGroup
+	for _, bucket := range me.allTheSubscriptions {
+		bucket.incoming <- &command
+	}
+
 	//fmt.Println("")
 	for _, cc := range router.contacts {
 		if cc == nil {
 			fmt.Println("fixm 88")
 		}
 	}
+}
 
+func reSubscribeRemappedTopics(me *LookupTableStruct, bucket *subscribeBucket, cmd *callBackCommand) {
+	//fmt.Println("bucket", len(bucket.incoming))
+	for _, s := range bucket.mySubscriptions {
+		for h, watchedTopic := range s {
+			indexNew := me.upstreamRouter.maglev.Lookup(h.GetUint64())
+			indexOld := -1
+			if me.upstreamRouter.previousmaglev != nil {
+				indexOld = me.upstreamRouter.previousmaglev.Lookup(h.GetUint64())
+			}
+			// if the index has changed then push up a subscribe
+			if indexNew != indexOld {
+				unsub := packets.Subscribe{}
+				unsub.AddressAlias = make([]byte, 24)
+				h.GetBytes(unsub.AddressAlias)
+				me.PushUp(&unsub, h)
+			}
+			_ = watchedTopic
+		}
+	}
 }
 
 // NewLookupTable makes a LookupTableStruct, usually a singleton.
 // In the tests we call here and then use the result to init a server.
 // Starts 16 go routines that are hung on their 32 deep q's
-func NewLookupTable(projectedTopicCount int) *LookupTableStruct {
+func NewLookupTable(projectedTopicCount int, aname string, isGuru bool) *LookupTableStruct {
 	me := LookupTableStruct{}
+	me.myname = aname
+	me.isGuru = isGuru
 	me.key.Random()
 	portion := projectedTopicCount / int(theBucketsSize)
 	portion2 := projectedTopicCount >> theBucketsSizeLog2 // we can init the hash maps big
@@ -318,6 +418,10 @@ func (bucket *subscribeBucket) processMessages(me *LookupTableStruct) {
 		case *unsubscribeMessageDown:
 			processUnsubscribeDown(me, bucket, msg.(*unsubscribeMessageDown))
 
+		case *callBackCommand:
+			cbc := msg.(*callBackCommand)
+			cbc.callback(me, bucket, cbc)
+
 		default:
 			// no match. do nothing. apnic?
 			fmt.Println("FIXME missing case for ", reflect.TypeOf(msg))
@@ -391,7 +495,7 @@ const theBucketsSizeLog2 = 4
 // each bucket has 64 maps so 1024 maps total
 type subscribeBucket struct {
 	mySubscriptions [64]map[HashType]*watchedTopic
-	incoming        chan interface{} //SubscriptionMessage
+	incoming        chan interface{}
 	looker          *LookupTableStruct
 }
 

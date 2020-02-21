@@ -38,7 +38,7 @@ type testContact struct {
 
 	downMessages chan packets.Interface
 
-	mostRecent packets.Interface
+	mostRecent []packets.Interface
 }
 
 type testUpperContact struct {
@@ -49,18 +49,21 @@ type testUpperContact struct {
 
 func MakeTestContact(config *iot.ContactStructConfig) iot.ContactInterface {
 	contact1 := testContact{}
-	contact1.downMessages = make(chan packets.Interface, 1000)
+	contact1.downMessages = make(chan packets.Interface, 100)
+	contact1.mostRecent = make([]packets.Interface, 0, 100)
 
 	go func(cc *testContact) {
 		for {
 			thing := <-contact1.downMessages
-			cc.mostRecent = thing
+
 			if reflect.TypeOf(thing) == reflect.TypeOf(&packets.Disconnect{}) {
 				// now we have to reconnect
 				fmt.Println("contact reattaching", cc)
 				globalClusterExec.AttachContact(cc, AttachTestContact)
 				// we should also reiterate our connect and our subscription.
 				SendText(cc, "S "+cc.String())
+			} else {
+				cc.mostRecent = append(cc.mostRecent, thing)
 			}
 		}
 	}(&contact1)
@@ -72,7 +75,7 @@ func MakeTestContact(config *iot.ContactStructConfig) iot.ContactInterface {
 // re-attach
 func AttachTestContact(cc iot.ContactInterface, config *iot.ContactStructConfig) {
 	contact1 := cc.(*testContact)
-	contact1.downMessages = make(chan packets.Interface, 1000)
+	contact1.downMessages = make(chan packets.Interface, 100)
 	iot.AddContactStruct(&contact1.ContactStruct, config)
 }
 

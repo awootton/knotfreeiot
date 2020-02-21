@@ -26,6 +26,7 @@ type Executive struct {
 	Looker *LookupTableStruct
 	Config *ContactStructConfig
 	Name   string
+	isGuru bool
 
 	getTime func() uint32
 
@@ -53,25 +54,30 @@ type ExecutiveLimits struct {
 var TestLimits = ExecutiveLimits{16, 0.5, 10, 64}
 
 // Operate where we pretend to be an Operator and resize the cluster.
+// This is really only for test.
 func (ce *ClusterExecutive) Operate() {
 
 	needsNewAide := false
 	for _, ex := range ce.Aides {
 		c, fract := ex.GetSubsCount()
-		if c > ce.limits.connections {
-			needsNewAide = true
+		if c > ce.limits.subscriptions {
+			// atw FIXME needsNewAide = true
 		}
 		if fract > ce.limits.buffers {
 			needsNewAide = true
 		}
-		// check bps and subscriptions
+		con := ex.GetLowerContactsCount()
+		if con > ce.limits.connections {
+			needsNewAide = true
+		}
+		// check bps
 		// TODO calc % for each category and return largest and then grow on >0.85 and shrink at <0.75
 	}
 
 	if needsNewAide {
 		anaide := ce.Aides[0]
 		n := strconv.FormatInt(int64(len(ce.Aides)), 10)
-		aide1 := NewExecutive(100, "aide"+n, anaide.getTime)
+		aide1 := NewExecutive(100, "aide"+n, anaide.getTime, false)
 		ce.Aides = append(ce.Aides, aide1)
 		aide1.Looker.NameResolver = anaide.Looker.NameResolver
 		aide1.Looker.SetUpstreamNames(ce.currentGuruList)
@@ -86,20 +92,27 @@ func (ce *ClusterExecutive) Operate() {
 		if fract > ce.limits.buffers {
 			needsNewGuru = true
 		}
-		// check bps and subscriptions
+		con := ex.GetLowerContactsCount()
+		if con > ce.limits.connections {
+			needsNewGuru = true
+		}
+		// check bps
 		// TODO calc % for each category and return largest and then grow on >0.85 and shrink at <0.75
 	}
 
-	if needsNewGuru && false {
+	if needsNewGuru && true {
 		sample := ce.Gurus[0]
 		n := strconv.FormatInt(int64(len(ce.Gurus)), 10)
 		newName := "guru" + n
-		n1 := NewExecutive(100, newName, sample.getTime)
+		n1 := NewExecutive(100, newName, sample.getTime, true)
 		ce.Gurus = append(ce.Gurus, n1)
-		GuruNameToConfigMap[newName] = n1
+		GuruNameToConfigMap[newName] = n1 // for test
 		n1.Looker.NameResolver = sample.Looker.NameResolver
 		ce.currentGuruList = append(ce.currentGuruList, newName)
 
+		for _, ex := range ce.Gurus {
+			ex.Looker.SetUpstreamNames(ce.currentGuruList)
+		}
 		for _, aide := range ce.Aides {
 			aide.Looker.SetUpstreamNames(ce.currentGuruList)
 		}
@@ -154,12 +167,12 @@ func MakeSimplestCluster(timegetter func() uint32, nameResolver GuruNameResolver
 	ce.limits = &TestLimits
 
 	// set up
-	guru0 := NewExecutive(100, "guru0", timegetter)
+	guru0 := NewExecutive(100, "guru0", timegetter, true)
 	GuruNameToConfigMap["guru0"] = guru0
 
 	ce.Gurus = append(ce.Gurus, guru0)
 
-	aide1 := NewExecutive(100, "aide1", timegetter)
+	aide1 := NewExecutive(100, "aide1", timegetter, false)
 	ce.Aides = append(ce.Aides, aide1)
 	aide1.Looker.NameResolver = nameResolver
 
@@ -170,18 +183,19 @@ func MakeSimplestCluster(timegetter func() uint32, nameResolver GuruNameResolver
 }
 
 // NewExecutive A wrapper to hold and operate
-func NewExecutive(sizeEstimate int, aname string, timegetter func() uint32) *Executive {
+func NewExecutive(sizeEstimate int, aname string, timegetter func() uint32, isGuru bool) *Executive {
 
-	look0 := NewLookupTable(sizeEstimate)
+	look0 := NewLookupTable(sizeEstimate, aname, isGuru)
 	config0 := NewContactStructConfig(look0)
 	config0.Name = aname
 
 	e := Executive{}
 	e.Looker = look0
 	e.Config = config0
-	e.Name = aname + "_ex"
+	e.Name = aname
 	e.getTime = timegetter
 	e.Limits = &TestLimits
+	e.isGuru = isGuru
 	return &e
 
 }

@@ -47,50 +47,58 @@ func TestGrowGurus(t *testing.T) {
 	SendText(c2, "S "+c2.String()) // subscribe to my name
 
 	c1test := c1.(*testContact)
-	got = c1test.getResultAsString() // // pause for a moment
+	got = c1test.getResultAsString() // always nil
 	c2test := c2.(*testContact)
-	got = c2test.getResultAsString() // // pause for a moment
+	got = c2test.getResultAsString() // always nil MakeTestContact prodices auto popping clien
 
 	// there one in the aide and one in the guru
 	got = fmt.Sprint("topics collected ", ce.GetSubsCount())
-	want = "topics collected 2"
+	want = "topics collected 4"
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
 	}
 
 	// add a subscription a minute and see what happens.
 	for i := 0; i < subsStressSize; i++ {
-		SendText(c1, "S "+c1.String()+"_"+strconv.FormatInt(int64(i), 10))
+		cmd := "S " + c1.String() + "_" + strconv.FormatInt(int64(i), 10)
+		//fmt.Println("cmd", cmd)
+		SendText(c1, cmd)
 		currentTime += 60 // a minute
 		ce.Operate()
 	}
 
-	got = c1test.getResultAsString() // pause for a moment
+	//fmt.Println("c1 has ", c1test.mostRecent)
 
-	got = fmt.Sprint("topics collected ", ce.GetSubsCount())
-	want = "topics collected " + strconv.FormatInt(int64(subsStressSize*2+2), 10)
+	got = fmt.Sprint("guru count ", len(ce.Gurus))
+	want = "guru count 2"
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
 	}
 	fmt.Println("total minions", len(ce.Aides))
 
-	// check that they all get messages
+	// check that they all get messages after the expansion
 	for i := 0; i < subsStressSize; i++ {
 		command := "P " + c1.String() + "_" + strconv.FormatInt(int64(i), 10) + " x x x a_test_message"
 		//fmt.Println(command)
-		SendText(c2, command) // publish to cc from c1
+		SendText(c2, command) // publish to c1 from c2
+		got = fmt.Sprint(c1test.mostRecent)
+		//fmt.Println("received", got)
+
 	}
 	got = c1test.getResultAsString() // pause for a moment
 	for i := 0; i < subsStressSize; i++ {
 
 		got = "none"
 		want = "a_test_message"
-		p := c2test.mostRecent
-		if p != nil && reflect.TypeOf(p) == reflect.TypeOf(&packets.Send{}) {
-			send := p.(*packets.Send)
+		p := c1test.mostRecent
+		if len(p) != 0 && reflect.TypeOf(p[0]) == reflect.TypeOf(&packets.Send{}) {
+			send := p[0].(*packets.Send)
 			got = string(send.Payload)
 		} else {
-			fmt.Println("expected Send, got ", reflect.TypeOf(p))
+			fmt.Println("expected Send, got ", reflect.TypeOf(p[0]))
+		}
+		if len(c1test.mostRecent) > 0 {
+			c1test.mostRecent = c1test.mostRecent[1:]
 		}
 		if got != want {
 			fmt.Println("no most recent", i)
@@ -158,11 +166,16 @@ func TestExec(t *testing.T) {
 		got = "none"
 		want = "a_test_message" + cc.String()
 		p := cc.mostRecent
-		if p != nil && reflect.TypeOf(p) == reflect.TypeOf(&packets.Send{}) {
-			send := p.(*packets.Send)
+		if len(p) != 0 && reflect.TypeOf(p[0]) == reflect.TypeOf(&packets.Send{}) {
+			send := p[0].(*packets.Send)
 			got = string(send.Payload)
+
 		} else {
 			fmt.Println("expected Send, got ", reflect.TypeOf(p))
+
+		}
+		if len(cc.mostRecent) > 0 {
+			cc.mostRecent = cc.mostRecent[1:]
 		}
 		if got != want {
 			fmt.Println("no most recent", i, cc)
@@ -200,9 +213,10 @@ func TestExec(t *testing.T) {
 		got = "none"
 		want = "a_test_message2" + cc.String()
 		p := cc.mostRecent
-		if p != nil && reflect.TypeOf(p) == reflect.TypeOf(&packets.Send{}) {
-			send := p.(*packets.Send)
+		if len(p) != 0 && reflect.TypeOf(p[0]) == reflect.TypeOf(&packets.Send{}) {
+			send := p[0].(*packets.Send)
 			got = string(send.Payload)
+			cc.mostRecent = cc.mostRecent[1:]
 		} else {
 			fmt.Println("i expected Send, got ", reflect.TypeOf(p))
 		}
