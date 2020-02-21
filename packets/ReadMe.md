@@ -31,12 +31,3 @@ There will be more description of these structs later.
 #TODO: finish the code coverage past 93.7%
 #TODO: formalize/finalize the marshaling. 
 
-<!-- Global site tag (gtag.js) - Google Analytics -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=UA-156005349-2"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
-
-  gtag('config', 'UA-156005349-2');
-</script>
