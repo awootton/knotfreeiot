@@ -50,7 +50,7 @@ type ExecutiveLimits struct {
 }
 
 // TestLimits is for tests
-var TestLimits = ExecutiveLimits{16, 0.5, 10, 75}
+var TestLimits = ExecutiveLimits{16, 0.5, 10, 64}
 
 // Operate where we pretend to be an Operator and resize the cluster.
 func (ce *ClusterExecutive) Operate() {
@@ -80,7 +80,7 @@ func (ce *ClusterExecutive) Operate() {
 	needsNewGuru := false
 	for _, ex := range ce.Gurus {
 		c, fract := ex.GetSubsCount()
-		if c > ce.limits.connections {
+		if c > ce.limits.subscriptions {
 			needsNewGuru = true
 		}
 		if fract > ce.limits.buffers {

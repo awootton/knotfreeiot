@@ -30,13 +30,82 @@ import (
 
 var globalClusterExec *iot.ClusterExecutive
 
+func TestGrowGurus(t *testing.T) {
+
+	got := ""
+	want := ""
+
+	subsStressSize := 100
+
+	ce := iot.MakeSimplestCluster(getTime, testNameResolver)
+	globalClusterExec = ce
+
+	c1 := ce.GetNewContact(MakeTestContact)
+	SendText(c1, "S "+c1.String()) // subscribe to my name
+
+	c2 := ce.GetNewContact(MakeTestContact)
+	SendText(c2, "S "+c2.String()) // subscribe to my name
+
+	c1test := c1.(*testContact)
+	got = c1test.getResultAsString() // // pause for a moment
+	c2test := c2.(*testContact)
+	got = c2test.getResultAsString() // // pause for a moment
+
+	// there one in the aide and one in the guru
+	got = fmt.Sprint("topics collected ", ce.GetSubsCount())
+	want = "topics collected 2"
+	if got != want {
+		t.Errorf("got %v, want %v", got, want)
+	}
+
+	// add a subscription a minute and see what happens.
+	for i := 0; i < subsStressSize; i++ {
+		SendText(c1, "S "+c1.String()+"_"+strconv.FormatInt(int64(i), 10))
+		currentTime += 60 // a minute
+		ce.Operate()
+	}
+
+	got = c1test.getResultAsString() // pause for a moment
+
+	got = fmt.Sprint("topics collected ", ce.GetSubsCount())
+	want = "topics collected " + strconv.FormatInt(int64(subsStressSize*2+2), 10)
+	if got != want {
+		t.Errorf("got %v, want %v", got, want)
+	}
+	fmt.Println("total minions", len(ce.Aides))
+
+	// check that they all get messages
+	for i := 0; i < subsStressSize; i++ {
+		command := "P " + c1.String() + "_" + strconv.FormatInt(int64(i), 10) + " x x x a_test_message"
+		//fmt.Println(command)
+		SendText(c2, command) // publish to cc from c1
+	}
+	got = c1test.getResultAsString() // pause for a moment
+	for i := 0; i < subsStressSize; i++ {
+
+		got = "none"
+		want = "a_test_message"
+		p := c2test.mostRecent
+		if p != nil && reflect.TypeOf(p) == reflect.TypeOf(&packets.Send{}) {
+			send := p.(*packets.Send)
+			got = string(send.Payload)
+		} else {
+			fmt.Println("expected Send, got ", reflect.TypeOf(p))
+		}
+		if got != want {
+			fmt.Println("no most recent", i)
+			t.Errorf("got %v, want %v", got, want)
+		}
+	}
+}
+
 // test auto scale in the minions and also reconnect when a minion is lost.
 func TestExec(t *testing.T) {
 
 	got := ""
 	want := ""
 
-	contactStressSize := 100
+	contactStressSize := 50
 
 	allContacts := make([]*testContact, 0)
 
