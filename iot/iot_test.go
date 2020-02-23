@@ -22,9 +22,12 @@ import (
 
 	"github.com/awootton/knotfreeiot/iot"
 	"github.com/awootton/knotfreeiot/packets"
+	"github.com/awootton/knotfreeiot/tokens"
 )
 
 func TestTwoLevel(t *testing.T) {
+
+	tokens.SavePublicKey("1iVt", string(tokens.GetSamplePublic()))
 
 	got := ""
 	want := ""
@@ -59,6 +62,11 @@ func TestTwoLevel(t *testing.T) {
 	iot.AddContactStruct(&contact2.ContactStruct, aide2.Config)
 	// note that they are in *different* lookups so normally they could not communicate but here we have a guru.
 
+	connect := packets.Connect{}
+	connect.SetOption("token", []byte(tokens.SampleSmallToken))
+	iot.Push(&contact1, &connect)
+	iot.Push(&contact2, &connect)
+
 	// subscribe
 	subs := packets.Subscribe{}
 	subs.Address = []byte("contact1 address")
@@ -75,7 +83,7 @@ func TestTwoLevel(t *testing.T) {
 	count, fract := guru0.GetSubsCount()
 	_ = fract
 	got = fmt.Sprint("topics collected ", count)
-	want = "topics collected 1"
+	want = "topics collected 2"
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
 	}
@@ -125,6 +133,8 @@ func TestTwoLevel(t *testing.T) {
 
 func TestSend(t *testing.T) {
 
+	tokens.SavePublicKey("1iVt", string(tokens.GetSamplePublic()))
+
 	got := ""
 	want := ""
 	ok := true
@@ -142,6 +152,11 @@ func TestSend(t *testing.T) {
 	contact2 := testContact{}
 	contact2.downMessages = make(chan packets.Interface, 1000)
 	iot.AddContactStruct(&contact2.ContactStruct, guru.Config)
+
+	connect := packets.Connect{}
+	connect.SetOption("token", []byte(tokens.SampleSmallToken))
+	iot.Push(&contact1, &connect)
+	iot.Push(&contact2, &connect)
 
 	// subscribe
 	subs := packets.Subscribe{}
@@ -162,7 +177,7 @@ func TestSend(t *testing.T) {
 	count, fract := guru.GetSubsCount()
 	_ = fract
 	got = fmt.Sprint("topics collected ", count)
-	want = "topics collected 2"
+	want = "topics collected 3" // is 3 because of token topic
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
 	}

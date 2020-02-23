@@ -24,6 +24,7 @@ import (
 	"sync"
 
 	"github.com/awootton/knotfreeiot/packets"
+	"github.com/awootton/knotfreeiot/tokens"
 )
 
 // ContactStruct is our idea of channel or socket to downstream from us.
@@ -39,6 +40,7 @@ type ContactStruct struct {
 	// but then how do we unsubscribe when the tcp conn fails? (don't, timeout)
 	topicToName map[HalfHash][]byte // a tree would be better?
 
+	token *tokens.KnotFreePayload
 }
 
 // ContactInterface is usually supplied by a tcp connection
@@ -46,6 +48,9 @@ type ContactInterface interface {
 	Close(err error)
 
 	GetKey() HalfHash
+
+	GetToken() *tokens.KnotFreePayload
+	SetToken(*tokens.KnotFreePayload)
 
 	GetConfig() *ContactStructConfig
 
@@ -59,6 +64,16 @@ type ContactInterface interface {
 
 func (ss *ContactStruct) String() string {
 	return fmt.Sprint("Contact" + ss.key.String())
+}
+
+// GetToken return the verified and decoded payload or else nil
+func (ss *ContactStruct) GetToken() *tokens.KnotFreePayload {
+	return ss.token
+}
+
+// SetToken return the verified and decoded payload or else nil
+func (ss *ContactStruct) SetToken(t *tokens.KnotFreePayload) {
+	ss.token = t
 }
 
 // ContactStructConfig could be just a stack frame but I'd like to return it.
@@ -137,11 +152,68 @@ func Push(ssi ContactInterface, p packets.Interface) error {
 	looker := config.GetLookup()
 	var destination *HashType
 
+	if ssi.GetToken() == nil {
+		// we can't do the rest if we're not 'checked in'
+		connectPacket, ok := p.(*packets.Connect)
+		if !ok {
+			err := errors.New("expected Connect packet")
+			dis := packets.Disconnect{}
+			dis.SetOption("error", []byte(err.Error()))
+			ssi.WriteDownstream(&dis) // is this redundant?
+			ssi.Close(err)
+			return err
+		}
+		b64Token, ok := connectPacket.GetOption("token")
+		if ok == false || b64Token == nil {
+			err := errors.New("expected token in Connect packet")
+			dis := packets.Disconnect{}
+			dis.SetOption("error", []byte(err.Error()))
+			ssi.WriteDownstream(&dis) // is this redundant?
+			ssi.Close(err)
+			return err
+		}
+		payload, err, hashb64 := tokens.GetKnotFreePayload(string(b64Token))
+		if err != nil {
+			dis := packets.Disconnect{}
+			dis.SetOption("error", []byte(err.Error()))
+			ssi.WriteDownstream(&dis) // is this redundant?
+			ssi.Close(err)
+			return err
+		}
+		issuer := payload.Issuer
+		// find the public key that matches.
+		publicKeyBytes := tokens.FindPublicKey(issuer)
+		if len(publicKeyBytes) != 32 {
+			err := errors.New("bad issuer")
+			dis := packets.Disconnect{}
+			dis.SetOption("error", []byte(err.Error()))
+			ssi.WriteDownstream(&dis) // is this redundant?
+			ssi.Close(err)
+			return err
+		}
+		foundPayload, ok := tokens.VerifyTicket(b64Token, []byte(publicKeyBytes))
+		if !ok {
+			err := errors.New("not verified")
+			dis := packets.Disconnect{}
+			dis.SetOption("error", []byte(err.Error()))
+			ssi.WriteDownstream(&dis) // is this redundant?
+			ssi.Close(err)
+			return err
+		}
+		ssi.SetToken(foundPayload)
+		// subscribe to token hash
+		sub := packets.Subscribe{}
+		sub.Address = []byte(hashb64)
+		Push(ssi, &sub)
+		return nil
+	}
+
 	switch v := p.(type) {
 	case *packets.Connect:
 		fmt.Println(v)
 	case *packets.Disconnect:
-		fmt.Println(v)
+		//fmt.Println(v)
+		ssi.WriteDownstream(v)
 		ssi.Close(errors.New("got disconnect"))
 	case *packets.Subscribe:
 		//fmt.Println(v)

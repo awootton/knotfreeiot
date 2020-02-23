@@ -18,8 +18,6 @@ package iot_test
 import (
 	"fmt"
 	"math/rand"
-	"sort"
-	"strconv"
 	"testing"
 
 	"github.com/dgryski/go-maglev"
@@ -32,7 +30,7 @@ import (
 
 func TestDeltas(t *testing.T) {
 
-	if t != nil { // it's not a test. don't print this stuff
+	if t != nil { // it's not really a test. don't print this stuff
 		return
 	}
 
@@ -152,123 +150,4 @@ func TestDistribution(t *testing.T) {
 
 	mean := float64(total) / size
 	fmt.Printf("max=%v, mean=%v, peak-to-mean=%v", max, mean, float64(max)/mean)
-}
-
-func TestNamelist(t *testing.T) {
-
-	if t != nil { // it's not a test. don't print this stuff
-		return
-	}
-	var currentNameMapping []string
-
-	for i := range currentNameMapping {
-		currentNameMapping[i] = "guru0"
-	}
-
-	list := make([]*ttt, 0)
-
-	keys := make([]int, 0)
-
-	amap := make(map[int]*ttt)
-
-	names := make([]string, 0)
-
-	for i := 0; i < 10; i++ {
-		t := ttt{((i * 13) % 16), "thing" + strconv.FormatInt(int64(i), 10)}
-		list = append(list, &t)
-		keys = append(keys, t.id)
-		amap[t.id] = &t
-		names = append(names, strconv.FormatInt(int64(((i*13)%16)), 10))
-	}
-	currentI := 14 // last value used.
-	_ = currentI
-
-	sort.Ints(keys)
-
-	fmt.Println(keys)
-
-	//	sizeN := len(names)
-	lookupSizeM := 97 //(must be prime number)
-
-	//	var names []string
-	// for i := 0; i < sizeN; i++ {
-	// 	names = append(names, fmt.Sprintf("backend-%d", i))
-	// }
-	//backend-0 ~ backend-4
-
-	nameAmt := 3
-	for i := 0; i < nameAmt; i++ {
-		names[i] = fmt.Sprint("guru", i)
-	}
-	names = names[0:nameAmt]
-
-	fmt.Println("names:", names)
-
-	mm := maglev.New(names, uint64(lookupSizeM))
-	v := mm.Lookup(uint64(1))
-	fmt.Println("node1:", v)
-	//node1: backend-2
-	v = mm.Lookup(uint64(2))
-	fmt.Println("node2:", v)
-	//node2: backend-1
-	v = mm.Lookup(uint64(9))
-	fmt.Println("node9:", v)
-	//node3: backend-0
-
-	v = mm.Lookup(uint64(8))
-	fmt.Println("node8:", v)
-
-	for i := 0; i < 100; i++ {
-		v = mm.Lookup(uint64(i))
-		fmt.Println("node", i, v)
-	}
-
-	dead := []int{2, 8}
-
-	mm.Rebuild(dead)
-
-	for i := 0; i < 100; i++ {
-		v = mm.Lookup(uint64(i))
-		fmt.Println("node", i, v)
-	}
-
-	// table := maglev.New(currentNameMapping[:], 1024)
-
-	// fmt.Println(table)
-
-	// _ = table
-
-}
-
-// go get github.com/kkdai/maglev NOT
-
-// go get github.com/dgryski/go-maglev  "github.com/dgryski/go-maglev"
-
-type ttt struct {
-	id   int
-	name string
-}
-
-// TttHeap is
-type TttHeap []*ttt
-
-func (h TttHeap) Len() int           { return len(h) }
-func (h TttHeap) Less(i, j int) bool { return h[i].id < h[j].id }
-func (h TttHeap) Swap(i, j int)      { h[i], h[j] = h[j], h[i] }
-
-// Push is
-func (h *TttHeap) Push(x interface{}) {
-	// Push and Pop use pointer receivers because they modify the slice's length,
-	// not just its contents.
-
-	*h = append(*h, x.(*ttt))
-}
-
-// Pop is
-func (h *TttHeap) Pop() interface{} {
-	old := *h
-	n := len(old)
-	x := old[n-1]
-	*h = old[0 : n-1]
-	return x
 }

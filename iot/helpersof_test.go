@@ -24,6 +24,7 @@ import (
 	"github.com/awootton/knotfreeiot/badjson"
 	"github.com/awootton/knotfreeiot/iot"
 	"github.com/awootton/knotfreeiot/packets"
+	"github.com/awootton/knotfreeiot/tokens"
 	"github.com/prometheus/client_golang/prometheus"
 
 	dto "github.com/prometheus/client_model/go"
@@ -68,6 +69,11 @@ func MakeTestContact(config *iot.ContactStructConfig) iot.ContactInterface {
 		}
 	}(&contact1)
 	iot.AddContactStruct(&contact1.ContactStruct, config)
+
+	connect := packets.Connect{}
+	connect.SetOption("token", []byte(tokens.SampleSmallToken))
+	iot.Push(&contact1, &connect)
+
 	return &contact1
 }
 
@@ -77,6 +83,10 @@ func AttachTestContact(cc iot.ContactInterface, config *iot.ContactStructConfig)
 	contact1 := cc.(*testContact)
 	contact1.downMessages = make(chan packets.Interface, 100)
 	iot.AddContactStruct(&contact1.ContactStruct, config)
+
+	connect := packets.Connect{}
+	connect.SetOption("token", []byte(tokens.SampleSmallToken))
+	iot.Push(contact1, &connect)
 }
 
 // called by Lookup PushUp
@@ -101,6 +111,11 @@ func testNameResolver(name string, config *iot.ContactStructConfig) (iot.Contact
 		newLowerContact := testContact{}
 		newLowerContact.downMessages = make(chan packets.Interface, 1000)
 		iot.AddContactStruct(&newLowerContact.ContactStruct, exec.Config)
+
+		connect := packets.Connect{}
+		connect.SetOption("token", []byte(tokens.SampleSmallToken))
+		iot.Push(&newLowerContact, &connect)
+
 		// wire them up
 		contactTop1.guruBottomContact = &newLowerContact
 		go func() {

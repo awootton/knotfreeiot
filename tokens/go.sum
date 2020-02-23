@@ -1,3 +1,6 @@
+github.com/awootton/knotfreeiot v0.0.0-20200221084641-b45967e53fda h1:T408hvelAZzWLuAavAekkVPOG/kA40vhHSqO0HETgSs=
+github.com/awootton/knotfreeiot/tickets v0.0.0-20200221084641-b45967e53fda h1:TlN1R+JqIKkhAW4e4vfTzRG/3WVJpwUZNFMnohTsSig=
+github.com/awootton/knotfreeiot/tickets v0.0.0-20200221084641-b45967e53fda/go.mod h1:rdaD3qhYmwe7jwkYxKtBJD8xPEVVdme502DNlMJxSC8=
 github.com/dgrijalva/jwt-go v3.2.0+incompatible h1:7qlOGliEKZXTDg6OTjfoBKDXWrumCAMpl/TFQ4/5kLM=
 github.com/dgrijalva/jwt-go v3.2.0+incompatible/go.mod h1:E3ru+11k8xSBh+hMPgOLZmtrrCbhqsmaPHjLKYnJCaQ=
 github.com/gbrlsnchs/jwt v1.1.0 h1:Gh2CoXcIfk8/LxV8ks0GDOmUDCpVIrw8Oa34Ozmw/10=

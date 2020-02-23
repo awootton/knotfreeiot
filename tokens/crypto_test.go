@@ -1,4 +1,4 @@
-package tickets_test
+package tokens_test
 
 import (
 	"crypto/ed25519"
@@ -9,31 +9,82 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/awootton/knotfreeiot/tickets"
+	"github.com/awootton/knotfreeiot/tokens"
 	"github.com/gbrlsnchs/jwt/v3"
 )
 
 const starttime = uint32(1577840400) // Wednesday, January 1, 2020 1:00:00 AM
 
+// TODO: add more keys to this test.
+func TestFind(t *testing.T) {
+
+	got := "ok"
+	want := "ok"
+
+	got = tokens.FindPublicKey("abc")
+	want = "" // because it's empty.
+	if got != want {
+		t.Errorf("got %v, want %v", got, want)
+	}
+	tokens.SavePublicKey("1iVt", string(tokens.GetSamplePublic()))
+	got = tokens.FindPublicKey("1iVt")
+	want = string(tokens.GetSamplePublic())
+	if got != want {
+		t.Errorf("got %v, want %v", got, want)
+	}
+
+	dat, err := ioutil.ReadFile("./publicKeys.txt")
+	check(err)
+	datparts := strings.Split(string(dat), "\n")
+	if len(datparts) < 64 {
+		t.Errorf("got %v, want %v", len(datparts), 64)
+	}
+	for i, part := range datparts {
+		if i >= 64 {
+			break
+		}
+		prefix := part[0:4]
+		bytes, err := base64.RawStdEncoding.DecodeString(part)
+		check(err)
+		tokens.SavePublicKey(prefix, string(bytes))
+	}
+
+	for i, part := range datparts {
+		if i >= 64 {
+			break
+		}
+		prefix := part[0:4]
+		bytes, err := base64.RawStdEncoding.DecodeString(part)
+		want = string(bytes)
+		check(err)
+		got = tokens.FindPublicKey(prefix)
+		if got != want {
+			t.Errorf("got %v, want %v", got, want)
+		}
+	}
+
+}
+
 func TestKnotVerify(t *testing.T) {
 	got := "ok"
 	want := "ok"
 
-	ticket := []byte("eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiSldUIn0.eyJleHAiOjE2MDk0NjI4MDAsImlzcyI6IjFpVnQiLCJqdGkiOiIxMjM0NTYiLCJpbiI6NzAwMDAsIm91dCI6NzAwMDAsInN1IjoyLCJjbyI6Mn0.N22xJiYz_FMQu_nG_cxlQk7gnvbeO9zOiuzbkZYWpxSzAPtQ_WyCVwWYBPZtA-0Oj-AggWakTNsmGoe8JIzaAg")
+	token := []byte("eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiSldUIn0.eyJleHAiOjE2MDk0NjI4MDAsImlzcyI6IjFpVnQiLCJqdGkiOiIxMjM0NTYiLCJpbiI6NzAwMDAsIm91dCI6NzAwMDAsInN1IjoyLCJjbyI6MiwidXJsIjoia25vdGZyZWUubmV0In0.T7SrbbXq7V7otfX0eo9eFabWguxwuPsG4Zn9XArGwMc2Q4ifMBm9aSOgvBIBn1Q0Or7pvIsA8u_UL9FnOW-aDg")
 
-	//p := &tickets.KnotFreePayload{}
-	p, ok := tickets.VerifyTicket(ticket, tickets.GetSamplePublic())
+	p, ok := tokens.VerifyTicket(token, tokens.GetSamplePublic())
 	if !ok {
 		t.Errorf("got %v, want %v", "false", "true")
 	}
 	bytes, err := json.Marshal(p)
 	_ = err
 	got = string(bytes)
-	want = `{"exp":1609462800,"iss":"1iVt","jti":"123456","in":70000,"out":70000,"su":2,"co":2}`
+	want = `{"exp":1609462800,"iss":"1iVt","jti":"123456","in":70000,"out":70000,"su":2,"co":2,"url":"knotfree.net"}`
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
 	}
@@ -44,21 +95,23 @@ func TestKnotEncode(t *testing.T) {
 	got := "ok"
 	want := "ok"
 
-	p := &tickets.KnotFreePayload{}
-	p.Issuer = "1iVt" // first 4 from public
-	p.ExpirationTime = starttime + 60*60*24*366
-	p.JWTID = "123456"
-	p.Input = 7e4
-	p.Output = 7e4
-	p.Subscriptions = 2
-	p.Connections = 2
+	p := tokens.GetSampleToken(starttime)
 
-	bytes, err := tickets.MakeTicket(p, tickets.GetSamplePrivate())
+	// p := &tickets.KnotFreePayload{}
+	// p.Issuer = "1iVt" // first 4 from public
+	// p.ExpirationTime = starttime + 60*60*24*(365+1))
+	// p.JWTID = "123456"
+	// p.Input = 7e4
+	// p.Output = 7e4
+	// p.Subscriptions = 2
+	// p.Connections = 2
+
+	bytes, err := tokens.MakeTicket(p, tokens.GetSamplePrivate())
 	if err != nil {
 		got = err.Error()
 	}
 	got = string(bytes)
-	want = `eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiSldUIn0.eyJleHAiOjE2MDk0NjI4MDAsImlzcyI6IjFpVnQiLCJqdGkiOiIxMjM0NTYiLCJpbiI6NzAwMDAsIm91dCI6NzAwMDAsInN1IjoyLCJjbyI6Mn0.N22xJiYz_FMQu_nG_cxlQk7gnvbeO9zOiuzbkZYWpxSzAPtQ_WyCVwWYBPZtA-0Oj-AggWakTNsmGoe8JIzaAg`
+	want = `eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiSldUIn0.eyJleHAiOjE2MDk0NjI4MDAsImlzcyI6IjFpVnQiLCJqdGkiOiIxMjM0NTYiLCJpbiI6NzAwMDAsIm91dCI6NzAwMDAsInN1IjoyLCJjbyI6MiwidXJsIjoia25vdGZyZWUubmV0In0.T7SrbbXq7V7otfX0eo9eFabWguxwuPsG4Zn9XArGwMc2Q4ifMBm9aSOgvBIBn1Q0Or7pvIsA8u_UL9FnOW-aDg`
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
 	}
@@ -207,6 +260,33 @@ func Test1(t *testing.T) {
 	fmt.Println(base64.StdEncoding.WithPadding(base64.NoPadding).EncodeToString(public))
 	fmt.Println(base64.StdEncoding.WithPadding(base64.NoPadding).EncodeToString(private))
 
+	if os.Getenv("KNOT_KUNG_FOO") == "atw" {
+		_, err := os.Stat("./publicKeys.txt")
+		if os.IsNotExist(err) {
+			puf, err := os.Create("./publicKeys.txt")
+			check(err)
+			defer puf.Close()
+			prf, err := os.Create("privateKeys.txt")
+			check(err)
+			defer prf.Close()
+
+			for i := 0; i < 64; i++ {
+				public, private, _ := ed25519.GenerateKey(rand.Reader)
+				pu := base64.RawStdEncoding.EncodeToString(public)
+				pr := base64.RawStdEncoding.EncodeToString(private)
+				puf.WriteString(pu + "\n")
+				prf.WriteString(pr + "\n")
+
+			}
+		}
+	}
+
+}
+
+func check(e error) {
+	if e != nil {
+		panic(e)
+	}
 }
 
 func Test2(t *testing.T) {
