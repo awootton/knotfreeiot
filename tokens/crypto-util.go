@@ -55,22 +55,22 @@ func VerifyTicket(ticket []byte, publicKey []byte) (*KnotFreePayload, bool) {
 }
 
 // GetKnotFreePayload returns the payload THAT IS NOT VERIFIED YET.
-func GetKnotFreePayload(token string) (*KnotFreePayload, error, string) {
+func GetKnotFreePayload(token string) (*KnotFreePayload, string, error) {
 
 	payload := new(KnotFreePayload)
 	parts := strings.Split(token, ".")
 	if len(parts) != 3 {
-		return payload, errors.New("expected 3 parts"), ""
+		return payload, "", errors.New("expected 3 parts")
 	}
 	middle, err := base64.RawStdEncoding.DecodeString(parts[1])
 	if err != nil {
-		return payload, err, ""
+		return payload, "", err
 	}
 	err = json.Unmarshal(middle, &payload)
 	if err != nil {
-		return payload, err, ""
+		return payload, "", err
 	}
-	return payload, nil, parts[2]
+	return payload, parts[2], nil
 }
 
 // AllThePublicKeys is a globalservice with a list of public keys that

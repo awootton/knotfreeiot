@@ -14,7 +14,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/awootton/knotfreeiot/tickets"
 	"github.com/awootton/knotfreeiot/tokens"
 	"github.com/gbrlsnchs/jwt/v3"
 )
@@ -95,7 +94,7 @@ func TestKnotEncode(t *testing.T) {
 	got := "ok"
 	want := "ok"
 
-	p := tokens.GetSampleToken(starttime)
+	p := tokens.GetSampleTokenPayload(starttime)
 
 	// p := &tickets.KnotFreePayload{}
 	// p.Issuer = "1iVt" // first 4 from public
@@ -129,7 +128,7 @@ func TestVerify(t *testing.T) {
 	want := "ok"
 
 	ticket := "eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiSldUIn0.eyJpc3MiOiJhdHciLCJzdWIiOiJrbm90ZnJlZSIsImF1ZCI6WyJodHRwczovL2dvbGFuZy5vcmciLCJodHRwczovL2p3dC5pbyJdLCJleHAiOjE2MTI5MzA4MDEsIm5iZiI6MTU4MTgyODYwMSwiaWF0IjoxNTgxODI2ODAxLCJqdGkiOiJmb29iYXIiLCJmb28iOiJmb28iLCJiYXIiOjEzMzd9.AvRapYOS1WHzds8zFscDdwWngj0t4OYYPLoyfEPnWNknwJbaHandfzMGenn9sNh6IHYpSoUXZe-1i5lek2F9AQ"
-	algo := jwt.NewEd25519(jwt.Ed25519PublicKey(tickets.GetSamplePublic()))
+	algo := jwt.NewEd25519(jwt.Ed25519PublicKey(tokens.GetSamplePublic()))
 
 	var plout CustomPayload
 	hd, err := jwt.Verify([]byte(ticket), algo, &plout)
@@ -148,7 +147,7 @@ func TestVerify(t *testing.T) {
 
 func TestMakeTicket(t *testing.T) {
 
-	algo := jwt.NewEd25519(jwt.Ed25519PrivateKey(tickets.GetSamplePrivate()))
+	algo := jwt.NewEd25519(jwt.Ed25519PrivateKey(tokens.GetSamplePrivate()))
 
 	fmt.Println("algo=", algo)
 
@@ -174,7 +173,7 @@ func TestMakeTicket(t *testing.T) {
 
 	fmt.Println("token=", string(token))
 
-	algoPublic := jwt.NewEd25519(jwt.Ed25519PublicKey(tickets.GetSamplePublic()))
+	algoPublic := jwt.NewEd25519(jwt.Ed25519PublicKey(tokens.GetSamplePublic()))
 
 	var plout CustomPayload
 	hd, err := jwt.Verify(token, algoPublic, &plout)
@@ -232,7 +231,7 @@ type AtwEd int
 
 func ExampleZeroReader() {
 
-	var zero tickets.ZeroReader
+	var zero tokens.ZeroReader
 	public, private, _ := ed25519.GenerateKey(zero)
 
 	fmt.Println(base64.StdEncoding.WithPadding(base64.NoPadding).EncodeToString(public))
@@ -301,7 +300,7 @@ func Test2(t *testing.T) {
 
 	public, err := base64.RawStdEncoding.DecodeString(str)
 
-	public = tickets.ParseOpenSSHPublicKey(public)
+	public = tokens.ParseOpenSSHPublicKey(public)
 
 	if err != nil || len(public) < 32 {
 		t.Error()
@@ -323,7 +322,7 @@ func Test2(t *testing.T) {
 
 	fmt.Println(base64.RawStdEncoding.EncodeToString(private))
 
-	private = tickets.ParseOpenSSHPrivateKey(private)
+	private = tokens.ParseOpenSSHPrivateKey(private)
 
 	if err != nil || len(private) < 64 {
 		t.Error()

@@ -172,7 +172,7 @@ func Push(ssi ContactInterface, p packets.Interface) error {
 			ssi.Close(err)
 			return err
 		}
-		payload, err, hashb64 := tokens.GetKnotFreePayload(string(b64Token))
+		payload, hashb64, err := tokens.GetKnotFreePayload(string(b64Token))
 		if err != nil {
 			dis := packets.Disconnect{}
 			dis.SetOption("error", []byte(err.Error()))

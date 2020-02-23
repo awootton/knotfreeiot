@@ -9,8 +9,6 @@ replace github.com/awootton/knotfreeiot/badjson => ./badjson
 replace github.com/awootton/knotfreeiot/iot => ./iot
 
 require (
-	github.com/awootton/knotfreeiot/iot v0.0.0-00010101000000-000000000000 // indirect
-	github.com/awootton/knotfreeiot/tickets v0.0.0-20200221084641-b45967e53fda // indirect
 	github.com/kr/pretty v0.2.0 // indirect
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.2.2
 	golang.org/x/net v0.0.0-20191209160850-c0dbc17a3553 // indirect
