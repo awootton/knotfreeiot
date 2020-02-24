@@ -110,13 +110,13 @@ func AddContactStruct(ss *ContactStruct, config *ContactStructConfig) *ContactSt
 	ss.topicToName = make(map[HalfHash][]byte)
 
 	config.listlock.Lock()
+	defer config.listlock.Unlock()
 	if ss.key == 0 {
 		seq := config.sequence
 		config.sequence++
 		ss.key = HalfHash(seq + config.key.GetUint64())
 	}
 	ss.ele = ss.config.list.PushBack(ss)
-	config.listlock.Unlock()
 
 	return ss
 }
@@ -273,12 +273,11 @@ func PushDown(ssi ContactInterface, p packets.Interface) error {
 
 	switch v := p.(type) {
 	case *packets.Connect:
-		fmt.Println(v)
+		fmt.Println("got connect we don't need ", v)
 	case *packets.Disconnect:
-		fmt.Println(v)
+		fmt.Println("got disconnect  ", v)
 		ssi.Close(errors.New("got disconnect"))
 	case *packets.Subscribe:
-		//fmt.Println(v)
 		if len(v.AddressAlias) < 24 {
 			v.AddressAlias = make([]byte, 24)
 			sh := sha256.New()
@@ -343,7 +342,7 @@ func (config *ContactStructConfig) GetLookup() *LookupTableStruct {
 }
 
 // Close closes the conn
-// and the rest of the work too
+// and the rest of the work too. doesn't send error or disconnect.
 // needs to be overridden
 func (ss *ContactStruct) Close(err error) {
 

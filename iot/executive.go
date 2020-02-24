@@ -16,6 +16,7 @@
 package iot
 
 import (
+	"errors"
 	"strconv"
 )
 
@@ -44,63 +45,144 @@ type ClusterExecutive struct {
 
 // ExecutiveLimits will be how we tell if the ex is 'full'
 type ExecutiveLimits struct {
-	connections   int
-	buffers       float32 // 1.0 is fill
-	bytesPerSec   int
+	connections int
+	//buffers       float32 // 1.0 is fill
+	bytesPerSec   int // up or down
 	subscriptions int
 }
 
 // TestLimits is for tests
-var TestLimits = ExecutiveLimits{16, 0.5, 10, 64}
+// eg 16 contects is 100% or 10 bytes per sec is 100% or 64 contacts is 100%
+var TestLimits = ExecutiveLimits{16, 10, 64}
 
 // Operate where we pretend to be an Operator and resize the cluster.
 // This is really only for test.
 func (ce *ClusterExecutive) Operate() {
 
-	needsNewAide := false
+	subsTotal := 0.0
+	buffersFraction := 0.0
+	contactsTotal := 0.0
 	for _, ex := range ce.Aides {
 		c, fract := ex.GetSubsCount()
-		if c > ce.limits.subscriptions {
-			// atw FIXME needsNewAide = true
-		}
-		if fract > ce.limits.buffers {
-			needsNewAide = true
-		}
+		// subsTotal += float64(c) don't scale aides on subscriptions just yet
+		_ = c
+		buffersFraction += float64(fract)
 		con := ex.GetLowerContactsCount()
-		if con > ce.limits.connections {
-			needsNewAide = true
-		}
-		// check bps
-		// TODO calc % for each category and return largest and then grow on >0.85 and shrink at <0.75
+		contactsTotal += float64(con)
+		// check bps up and down
+	}
+	subsTotal /= float64(len(ce.Aides))
+	subsTotal /= float64(ce.limits.subscriptions)
+
+	buffersFraction /= float64(len(ce.Aides))
+
+	contactsTotal /= float64(len(ce.Aides))
+	contactsTotal /= float64(ce.limits.connections)
+
+	max := subsTotal
+	if max < buffersFraction {
+		max = buffersFraction
+	}
+	if max < contactsTotal {
+		max = contactsTotal
 	}
 
-	if needsNewAide {
+	// if the average is > 90% then grow
+	if max >= 0.9 {
 		anaide := ce.Aides[0]
 		n := strconv.FormatInt(int64(len(ce.Aides)), 10)
 		aide1 := NewExecutive(100, "aide"+n, anaide.getTime, false)
 		ce.Aides = append(ce.Aides, aide1)
 		aide1.Looker.NameResolver = anaide.Looker.NameResolver
 		aide1.Looker.SetUpstreamNames(ce.currentGuruList)
+		for _, ex := range ce.Gurus {
+			ex.Looker.FlushMarkerAndWait()
+		}
+		for _, ex := range ce.Aides {
+			ex.Looker.FlushMarkerAndWait()
+		}
+	} else if len(ce.Aides) > 1 {
+		// we can only shrink if the result won't just grow again.
+		// with some (10%) margin.
+		tmp := max * float64(len(ce.Aides))
+		tmp /= float64(len(ce.Aides) - 1)
+		if tmp < 0.80 {
+
+			// we can shrink, which one?
+			index := 0
+			max := 0.0
+			for i, ex := range ce.Aides {
+				c, fract := ex.GetSubsCount()
+				tmp += float64(c) / float64(ce.limits.subscriptions)
+				if tmp > max {
+					max = tmp
+					index = i
+				}
+				buffersFraction += float64(fract)
+				con := ex.GetLowerContactsCount()
+				contactsTotal += float64(con)
+				// check bps
+			}
+			i := index
+			minion := ce.Aides[i]
+			//	subsTotal /= float64(len(ce.Aides))
+			//	subsTotal /= float64(ce.limits.subscriptions)
+			minion.Config.listlock.Lock()
+			contactList := make([]ContactInterface, 0, minion.Config.list.Len())
+			ce.Aides[i] = ce.Aides[len(ce.Aides)-1] // Copy last element to index i.
+			ce.Aides[len(ce.Aides)-1] = nil         // Erase last element (write zero value).
+			ce.Aides = ce.Aides[:len(ce.Aides)-1]   // shorten list
+			l := minion.Config.GetContactsList()
+			e := l.Front()
+			for ; e != nil; e = e.Next() {
+				cc := e.Value.(ContactInterface)
+				contactList = append(contactList, cc)
+			}
+			minion.Config.listlock.Unlock()
+			for _, cc := range contactList {
+				cc.Close(errors.New("routine maintainance"))
+			}
+			for _, cc := range minion.Looker.upstreamRouter.contacts {
+				cc.Close(errors.New("routine maintainance"))
+			}
+			for _, ex := range ce.Gurus {
+				ex.Looker.FlushMarkerAndWait()
+			}
+			for _, ex := range ce.Aides {
+				ex.Looker.FlushMarkerAndWait()
+			}
+		}
 	}
 
-	needsNewGuru := false
-	for _, ex := range ce.Gurus {
-		c, fract := ex.GetSubsCount()
-		if c > ce.limits.subscriptions {
-			needsNewGuru = true
-		}
-		if fract > ce.limits.buffers {
-			needsNewGuru = true
-		}
+	// now, same routine for gurus
+
+	subsTotal = 0.0
+	buffersFraction = 0.0
+	contactsTotal = 0.0
+	for i, ex := range ce.Gurus {
+		subs, fract := ex.GetSubsCount()
+		//fmt.Println("guru", i, " has ", subs)
+		subsTotal += float64(subs)
+		buffersFraction += float64(fract)
 		con := ex.GetLowerContactsCount()
-		if con > ce.limits.connections {
-			needsNewGuru = true
-		}
-		// check bps
-		// TODO calc % for each category and return largest and then grow on >0.85 and shrink at <0.75
+		contactsTotal += float64(con)
+		// check bps up and down
+		_ = i
+	}
+	subsTotal /= float64(len(ce.Gurus))
+	subsTotal /= float64(ce.limits.subscriptions)
+
+	buffersFraction /= float64(len(ce.Gurus))
+
+	contactsTotal /= float64(len(ce.Gurus))
+	contactsTotal /= float64(ce.limits.connections)
+
+	max = subsTotal
+	if max < buffersFraction {
+		max = buffersFraction
 	}
 
-	if needsNewGuru && true {
+	if max >= 0.9 {
 		sample := ce.Gurus[0]
 		n := strconv.FormatInt(int64(len(ce.Gurus)), 10)
 		newName := "guru" + n
@@ -115,6 +197,60 @@ func (ce *ClusterExecutive) Operate() {
 		}
 		for _, aide := range ce.Aides {
 			aide.Looker.SetUpstreamNames(ce.currentGuruList)
+		}
+		for _, ex := range ce.Gurus {
+			ex.Looker.FlushMarkerAndWait()
+		}
+		for _, ex := range ce.Aides {
+			ex.Looker.FlushMarkerAndWait()
+		}
+	} else if len(ce.Gurus) > 1 {
+		// we can only shrink if the result won't just grow again.
+		// with some (10%) margin.
+		tmp := max * float64(len(ce.Gurus))
+		tmp /= float64(len(ce.Gurus) - 1)
+		if tmp < 0.80 {
+
+			// we can shrink, which one?
+			index := 0
+			index = len(ce.Gurus) - 1 // always the last one with gurus
+			i := index
+			minion := ce.Gurus[i]
+			minion.Config.listlock.Lock()
+			contactList := make([]ContactInterface, 0, len(ce.Aides))
+			ce.Gurus[i] = ce.Gurus[len(ce.Aides)-1] // Copy last element to index i.
+			ce.Gurus[len(ce.Gurus)-1] = nil         // Erase last element (write zero value).
+			ce.Gurus = ce.Gurus[:len(ce.Gurus)-1]   // shorten list
+			ce.currentGuruList = ce.currentGuruList[0:index]
+
+			l := minion.Config.GetContactsList()
+			e := l.Front()
+			for ; e != nil; e = e.Next() {
+				cc := e.Value.(ContactInterface)
+				contactList = append(contactList, cc)
+			}
+			minion.Config.listlock.Unlock()
+			for _, ex := range ce.Gurus {
+				ex.Looker.SetUpstreamNames(ce.currentGuruList)
+			}
+			for _, aide := range ce.Aides {
+				aide.Looker.SetUpstreamNames(ce.currentGuruList)
+			}
+			// we need to wait?
+			for _, cc := range contactList {
+				cc.Close(errors.New("routine maintainance"))
+			}
+			for _, cc := range minion.Looker.upstreamRouter.contacts {
+				cc.Close(errors.New("routine maintainance"))
+			}
+
+			for _, ex := range ce.Gurus {
+				ex.Looker.FlushMarkerAndWait()
+			}
+			for _, ex := range ce.Aides {
+				ex.Looker.FlushMarkerAndWait()
+			}
+
 		}
 	}
 

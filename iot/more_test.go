@@ -107,6 +107,25 @@ func TestGrowGurus(t *testing.T) {
 			t.Errorf("got %v, want %v", got, want)
 		}
 	}
+
+	// delete a subscription a minute and see what happens.
+	for i := 4; i < subsStressSize; i++ {
+		cmd := "U " + c1.String() + "_" + strconv.FormatInt(int64(i), 10)
+		//fmt.Println("cmd", cmd)
+		SendText(c1, cmd)
+		currentTime += 60 // a minute
+		ce.Operate()
+	}
+	ce.Operate()
+	subsStressSize = 4
+
+	got = fmt.Sprint("guru count ", len(ce.Gurus))
+	want = "guru count 1"
+	if got != want {
+		t.Errorf("got %v, want %v", got, want)
+	}
+	fmt.Println("total minions", len(ce.Aides))
+
 }
 
 // test auto scale in the minions and also reconnect when a minion is lost.
@@ -150,11 +169,11 @@ func TestExec(t *testing.T) {
 	got = ct.getResultAsString() // pause for a moment
 
 	got = fmt.Sprint("topics collected ", ce.GetSubsCount())
-	want = "topics collected 139" // + strconv.FormatInt(int64(contactStressSize*3+2), 10)
+	want = "topics collected 107" // + strconv.FormatInt(int64(contactStressSize*3+2), 10)
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
 	}
-	fmt.Println("total minions", len(ce.Aides))
+	fmt.Println("total minions", len(ce.Aides)) // 4
 
 	// check that they all get messages
 	for _, cc := range allContacts {
@@ -229,6 +248,23 @@ func TestExec(t *testing.T) {
 			t.Errorf("got %v, want %v", got, want)
 
 		}
+	}
+
+	for i, cc := range allContacts {
+		if i == 0 {
+			continue // the first one has no message
+		}
+		cc.doNotReconnect = true
+		cc.Close(errors.New("test"))
+		currentTime += 60 // a minute
+		ce.Operate()
+	}
+	ce.Operate()
+
+	got = fmt.Sprint("total minions", len(ce.Aides))
+	want = "total minions1"
+	if got != want {
+		t.Errorf("got %v, want %v", got, want)
 	}
 
 }

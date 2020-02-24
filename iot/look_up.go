@@ -95,6 +95,22 @@ func (me *LookupTableStruct) PushUp(p packets.Interface, h HashType) error {
 	return nil
 }
 
+// FlushMarkerAndWait puts a command into the head of all the q's
+// and waits for it. This way we can wait
+func (me *LookupTableStruct) FlushMarkerAndWait() {
+
+	command := callBackCommand{}
+	command.callback = flushMarkerCallback
+	for _, bucket := range me.allTheSubscriptions {
+		command.wg.Add(1)
+		bucket.incoming <- &command
+	}
+	command.wg.Wait()
+}
+func flushMarkerCallback(me *LookupTableStruct, bucket *subscribeBucket, cmd *callBackCommand) {
+	cmd.wg.Done()
+}
+
 // SetGuruUpstreamNames because the guru needs to know also
 func (me *LookupTableStruct) SetGuruUpstreamNames(names []string) {
 
@@ -119,16 +135,17 @@ func (me *LookupTableStruct) SetGuruUpstreamNames(names []string) {
 	command.callback = guruDeleteRemappedAndGoneTopics // inline?
 	command.index = myindex
 
-	//var wg sync.WaitGroup
 	for _, bucket := range me.allTheSubscriptions {
+		command.wg.Add(1)
 		bucket.incoming <- &command
 	}
-	//wg.Wait()
+	command.wg.Wait()
 }
 
 type callBackCommand struct { // todo make interface
 	callback func(me *LookupTableStruct, bucket *subscribeBucket, cmd *callBackCommand)
 	index    int
+	wg       sync.WaitGroup
 }
 
 func guruDeleteRemappedAndGoneTopics(me *LookupTableStruct, bucket *subscribeBucket, cmd *callBackCommand) {
@@ -147,6 +164,7 @@ func guruDeleteRemappedAndGoneTopics(me *LookupTableStruct, bucket *subscribeBuc
 			_ = watchedTopic
 		}
 	}
+	cmd.wg.Done()
 }
 
 // SetUpstreamNames is

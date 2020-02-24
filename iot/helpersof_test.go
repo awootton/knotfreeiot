@@ -40,6 +40,8 @@ type testContact struct {
 	downMessages chan packets.Interface
 
 	mostRecent []packets.Interface
+
+	doNotReconnect bool
 }
 
 type testUpperContact struct {
@@ -58,8 +60,11 @@ func MakeTestContact(config *iot.ContactStructConfig) iot.ContactInterface {
 			thing := <-contact1.downMessages
 
 			if reflect.TypeOf(thing) == reflect.TypeOf(&packets.Disconnect{}) {
+				if contact1.doNotReconnect == true {
+					return // we're done forever.
+				}
 				// now we have to reconnect
-				fmt.Println("contact reattaching", cc)
+				//fmt.Println("contact reattaching", cc)
 				globalClusterExec.AttachContact(cc, AttachTestContact)
 				// we should also reiterate our connect and our subscription.
 				SendText(cc, "S "+cc.String())
@@ -181,7 +186,7 @@ func SendText(cc iot.ContactInterface, text string) {
 	// parse the text
 	segment, err := badjson.Chop(text)
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println("SendText badjson err", err)
 	}
 	uni := packets.Universal{}
 	uni.Args = make([][]byte, 64) // much too big
