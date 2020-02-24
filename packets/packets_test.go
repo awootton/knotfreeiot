@@ -552,7 +552,7 @@ func TestForZombies2(t *testing.T) {
 	_ = uni
 	_ = err
 	got = err.Error()
-	want = "Too few bytes"
+	want = "Too few bytes18 19"
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
 	}

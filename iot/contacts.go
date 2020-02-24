@@ -23,6 +23,7 @@ import (
 	"reflect"
 	"sync"
 
+	"github.com/awootton/knotfreeiot/badjson"
 	"github.com/awootton/knotfreeiot/packets"
 	"github.com/awootton/knotfreeiot/tokens"
 )
@@ -94,6 +95,8 @@ type ContactStructConfig struct {
 	address string // eg knotfreeserver:7009
 
 	Name string // for debug
+
+	defaultTimeoutSeconds uint32 // in seconds
 }
 
 // GetContactsList so we can disconnect them in test
@@ -103,7 +106,7 @@ func (config *ContactStructConfig) GetContactsList() *list.List {
 
 // AddContactStruct initializes a contact, and puts the new ss on the global
 // list. It also increments the sequence number in SockStructConfig.
-func AddContactStruct(ss *ContactStruct, config *ContactStructConfig) *ContactStruct {
+func AddContactStruct(ss *ContactStruct, ssi ContactInterface, config *ContactStructConfig) *ContactStruct {
 
 	ss.config = config
 
@@ -116,7 +119,7 @@ func AddContactStruct(ss *ContactStruct, config *ContactStructConfig) *ContactSt
 		config.sequence++
 		ss.key = HalfHash(seq + config.key.GetUint64())
 	}
-	ss.ele = ss.config.list.PushBack(ss)
+	ss.ele = ss.config.list.PushBack(ssi)
 
 	return ss
 }
@@ -141,6 +144,7 @@ func NewContactStructConfig(looker *LookupTableStruct) *ContactStructConfig {
 	config.list = list.New()
 	config.key.Random()
 	config.sequence = 1
+	config.defaultTimeoutSeconds = 10
 	return &config
 }
 
@@ -210,7 +214,7 @@ func Push(ssi ContactInterface, p packets.Interface) error {
 
 	switch v := p.(type) {
 	case *packets.Connect:
-		fmt.Println(v)
+		// fmt.Println(v)
 	case *packets.Disconnect:
 		//fmt.Println(v)
 		ssi.WriteDownstream(v)
@@ -393,3 +397,34 @@ type ContactFactory func(config *ContactStructConfig) ContactInterface
 
 // ContactAttach for when the contact exists and we want to attach it to the config
 type ContactAttach func(cc ContactInterface, config *ContactStructConfig)
+
+// Text2Packet turns badjson into a packet
+func Text2Packet(text string) (packets.Interface, error) {
+	// parse the text
+	segment, err := badjson.Chop(text)
+	if err != nil {
+		fmt.Println("SendText badjson err", err)
+		return nil, err
+	}
+	uni := packets.Universal{}
+	uni.Args = make([][]byte, 64) // much too big
+	tmp := segment.Raw()          // will not be quoted
+	uni.Cmd = packets.CommandType(tmp[0])
+	segment = segment.Next()
+
+	// traverse the result
+	i := 0
+	for s := segment; s != nil; s = s.Next() {
+		stmp := s.Raw()
+		uni.Args[i] = []byte(stmp)
+		i++
+		if i > 10 {
+			break
+		}
+	}
+	p, err := packets.FillPacket(&uni)
+	if err != nil {
+		fmt.Println("problem with packet", err)
+	}
+	return p, nil
+}

@@ -19,6 +19,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"sync"
 	"unicode/utf8"
 
@@ -630,7 +631,7 @@ func ReadArrayOfByteArray(reader io.Reader) ([][]byte, error) {
 		return nil, err
 	}
 	if n != total {
-		return nil, errors.New("Too few bytes")
+		return nil, errors.New(fmt.Sprint("Too few bytes", n, total))
 	}
 	// now we can slice the args
 	position := 0

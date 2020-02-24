@@ -32,6 +32,8 @@ type Executive struct {
 	getTime func() uint32
 
 	Limits *ExecutiveLimits
+
+	IAmBadError error // if something happened to simply ruin us and we're quitting.
 }
 
 // ClusterExecutive is a list of Executive

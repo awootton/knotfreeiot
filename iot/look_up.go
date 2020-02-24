@@ -557,6 +557,9 @@ func NewWithInt64Comparator() *redblacktree.Tree {
 // A grab bag of paranoid ideas about bad states. FIXME: let's be more formal.
 func (me *LookupTableStruct) checkForBadSS(badsock ContactInterface, pubstruct *watchedTopic) bool {
 
+	if badsock.GetConfig() == nil {
+		return true
+	}
 	// forgetme := false
 	// //if badsock.conn == nil {
 	// //	forgetme = true

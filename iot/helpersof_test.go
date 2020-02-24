@@ -19,9 +19,10 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"runtime"
+	"strings"
 	"time"
 
-	"github.com/awootton/knotfreeiot/badjson"
 	"github.com/awootton/knotfreeiot/iot"
 	"github.com/awootton/knotfreeiot/packets"
 	"github.com/awootton/knotfreeiot/tokens"
@@ -42,6 +43,8 @@ type testContact struct {
 	mostRecent []packets.Interface
 
 	doNotReconnect bool
+
+	index int
 }
 
 type testUpperContact struct {
@@ -51,43 +54,50 @@ type testUpperContact struct {
 }
 
 func MakeTestContact(config *iot.ContactStructConfig) iot.ContactInterface {
-	contact1 := testContact{}
-	contact1.downMessages = make(chan packets.Interface, 100)
-	contact1.mostRecent = make([]packets.Interface, 0, 100)
+
+	acontact := testContact{}
+	acontact.downMessages = make(chan packets.Interface, 1000)
+	acontact.mostRecent = make([]packets.Interface, 0, 1000)
 
 	go func(cc *testContact) {
 		for {
-			thing := <-contact1.downMessages
+			thing := <-cc.downMessages
+
+			str := thing.String()
+			if strings.HasPrefix(str, "[P,contactTopic45") {
+				//fmt.Println("into mostRecent", thing, reflect.TypeOf(thing))
+			}
+			//fmt.Println("into mostRecent", thing, reflect.TypeOf(thing))
 
 			if reflect.TypeOf(thing) == reflect.TypeOf(&packets.Disconnect{}) {
-				if contact1.doNotReconnect == true {
+				if cc.doNotReconnect == true {
 					return // we're done forever.
 				}
 				// now we have to reconnect
-				//fmt.Println("contact reattaching", cc)
+				//fmt.Println("contact reattaching", cc.index)
 				globalClusterExec.AttachContact(cc, AttachTestContact)
 				// we should also reiterate our connect and our subscription.
-				SendText(cc, "S "+cc.String())
+				SendText(cc, "S "+cc.String()) // FIXME: this is garbage
 			} else {
 				cc.mostRecent = append(cc.mostRecent, thing)
 			}
 		}
-	}(&contact1)
-	iot.AddContactStruct(&contact1.ContactStruct, config)
+	}(&acontact)
+	iot.AddContactStruct(&acontact.ContactStruct, &acontact, config)
 
 	connect := packets.Connect{}
 	connect.SetOption("token", []byte(tokens.SampleSmallToken))
-	iot.Push(&contact1, &connect)
+	iot.Push(&acontact, &connect)
 
-	return &contact1
+	return &acontact
 }
 
 // the contact is already made but got closed or something and needs to
 // re-attach
 func AttachTestContact(cc iot.ContactInterface, config *iot.ContactStructConfig) {
 	contact1 := cc.(*testContact)
-	contact1.downMessages = make(chan packets.Interface, 100)
-	iot.AddContactStruct(&contact1.ContactStruct, config)
+	//contact1.downMessages = make(chan packets.Interface, 1000)
+	iot.AddContactStruct(&contact1.ContactStruct, contact1, config)
 
 	connect := packets.Connect{}
 	connect.SetOption("token", []byte(tokens.SampleSmallToken))
@@ -115,7 +125,7 @@ func testNameResolver(name string, config *iot.ContactStructConfig) (iot.Contact
 		// this work would be done after the socket accept by guru0
 		newLowerContact := testContact{}
 		newLowerContact.downMessages = make(chan packets.Interface, 1000)
-		iot.AddContactStruct(&newLowerContact.ContactStruct, exec.Config)
+		iot.AddContactStruct(&newLowerContact.ContactStruct, &newLowerContact, exec.Config)
 
 		connect := packets.Connect{}
 		connect.SetOption("token", []byte(tokens.SampleSmallToken))
@@ -135,14 +145,14 @@ func testNameResolver(name string, config *iot.ContactStructConfig) (iot.Contact
 	}
 }
 
-func (cc *testContact) get() (packets.Interface, bool) {
-	select {
-	case msg := <-cc.downMessages:
-		return msg, true
-	case <-time.After(10 * time.Millisecond):
-		return nil, false
-	}
-}
+// func (cc *testContact) get() (packets.Interface, bool) {
+// 	select {
+// 	case msg := <-cc.downMessages:
+// 		return msg, true
+// 	case <-time.After(10 * time.Millisecond):
+// 		return nil, false
+// 	}
+// }
 
 func (cc *testContact) Close(err error) {
 	ss := cc.ContactStruct
@@ -154,24 +164,30 @@ func (cc *testContact) Close(err error) {
 }
 
 func (cc *testContact) getResultAsString() string {
-	gotmsg, ok := cc.get()
-	got := ""
-	if ok {
-		got = gotmsg.String()
-	} else {
-		got = fmt.Sprint("no message received", gotmsg)
+	// gotmsg, ok := cc.get()
+	// got := ""
+	// if ok {
+	// 	got = gotmsg.String()
+	// } else {
+	// 	got = fmt.Sprint("no message received", gotmsg)
+	// }
+	if len(cc.mostRecent) == 0 {
+		return "no message received"
 	}
-	return got
+	return cc.mostRecent[0].String()
 }
 
 func (cc *testContact) WriteDownstream(packet packets.Interface) {
-	//fmt.Println("received from above", cmd, reflect.TypeOf(cmd))
+
+	str := packet.String()
+	if strings.HasPrefix(str, "[P,contactTopic45") {
+		//fmt.Println("received from above", packet, reflect.TypeOf(packet))
+	}
 	cc.downMessages <- packet
 }
 
 func (cc *testContact) WriteUpstream(cmd packets.Interface) {
-	fmt.Println("FIXME received from below", cmd, reflect.TypeOf(cmd))
-	//cc.downMessages <- cmd
+	fmt.Println("FIXME received from below does this exist?", cmd, reflect.TypeOf(cmd))
 }
 
 func readCounter(m prometheus.Counter) float64 {
@@ -183,33 +199,17 @@ func readCounter(m prometheus.Counter) float64 {
 // SendText chops up the text and creates a packets.Interface packet.
 func SendText(cc iot.ContactInterface, text string) {
 
-	// parse the text
-	segment, err := badjson.Chop(text)
-	if err != nil {
-		fmt.Println("SendText badjson err", err)
-	}
-	uni := packets.Universal{}
-	uni.Args = make([][]byte, 64) // much too big
-	tmp := segment.Raw()          // will not be quoted
-	uni.Cmd = packets.CommandType(tmp[0])
-	segment = segment.Next()
-
-	// traverse the result
-	i := 0
-	for s := segment; s != nil; s = s.Next() {
-		stmp := s.Raw()
-		uni.Args[i] = []byte(stmp)
-		i++
-		if i > 10 {
-			break
-		}
-	}
-	p, err := packets.FillPacket(&uni)
-	if err != nil {
-		fmt.Println("problem with packet", err)
-	}
+	p, _ := iot.Text2Packet(text)
 	iot.Push(cc, p)
-	//cctest, _ := cc.(*testContact)
-	//got := cctest.getResultAsString()
-	//_ = got
+
+}
+
+// WaitForActions needs to be properly implemented.
+// The correct thing to do is to inject tracer packets with wait groups into q's
+// and then wait for that.
+func WaitForActions() {
+	for i := 0; i < 10; i++ { // this is going to be a problem
+		time.Sleep(time.Millisecond)
+		runtime.Gosched() // single this
+	}
 }

@@ -48,6 +48,8 @@ func TestGrowGurus(t *testing.T) {
 	c2 := ce.GetNewContact(MakeTestContact)
 	SendText(c2, "S "+c2.String()) // subscribe to my name
 
+	WaitForActions()
+
 	c1test := c1.(*testContact)
 	got = c1test.getResultAsString() // always nil
 	c2test := c2.(*testContact)
@@ -63,11 +65,13 @@ func TestGrowGurus(t *testing.T) {
 	// add a subscription a minute and see what happens.
 	for i := 0; i < subsStressSize; i++ {
 		cmd := "S " + c1.String() + "_" + strconv.FormatInt(int64(i), 10)
-		//fmt.Println("cmd", cmd)
+		//fmt.Println("sub cmd", cmd)
 		SendText(c1, cmd)
 		currentTime += 60 // a minute
 		ce.Operate()
 	}
+
+	WaitForActions()
 
 	//fmt.Println("c1 has ", c1test.mostRecent)
 
@@ -83,11 +87,9 @@ func TestGrowGurus(t *testing.T) {
 		command := "P " + c1.String() + "_" + strconv.FormatInt(int64(i), 10) + " x x x a_test_message"
 		//fmt.Println(command)
 		SendText(c2, command) // publish to c1 from c2
-		got = fmt.Sprint(c1test.mostRecent)
-		//fmt.Println("received", got)
-
 	}
-	got = c1test.getResultAsString() // pause for a moment
+	WaitForActions()
+	got = c1test.getResultAsString()
 	for i := 0; i < subsStressSize; i++ {
 
 		got = "none"
@@ -97,9 +99,10 @@ func TestGrowGurus(t *testing.T) {
 			send := p[0].(*packets.Send)
 			got = string(send.Payload)
 		} else {
-			fmt.Println("expected Send, got ", reflect.TypeOf(p[0]))
+			fmt.Println("expected Send, got ", p)
 		}
 		if len(c1test.mostRecent) > 0 {
+			//fmt.Println("popping", c1test.mostRecent[0])
 			c1test.mostRecent = c1test.mostRecent[1:]
 		}
 		if got != want {
@@ -116,6 +119,7 @@ func TestGrowGurus(t *testing.T) {
 		currentTime += 60 // a minute
 		ce.Operate()
 	}
+	WaitForActions()
 	ce.Operate()
 	subsStressSize = 4
 
@@ -147,8 +151,7 @@ func TestExec(t *testing.T) {
 	allContacts = append(allContacts, c1.(*testContact))
 	SendText(c1, "S "+c1.String()) // subscribe to my name
 
-	ct := c1.(*testContact)
-	got = ct.getResultAsString() // // pause for a moment
+	WaitForActions()
 
 	// there one in the aide and one in the guru
 	got = fmt.Sprint("topics collected ", ce.GetSubsCount())
@@ -161,12 +164,17 @@ func TestExec(t *testing.T) {
 	for i := 0; i < contactStressSize; i++ {
 		ci := ce.GetNewContact(MakeTestContact)
 		allContacts = append(allContacts, ci.(*testContact))
-		SendText(ci, "S "+ci.String())
+		index := len(allContacts)
+		ci.(*testContact).index = index
+		indexstr := strconv.FormatInt(int64(index), 10)
+		cmd := "S contactTopic" + indexstr
+		//fmt.Println("sub cmd1", cmd)
+		SendText(ci, cmd) //ci.String())
 		currentTime += 60 // a minute
 		ce.Operate()
 	}
 
-	got = ct.getResultAsString() // pause for a moment
+	WaitForActions()
 
 	got = fmt.Sprint("topics collected ", ce.GetSubsCount())
 	want = "topics collected 107" // + strconv.FormatInt(int64(contactStressSize*3+2), 10)
@@ -176,35 +184,44 @@ func TestExec(t *testing.T) {
 	fmt.Println("total minions", len(ce.Aides)) // 4
 
 	// check that they all get messages
-	for _, cc := range allContacts {
-		command := "P " + cc.String() + " x x x a_test_message" + cc.String()
-		//fmt.Println(command)
-		SendText(c1, command) // publish to cc from c1
-	}
-	got = ct.getResultAsString() // pause for a moment
 	for i, cc := range allContacts {
 		if i == 0 {
 			continue // the first one has no message
 		}
+		index := strconv.FormatInt(int64(cc.index), 10)
+		command := "P " + "contactTopic" + index + " x x x a_test_message_" + index
+		//fmt.Println("sending 4", command)
+		SendText(c1, command) // publish to cc from c1
+	}
+
+	WaitForActions()
+
+	for i, cc := range allContacts {
+		if i == 0 {
+			continue // the first one has no message
+		}
+		index := strconv.FormatInt(int64(cc.index), 10)
 		got = "none"
-		want = "a_test_message" + cc.String()
+		want = "a_test_message_" + index
 		p := cc.mostRecent
 		if len(p) != 0 && reflect.TypeOf(p[0]) == reflect.TypeOf(&packets.Send{}) {
 			send := p[0].(*packets.Send)
 			got = string(send.Payload)
-
 		} else {
-			fmt.Println("expected Send, got ", reflect.TypeOf(p))
-
+			fmt.Println("expected Send, got ", reflect.TypeOf(p), p)
 		}
 		if len(cc.mostRecent) > 0 {
+			//fmt.Println("popping", cc.mostRecent[0])
 			cc.mostRecent = cc.mostRecent[1:]
 		}
+
 		if got != want {
 			fmt.Println("no most recent", i, cc)
 			t.Errorf("got %v, want %v", got, want)
 		}
 	}
+
+	WaitForActions()
 
 	// now. kill one of the minions and see if it reconnects and works
 	if true {
@@ -217,38 +234,59 @@ func TestExec(t *testing.T) {
 		l := minion.Config.GetContactsList()
 		e := l.Front()
 		for ; e != nil; e = e.Next() {
-			cc := e.Value.(iot.ContactInterface)
+			cc := e.Value.(*testContact)
 			cc.Close(errors.New("test close"))
 		}
 	}
 
-	for _, cc := range allContacts {
-		command := "P " + cc.String() + " x x x a_test_message2" + cc.String()
-		//fmt.Println(command)
-		SendText(c1, command) // publish to cc from c1
-	}
-	got = ct.getResultAsString() // pause for a moment
+	WaitForActions()
+
+	fmt.Println("check 1")
 
 	for i, cc := range allContacts {
 		if i == 0 {
 			continue // the first one has no message
 		}
+		index := strconv.FormatInt(int64(cc.index), 10)
+		command := "P " + "contactTopic" + index + " x x x a_test_message2_" + index
+		//fmt.Println("pub2", command)
+		SendText(c1, command) // publish to cc from c1
+	}
+
+	WaitForActions()
+
+	fmt.Println("check 2")
+
+	for i, cc := range allContacts {
+		if i == 0 {
+			continue // the first one has no message
+		}
+		index := cc.index
 		got = "none"
-		want = "a_test_message2" + cc.String()
+		want = "a_test_message2_" + strconv.FormatInt(int64(index), 10)
 		p := cc.mostRecent
 		if len(p) != 0 && reflect.TypeOf(p[0]) == reflect.TypeOf(&packets.Send{}) {
 			send := p[0].(*packets.Send)
 			got = string(send.Payload)
-			cc.mostRecent = cc.mostRecent[1:]
 		} else {
-			fmt.Println("i expected Send, got ", reflect.TypeOf(p))
+			fmt.Println("i expected Send, got ", reflect.TypeOf(p), p, index)
+		}
+		if len(cc.mostRecent) > 0 {
+			if i > 42 {
+				//fmt.Println("popping", cc.mostRecent[0])
+			} else {
+				//fmt.Println("popping", cc.mostRecent[0])
+			}
+			cc.mostRecent = cc.mostRecent[1:]
 		}
 		if got != want {
-			fmt.Println("i no most recent", i, cc)
+			fmt.Println("i no most recent", index, cc)
 			t.Errorf("got %v, want %v", got, want)
 
 		}
 	}
+
+	fmt.Println("check 3")
 
 	for i, cc := range allContacts {
 		if i == 0 {
