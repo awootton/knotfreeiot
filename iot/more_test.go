@@ -39,7 +39,7 @@ func TestGrowGurus(t *testing.T) {
 
 	subsStressSize := 100
 
-	ce := iot.MakeSimplestCluster(getTime, testNameResolver)
+	ce := iot.MakeSimplestCluster(getTime, testNameResolver, false, 1)
 	globalClusterExec = ce
 
 	c1 := ce.GetNewContact(MakeTestContact)
@@ -144,7 +144,7 @@ func TestExec(t *testing.T) {
 
 	allContacts := make([]*testContact, 0)
 
-	ce := iot.MakeSimplestCluster(getTime, testNameResolver)
+	ce := iot.MakeSimplestCluster(getTime, testNameResolver, false, 1)
 	globalClusterExec = ce
 
 	c1 := ce.GetNewContact(MakeTestContact)

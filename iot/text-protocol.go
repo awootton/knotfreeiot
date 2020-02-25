@@ -39,7 +39,7 @@ func MakeTextExecutive(ex *Executive, serverName string) *Executive {
 
 // a simple iot wire protocol that is text based.
 
-func (cc *textContact) WriteDownstream(packet packets.Interface) {
+func (cc *textContact) WriteDownstream(packet packets.Interface) error {
 	text := packet.String()
 	bytes := []byte(text + "\n")
 	//fmt.Println("writing down ", string(bytes))
@@ -47,11 +47,12 @@ func (cc *textContact) WriteDownstream(packet packets.Interface) {
 	if err != nil {
 		cc.Close(err)
 	}
+	return err
 }
 
 // textServer serves a line oriented text protocol
 func textServer(ex *Executive, name string) {
-	//fmt.Println("Server starting")
+	fmt.Println("Server starting ", name)
 	ln, err := net.Listen("tcp", name)
 	if err != nil {
 		// handle error
@@ -87,7 +88,7 @@ func textConnection(tcpConn *net.TCPConn, ex *Executive) {
 		fmt.Println("setup err", err)
 		return
 	}
-	for true { // c.running {
+	for ex.IAmBadError == nil {
 		// SetReadDeadline
 		err := cc.tcpConn.SetDeadline(time.Now().Add(20 * time.Minute))
 		if err != nil {
@@ -104,14 +105,14 @@ func textConnection(tcpConn *net.TCPConn, ex *Executive) {
 		//fmt.Println("got line ", str)
 		if err != nil {
 			//connLogThing.Collect("se err " + err.Error())
-			fmt.Println("packets read err", err)
+			fmt.Println("packets 1 read err", err)
 			cc.Close(err)
 			return
 		}
 		p, err := Text2Packet(str)
 		if err != nil {
 			//connLogThing.Collect("se err " + err.Error())
-			fmt.Println("packets read err", err)
+			fmt.Println("packets 2 read err", err)
 			cc.Close(err)
 			return
 		}
@@ -119,7 +120,7 @@ func textConnection(tcpConn *net.TCPConn, ex *Executive) {
 		err = Push(cc, p)
 		if err != nil {
 			//connLogThing.Collect("se err " + err.Error())
-			fmt.Println("iot.push err", err)
+			fmt.Println("text.push err", err)
 			cc.Close(err)
 			return
 		}

@@ -626,7 +626,8 @@ func ReadArrayOfByteArray(reader io.Reader) ([][]byte, error) {
 	}
 	// now we can read the rest all at once
 	bytes := make([]uint8, total) // alloc the base array
-	n, err = reader.Read(bytes)   // read it. timeout?
+	//n, err = reader.Read(bytes)   // read it. timeout?
+	n, err = io.ReadFull(reader, bytes)
 	if err != nil {
 		return nil, err
 	}

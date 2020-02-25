@@ -45,8 +45,8 @@ func TestTwoLevel(t *testing.T) {
 	aide2.Looker.NameResolver = testNameResolver
 	// we have to tell aides to connect to guru
 	names := []string{"guru0"}
-	aide1.Looker.SetUpstreamNames(names)
-	aide2.Looker.SetUpstreamNames(names)
+	aide1.Looker.SetUpstreamNames(names, names)
+	aide2.Looker.SetUpstreamNames(names, names)
 	WaitForActions()
 	// make a contact
 	contact1 := MakeTestContact(aide1.Config) //testContact{}

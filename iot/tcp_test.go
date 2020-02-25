@@ -16,17 +16,92 @@
 package iot_test
 
 import (
-	"bufio"
 	"fmt"
-	"net"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/awootton/knotfreeiot/iot"
-	"github.com/awootton/knotfreeiot/packets"
 	"github.com/awootton/knotfreeiot/tokens"
 )
+
+func TestTwoTierTcp(t *testing.T) {
+
+	tokens.SavePublicKey("1iVt", string(tokens.GetSamplePublic()))
+
+	got := ""
+	want := ""
+	ok := true
+	var err error
+	currentTime = starttime
+
+	ce := iot.MakeSimplestCluster(getTime, iot.TCPNameResolver, true, 2)
+	globalClusterExec = ce
+
+	WaitForActions()
+
+	sss := iot.GetServerStats(ce.Aides[0].GetHTTPAddress())
+	fmt.Println("aide stats", sss)
+	sss = iot.GetServerStats(ce.Gurus[0].GetHTTPAddress())
+	fmt.Println("guru stats", sss)
+
+	n := sss.Subscriptions * float32(ce.Gurus[0].Limits.Subscriptions)
+	if n != 1.0 {
+		t.Errorf("got %v, want %v", n, 1.0)
+	}
+
+	sock1 := openPlainSocket(ce.Aides[0].GetTextAddress(), t)
+	sock2 := openPlainSocket(ce.Aides[1].GetTextAddress(), t)
+
+	sock1.SetNoDelay(true)
+	sock2.SetNoDelay(true)
+
+	WaitForActions()
+
+	connectStr := "C token " + `"` + tokens.SampleSmallToken + `"` + "\n"
+	sock1.Write([]byte(connectStr))
+	sock2.Write([]byte(connectStr))
+
+	// subscribe
+	sock1.Write([]byte("S sock1channel  \n"))
+	sock2.Write([]byte("S sock2channel  \n"))
+
+	WaitForActions() // blech sock2 has to finish before sock1 sends
+
+	sock1.Write([]byte("P sock2channel :::: some_test_hello\n"))
+
+	WaitForActions()
+
+	got = readLine(sock2)
+	want = `[P,sock2channel,=1CHKeHF6q1WLMSylXwB0gRs+VVKJvEiHD7dB2+H78OQ,,,some_test_hello]`
+	if got != want {
+		t.Errorf("got %v, want %v", got, want)
+	}
+
+	aideStats := iot.GetServerStats(ce.Aides[0].GetHTTPAddress())
+	fmt.Println("aide stats2", aideStats)
+	guruStats := iot.GetServerStats(ce.Gurus[0].GetHTTPAddress())
+	fmt.Println("guru stats2", guruStats)
+
+	// the guru gained a subscription because the aide connected to it.
+	n = guruStats.Subscriptions * float32(ce.Gurus[0].Limits.Subscriptions)
+	if n != 3.0 {
+		t.Errorf("got %v, want %v", n, 3.0)
+	}
+
+	//TODO: two aides test
+
+	_ = got
+	_ = want
+	//
+	_ = ok
+	_ = err
+	//_ = sock2
+
+	sock1.Close()
+	sock2.Close()
+	WaitForActions()
+
+}
 
 func TestSimpleText(t *testing.T) {
 
@@ -83,7 +158,7 @@ func TestSimpleText(t *testing.T) {
 
 // start one server, send it some packets.
 
-func TestSimpleEx(t *testing.T) {
+func TestSimpleExecutive(t *testing.T) {
 
 	tokens.SavePublicKey("1iVt", string(tokens.GetSamplePublic()))
 
@@ -140,80 +215,4 @@ func TestSimpleEx(t *testing.T) {
 	_ = err
 	_ = sock2
 
-}
-
-func readSocket(conn *net.TCPConn) packets.Interface {
-
-	err := conn.SetDeadline(time.Now().Add(10 * time.Millisecond))
-	if err != nil {
-		// /srvrLogThing.Collect("cl err4 " + err.Error())
-		return &packets.Disconnect{}
-	}
-	p, err := packets.ReadPacket(conn)
-	if err != nil {
-		str := err.Error() // "read tcp 127.0.0.1:50053->127.0.0.1:1234: i/o timeout"
-		if !(strings.HasPrefix(str, "read tcp ") && strings.HasSuffix(str, ": i/o timeout")) {
-			fmt.Println("read err her", err)
-		}
-		return &packets.Disconnect{} // normal for timeout
-	}
-	conn.SetDeadline(time.Now().Add(600 * time.Second))
-	return p
-}
-
-func readLine(conn *net.TCPConn) string {
-
-	err := conn.SetDeadline(time.Now().Add(10 * time.Millisecond))
-	if err != nil {
-		// /srvrLogThing.Collect("cl err4 " + err.Error())
-		fmt.Println("read line fail1", err)
-		return ""
-	}
-	lineReader := bufio.NewReader(conn)
-	str, err := lineReader.ReadString('\n')
-	if err != nil {
-		str := err.Error() // "read tcp 127.0.0.1:50053->127.0.0.1:1234: i/o timeout"
-		if !(strings.HasPrefix(str, "read tcp ") && strings.HasSuffix(str, ": i/o timeout")) {
-			fmt.Println("read err her", err)
-		}
-		return "" // normal for timeout
-	}
-	if len(str) > 0 {
-		str = str[0 : len(str)-1]
-	}
-	conn.SetDeadline(time.Now().Add(600 * time.Second))
-	return str
-}
-
-func openConnectedSocket(name string, t *testing.T) *net.TCPConn {
-
-	// tcpAddr, err := net.ResolveTCPAddr("tcp", name)
-	// if err != nil {
-	// 	println("ResolveTCPAddr failed:", err.Error())
-	// 	t.Fail()
-	// }
-
-	conn1, err := net.DialTimeout("tcp", name, time.Duration(10*time.Millisecond)) //net.DialTCP("tcp", nil, tcpAddr)
-	if err != nil {
-		println("Dial failed:", err.Error())
-		t.Fail()
-	}
-	connect := packets.Connect{}
-	connect.SetOption("token", []byte(tokens.SampleSmallToken))
-	err = connect.Write(conn1)
-	if err != nil {
-		println("connect failed:", err.Error())
-		t.Fail()
-	}
-	return conn1.(*net.TCPConn)
-}
-
-func openPlainSocket(name string, t *testing.T) *net.TCPConn {
-
-	conn1, err := net.DialTimeout("tcp", name, time.Duration(10*time.Millisecond)) //net.DialTCP("tcp", nil, tcpAddr)
-	if err != nil {
-		println("Dial failed:", err.Error())
-		t.Fail()
-	}
-	return conn1.(*net.TCPConn)
 }

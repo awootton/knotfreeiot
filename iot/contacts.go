@@ -55,9 +55,9 @@ type ContactInterface interface {
 
 	GetConfig() *ContactStructConfig
 
-	WriteDownstream(cmd packets.Interface)
+	WriteDownstream(cmd packets.Interface) error
 
-	WriteUpstream(cmd packets.Interface) // called by LookupTableStruct.PushUp
+	WriteUpstream(cmd packets.Interface) error // called by LookupTableStruct.PushUp
 
 	// the upstream write is Push (below)
 	String() string // used as a default channel name in test
@@ -97,6 +97,8 @@ type ContactStructConfig struct {
 	Name string // for debug
 
 	defaultTimeoutSeconds uint32 // in seconds
+
+	ce *ClusterExecutive // optional
 }
 
 // GetContactsList so we can disconnect them in test
@@ -106,6 +108,7 @@ func (config *ContactStructConfig) GetContactsList() *list.List {
 
 // AddContactStruct initializes a contact, and puts the new ss on the global
 // list. It also increments the sequence number in SockStructConfig.
+// note that you must pass the same object twice, once as a ContactStruct and once as the Interface
 func AddContactStruct(ss *ContactStruct, ssi ContactInterface, config *ContactStructConfig) *ContactStruct {
 
 	ss.config = config
@@ -336,7 +339,7 @@ func (ss *ContactStruct) GetConfig() *ContactStructConfig {
 }
 
 // WriteDownstream needs to be overridden
-func (ss *ContactStruct) WriteDownstream(cmd packets.Interface) {
+func (ss *ContactStruct) WriteDownstream(cmd packets.Interface) error {
 	panic("WriteDownstream needs to be overridden")
 }
 
@@ -388,8 +391,9 @@ func (config *ContactStructConfig) Len() int {
 }
 
 // WriteUpstream will be overridden
-func (ss *ContactStruct) WriteUpstream(cmd packets.Interface) {
+func (ss *ContactStruct) WriteUpstream(cmd packets.Interface) error {
 	fmt.Println("FIXME unused", cmd, reflect.TypeOf(cmd)) // fixme panic
+	return errors.New("FIXME unused WriteUpstream")
 }
 
 // ContactFactory is for exec

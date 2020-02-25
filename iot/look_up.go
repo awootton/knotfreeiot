@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"reflect"
 	"sync"
+	"time"
 
 	"github.com/awootton/knotfreeiot/packets"
 	"github.com/dgryski/go-maglev"
@@ -87,7 +88,11 @@ func (me *LookupTableStruct) PushUp(p packets.Interface, h HashType) error {
 	}
 	cc := router.GetUpperContact(h.GetUint64())
 	if cc != nil {
-		cc.WriteUpstream(p)
+		err := cc.WriteUpstream(p)
+		if err != nil {
+			fmt.Println("upstream write fail needs to reattach", err)
+			cc.Close(err)
+		}
 	} else {
 		fmt.Println("where is our socket?")
 		return errors.New("missing upper contact")
@@ -168,7 +173,7 @@ func guruDeleteRemappedAndGoneTopics(me *LookupTableStruct, bucket *subscribeBuc
 }
 
 // SetUpstreamNames is
-func (me *LookupTableStruct) SetUpstreamNames(names []string) {
+func (me *LookupTableStruct) SetUpstreamNames(names []string, addresses []string) {
 
 	if me.isGuru {
 		me.SetGuruUpstreamNames(names)
@@ -184,32 +189,38 @@ func (me *LookupTableStruct) SetUpstreamNames(names []string) {
 	var wg sync.WaitGroup
 
 	for i, name := range names {
+		address := addresses[i]
 		wg.Add(1)
-		go func(me *LookupTableStruct, i int, name string) {
+		go func(me *LookupTableStruct, i int, name string, address string) {
 			defer wg.Done()
 			me.upstreamRouter.mux.Lock()
+			defer me.upstreamRouter.mux.Unlock()
 			com, ok := me.upstreamRouter.name2contact[name]
 			var err error
 			var newContact ContactInterface
 			if !ok {
-				newContact, err = me.NameResolver(name, me.config)
-				if err != nil {
+				newContact, err = me.NameResolver(address, me.config)
+				counter := 0
+				for err != nil {
+					fmt.Println("we cna't have this fixme", address, err) // should never happen
 					// now what?
-					fmt.Println("we cna't have this fixme", name)
-					newContact = nil
-					newContact, err = me.NameResolver(name, me.config)
+					if counter > 5 {
+						break
+					}
+					counter++
+					time.Sleep(1 << counter * time.Millisecond)
+					newContact = nil // try again
+					newContact, err = me.NameResolver(address, me.config)
 				}
 				com = common{newContact, HashType{}}
 				me.upstreamRouter.name2contact[name] = com
 			} else {
 				newContact = com.ss
 			}
-			me.upstreamRouter.mux.Unlock()
-			me.upstreamRouter.contacts[i] = newContact
-			//fmt.Println("set", newContact)
-			//me.upstreamRouter.names[i] = name
 
-		}(me, i, name)
+			me.upstreamRouter.contacts[i] = newContact
+
+		}(me, i, name, address)
 
 	}
 

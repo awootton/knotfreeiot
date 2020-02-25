@@ -16,8 +16,11 @@
 package iot
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
+	"net/http"
 	"reflect"
 	"time"
 
@@ -43,66 +46,159 @@ type tcpUpperContact struct {
 // MakeTCPExecutive is a thing like a server, not the exec
 func MakeTCPExecutive(ex *Executive, serverName string) *Executive {
 
-	ex.Looker.NameResolver = tcpNameResolver
+	ex.Looker.NameResolver = TCPNameResolver
 
 	go server(ex, serverName)
 
 	return ex
+}
 
+func hello(w http.ResponseWriter, req *http.Request) {
+	fmt.Fprintf(w, "hello from, atw\n")
+}
+
+type apiHandler struct {
+	ex *Executive
+}
+
+func (api apiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+
+	if req.RequestURI == "/api1/getstats" {
+
+		stats := api.ex.GetExecutiveStats()
+		bytes, err := json.Marshal(stats)
+		if err != nil {
+			fmt.Println("GetExecutiveStats marshal", err)
+		}
+		w.Write(bytes)
+
+	} else {
+		http.NotFound(w, req)
+		//fmt.Fprintf(w, "expected known path "+api.ex.Name)
+	}
+	//fmt.Fprintf(w, "hello from, atw and "+api.ex.Name)
+	//fmt.Println(req.RequestURI) //api1/getstats
+}
+
+// MakeHTTPExecutive sets up an http server
+func MakeHTTPExecutive(ex *Executive, serverName string) *Executive {
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/hello", hello)
+	mux.Handle("/api1/", apiHandler{ex})
+
+	s := &http.Server{
+		Addr:           serverName,
+		Handler:        mux,
+		ReadTimeout:    10 * time.Second,
+		WriteTimeout:   10 * time.Second,
+		MaxHeaderBytes: 1 << 20,
+	}
+	go func(s *http.Server) {
+		fmt.Println("http service " + s.Addr)
+		err := s.ListenAndServe()
+		_ = err
+		fmt.Println("ListenAndServe returned !!!!!  arrrrg", err)
+	}(s)
+	return ex
 }
 
 // type GuruNameResolver func(name string, config *ContactStructConfig) (ContactInterface, error)
 
-func tcpNameResolver(name string, config *ContactStructConfig) (ContactInterface, error) {
+// TCPNameResolver is a socket factory producing tcp connected sockets for the top of an aide.
+func TCPNameResolver(address string, config *ContactStructConfig) (ContactInterface, error) {
+
+	ce := config.ce
+	if ce == nil {
+		return nil, errors.New("need ce")
+	}
 
 	cc := &tcpUpperContact{}
 	InitUpperContactStruct(&cc.ContactStruct, config)
 
-	servAddr := name //"127.0.0.1:7654"
+	servAddr := address //"127.0.0.1:7654"
 	tcpAddr, err := net.ResolveTCPAddr("tcp", servAddr)
 	if err != nil {
 		fmt.Println("fixme kkk", tcpAddr, err)
 		return cc, err
 	}
-	for {
-		conn, err := net.DialTimeout("tcp", name, time.Duration(uint64(time.Second)*uint64(cc.GetConfig().defaultTimeoutSeconds)))
-		fmt.Println(conn, err)
-		conn.(*net.TCPConn).SetNoDelay(true)
-		conn.(*net.TCPConn).SetWriteBuffer(4096)
-
-		connect := packets.Connect{}
-		connect.SetOption("token", []byte(tokens.SampleSmallToken)) // fixme, use token that the ex has
-		Push(cc, &connect)
-
-		for { // add timeout?
-			// conn.SetReadDeadline(time.Duration(uint64(time.Second) * uint64(cc.GetConfig().defaultTimeoutSeconds)))
-			packet, err := packets.ReadPacket(conn)
+	go func(cc *tcpUpperContact) {
+		failed := 0
+		for {
+			// we're very agressive so not time.Sleep(100 << failed * time.Millisecond)
+			// todo: tell prometheius we're dialing
+			conn, err := net.DialTimeout("tcp", address, time.Duration(uint64(time.Second)*uint64(cc.GetConfig().defaultTimeoutSeconds)))
 			if err != nil {
-				fmt.Println("amke a note ", err)
-				break
+				fmt.Println("dial 3 fail", address, err, failed)
+				//return cc, err
+				failed++
+				continue
 			}
-			PushDown(cc, packet)
+			cc.tcpConn = conn.(*net.TCPConn)
+			fmt.Println("tcpUpperContact connected", cc)
+
+			conn.(*net.TCPConn).SetNoDelay(true)
+			conn.(*net.TCPConn).SetWriteBuffer(4096)
+
+			connect := packets.Connect{}
+			connect.SetOption("token", []byte(tokens.SampleSmallToken)) // fixme, use token that the ex has
+			cc.WriteUpstream(&connect)
+			if err != nil {
+				//return cc, err
+				fmt.Println("push c fail", conn, err)
+				failed++
+			}
+			fmt.Println("TCPNameResolver starting read loop ", cc)
+			failed = 0
+			for { // add timeout?
+				// conn.SetReadDeadline(time.Duration(uint64(time.Second) * uint64(cc.GetConfig().defaultTimeoutSeconds)))
+				//fmt.Println("waiting for packet from above ")
+				packet, err := packets.ReadPacket(conn)
+				if err != nil {
+					fmt.Println("amke a note ", err)
+					break
+				}
+				PushDown(cc, packet)
+			}
+		}
+	}(cc)
+
+	// don't return until it's connected.
+	count := 0
+	for cc.tcpConn == nil {
+		time.Sleep(time.Millisecond)
+		count++
+		if count > 50 { // ?? how much ??
+			return nil, errors.New("timeout trying to connect to " + address)
 		}
 	}
+
+	return cc, nil
 }
 
 // called by Lookup PushUp
-func (cc *tcpUpperContact) WriteUpstream(p packets.Interface) {
+func (cc *tcpUpperContact) WriteUpstream(p packets.Interface) error {
 
+	if cc.tcpConn == nil {
+		fmt.Println("need non nil tcpConn", cc)
+		return errors.New(fmt.Sprint("need non nil tcpConn", cc))
+	}
+	if cc.GetConfig() == nil {
+		fmt.Println("we are closed", cc)
+		return errors.New(fmt.Sprint("we are closed", cc))
+	}
 	err := p.Write(cc.tcpConn)
 	if err != nil {
 		cc.Close(err)
+		return err
 	}
-
+	return nil
 }
 
 func (cc *tcpContact) Close(err error) {
-
-	fmt.Println("closing  ", err)
-
 	if cc.GetConfig() != nil {
 		dis := packets.Disconnect{}
-		dis.SetOption("error", []byte(err.Error()))
+		dis.SetOption("error", []byte("nil config"))
 		cc.WriteDownstream(&dis)
 		cc.tcpConn.Close()
 	}
@@ -110,24 +206,26 @@ func (cc *tcpContact) Close(err error) {
 	ss.Close(err) // close my parent
 }
 
-func (cc *tcpContact) WriteDownstream(packet packets.Interface) {
+func (cc *tcpContact) WriteDownstream(packet packets.Interface) error {
 	//fmt.Println("received from above", cmd, reflect.TypeOf(cmd))
 	err := packet.Write(cc.tcpConn)
 	if err != nil {
 		cc.Close(err)
 	}
+	return err
 }
 
-func (cc *tcpContact) WriteUpstream(cmd packets.Interface) {
+func (cc *tcpContact) WriteUpstream(cmd packets.Interface) error {
 	fmt.Println("FIXME tcp received from below", cmd, reflect.TypeOf(cmd))
 	err := cmd.Write(cc.tcpConn)
 	if err != nil {
 		cc.Close(err)
 	}
+	return err
 }
 
 func server(ex *Executive, name string) {
-	//fmt.Println("Server starting")
+	fmt.Println("tcp server starting", name)
 	ln, err := net.Listen("tcp", name)
 	if err != nil {
 		// handle error
@@ -140,17 +238,16 @@ func server(ex *Executive, name string) {
 		tmpconn, err := ln.Accept()
 		if err != nil {
 			//	srvrLogThing.Collect(err.Error())
-			fmt.Println("accetp err ", err)
+			fmt.Println("accept err ", err)
 			continue
 		}
 		go handleConnection(tmpconn.(*net.TCPConn), ex) //,handler types.ProtocolHandler)
 	}
 }
 
-// RunAConnection - FIXME: this is really a protoA connection.
-//
 func handleConnection(tcpConn *net.TCPConn, ex *Executive) {
 
+	// FIXME: all the *LogThing expressions need to be re-written for prom
 	//srvrLogThing.Collect("Conn Accept")
 
 	cc := localMakeTCPContact(ex.Config, tcpConn)
@@ -180,11 +277,11 @@ func handleConnection(tcpConn *net.TCPConn, ex *Executive) {
 		p, err := packets.ReadPacket(cc.tcpConn)
 		if err != nil {
 			//connLogThing.Collect("se err " + err.Error())
-			fmt.Println("packets read err", err)
+			fmt.Println("packets 3 read err", err)
 			cc.Close(err)
 			return
 		}
-		//fmt.Println("got packet", p)
+		//fmt.Println("tcp got packet", p, cc)
 		err = Push(cc, p)
 		if err != nil {
 			//connLogThing.Collect("se err " + err.Error())

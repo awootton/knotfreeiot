@@ -16,11 +16,14 @@
 package iot_test
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
+	"net"
 	"reflect"
 	"runtime"
 	"strings"
+	"testing"
 	"time"
 
 	"github.com/awootton/knotfreeiot/iot"
@@ -105,9 +108,10 @@ func AttachTestContact(cc iot.ContactInterface, config *iot.ContactStructConfig)
 }
 
 // called by Lookup PushUp
-func (cc *testUpperContact) WriteUpstream(cmd packets.Interface) {
+func (cc *testUpperContact) WriteUpstream(cmd packets.Interface) error {
 	// call the Push
-	iot.Push(cc.guruBottomContact, cmd)
+	err := iot.Push(cc.guruBottomContact, cmd)
+	return err
 }
 
 func getTime() uint32 {
@@ -177,17 +181,19 @@ func (cc *testContact) getResultAsString() string {
 	return cc.mostRecent[0].String()
 }
 
-func (cc *testContact) WriteDownstream(packet packets.Interface) {
+func (cc *testContact) WriteDownstream(packet packets.Interface) error {
 
 	str := packet.String()
 	if strings.HasPrefix(str, "[P,contactTopic45") {
 		//fmt.Println("received from above", packet, reflect.TypeOf(packet))
 	}
 	cc.downMessages <- packet
+	return nil
 }
 
-func (cc *testContact) WriteUpstream(cmd packets.Interface) {
+func (cc *testContact) WriteUpstream(cmd packets.Interface) error {
 	fmt.Println("FIXME received from below does this exist?", cmd, reflect.TypeOf(cmd))
+	return errors.New("Only upper contacts get WriteUpstream")
 }
 
 func readCounter(m prometheus.Counter) float64 {
@@ -212,4 +218,80 @@ func WaitForActions() {
 		time.Sleep(time.Millisecond)
 		runtime.Gosched() // single this
 	}
+}
+
+func readSocket(conn *net.TCPConn) packets.Interface {
+
+	err := conn.SetDeadline(time.Now().Add(10 * time.Millisecond))
+	if err != nil {
+		// /srvrLogThing.Collect("cl err4 " + err.Error())
+		return &packets.Disconnect{}
+	}
+	p, err := packets.ReadPacket(conn)
+	if err != nil {
+		str := err.Error() // "read tcp 127.0.0.1:50053->127.0.0.1:1234: i/o timeout"
+		if !(strings.HasPrefix(str, "read tcp ") && strings.HasSuffix(str, ": i/o timeout")) {
+			fmt.Println("read err her", err)
+		}
+		return &packets.Disconnect{} // normal for timeout
+	}
+	conn.SetDeadline(time.Now().Add(600 * time.Second))
+	return p
+}
+
+func readLine(conn *net.TCPConn) string {
+
+	err := conn.SetDeadline(time.Now().Add(10 * time.Millisecond))
+	if err != nil {
+		// /srvrLogThing.Collect("cl err4 " + err.Error())
+		fmt.Println("read line fail1", err)
+		return ""
+	}
+	lineReader := bufio.NewReader(conn)
+	str, err := lineReader.ReadString('\n')
+	if err != nil {
+		str := err.Error() // "read tcp 127.0.0.1:50053->127.0.0.1:1234: i/o timeout"
+		if !(strings.HasPrefix(str, "read tcp ") && strings.HasSuffix(str, ": i/o timeout")) {
+			fmt.Println("read err her", err)
+		}
+		return "" // normal for timeout
+	}
+	if len(str) > 0 {
+		str = str[0 : len(str)-1]
+	}
+	conn.SetDeadline(time.Now().Add(600 * time.Second))
+	return str
+}
+
+func openConnectedSocket(name string, t *testing.T) *net.TCPConn {
+
+	// tcpAddr, err := net.ResolveTCPAddr("tcp", name)
+	// if err != nil {
+	// 	println("ResolveTCPAddr failed:", err.Error())
+	// 	t.Fail()
+	// }
+
+	conn1, err := net.DialTimeout("tcp", name, time.Duration(10*time.Millisecond)) //net.DialTCP("tcp", nil, tcpAddr)
+	if err != nil {
+		println("Dial 1 failed:", err.Error())
+		t.Fail()
+	}
+	connect := packets.Connect{}
+	connect.SetOption("token", []byte(tokens.SampleSmallToken))
+	err = connect.Write(conn1)
+	if err != nil {
+		println("connect failed:", err.Error())
+		t.Fail()
+	}
+	return conn1.(*net.TCPConn)
+}
+
+func openPlainSocket(name string, t *testing.T) *net.TCPConn {
+
+	conn1, err := net.DialTimeout("tcp", name, time.Duration(10*time.Millisecond)) //net.DialTCP("tcp", nil, tcpAddr)
+	if err != nil {
+		println("Dial 2 failed:", err.Error())
+		t.Fail()
+	}
+	return conn1.(*net.TCPConn)
 }
