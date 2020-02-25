@@ -16,9 +16,8 @@
 package iot
 
 import (
-	"encoding/json"
 	"errors"
-	"net/http"
+	"fmt"
 	"strconv"
 )
 
@@ -117,17 +116,6 @@ func (ce *ClusterExecutive) AttachContact(cc ContactInterface, attacher ContactA
 	attacher(cc, smallestAide.Config)
 }
 
-// GetNextAddress hands out localhost addresses starting at 9000
-func (ce *ClusterExecutive) GetNextAddress() string {
-
-	if ce.currentPort == 0 {
-		ce.currentPort = 9000
-	}
-	address := "localhost:" + strconv.FormatInt(int64(ce.currentPort), 10)
-	ce.currentPort++
-	return address
-}
-
 // MakeSimplestCluster is just for testing as k8s doesn't work like this.
 func MakeSimplestCluster(timegetter func() uint32, nameResolver GuruNameResolver, isTCP bool, aideCount int) *ClusterExecutive {
 
@@ -177,11 +165,21 @@ func MakeSimplestCluster(timegetter func() uint32, nameResolver GuruNameResolver
 	}
 
 	if isTCP {
-		// TODO: don't cheat: send these by http
-		guru0.Looker.SetUpstreamNames(ce.currentGuruList, ce.currentAddressList)
-		for _, aide := range ce.Aides {
-			aide.Looker.SetUpstreamNames(ce.currentGuruList, ce.currentAddressList)
+		// don't cheat: send these by http
+		err := PostUpstreamNames(ce, guru0.httpAddress)
+		if err != nil {
+			fmt.Println("post fail1")
 		}
+		for _, aide := range ce.Aides {
+			err := PostUpstreamNames(ce, aide.httpAddress)
+			if err != nil {
+				fmt.Println("post fail2")
+			}
+		}
+		// guru0.Looker.SetUpstreamNames(ce.currentGuruList, ce.currentAddressList)
+		// for _, aide := range ce.Aides {
+		// 	aide.Looker.SetUpstreamNames(ce.currentGuruList, ce.currentAddressList)
+		// }
 
 	} else {
 		guru0.Looker.SetUpstreamNames(ce.currentGuruList, ce.currentGuruList)
@@ -209,6 +207,17 @@ func NewExecutive(sizeEstimate int, aname string, timegetter func() uint32, isGu
 	e.isGuru = isGuru
 	return &e
 
+}
+
+// GetNextAddress hands out localhost addresses starting at 9000
+func (ce *ClusterExecutive) GetNextAddress() string {
+
+	if ce.currentPort == 0 {
+		ce.currentPort = 9000
+	}
+	address := "localhost:" + strconv.FormatInt(int64(ce.currentPort), 10)
+	ce.currentPort++
+	return address
 }
 
 // Operate where we pretend to be an Operator and resize the cluster.
@@ -480,23 +489,4 @@ func (ex *Executive) GetTextAddress() string {
 // GetMQTTAddress is a getter
 func (ex *Executive) GetMQTTAddress() string {
 	return ex.mqttAddress
-}
-
-// GetServerStats asks nicely over http
-func GetServerStats(addr string) *ExecutiveStats {
-	//result := ""
-	stats := ExecutiveStats{}
-
-	resp, err := http.Get("http://" + addr + "/api1/getstats")
-
-	if err == nil && resp.StatusCode == 200 {
-		var bytes [1024]byte
-		n, err := resp.Body.Read(bytes[:])
-		// = string(bytes[0:n])
-		//fmt.Println("GetServerStats returned ", result, err)
-
-		err = json.Unmarshal(bytes[0:n], &stats)
-		_ = err
-	}
-	return &stats
 }

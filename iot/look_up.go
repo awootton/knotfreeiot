@@ -172,7 +172,7 @@ func guruDeleteRemappedAndGoneTopics(me *LookupTableStruct, bucket *subscribeBuc
 	cmd.wg.Done()
 }
 
-// SetUpstreamNames is
+// SetUpstreamNames is. the resolver will try to get a tcp connection.
 func (me *LookupTableStruct) SetUpstreamNames(names []string, addresses []string) {
 
 	if me.isGuru {

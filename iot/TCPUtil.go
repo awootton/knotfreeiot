@@ -16,6 +16,7 @@
 package iot
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -71,6 +72,16 @@ func (api apiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			fmt.Println("GetExecutiveStats marshal", err)
 		}
 		w.Write(bytes)
+
+	} else if req.RequestURI == "/api1/set" {
+
+		decoder := json.NewDecoder(req.Body)
+		args := &upstreamNamesArg{}
+		err := decoder.Decode(args)
+		if err != nil {
+			panic(err)
+		}
+		api.ex.Looker.SetUpstreamNames(args.Names, args.Addresses)
 
 	} else {
 		http.NotFound(w, req)
@@ -329,4 +340,52 @@ func localMakeTCPContact(config *ContactStructConfig, tcpConn *net.TCPConn) *tcp
 	contact1.tcpConn = tcpConn
 
 	return &contact1
+}
+
+// GetServerStats asks nicely over http
+func GetServerStats(addr string) *ExecutiveStats {
+	//result := ""
+	stats := ExecutiveStats{}
+
+	resp, err := http.Get("http://" + addr + "/api1/getstats")
+
+	if err == nil && resp.StatusCode == 200 {
+		var bytes [1024]byte
+		n, err := resp.Body.Read(bytes[:])
+		// = string(bytes[0:n])
+		//fmt.Println("GetServerStats returned ", result, err)
+
+		err = json.Unmarshal(bytes[0:n], &stats)
+		_ = err
+	}
+	return &stats
+}
+
+type upstreamNamesArg struct {
+	Names     []string
+	Addresses []string
+}
+
+// PostUpstreamNames does SetUpstreamNames the hard way
+func PostUpstreamNames(ce *ClusterExecutive, addr string) error {
+
+	arg := &upstreamNamesArg{}
+	arg.Names = ce.currentGuruList
+	arg.Addresses = ce.currentAddressList
+
+	jbytes, err := json.Marshal(arg)
+	if err != nil {
+		fmt.Println("unreachable ?? bb")
+		return errors.New("upstreamNamesArg marshal fail")
+	}
+
+	resp, err := http.Post("http://"+addr+"/api1/set", "application/json", bytes.NewReader(jbytes))
+	if err != nil {
+		return err
+	}
+	if resp.StatusCode != 200 {
+		return errors.New("upstreamNamesArg not 200")
+	}
+	return nil
+
 }
