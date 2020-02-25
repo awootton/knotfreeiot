@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"time"
 )
 
 // Utility and controller struct and functions for LookupTable
@@ -73,7 +74,7 @@ type ExecutiveStats struct {
 	TCPAddress    string
 }
 
-// TestLimits is for tests
+// TestLimits is for testsvar TestLimits = ExecutiveLimits{16, 10, 64}
 // eg 16 contects is 100% or 10 bytes per sec is 100% or 64 contacts is 100%
 var TestLimits = ExecutiveLimits{16, 10, 64}
 
@@ -166,10 +167,13 @@ func MakeSimplestCluster(timegetter func() uint32, nameResolver GuruNameResolver
 
 	if isTCP {
 		// don't cheat: send these by http
-		err := PostUpstreamNames(ce, guru0.httpAddress)
-		if err != nil {
-			fmt.Println("post fail1")
+		if len(ce.Gurus) > 0 {
+			err := PostUpstreamNames(ce, ce.Gurus[0].httpAddress)
+			if err != nil {
+				fmt.Println("post fail1")
+			}
 		}
+
 		for _, aide := range ce.Aides {
 			err := PostUpstreamNames(ce, aide.httpAddress)
 			if err != nil {
@@ -182,11 +186,47 @@ func MakeSimplestCluster(timegetter func() uint32, nameResolver GuruNameResolver
 		// }
 
 	} else {
-		guru0.Looker.SetUpstreamNames(ce.currentGuruList, ce.currentGuruList)
+		if len(ce.Gurus) > 0 {
+			ce.Gurus[0].Looker.SetUpstreamNames(ce.currentGuruList, ce.currentGuruList)
+		}
 		for _, aide := range ce.Aides {
 			aide.Looker.SetUpstreamNames(ce.currentGuruList, ce.currentGuruList)
 		}
 	}
+
+	return ce
+}
+
+// MakeTCPMain is called by main(s)
+func MakeTCPMain(limits *ExecutiveLimits, token string) *ClusterExecutive {
+
+	isTCP := true
+	timegetter := func() uint32 {
+		return uint32(time.Now().Unix())
+	}
+	nameResolver := TCPNameResolver
+
+	ce := &ClusterExecutive{}
+	ce.isTCP = isTCP
+
+	ce.currentPort = 80
+
+	ce.limits = limits
+
+	aide1 := NewExecutive(100, "aide", timegetter, false)
+	aide1.Config.ce = ce
+	ce.Aides = append(ce.Aides, aide1)
+	aide1.Looker.NameResolver = nameResolver
+
+	aide1.httpAddress = ":8080"
+	aide1.tcpAddress = ":8384"
+	aide1.textAddress = ":7465"
+	aide1.mqttAddress = ":1883"
+
+	MakeTCPExecutive(aide1, aide1.tcpAddress)
+	MakeTextExecutive(aide1, aide1.textAddress)
+	MakeHTTPExecutive(aide1, aide1.httpAddress)
+	// FIXME : MakeMQTTExecutive
 
 	return ce
 }

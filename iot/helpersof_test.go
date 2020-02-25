@@ -159,7 +159,7 @@ func testNameResolver(name string, config *iot.ContactStructConfig) (iot.Contact
 // }
 
 func (cc *testContact) Close(err error) {
-	ss := cc.ContactStruct
+	ss := &cc.ContactStruct
 	ss.Close(err)
 
 	dis := packets.Disconnect{}

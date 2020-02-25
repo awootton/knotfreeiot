@@ -8,9 +8,11 @@ replace github.com/awootton/knotfreeiot/badjson => ./badjson
 
 replace github.com/awootton/knotfreeiot/iot => ./iot
 
+replace github.com/awootton/knotfreeiot/tokens => ./tokens
+
 require (
-	github.com/awootton/knotfreeiot/badjson v0.0.0-00010101000000-000000000000 // indirect
-	github.com/emirpasic/gods v1.12.0 // indirect
+	github.com/awootton/knotfreeiot/iot v0.0.0-00010101000000-000000000000
+	github.com/awootton/knotfreeiot/tokens v0.0.0-00010101000000-000000000000
 	github.com/kr/pretty v0.2.0 // indirect
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.2.2
 	golang.org/x/net v0.0.0-20191209160850-c0dbc17a3553 // indirect

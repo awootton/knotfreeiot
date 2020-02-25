@@ -428,7 +428,7 @@ func Text2Packet(text string) (packets.Interface, error) {
 	}
 	p, err := packets.FillPacket(&uni)
 	if err != nil {
-		fmt.Println("problem with packet", err)
+		//fmt.Println("problem with packet", err)
 	}
-	return p, nil
+	return p, err
 }

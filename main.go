@@ -18,195 +18,52 @@ package main
 import (
 	"flag"
 	"fmt"
-	"net/http"
-	"runtime"
-	"strconv"
-	"strings"
-	"sync"
 	"time"
+
+	"github.com/awootton/knotfreeiot/iot"
+	"github.com/awootton/knotfreeiot/tokens"
 )
 
 // Hint: add "127.0.0.1 knotfreeserver" to /etc/hosts
 func main() {
 
+	tokens.SavePublicKey("1iVt", string(tokens.GetSamplePublic()))
+
 	fmt.Println("Hello knotfreeserver")
 
-	//	tiers.TwoByTwoTest()
-
-	//aa := flag.Bool("aa", false, "use aa protocol")
-	//	str := flag.Bool("str", false, "use str protocol")
-	str2 := flag.Bool("str2", false, "use str2 protocol") // aka iot protocol
-	//	mqtt := flag.Bool("mqtt", false, "use mqtt protocol")
 	client := flag.Int("client", 0, "start a client test with an int of clients.")
 	server := flag.Bool("server", false, "start a server.")
+	//isGuru := flag.Bool("isguru", false, "")
 
-	// eg. ["-client=10","-server","-str"","-aa"]  starts 10 clients in each of two protocols
-	_ = str2 // atw FIXME
+	token := flag.String("token", "", " an access token for our superiors")
+	if *token == "" {
+		*token = tokens.SampleSmallToken
+	}
 
 	flag.Parse()
 
+	var mainLimits = iot.ExecutiveLimits{}
+	mainLimits.Connections = 16 * 1024
+	mainLimits.BytesPerSec = 16 * 1024
+	mainLimits.Subscriptions = 1024 * 1024
+
 	if *server {
-		// if *str2 {
-		// 	go str2ProtocolServerDemo()
-		// }
-		// if *str {
-		// 	go strProtocolServerDemo()
-		// }
-		// if *mqtt {
-		// 	go mqttProtocolServerDemo()
-		// }
+
+		iot.MakeTCPMain(&mainLimits, *token)
+		for {
+			time.Sleep(1000 * time.Second)
+		}
 	}
 	if *client > 0 {
-		// if *aa {
-		// 	go aaProtocolClientDemo(*client)
-		// }
-		// if *str {
-		// 	go strProtocolClientDemo(*client)
-		// }
-		// if *mqtt {
-		// 	go mqttProtocolClientDemo(*client)
-		// }
-	}
 
-	go func() {
-		http.HandleFunc("/", HelloServer)
-		err := http.ListenAndServe(":8080", nil)
-		if err != nil {
-			fmt.Println("ListenAndServe err ", err)
+		// FIXME: put the stress tests back in here.
+
+	} else {
+		iot.MakeTCPMain(&mainLimits, *token)
+		for {
+			time.Sleep(1000 * time.Second)
 		}
-	}()
-
-	fmt.Println("starting reporter")
-
-	reportTicker := time.NewTicker(10 * time.Second)
-	for t := range reportTicker.C {
-
-		strlist := strings.Builder{}
-		var m runtime.MemStats
-		runtime.ReadMemStats(&m) // FIXME: this deadlocks and hangs.
-
-		strlist.WriteString("Bytes= " + strconv.FormatUint(bToMb(m.HeapAlloc), 10) + " MiB ")
-		strlist.WriteString("Sys= " + strconv.FormatUint(bToMb(m.Sys), 10) + " MiB ")
-		strlist.WriteString("GC= " + strconv.FormatUint(bToMb(uint64(m.NumGC)), 10) + " ")
-
-		_ = t
-
-		fmt.Println("", strlist.String())
 	}
+
 }
 
-func strProtocolServerDemo() {
-
-	fmt.Println("Starting strProtocolServerDemo")
-	// config := strprotocol.StartServerDemo(getSubscribeMgr(), "7374")
-	// _ = config
-	for {
-		time.Sleep(time.Minute)
-	}
-}
-
-func str2ProtocolServerDemo() {
-
-	fmt.Println("Starting str2ProtocolServerDemo")
-	// config := iotprotocol.StartServerDemo(getSubscribeMgr(), "8384")
-	// _ = config
-	for {
-		time.Sleep(time.Minute)
-	}
-}
-
-// func aaProtocolServerDemo() {
-
-// 	fmt.Println("Starting aaProtocolServerDemo")
-// 	config := aaprotocol.StartServerDemo(getSubscribeMgr())
-// 	_ = config
-// 	for {
-// 		time.Sleep(time.Minute)
-// 	}
-// }
-
-// func mqttProtocolServerDemo() {
-
-// 	fmt.Println("Starting mqttProtocolServerDemo")
-// 	config := mqttprotocol.StartServerDemo(getSubscribeMgr())
-// 	_ = config
-// 	for {
-// 		time.Sleep(time.Minute)
-// 	}
-// }
-
-// func strProtocolClientDemo(count int) {
-
-// 	fmt.Println("Starting strProtocolClientDemo", count)
-// 	lights, switches := strprotocol.StartClientsDemo(count)
-
-// 	for 1 == 1 {
-// 		time.Sleep(time.Minute)
-// 	}
-// 	_ = lights
-// 	_ = switches
-// }
-
-// func aaProtocolClientDemo(count int) {
-
-// 	fmt.Println("Starting aaProtocolClientDemo", count)
-// 	lights, switches := aaprotocol.StartClientsDemo(count)
-
-// 	for 1 == 1 {
-// 		time.Sleep(time.Minute)
-// 	}
-// 	_ = lights
-// 	_ = switches
-
-// }
-
-// func mqttProtocolClientDemo(count int) {
-
-// 	fmt.Println("Starting mqttProtocolClientDemo", count)
-// 	lights, switches := mqttprotocol.StartClientsDemo(count)
-// 	for 1 == 1 {
-// 		time.Sleep(time.Minute)
-// 	}
-// 	_ = lights
-// 	_ = switches
-
-// }
-
-// HelloServer is
-func HelloServer(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Hello, %s! %v \n", r.URL.Path[1:], nil) //, reporting.GetLatestReport())
-}
-
-//var mainLogThing = reporting.NewStringEventAccumulator(16)
-
-// func startReportingHere() {
-// 	aReportFunc := func(seconds float32) []string {
-// 		strlist := make([]string, 0, 2)
-// 		var m runtime.MemStats
-// 		runtime.ReadMemStats(&m)
-
-// 		strlist = append(strlist, "Bytes="+strconv.FormatUint(bToMb(m.HeapAlloc), 10)+"MiB")
-// 		strlist = append(strlist, "Sys="+strconv.FormatUint(bToMb(m.Sys), 10)+"MiB")
-// 		strlist = append(strlist, "GC="+strconv.FormatUint(bToMb(uint64(m.NumGC)), 10))
-
-// 		return strlist
-// 	}
-// 	reporting.NewGenericEventAccumulator(aReportFunc)
-//go reporting.StartRunningReports()
-//}
-
-func bToMb(b uint64) uint64 {
-	return b / 1024 / 1024
-}
-
-//var subscribeMgr iot.PubsubIntf
-var subscribeMgrMutex sync.Mutex
-
-// func getSubscribeMgr() iot.PubsubIntf {
-// 	subscribeMgrMutex.Lock()
-// 	if subscribeMgr == nil {
-// 		subscribeMgr = iot.NewPubsubManager(100 * 1000)
-// 	}
-// 	subscribeMgrMutex.Unlock()
-// 	return subscribeMgr
-// }

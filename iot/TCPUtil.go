@@ -207,14 +207,15 @@ func (cc *tcpUpperContact) WriteUpstream(p packets.Interface) error {
 }
 
 func (cc *tcpContact) Close(err error) {
-	if cc.GetConfig() != nil {
+	hadConfig := cc.GetConfig() != nil
+	ss := &cc.ContactStruct
+	ss.Close(err) // close my parent
+	if hadConfig {
 		dis := packets.Disconnect{}
 		dis.SetOption("error", []byte("nil config"))
 		cc.WriteDownstream(&dis)
 		cc.tcpConn.Close()
 	}
-	ss := cc.ContactStruct
-	ss.Close(err) // close my parent
 }
 
 func (cc *tcpContact) WriteDownstream(packet packets.Interface) error {
