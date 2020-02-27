@@ -102,6 +102,9 @@ func textConnection(tcpConn *net.TCPConn, ex *Executive) {
 		if len(str) > 0 {
 			str = str[0 : len(str)-1]
 		}
+		if len(str) == 0 {
+			continue
+		}
 		//fmt.Println("got line ", str)
 		if err != nil {
 			//connLogThing.Collect("se err " + err.Error())

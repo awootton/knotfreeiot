@@ -12,10 +12,9 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
 
-	"github.com/example-inc/app-operator/pkg/apis"
-	"github.com/example-inc/app-operator/pkg/controller"
-	"github.com/example-inc/app-operator/version"
-
+	"github.com/awootton/knotfreeiot/knotoperator/pkg/apis"
+	"github.com/awootton/knotfreeiot/knotoperator/pkg/controller"
+	"github.com/awootton/knotfreeiot/knotoperator/version"
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	kubemetrics "github.com/operator-framework/operator-sdk/pkg/kube-metrics"
 	"github.com/operator-framework/operator-sdk/pkg/leader"

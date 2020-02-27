@@ -1,7 +1,7 @@
 apiVersion: app.knotfree.io/v1alpha1
 kind: AppService
 metadata:
-  name: example-appservice
+  name: knotfree-appservice
 spec:
   # Add fields here
   size: 3

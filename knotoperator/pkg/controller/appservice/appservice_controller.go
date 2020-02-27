@@ -4,11 +4,13 @@ import (
 	"context"
 	"fmt"
 
-	appv1alpha1 "github.com/example-inc/app-operator/pkg/apis/app/v1alpha1"
+	appv1alpha1 "github.com/awootton/knotoperator/pkg/apis/app/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -95,14 +97,49 @@ func (r *ReconcileAppService) Reconcile(request reconcile.Request) (reconcile.Re
 			// Request object not found, could have been deleted after reconcile request.
 			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
 			// Return and don't requeue
+			fmt.Println("AppService NOT FOUND")
 			return reconcile.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
+		fmt.Println("AppService FAIL", err)
 		return reconcile.Result{}, err
 	}
 	// else instance is the service!
 	fmt.Println("spec size", instance.Spec.Size)
 	fmt.Println("status size", instance.Status.Size)
+	fmt.Println("namespace is size", request.NamespacedName)
+
+	namespace := request.NamespacedName
+	deploymentRes := schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"}
+
+	// can  we get the replicas of the deployment?
+	// List Deployments
+	fmt.Printf("Listing deployments in namespace %q:\n", namespace)
+
+	itemsDeploy := &corev1.ReplicationControllerList
+
+	// r.client.Get()
+	// list, err := r.client.Resource(deploymentRes).Namespace(namespace).List(metav1.ListOptions{})
+	// if err != nil {
+	// 	panic(err)
+	// }
+	for _, d := range list.Items {
+		replicas, found, err := unstructured.NestedInt64(d.Object, "spec", "replicas")
+		if err != nil || !found {
+			fmt.Printf("Replicas not found for deployment %s: error=%s", d.GetName(), err)
+			continue
+		}
+		fmt.Printf(" * %s (%d replicas)\n", d.GetName(), replicas)
+	}
+
+	// fmt.Printf("Listing deployments in namespace %q:\n", request.NamespacedName)
+	// list, err := deploymentsClient.List(context.TODO(), metav1.ListOptions{})
+	// if err != nil {
+	// 	panic(err)
+	// }
+	for _, d := range list.Items {
+		fmt.Printf(" * %s (%d replicas)\n", d.Name, *d.Spec.Replicas)
+	}
 
 	// Define a new Pod object
 	pod := newPodForCR(instance)
@@ -119,16 +156,17 @@ func (r *ReconcileAppService) Reconcile(request reconcile.Request) (reconcile.Re
 		reqLogger.Info("Creating a new Pod", "Pod.Namespace", pod.Namespace, "Pod.Name", pod.Name)
 		err = r.client.Create(context.TODO(), pod)
 		if err != nil {
+			fmt.Println("pod create fail", err)
 			return reconcile.Result{}, err
 		}
-
 		// Pod created successfully - don't requeue
 		return reconcile.Result{}, nil
 	} else if err != nil {
+		fmt.Println("pod get fail", err)
 		return reconcile.Result{}, err
 	}
 
-	// Pod already exists - don't requeue
+	// else  Pod already exists - don't requeue
 	reqLogger.Info("Skip reconcile: Pod already exists", "Pod.Namespace", found.Namespace, "Pod.Name", found.Name)
 
 	items2 := &corev1.NodeList{}
@@ -161,9 +199,9 @@ func newPodForCR(cr *appv1alpha1.AppService) *corev1.Pod {
 		Spec: corev1.PodSpec{
 			Containers: []corev1.Container{
 				{
-					Name:    "busybox",
-					Image:   "busybox",
-					Command: []string{"sleep", "3600"},
+					Name:    "gcr.io/fair-theater-238820/knotfreeserver",
+					Image:   "gcr.io/fair-theater-238820/knotfreeserver",
+					Command: []string{"/go/bin/linux_386/knotfreeiot", ""},
 				},
 			},
 		},

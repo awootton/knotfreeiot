@@ -18,7 +18,7 @@ spec:
       containers:
       - name: golang
         imagePullPolicy: Always
-        image: gcr.io/fair-theater-238820/knotfreeserver:v2 #golang:1.12.1-stretch
+        image: gcr.io/fair-theater-238820/knotfreeserver #golang:1.12.1-stretch
         command: ["/go/bin/linux_386/knotfreeiot"] # ["/go/bin/knotfree"]
         args: ["INSERT_COMMAND_HERE"]
         ports:
@@ -28,10 +28,9 @@ spec:
           name : mqtt
         - containerPort: 8080 
           name : web
-        - containerPort: 7374 
-          name : str
-        - containerPort: 6762 
-          name : gb
+        - containerPort: 7465 
+          name : text
+
         resources:
           limits:
             cpu: INSERT_CPU_NEEDED_HERE

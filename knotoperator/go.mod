@@ -1,10 +1,12 @@
-module github.com/example-inc/app-operator
+module github.com/awootton/knotfreeiot/knotoperator
 
 go 1.13
 
 replace github.com/awootton/knotfreeiot/packets => ../packets
 
 replace github.com/awootton/knotfreeiot/badjson => ../badjson
+
+replace github.com/awootton/knotfreeiot/iot => ../iot
 
 require (
 	github.com/operator-framework/operator-sdk v0.14.1

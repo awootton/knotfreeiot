@@ -49,6 +49,11 @@ func main() {
 
 	if *server {
 
+		// aide1.httpAddress = ":8080"
+		// aide1.tcpAddress = ":8384"
+		// aide1.textAddress = ":7465"
+		// aide1.mqttAddress = ":1883"
+
 		iot.MakeTCPMain(&mainLimits, *token)
 		for {
 			time.Sleep(1000 * time.Second)
@@ -66,4 +71,3 @@ func main() {
 	}
 
 }
-

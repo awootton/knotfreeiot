@@ -1,0 +1,70 @@
+# Copyright 2019,2020 Alan Tracey Wootton 
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "aide"
+  labels:
+    app: "knotfreeaide"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      run: "knotfreeaide"
+  template:
+    metadata:
+      labels:
+        run: "knotfreeaide"
+    spec:
+      containers:
+      - name: golang
+        imagePullPolicy: Always
+        image: gcr.io/fair-theater-238820/knotfreeserver 
+        command: ["/go/bin/linux_386/knotfreeiot"] 
+        args: ["--server"]
+        ports:
+        - containerPort: 8384
+          name : iot
+        - containerPort: 1883
+          name : mqtt
+        - containerPort: 8080 
+          name : web
+        - containerPort: 7465 
+          name : text
+        # resources:
+        #   limits:
+        #     cpu: INSERT_CPU_NEEDED_HERE
+        #     memory: INSERT_MEM_NEEDED_HERE
+        #   requests:
+        #     cpu: INSERT_CPU_NEEDED_HERE
+        #     memory: INSERT_MEM_NEEDED_HERE
+        env:
+        - name: NAME
+          value: "knotfreeaide"
+
+          
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: "knotfreeaide"
+  name: "knotfreeaide"
+spec:
+  type: LoadBalancer
+  ports:
+
+  - port: 1883
+    name: mqtt
+    protocol: TCP
+    
+  - port: 7465
+    name: text
+    protocol: TCP
+
+  - port: 8384
+    name: iot
+    protocol: TCP
+
+  selector:
+    run: "knotfreeaide"
