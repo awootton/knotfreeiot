@@ -1,7 +1,7 @@
 package apis
 
 import (
-
+	"github.com/awootton/knotfreeiot/knotoperator/pkg/apis/app/v1alpha1"
 )
 
 func init() {
