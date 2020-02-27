@@ -197,7 +197,7 @@ func MakeSimplestCluster(timegetter func() uint32, nameResolver GuruNameResolver
 	return ce
 }
 
-// MakeTCPMain is called by main(s)
+// MakeTCPMain is called by main(s) and it news a table and contacts list and starts tcp acceptors.
 func MakeTCPMain(limits *ExecutiveLimits, token string) *ClusterExecutive {
 
 	isTCP := true
@@ -226,7 +226,7 @@ func MakeTCPMain(limits *ExecutiveLimits, token string) *ClusterExecutive {
 	MakeTCPExecutive(aide1, aide1.tcpAddress)
 	MakeTextExecutive(aide1, aide1.textAddress)
 	MakeHTTPExecutive(aide1, aide1.httpAddress)
-	// FIXME : MakeMQTTExecutive
+	MakeMqttExecutive(aide1, aide1.mqttAddress)
 
 	return ce
 }
