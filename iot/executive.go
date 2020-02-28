@@ -72,6 +72,8 @@ type ExecutiveStats struct {
 	Name          string
 	HTTPAddress   string
 	TCPAddress    string
+
+	Limits *ExecutiveLimits
 }
 
 // TestLimits is for testsvar TestLimits = ExecutiveLimits{16, 10, 64}
@@ -168,14 +170,14 @@ func MakeSimplestCluster(timegetter func() uint32, nameResolver GuruNameResolver
 	if isTCP {
 		// don't cheat: send these by http
 		if len(ce.Gurus) > 0 {
-			err := PostUpstreamNames(ce, ce.Gurus[0].httpAddress)
+			err := PostUpstreamNames(ce.currentGuruList, ce.currentAddressList, ce.Gurus[0].httpAddress)
 			if err != nil {
 				fmt.Println("post fail1")
 			}
 		}
 
 		for _, aide := range ce.Aides {
-			err := PostUpstreamNames(ce, aide.httpAddress)
+			err := PostUpstreamNames(ce.currentGuruList, ce.currentAddressList, aide.httpAddress)
 			if err != nil {
 				fmt.Println("post fail2")
 			}
@@ -198,7 +200,7 @@ func MakeSimplestCluster(timegetter func() uint32, nameResolver GuruNameResolver
 }
 
 // MakeTCPMain is called by main(s) and it news a table and contacts list and starts tcp acceptors.
-func MakeTCPMain(limits *ExecutiveLimits, token string) *ClusterExecutive {
+func MakeTCPMain(name string, limits *ExecutiveLimits, token string) *ClusterExecutive {
 
 	isTCP := true
 	timegetter := func() uint32 {
@@ -213,7 +215,8 @@ func MakeTCPMain(limits *ExecutiveLimits, token string) *ClusterExecutive {
 
 	ce.limits = limits
 
-	aide1 := NewExecutive(100, "aide", timegetter, false)
+	aide1 := NewExecutive(100, name, timegetter, false)
+	aide1.Limits = limits
 	aide1.Config.ce = ce
 	ce.Aides = append(ce.Aides, aide1)
 	aide1.Looker.NameResolver = nameResolver

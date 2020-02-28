@@ -18,6 +18,7 @@ package iot
 import (
 	"errors"
 	"fmt"
+	"os"
 	"reflect"
 	"sync"
 	"time"
@@ -29,9 +30,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
-
-// DEBUG because I don't know a better way.
-const DEBUG = true
 
 // LookupTableStruct is what we're up to
 type LookupTableStruct struct {
@@ -175,12 +173,17 @@ func guruDeleteRemappedAndGoneTopics(me *LookupTableStruct, bucket *subscribeBuc
 // SetUpstreamNames is. the resolver will try to get a tcp connection.
 func (me *LookupTableStruct) SetUpstreamNames(names []string, addresses []string) {
 
+	router := me.upstreamRouter
+
+	if reflect.DeepEqual(router.names, names) {
+		// nothing changed
+		return
+	}
+
 	if me.isGuru {
 		me.SetGuruUpstreamNames(names)
 		return
 	}
-
-	router := me.upstreamRouter
 
 	router.contacts = make([]ContactInterface, len(names))
 	router.names = make([]string, len(names))
@@ -613,4 +616,13 @@ func setWatchers(bucket *subscribeBucket, h *HashType, watcher *watchedTopic) {
 		delete(hashtable, *h)
 	}
 
+}
+
+// DEBUG because I don't know a better way.
+var DEBUG = false
+
+func init() {
+	if os.Getenv("KUBE_EDITOR") == "atom --wait" {
+		DEBUG = true
+	}
 }

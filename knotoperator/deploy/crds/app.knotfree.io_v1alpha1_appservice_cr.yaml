@@ -4,4 +4,8 @@ metadata:
   name: knotfree-appservice
 spec:
   # Add fields here
-  size: 3
+
+  gurunames:
+    - deleteme
+  guruaddresses:
+    - "knot:1234"

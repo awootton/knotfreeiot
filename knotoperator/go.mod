@@ -8,9 +8,14 @@ replace github.com/awootton/knotfreeiot/badjson => ../badjson
 
 replace github.com/awootton/knotfreeiot/iot => ../iot
 
+replace github.com/awootton/knotfreeiot/tokens => ../tokens
+
 require (
+	github.com/awootton/knotfreeiot v0.0.0-20200227104839-8bce2ebde67b
+	github.com/awootton/knotfreeiot/iot v0.0.0-00010101000000-000000000000
 	github.com/operator-framework/operator-sdk v0.14.1
 	github.com/spf13/pflag v1.0.5
+	gomodules.xyz/jsonpatch/v2 v2.0.1
 	k8s.io/api v0.0.0
 	k8s.io/apimachinery v0.0.0
 	k8s.io/client-go v12.0.0+incompatible // v12.0.0+incompatible

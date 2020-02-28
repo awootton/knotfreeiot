@@ -18,6 +18,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/awootton/knotfreeiot/iot"
@@ -47,6 +48,11 @@ func main() {
 	mainLimits.BytesPerSec = 16 * 1024
 	mainLimits.Subscriptions = 1024 * 1024
 
+	name := os.Getenv("POD_NAME")
+	if len(name) == 0 {
+		name = "apodnamefixme"
+	}
+
 	if *server {
 
 		// aide1.httpAddress = ":8080"
@@ -54,7 +60,7 @@ func main() {
 		// aide1.textAddress = ":7465"
 		// aide1.mqttAddress = ":1883"
 
-		iot.MakeTCPMain(&mainLimits, *token)
+		iot.MakeTCPMain(name, &mainLimits, *token)
 		for {
 			time.Sleep(1000 * time.Second)
 		}
@@ -64,7 +70,7 @@ func main() {
 		// FIXME: put the stress tests back in here.
 
 	} else {
-		iot.MakeTCPMain(&mainLimits, *token)
+		iot.MakeTCPMain(name, &mainLimits, *token)
 		for {
 			time.Sleep(1000 * time.Second)
 		}

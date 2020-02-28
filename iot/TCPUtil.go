@@ -64,9 +64,12 @@ type apiHandler struct {
 
 func (api apiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
+	fmt.Println(req.RequestURI)
+
 	if req.RequestURI == "/api1/getstats" {
 
 		stats := api.ex.GetExecutiveStats()
+		stats.Limits = api.ex.Limits
 		bytes, err := json.Marshal(stats)
 		if err != nil {
 			fmt.Println("GetExecutiveStats marshal", err)
@@ -76,7 +79,7 @@ func (api apiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	} else if req.RequestURI == "/api1/set" {
 
 		decoder := json.NewDecoder(req.Body)
-		args := &upstreamNamesArg{}
+		args := &UpstreamNamesArg{}
 		err := decoder.Decode(args)
 		if err != nil {
 			panic(err)
@@ -348,31 +351,34 @@ func GetServerStats(addr string) *ExecutiveStats {
 	//result := ""
 	stats := ExecutiveStats{}
 
-	resp, err := http.Get("http://" + addr + "/api1/getstats")
+	client := http.Client{Timeout: 2 * time.Second}
+	resp, err := client.Get("http://" + addr + "/api1/getstats")
 
 	if err == nil && resp.StatusCode == 200 {
 		var bytes [1024]byte
 		n, err := resp.Body.Read(bytes[:])
 		// = string(bytes[0:n])
-		//fmt.Println("GetServerStats returned ", result, err)
+		fmt.Println("GetServerStats returned ", resp, err)
 
 		err = json.Unmarshal(bytes[0:n], &stats)
 		_ = err
 	}
+	fmt.Println("GetServerStats failed ", resp, err)
 	return &stats
 }
 
-type upstreamNamesArg struct {
+// UpstreamNamesArg just has the one job
+type UpstreamNamesArg struct {
 	Names     []string
 	Addresses []string
 }
 
 // PostUpstreamNames does SetUpstreamNames the hard way
-func PostUpstreamNames(ce *ClusterExecutive, addr string) error {
+func PostUpstreamNames(guruList []string, addressList []string, addr string) error {
 
-	arg := &upstreamNamesArg{}
-	arg.Names = ce.currentGuruList
-	arg.Addresses = ce.currentAddressList
+	arg := &UpstreamNamesArg{}
+	arg.Names = guruList
+	arg.Addresses = addressList
 
 	jbytes, err := json.Marshal(arg)
 	if err != nil {
@@ -388,5 +394,4 @@ func PostUpstreamNames(ce *ClusterExecutive, addr string) error {
 		return errors.New("upstreamNamesArg not 200")
 	}
 	return nil
-
 }

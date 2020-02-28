@@ -1,10 +1,19 @@
 package appservice
 
 import (
+	"bytes"
 	"context"
+	"crypto/rand"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"net/http"
+	"os"
+	"strings"
+	"sync"
 
 	appv1alpha1 "github.com/awootton/knotfreeiot/knotoperator/pkg/apis/app/v1alpha1"
+	"gomodules.xyz/jsonpatch/v2"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -20,12 +29,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+
+	"github.com/awootton/knotfreeiot/iot"
 )
 
 var log = logf.Log.WithName("controller_appservice")
 
 /**
-* atw ha ha USER ACTION REQUIRED: This is a scaffold file intended for the user to modify with their own Controller
+* atw ha ha lUSER ACTION REQUIRED: This is a scaffold file intended for the user to modify with their own Controller
 * business logic.  Delete these comments after modifying this file.*
  */
 
@@ -54,7 +65,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	// TODO(user): Modify this to be the types you create that are owned by the primary resource
+	// TO DO(user): Modify this to be the types you create that are owned by the primary resource
 	// Watch for changes to secondary resource Pods and requeue the owner AppService
 	err = c.Watch(&source.Kind{Type: &corev1.Pod{}}, &handler.EnqueueRequestForOwner{
 		IsController: true,
@@ -69,6 +80,8 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 
 // blank assignment to verify that ReconcileAppService implements reconcile.Reconciler
 var _ reconcile.Reconciler = &ReconcileAppService{}
+
+var count int
 
 // ReconcileAppService reconciles a AppService object
 type ReconcileAppService struct {
@@ -92,7 +105,10 @@ func (r *ReconcileAppService) Reconcile(request reconcile.Request) (reconcile.Re
 	fmt.Println("")
 	fmt.Println("")
 	fmt.Println("")
-	fmt.Println("")
+	fmt.Println("count", count)
+	count++
+
+	appchanged := false
 
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling AppService")
@@ -112,22 +128,140 @@ func (r *ReconcileAppService) Reconcile(request reconcile.Request) (reconcile.Re
 		fmt.Println("AppService FAIL", err)
 		return reconcile.Result{}, err
 	}
+	virginInstance := instance
+	instance = instance.DeepCopy()
+
 	// else instance is the service!
-	fmt.Println("spec size", instance.Spec.Size)
-	fmt.Println("status size", instance.Status.Size)
+	fmt.Println("spec names", instance.Spec.GuruNames)
+	fmt.Println("status names", instance.Status.GuruNames)
 	fmt.Println("namespace is ", request.Namespace)
+	fmt.Println("spec count", instance.Spec.AideCount)
+	fmt.Println("status count", instance.Status.AideCount)
+
+	if (len(instance.Spec.GuruNames) > 0 && instance.Spec.GuruNames[0] == "deleteme") || len(instance.Spec.GuruNames) != len(instance.Spec.GuruAddresses) {
+		instance.Spec.GuruNames = instance.Spec.GuruNames[0:0]
+		instance.Spec.GuruAddresses = instance.Spec.GuruAddresses[0:0]
+		appchanged = true
+	}
 
 	namespace := request.Namespace
-	//namespaced := request.NamespacedName
-	//namespaced.Name = "knotfreeaide"
+
+	knownNames := make(map[string]int)
+	for i, name := range instance.Spec.GuruNames {
+		knownNames[name] = i
+	}
+
+	items := &corev1.PodList{}
+
+	aides := make([]corev1.Pod, 0)
+	gurus := make([]corev1.Pod, 0)
+	others := make([]corev1.Pod, 0)
+
+	err2 := r.client.List(context.TODO(), items)
+	_ = err2
+	if err2 == nil {
+		for i, pod := range items.Items {
+			pname := pod.GetName()
+
+			if strings.HasPrefix(pname, "aide-") {
+				aides = append(aides, pod)
+			} else if strings.HasPrefix(pname, "guru-") {
+				gurus = append(aides, pod)
+			} else {
+				others = append(others, pod)
+			}
+
+			_ = i
+		}
+	} else {
+		return reconcile.Result{}, err2
+	}
+
+	neededGurus := 1
+
+	// are there any non-pending guru's that are not on the list?
+	for i, pod := range gurus {
+		index, present := knownNames[pod.Name]
+		if present == false {
+			// so it's not on the list.
+			// is it running?
+			ready := pod.Status.ContainerStatuses[0].Ready
+			if ready && len(pod.Status.PodIP) > 0 {
+
+				instance.Spec.GuruNames = append(instance.Spec.GuruNames, pod.Name)
+				address := pod.Status.PodIP
+				fmt.Println("new guru has ip ", address)
+				instance.Spec.GuruAddresses = append(instance.Spec.GuruAddresses, address+":8384")
+				appchanged = true
+
+			}
+		}
+		_ = i
+		_ = index
+	}
+
+	var wg = sync.WaitGroup{}
+
+	for i, pod := range aides {
+		add := pod.Status.PodIP
+		add = add + ":8080"
+		wg.Add(1)
+		go func() {
+			es := GetServerStats(pod.Name, add)
+			fmt.Println(es)
+			wg.Done()
+		}()
+		_ = i
+	}
+	for i, pod := range gurus {
+		add := pod.Status.PodIP
+		add = add + ":8080"
+		wg.Add(1)
+		go func() {
+			es := GetServerStats(pod.Name, add)
+			fmt.Println(es)
+			wg.Done()
+		}()
+		_ = i
+	}
+	wg.Wait()
+
+	if len(gurus) < neededGurus {
+		// make a new one
+		pod := newPodForCR(instance)
+		// Set AppService instance as the owner and controller
+		if err := controllerutil.SetControllerReference(instance, pod, r.scheme); err != nil {
+			fmt.Println("SetControllerReference ", err)
+			return reconcile.Result{}, err
+		}
+		reqLogger.Info("Creating a new Pod", "Pod.Namespace", pod.Namespace, "Pod.Name", pod.Name)
+		err = r.client.Create(context.TODO(), pod)
+		if err != nil {
+			fmt.Println("pod create fail", err)
+			return reconcile.Result{}, err
+		}
+		// don't modify the app yet.
+		//instance.Spec.GuruNames = append(instance.Spec.GuruNames, pod.Name)
+		//address := pod.Status.PodIP
+		//fmt.Println("new guru has ip ", address)
+		//instance.Spec.GuruAddresses = append(instance.Spec.GuruAddresses, address+":8384")
+		//appchanged = true
+	}
+
+	items2 := &corev1.NodeList{}
+
+	err3 := r.client.List(context.TODO(), items2)
+	if err3 == nil {
+		for i, node := range items2.Items {
+			nname := node.GetName()
+			fmt.Println("node/", nname)
+			_ = i
+		}
+	}
 
 	// can  we get the replicas of the deployment?
 	// List Deployments
 	fmt.Printf("Listing deployments in namespace %q:\n", namespace)
-
-	//itemsDeploy := &corev1.ReplicationControllerList{}
-	//itemsDeploy := &corev1.ReplicationControllerList{}
-
 	// Using a unstructured object.
 	u := &unstructured.Unstructured{}
 	u.SetGroupVersionKind(schema.GroupVersionKind{
@@ -142,6 +276,7 @@ func (r *ReconcileAppService) Reconcile(request reconcile.Request) (reconcile.Re
 	geterr := r.client.Get(context.TODO(), ckey, u)
 	if geterr != nil {
 		fmt.Println("depl list get err", geterr)
+		return reconcile.Result{}, err
 	}
 	name, ok, err := unstructured.NestedString(u.UnstructuredContent(), "metadata", "name")
 	fmt.Println("get got name ", name, ok, err)
@@ -156,101 +291,160 @@ func (r *ReconcileAppService) Reconcile(request reconcile.Request) (reconcile.Re
 		err = r.client.Update(context.TODO(), u)
 		if err != nil {
 			fmt.Println("update err", err)
-		}
-	}
-
-	// fmt.Println("depl list len", len(itemsDeploy.Items))
-	// for _, d := range itemsDeploy.Items {
-	// 	fmt.Println("d item", d.GetName())
-	// }
-
-	// r.client.Get()
-	// list, err := r.client.Resource(deploymentRes).Namespace(namespace).List(metav1.ListOptions{})
-	// if err != nil {
-	// 	panic(err)
-	// }
-	// for _, d := range itemsDeploy.Items {
-	// 	found := false
-	// 	//replicas, found, err := unstructured.NestedInt64(d., "spec", "replicas")
-	// 	if err != nil || !found {
-	// 		fmt.Printf("Replicas not found for deployment %s: error=%s", d.GetName(), err)
-	// 		continue
-	// 	}
-	// 	fmt.Printf(" * %s (%d replicas)\n", d.GetName()) //, replicas)
-	// }
-
-	// fmt.Printf("Listing deployments in namespace %q:\n", request.NamespacedName)
-	// list, err := deploymentsClient.List(context.TODO(), metav1.ListOptions{})
-	// if err != nil {
-	// 	panic(err)
-	// }
-	// for _, d := range list.Items {
-	// 	fmt.Printf(" * %s (%d replicas)\n", d.Name, *d.Spec.Replicas)
-	// }
-
-	// Define a new Pod object
-	pod := newPodForCR(instance)
-
-	// Set AppService instance as the owner and controller
-	if err := controllerutil.SetControllerReference(instance, pod, r.scheme); err != nil {
-		return reconcile.Result{}, err
-	}
-
-	// Check if this Pod already exists
-	found := &corev1.Pod{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}, found)
-	if err != nil && errors.IsNotFound(err) {
-		reqLogger.Info("Creating a new Pod", "Pod.Namespace", pod.Namespace, "Pod.Name", pod.Name)
-		err = r.client.Create(context.TODO(), pod)
-		if err != nil {
-			fmt.Println("pod create fail", err)
 			return reconcile.Result{}, err
 		}
-		// Pod created successfully - don't requeue
-		return reconcile.Result{}, nil
-	} else if err != nil {
-		fmt.Println("pod get fail", err)
-		return reconcile.Result{}, err
 	}
 
-	// else  Pod already exists - don't requeue
-	reqLogger.Info("Skip reconcile: Pod already exists", "Pod.Namespace", found.Namespace, "Pod.Name", found.Name)
+	if appchanged {
+		fmt.Println("UPDATING app")
+		fmt.Println("UPDATING app")
+		fmt.Println("UPDATING app")
 
-	items2 := &corev1.NodeList{}
+		podJSON, err := json.Marshal(virginInstance)
+		if err != nil {
+			fmt.Println("sss", err)
+			return reconcile.Result{}, err
+		}
+		newPodJSON, err := json.Marshal(instance)
+		if err != nil {
+			fmt.Println("ttt", err)
+			return reconcile.Result{}, err
+		}
+		patch, err := jsonpatch.CreatePatch(podJSON, newPodJSON)
+		if err != nil {
+			fmt.Println("ttsst", err)
+			return reconcile.Result{}, err
+		}
+		_ = patch
+		payloadBytes, _ := json.Marshal(patch)
+		//fmt.Println("the patch", string(payloadBytes))
 
-	err2 := r.client.List(context.TODO(), items2)
-	_ = err2
-	if err2 == nil {
-		//reqLogger.Info("list found ", "list:", *items)
-		for i, node := range items2.Items {
-			nname := node.GetName()
-			fmt.Println("node/", nname)
+		jpatch := client.ConstantPatch(types.JSONPatchType, payloadBytes)
+
+		err = r.client.Patch(context.TODO(), instance, jpatch)
+		//err = r.client.Update(context.TODO(), instance)
+		if err != nil {
+			fmt.Println("app update err", err)
+			return reconcile.Result{}, err
+		}
+
+		var wg = sync.WaitGroup{}
+		for i, pod := range aides {
+			add := pod.Status.PodIP
+			add = add + ":8080"
+			wg.Add(1)
+			go func() {
+				es := PostUpstreamNames(instance.Spec.GuruNames, instance.Spec.GuruAddresses, add)
+				fmt.Println(es)
+				wg.Done()
+			}()
 			_ = i
 		}
+		for i, pod := range gurus {
+			add := pod.Status.PodIP
+			add = add + ":8080"
+			wg.Add(1)
+			go func() {
+				es := PostUpstreamNames(instance.Spec.GuruNames, instance.Spec.GuruAddresses, add)
+				fmt.Println(es)
+				wg.Done()
+			}()
+			_ = i
+		}
+		wg.Wait()
+
 	}
 
 	return reconcile.Result{}, nil
 }
 
-// newPodForCR returns a busybox pod with the same name/namespace as the cr
+// newPodForCR returns a guru pod with the same name/namespace as the cr
 func newPodForCR(cr *appv1alpha1.AppService) *corev1.Pod {
 	labels := map[string]string{
 		"app": cr.Name,
 	}
+	podName := "guru-" + getRandomString()
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-pod",
+			Name:      podName,
 			Namespace: cr.Namespace,
 			Labels:    labels,
 		},
 		Spec: corev1.PodSpec{
 			Containers: []corev1.Container{
 				{
-					Name:    "knotguru",
+					Name:    "guru",
 					Image:   "gcr.io/fair-theater-238820/knotfreeserver",
-					Command: []string{"/go/bin/linux_386/knotfreeiot", ""},
+					Command: []string{"/go/bin/linux_386/knotfreeiot", "--server"},
+					Ports: []corev1.ContainerPort{
+						{Name: "iot", ContainerPort: 8384},
+						{Name: "http", ContainerPort: 8080},
+					},
+					Env: []corev1.EnvVar{
+						{Name: "POD_NAME", Value: podName},
+					},
 				},
 			},
 		},
 	}
+}
+
+func getRandomString() string {
+	var tmp [16]byte
+	rand.Read(tmp[:])
+	return hex.EncodeToString(tmp[:])
+}
+
+// GetServerStats is
+func GetServerStats(name string, address string) *iot.ExecutiveStats {
+
+	es := &iot.ExecutiveStats{}
+
+	if os.Getenv("KUBE_EDITOR") == "atom --wait" {
+		// running over kubectl when developing locally
+		cmd := `kubectl exec ` + name + ` -- curl -s localhost:8080/api1/getstats`
+		//fmt.Println(cmd)
+		str, err := K8s(cmd, "")
+		//fmt.Println(str)
+		err = json.Unmarshal([]byte(str), &es)
+		_ = err
+
+	} else {
+		// when in cluster
+		es = iot.GetServerStats(address)
+	}
+
+	return es
+
+}
+
+// PostUpstreamNames does SetUpstreamNames the hard way
+func PostUpstreamNames(guruList []string, addressList []string, addr string) error {
+
+	arg := &iot.UpstreamNamesArg{}
+	arg.Names = guruList
+	arg.Addresses = addressList
+
+	if os.Getenv("KUBE_EDITOR") == "atom --wait" {
+
+		jbytes, err := json.Marshal(arg)
+		if err != nil {
+			fmt.Println("unreachable ?? bb")
+			return err
+		}
+
+		resp, err := http.Post("http://"+addr+"/api1/set", "application/json", bytes.NewReader(jbytes))
+		if err != nil {
+			return err
+		}
+		if resp.StatusCode != 200 {
+			return &errors.StatusError{}
+		}
+		return nil
+
+	}
+	// when in cluster
+	err := iot.PostUpstreamNames(guruList, addressList, addr)
+	return err
+
 }

@@ -27,19 +27,23 @@ spec:
         - containerPort: 1883
           name : mqtt
         - containerPort: 8080 
-          name : web
+          name : http
         - containerPort: 7465 
           name : text
-        # resources:
-        #   limits:
-        #     cpu: INSERT_CPU_NEEDED_HERE
-        #     memory: INSERT_MEM_NEEDED_HERE
-        #   requests:
-        #     cpu: INSERT_CPU_NEEDED_HERE
-        #     memory: INSERT_MEM_NEEDED_HERE
+        resources:
+          limits:
+            cpu: 250m  #INSERT_CPU_NEEDED_HERE
+            memory: 800Mi #INSERT_MEM_NEEDED_HERE
+          requests:
+            cpu: 250m  #INSERT_CPU_NEEDED_HERE
+            memory: 800Mi #INSERT_MEM_NEEDED_HERE
         env:
         - name: NAME
           value: "knotfreeaide"
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
 
           
 ---

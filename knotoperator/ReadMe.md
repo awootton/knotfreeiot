@@ -12,14 +12,17 @@ add this lines to .bash_profile
 
 workflow:
 
-kind create cluster --config kind-example-config.yaml
+kind create cluster --config kind-example-config.yaml #once
+
 kubectl config use-context "kind-kind" 
 kk create ns knotspace
 kubectl config set-context --current --namespace=knotspace
 
-# and then don't build the operator yet: 
-# operator-sdk build gcr.io/fair-theater-238820/app-operatorc
-# docker push gcr.io/fair-theater-238820/app-operatorc
+#and then don't build the operator yet: 
+
+#operator-sdk build gcr.io/fair-theater-238820/app-operatorc
+
+#docker push gcr.io/fair-theater-238820/app-operatorc
 
 #do this all the time:
 operator-sdk generate k8s
@@ -28,24 +31,23 @@ kubectl apply -f deploy/service_account.yaml
 kubectl apply -f deploy/role.yaml
 kubectl apply -f deploy/role_binding.yaml
 kubectl apply -f deploy/crds/app.knotfree.io_appservices_crd.yaml
-# always goes to default: 
+#always goes to default: 
 kubectl apply -f  deploy/promethius_op.yaml 
 kubectl apply -f deploy/crds/app.knotfree.io_v1alpha1_appservice_cr.yaml
 	
-# build this:
+#build this:
 cd ..
 docker build -t gcr.io/fair-theater-238820/knotfreeserver .
 docker push gcr.io/fair-theater-238820/knotfreeserver 
 cd knotoperator
 kubectl apply -f deploy/knotfreedeploy.yaml
 	
-    
-find .Watch( and read that code. 
 
 then  start the debugger with cmd/manager/main.go
+find .Watch( and read that code. 
 
 operator-sdk generate k8s and go again
 
-
+#once:
 kind delete cluster
 
