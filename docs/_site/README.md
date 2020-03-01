@@ -1,5 +1,2 @@
-# awootton.github.io
-
-
-This is the source code of the blog: 
+this is the main page of the docs for github.com/awootton/knotfreeiot
 

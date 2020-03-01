@@ -1,5 +1,8 @@
 package main
 
+
+// This is the entry point for the operator. 
+// see .vscode and 
 import (
 	"context"
 	"errors"

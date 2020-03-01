@@ -10,6 +10,8 @@ replace github.com/awootton/knotfreeiot/iot => ../iot
 
 replace github.com/awootton/knotfreeiot/tokens => ../tokens
 
+replace github.com/awootton/knotfreeiot/kubectl => ../kubectl
+
 require (
 	github.com/awootton/knotfreeiot v0.0.0-20200227104839-8bce2ebde67b
 	github.com/awootton/knotfreeiot/iot v0.0.0-00010101000000-000000000000

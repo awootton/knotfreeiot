@@ -13,6 +13,7 @@ import (
 	"sync"
 
 	appv1alpha1 "github.com/awootton/knotfreeiot/knotoperator/pkg/apis/app/v1alpha1"
+	"github.com/awootton/knotfreeiot/kubectl"
 	"gomodules.xyz/jsonpatch/v2"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -404,7 +405,7 @@ func GetServerStats(name string, address string) *iot.ExecutiveStats {
 		// running over kubectl when developing locally
 		cmd := `kubectl exec ` + name + ` -- curl -s localhost:8080/api1/getstats`
 		//fmt.Println(cmd)
-		str, err := K8s(cmd, "")
+		str, err := kubectl.K8s(cmd, "")
 		//fmt.Println(str)
 		err = json.Unmarshal([]byte(str), &es)
 		_ = err

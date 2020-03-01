@@ -3,6 +3,18 @@
 @import url('https://fonts.googleapis.com/css?family=Architects+Daughter');
 @import url('https://fonts.googleapis.com/css?family=Permanent+Marker');
 
+
+#atwcontainer {
+  width: 512px;
+  height: 512px;
+  overflow: auto;
+  border: 1px solid;
+}
+canvas{
+  display: block;
+}
+
+
 /* LAYOUT STYLES */
 body {
     // jura or Raleway ?? 

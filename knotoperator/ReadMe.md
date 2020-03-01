@@ -18,6 +18,9 @@ kubectl config use-context "kind-kind"
 kk create ns knotspace
 kubectl config set-context --current --namespace=knotspace
 
+
+see deploy.sh and apply-namespace.go 
+
 #and then don't build the operator yet: 
 
 #operator-sdk build gcr.io/fair-theater-238820/app-operatorc

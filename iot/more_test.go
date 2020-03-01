@@ -16,6 +16,7 @@
 package iot_test
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
@@ -41,6 +42,10 @@ func TestGrowGurus(t *testing.T) {
 
 	ce := iot.MakeSimplestCluster(getTime, testNameResolver, false, 1)
 	globalClusterExec = ce
+
+	stats := ce.Aides[0].GetExecutiveStats()
+	bytes, _ := json.Marshal(stats)
+	fmt.Println(string(bytes))
 
 	c1 := ce.GetNewContact(MakeTestContact)
 	SendText(c1, "S "+c1.String()) // subscribe to my name
