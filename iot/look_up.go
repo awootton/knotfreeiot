@@ -407,7 +407,7 @@ func (me *LookupTableStruct) sendPublishMessage(ss ContactInterface, p *packets.
 
 // GetAllSubsCount returns the count of subscriptions and the
 // average depth of the channels.
-func (me *LookupTableStruct) GetAllSubsCount() (int, float32) {
+func (me *LookupTableStruct) GetAllSubsCount() (int, float64) {
 	count := 0
 	totalCapacity := 0
 	qdepth := 0
@@ -418,7 +418,7 @@ func (me *LookupTableStruct) GetAllSubsCount() (int, float32) {
 		qdepth += len(bucket.incoming)
 		totalCapacity += cap(bucket.incoming)
 	}
-	fract := float32(qdepth) / float32(totalCapacity)
+	fract := float64(qdepth) / float64(totalCapacity)
 	return count, fract
 }
 

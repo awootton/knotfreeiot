@@ -65,13 +65,13 @@ type ExecutiveLimits struct {
 
 // ExecutiveStats is
 type ExecutiveStats struct {
-	Connections   float32 `json:"con"`
-	Subscriptions float32 `json:"sub"`
-	Buffers       float32 `json:"buf"`
-	BytesPerSec   float32 `json:"bps"`
-	Name          string
-	HTTPAddress   string
-	TCPAddress    string
+	Connections   float64 `json:"con"`
+	Subscriptions float64 `json:"sub"`
+	Buffers       float64 `json:"buf"`
+	BytesPerSec   float64 `json:"bps"`
+	Name          string  `json:"name"`
+	HTTPAddress   string  `json:"http"`
+	TCPAddress    string  `json:"tcp"`
 
 	Limits *ExecutiveLimits
 }
@@ -466,7 +466,7 @@ func (ce *ClusterExecutive) Operate() {
 
 // GetSubsCount returns a count of how many names it's remembering.
 // it also returns a fraction of buffer usage where 0.0 is empty and 1.0 is full.
-func (ex *Executive) GetSubsCount() (int, float32) {
+func (ex *Executive) GetSubsCount() (int, float64) {
 	subscriptions, queuefraction := ex.Looker.GetAllSubsCount()
 	return subscriptions, queuefraction
 }
@@ -477,10 +477,10 @@ func (ex *Executive) GetExecutiveStats() *ExecutiveStats {
 	stats := &ExecutiveStats{}
 	subscriptions, queuefraction := ex.Looker.GetAllSubsCount()
 	stats.Buffers = queuefraction
-	stats.Subscriptions = float32(subscriptions) / float32(ex.Limits.Subscriptions)
-	stats.Connections = float32(ex.GetLowerContactsCount()) / float32(ex.Limits.Connections)
-	stats.BytesPerSec = float32(1) / float32(ex.Limits.BytesPerSec)
-
+	stats.Subscriptions = float64(subscriptions) / float64(ex.Limits.Subscriptions)
+	stats.Connections = float64(ex.GetLowerContactsCount()) / float64(ex.Limits.Connections)
+	stats.BytesPerSec = float64(1) / float64(ex.Limits.BytesPerSec)
+	stats.Limits = ex.Limits
 	stats.Name = ex.Name
 	stats.TCPAddress = ex.GetTCPAddress()
 	stats.HTTPAddress = ex.GetHTTPAddress()

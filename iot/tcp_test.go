@@ -44,7 +44,7 @@ func TestTwoTierTcp(t *testing.T) {
 	sss = iot.GetServerStats(ce.Gurus[0].GetHTTPAddress())
 	fmt.Println("guru stats", sss)
 
-	n := sss.Subscriptions * float32(ce.Gurus[0].Limits.Subscriptions)
+	n := sss.Subscriptions * float64(ce.Gurus[0].Limits.Subscriptions)
 	if n != 1.0 {
 		t.Errorf("got %v, want %v", n, 1.0)
 	}
@@ -83,7 +83,7 @@ func TestTwoTierTcp(t *testing.T) {
 	fmt.Println("guru stats2", guruStats)
 
 	// the guru gained a subscription because the aide connected to it.
-	n = guruStats.Subscriptions * float32(ce.Gurus[0].Limits.Subscriptions)
+	n = guruStats.Subscriptions * float64(ce.Gurus[0].Limits.Subscriptions)
 	if n != 3.0 {
 		t.Errorf("got %v, want %v", n, 3.0)
 	}
