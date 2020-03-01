@@ -1,6 +1,6 @@
 
 
-Docs for github.com/awootton/knotfreeiot/
+future home of docs for github.com/awootton/knotfreeiot/
 
 
 
