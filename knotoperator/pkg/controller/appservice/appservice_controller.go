@@ -1,17 +1,18 @@
 package appservice
 
 import (
-	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"os"
+	"reflect"
 	"strings"
 	"sync"
+	"time"
 
+	"github.com/awootton/knotfreeiot/knotoperator/pkg/apis/app/v1alpha1"
 	appv1alpha1 "github.com/awootton/knotfreeiot/knotoperator/pkg/apis/app/v1alpha1"
 	"github.com/awootton/knotfreeiot/kubectl"
 	"gomodules.xyz/jsonpatch/v2"
@@ -94,8 +95,6 @@ type ReconcileAppService struct {
 
 // Reconcile reads that state of the cluster for a AppService object and makes changes based on the state read
 // and what is in the AppService.Spec
-// TODO(user): Modify this Reconcile function to implement your Controller logic.  This example creates
-// a Pod as an example
 // Note:
 // The Controller will requeue the Request to be processed again if the returned error is non-nil or
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
@@ -123,7 +122,9 @@ func (r *ReconcileAppService) Reconcile(request reconcile.Request) (reconcile.Re
 			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
 			// Return and don't requeue
 			fmt.Println("AppService NOT FOUND")
-			return reconcile.Result{}, nil
+			rr := reconcile.Result{}
+			rr.RequeueAfter = 10 * time.Second
+			return rr, nil
 		}
 		// Error reading the object - requeue the request.
 		fmt.Println("AppService FAIL", err)
@@ -132,31 +133,35 @@ func (r *ReconcileAppService) Reconcile(request reconcile.Request) (reconcile.Re
 	virginInstance := instance
 	instance = instance.DeepCopy()
 
-	// else instance is the service!
-	fmt.Println("spec names", instance.Spec.GuruNames)
-	fmt.Println("status names", instance.Status.GuruNames)
-	fmt.Println("namespace is ", request.Namespace)
-	fmt.Println("spec count", instance.Spec.AideCount)
-	fmt.Println("status count", instance.Status.AideCount)
-
-	if (len(instance.Spec.GuruNames) > 0 && instance.Spec.GuruNames[0] == "deleteme") || len(instance.Spec.GuruNames) != len(instance.Spec.GuruAddresses) {
-		instance.Spec.GuruNames = instance.Spec.GuruNames[0:0]
-		instance.Spec.GuruAddresses = instance.Spec.GuruAddresses[0:0]
+	if instance.Status.Ce == nil {
+		instance.Status.Ce = v1alpha1.NewClusterState()
+		//appchanged = true
+	} else if len(instance.Status.Ce.GuruNames) == 0 {
+		instance.Status.Ce = v1alpha1.NewClusterState()
+		appchanged = true
+	}
+	if instance.Spec.Ce == nil {
+		instance.Spec.Ce = v1alpha1.NewClusterState()
+		appchanged = true
+	} else if len(instance.Spec.Ce.GuruNames) == 0 {
+		instance.Spec.Ce = v1alpha1.NewClusterState()
 		appchanged = true
 	}
 
-	namespace := request.Namespace
+	// else instance is the service!
+	fmt.Println("spec names", instance.Spec.Ce.GuruNames)
+	fmt.Println("status names", instance.Status.Ce.GuruNames)
+	fmt.Println("namespace is ", request.Namespace)
+	fmt.Println("spec count", len(instance.Spec.Ce.Nodes))
+	fmt.Println("status count", len(instance.Spec.Ce.Nodes))
 
-	knownNames := make(map[string]int)
-	for i, name := range instance.Spec.GuruNames {
-		knownNames[name] = i
-	}
+	namespace := request.Namespace
 
 	items := &corev1.PodList{}
 
-	aides := make([]corev1.Pod, 0)
-	gurus := make([]corev1.Pod, 0)
-	others := make([]corev1.Pod, 0)
+	aides := make(map[string]corev1.Pod, 0)
+	gurus := make(map[string]corev1.Pod, 0)
+	others := make(map[string]corev1.Pod, 0)
 
 	err2 := r.client.List(context.TODO(), items)
 	_ = err2
@@ -165,11 +170,11 @@ func (r *ReconcileAppService) Reconcile(request reconcile.Request) (reconcile.Re
 			pname := pod.GetName()
 
 			if strings.HasPrefix(pname, "aide-") {
-				aides = append(aides, pod)
+				aides[pname] = pod
 			} else if strings.HasPrefix(pname, "guru-") {
-				gurus = append(aides, pod)
+				gurus[pname] = pod
 			} else {
-				others = append(others, pod)
+				others[pname] = pod
 			}
 
 			_ = i
@@ -182,35 +187,81 @@ func (r *ReconcileAppService) Reconcile(request reconcile.Request) (reconcile.Re
 
 	// are there any non-pending guru's that are not on the list?
 	for i, pod := range gurus {
-		index, present := knownNames[pod.Name]
+		nodeStats, present := instance.Spec.Ce.Nodes[pod.Name]
 		if present == false {
 			// so it's not on the list.
 			// is it running?
 			ready := pod.Status.ContainerStatuses[0].Ready
 			if ready && len(pod.Status.PodIP) > 0 {
 
-				instance.Spec.GuruNames = append(instance.Spec.GuruNames, pod.Name)
-				address := pod.Status.PodIP
-				fmt.Println("new guru has ip ", address)
-				instance.Spec.GuruAddresses = append(instance.Spec.GuruAddresses, address+":8384")
-				appchanged = true
+				ns := &v1alpha1.NodeStats{}
+				ns.IsGuru = true
+				ns.Name = pod.Name
+				ns.Stats = new(iot.ExecutiveStats)
+				ns.Stats.TCPAddress = pod.Status.PodIP + ":8384"
+				ns.Stats.HTTPAddress = pod.Status.PodIP + ":8080"
+				ns.Stats.Name = pod.Name
 
+				instance.Spec.Ce.Nodes[pod.Name] = ns
+
+				instance.Spec.Ce.GuruNames = append(instance.Spec.Ce.GuruNames, pod.Name)
+
+				appchanged = true
 			}
 		}
+		_ = nodeStats
 		_ = i
-		_ = index
+	}
+
+	// are lets also walk the aides list
+	for i, pod := range aides {
+		nodeStats, present := instance.Spec.Ce.Nodes[pod.Name]
+		if present == false {
+			// so it's not on the list.
+			// is it running?
+			ready := pod.Status.ContainerStatuses[0].Ready
+			if ready && len(pod.Status.PodIP) > 0 {
+
+				ns := &v1alpha1.NodeStats{}
+				ns.IsGuru = false
+				ns.Name = pod.Name
+				ns.Stats = new(iot.ExecutiveStats)
+				ns.Stats.TCPAddress = pod.Status.PodIP + ":8384"
+				ns.Stats.HTTPAddress = pod.Status.PodIP + ":8080"
+				ns.Stats.Name = pod.Name
+				instance.Spec.Ce.Nodes[pod.Name] = ns
+
+				appchanged = true
+			}
+		}
+		_ = nodeStats
+		_ = i
 	}
 
 	var wg = sync.WaitGroup{}
+
+	var mux = sync.Mutex{}
 
 	for i, pod := range aides {
 		add := pod.Status.PodIP
 		add = add + ":8080"
 		wg.Add(1)
 		go func() {
-			es := GetServerStats(pod.Name, add)
-			fmt.Println(es)
-			wg.Done()
+			defer wg.Done()
+			es, err := GetServerStats(pod.Name, add)
+			if err != nil {
+				mux.Lock()
+				defer mux.Unlock()
+				delete(instance.Spec.Ce.Nodes, pod.Name)
+			} else {
+				nodeStats, present := instance.Spec.Ce.Nodes[pod.Name]
+				if present {
+					if !reflect.DeepEqual(nodeStats.Stats, es) {
+						nodeStats.Stats = es // did they change?
+						appchanged = true
+					}
+				}
+			}
 		}()
 		_ = i
 	}
@@ -219,9 +270,21 @@ func (r *ReconcileAppService) Reconcile(request reconcile.Request) (reconcile.Re
 		add = add + ":8080"
 		wg.Add(1)
 		go func() {
-			es := GetServerStats(pod.Name, add)
-			fmt.Println(es)
-			wg.Done()
+			defer wg.Done()
+			es, err := GetServerStats(pod.Name, add)
+			if err != nil {
+				mux.Lock()
+				defer mux.Unlock()
+				delete(instance.Spec.Ce.Nodes, pod.Name)
+			} else {
+				nodeStats, present := instance.Spec.Ce.Nodes[pod.Name]
+				if present {
+					if !reflect.DeepEqual(nodeStats.Stats, es) {
+						nodeStats.Stats = es // did they change?
+						appchanged = true
+					}
+				}
+			}
 		}()
 		_ = i
 	}
@@ -321,12 +384,23 @@ func (r *ReconcileAppService) Reconcile(request reconcile.Request) (reconcile.Re
 		//fmt.Println("the patch", string(payloadBytes))
 
 		jpatch := client.ConstantPatch(types.JSONPatchType, payloadBytes)
-
-		err = r.client.Patch(context.TODO(), instance, jpatch)
-		//err = r.client.Update(context.TODO(), instance)
+		_ = jpatch
+		//err = r.client.Patch(context.TODO(), instance, jpatch)
+		err = r.client.Update(context.TODO(), instance)
 		if err != nil {
 			fmt.Println("app update err", err)
 			return reconcile.Result{}, err
+		}
+
+		guruNames := instance.Spec.Ce.GuruNames
+		guruAddresses := make([]string, len(guruNames))
+		for i, n := range guruNames {
+			g, ok := instance.Spec.Ce.Nodes[n]
+			if !ok {
+				fmt.Println("TODO handlefatal problem")
+			} else {
+				guruAddresses[i] = g.Stats.TCPAddress
+			}
 		}
 
 		var wg = sync.WaitGroup{}
@@ -335,7 +409,7 @@ func (r *ReconcileAppService) Reconcile(request reconcile.Request) (reconcile.Re
 			add = add + ":8080"
 			wg.Add(1)
 			go func() {
-				es := PostUpstreamNames(instance.Spec.GuruNames, instance.Spec.GuruAddresses, add)
+				es := PostUpstreamNames(guruNames, guruAddresses, pod.Name, add)
 				fmt.Println(es)
 				wg.Done()
 			}()
@@ -346,7 +420,7 @@ func (r *ReconcileAppService) Reconcile(request reconcile.Request) (reconcile.Re
 			add = add + ":8080"
 			wg.Add(1)
 			go func() {
-				es := PostUpstreamNames(instance.Spec.GuruNames, instance.Spec.GuruAddresses, add)
+				es := PostUpstreamNames(guruNames, guruAddresses, pod.Name, add)
 				fmt.Println(es)
 				wg.Done()
 			}()
@@ -356,7 +430,10 @@ func (r *ReconcileAppService) Reconcile(request reconcile.Request) (reconcile.Re
 
 	}
 
-	return reconcile.Result{}, nil
+	rr := reconcile.Result{}
+	rr.RequeueAfter = 10 * time.Second
+	rr.Requeue = true
+	return rr, nil
 }
 
 // newPodForCR returns a guru pod with the same name/namespace as the cr
@@ -396,8 +473,8 @@ func getRandomString() string {
 	return hex.EncodeToString(tmp[:])
 }
 
-// GetServerStats is
-func GetServerStats(name string, address string) *iot.ExecutiveStats {
+// GetServerStats is(
+func GetServerStats(name string, address string) (*iot.ExecutiveStats, error) {
 
 	es := &iot.ExecutiveStats{}
 
@@ -406,21 +483,23 @@ func GetServerStats(name string, address string) *iot.ExecutiveStats {
 		cmd := `kubectl exec ` + name + ` -- curl -s localhost:8080/api1/getstats`
 		//fmt.Println(cmd)
 		str, err := kubectl.K8s(cmd, "")
-		//fmt.Println(str)
+		if err != nil {
+			return es, err
+		}
 		err = json.Unmarshal([]byte(str), &es)
-		_ = err
 
-	} else {
-		// when in cluster
-		es = iot.GetServerStats(address)
+		return es, err
+
 	}
+	// when in cluster
+	es = iot.GetServerStats(address)
 
-	return es
+	return es, nil
 
 }
 
 // PostUpstreamNames does SetUpstreamNames the hard way
-func PostUpstreamNames(guruList []string, addressList []string, addr string) error {
+func PostUpstreamNames(guruList []string, addressList []string, name string, addr string) error {
 
 	arg := &iot.UpstreamNamesArg{}
 	arg.Names = guruList
@@ -434,12 +513,16 @@ func PostUpstreamNames(guruList []string, addressList []string, addr string) err
 			return err
 		}
 
-		resp, err := http.Post("http://"+addr+"/api1/set", "application/json", bytes.NewReader(jbytes))
+		jstr := string(jbytes)
+
+		curlcmd := `curl --header "Content-Type: application/json" --request POST --data '` + jstr + `'  http://localhost:8080/api1/set`
+
+		cmd := `kubectl exec ` + name + ` -- ` + curlcmd
+
+		str, err := kubectl.K8s(cmd, "")
+		_ = str
 		if err != nil {
 			return err
-		}
-		if resp.StatusCode != 200 {
-			return &errors.StatusError{}
 		}
 		return nil
 

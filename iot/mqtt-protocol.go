@@ -81,7 +81,7 @@ func (cc *mqttContact) WriteDownstream(p packets.Interface) error {
 
 // mqttServer serves a line oriented mqtt protocol
 func mqttServer(ex *Executive, name string) {
-	fmt.Println("mqtt Server starting ", name)
+	fmt.Println("mqtt service starting ", name)
 	ln, err := net.Listen("tcp", name)
 	if err != nil {
 		// handle error

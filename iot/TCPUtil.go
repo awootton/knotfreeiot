@@ -78,6 +78,8 @@ func (api apiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	} else if req.RequestURI == "/api1/set" {
 
+		fmt.Println("new guru names", req.Body) // fixme this is a stat, not a log
+
 		decoder := json.NewDecoder(req.Body)
 		args := &UpstreamNamesArg{}
 		err := decoder.Decode(args)
@@ -162,7 +164,7 @@ func TCPNameResolver(address string, config *ContactStructConfig) (ContactInterf
 				fmt.Println("push c fail", conn, err)
 				failed++
 			}
-			fmt.Println("TCPNameResolver starting read loop ", cc)
+			//fmt.Println("TCPNameResolver starting read loop ", cc)
 			failed = 0
 			for { // add timeout?
 				// conn.SetReadDeadline(time.Duration(uint64(time.Second) * uint64(cc.GetConfig().defaultTimeoutSeconds)))
@@ -240,7 +242,7 @@ func (cc *tcpContact) WriteUpstream(cmd packets.Interface) error {
 }
 
 func server(ex *Executive, name string) {
-	fmt.Println("tcp server starting", name)
+	fmt.Println("knotfree server starting", name)
 	ln, err := net.Listen("tcp", name)
 	if err != nil {
 		// handle error

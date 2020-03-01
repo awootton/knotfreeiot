@@ -7,7 +7,7 @@ import (
 
 func TestGetStats(t *testing.T) {
 
-	es := GetServerStats("aide-59794f445c-24hsk", "unknown:8080")
+	es, _ := GetServerStats("aide-c9b9b5c49-g6shw", "unknown:8080")
 
 	fmt.Println("stats", es)
 

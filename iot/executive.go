@@ -16,6 +16,7 @@
 package iot
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
@@ -74,6 +75,25 @@ type ExecutiveStats struct {
 	TCPAddress    string  `json:"tcp"`
 
 	Limits *ExecutiveLimits
+}
+
+// DeepCopyInto the slow way
+func (in *ExecutiveStats) DeepCopyInto(out *ExecutiveStats) {
+	if in == nil {
+	}
+	jbytes, err := json.Marshal(in)
+	_ = err
+	json.Unmarshal(jbytes, out)
+}
+
+// DeepCopy is an atwgenerated deepcopy function, copying the receiver, creating a new AppService.
+func (in *ExecutiveStats) DeepCopy() *ExecutiveStats {
+	if in == nil {
+		return nil
+	}
+	out := new(ExecutiveStats)
+	in.DeepCopyInto(out)
+	return out
 }
 
 // TestLimits is for testsvar TestLimits = ExecutiveLimits{16, 10, 64}

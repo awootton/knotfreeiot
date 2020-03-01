@@ -52,7 +52,7 @@ func (cc *textContact) WriteDownstream(packet packets.Interface) error {
 
 // textServer serves a line oriented text protocol
 func textServer(ex *Executive, name string) {
-	fmt.Println("Server starting ", name)
+	fmt.Println("knot text service starting ", name)
 	ln, err := net.Listen("tcp", name)
 	if err != nil {
 		// handle error

@@ -35,8 +35,8 @@ spec:
             cpu: 250m  #INSERT_CPU_NEEDED_HERE
             memory: 800Mi #INSERT_MEM_NEEDED_HERE
           requests:
-            cpu: 250m  #INSERT_CPU_NEEDED_HERE
-            memory: 800Mi #INSERT_MEM_NEEDED_HERE
+            #cpu: 250m  #INSERT_CPU_NEEDED_HERE
+            #memory: 800Mi #INSERT_MEM_NEEDED_HERE
         env:
         - name: NAME
           value: "knotfreeaide"
@@ -68,6 +68,10 @@ spec:
 
   - port: 8384
     name: iot
+    protocol: TCP
+
+  - port: 8080
+    name: http
     protocol: TCP
 
   selector:

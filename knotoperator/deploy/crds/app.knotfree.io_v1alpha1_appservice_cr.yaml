@@ -3,9 +3,6 @@ kind: AppService
 metadata:
   name: knotfree-appservice
 spec:
-  # Add fields here
-
-  gurunames:
-    - deleteme
-  guruaddresses:
-    - "knot:1234"
+  Ce:
+    gurunames: []
+    nodes: {}

@@ -13,7 +13,7 @@ kubectl apply -f deploy/role.yaml
 kubectl apply -f deploy/role_binding.yaml
 kubectl apply -f deploy/crds/app.knotfree.io_appservices_crd.yaml
 # always goes to default: 
-kubectl apply -f  deploy/promethius_op.yaml 
+#kubectl apply -f  deploy/promethius_op.yaml 
 kubectl apply -f deploy/crds/app.knotfree.io_v1alpha1_appservice_cr.yaml
 	
 # build this:
