@@ -1,0 +1,15 @@
+
+myvar: atw
+
+# jekyll-theme-time-machine
+
+theme: jekyll-theme-architect # jekyll-theme-slate # "jekyll-theme-tactile"
+
+myvar2: atw2
+
+title: "#IOT"
+description: Working on ideas for a better IoT and calling it TheI4T for fun and no profit.
+
+show_downloads: false # ["true" or "false" to indicate whether to provide a download URL]
+google_analytics: [UA-156005349-1]
+
