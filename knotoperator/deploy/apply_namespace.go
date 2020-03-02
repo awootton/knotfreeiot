@@ -18,6 +18,12 @@ func buildTheOperator() {
 
 // See deploy.sh
 
+// pre-req:
+// kind create cluster --config kind-example-config.yaml
+// kubectl config use-context "kind-kind"
+// kk create ns knotspace
+// kubectl config set-context --current --namespace=knotspace
+
 func main() {
 
 	kubectl.K("pwd") // /Users/awootton/Documents/workspace/knotfreeiot/knotoperator/deploy
@@ -46,5 +52,11 @@ func main() {
 	kubectl.K("kubectl apply -f knotfreedeploy.yaml")
 
 	// now build and push the deploy operator.yaml
+
+	// cd ~/Documents/workspace/kube-prometheus/
+	// # Create the namespace and CRDs, and then wait for them to be availble before creating the remaining resources
+	// kubectl create -f manifests/setup
+	// until kubectl get servicemonitors --all-namespaces ; do date; sleep 1; echo ""; done
+	// kubectl create -f manifests/
 
 }

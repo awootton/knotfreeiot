@@ -39,7 +39,7 @@ type ContactStruct struct {
 	// not sure about this one. At the upper levels a socket could own millons of these.
 	// and maybe the root doesn't want the real names.
 	// but then how do we unsubscribe when the tcp conn fails? (don't, timeout)
-	topicToName map[HalfHash][]byte // a tree would be better?
+	//topicToName map[HalfHash][]byte // a tree would be better?
 
 	token *tokens.KnotFreePayload
 }
@@ -61,6 +61,14 @@ type ContactInterface interface {
 
 	// the upstream write is Push (below)
 	String() string // used as a default channel name in test
+
+	//AddSubscription(sub *packets.Subscribe)
+	//RemoveSubscription(sub *packets.Unsubscribe)
+}
+
+// AddSubscription to remember
+func (ss *ContactStruct) AddSubscription(sub *packets.Subscribe) {
+
 }
 
 func (ss *ContactStruct) String() string {
@@ -113,7 +121,7 @@ func AddContactStruct(ss *ContactStruct, ssi ContactInterface, config *ContactSt
 
 	ss.config = config
 
-	ss.topicToName = make(map[HalfHash][]byte)
+	//ss.topicToName = make(map[HalfHash][]byte)
 
 	config.listlock.Lock()
 	defer config.listlock.Unlock()
@@ -131,7 +139,7 @@ func AddContactStruct(ss *ContactStruct, ssi ContactInterface, config *ContactSt
 // they are not linked like the others, they are saved in a map in lookup
 func InitUpperContactStruct(ss *ContactStruct, config *ContactStructConfig) *ContactStruct {
 
-	ss.topicToName = make(map[HalfHash][]byte)
+	//ss.topicToName = make(map[HalfHash][]byte)
 	ss.config = config
 
 	return ss
@@ -156,6 +164,9 @@ func NewContactStructConfig(looker *LookupTableStruct) *ContactStructConfig {
 func Push(ssi ContactInterface, p packets.Interface) error {
 
 	config := ssi.GetConfig()
+	if config == nil {
+		fmt.Println("no way")
+	}
 	looker := config.GetLookup()
 	var destination *HashType
 
@@ -230,6 +241,7 @@ func Push(ssi ContactInterface, p packets.Interface) error {
 			sh.Write(v.Address)
 			v.AddressAlias = sh.Sum(nil)
 		}
+		//ssi.AddSubscription(v)
 		looker.sendSubscriptionMessage(ssi, v)
 	case *packets.Unsubscribe:
 		if len(v.AddressAlias) < 24 {
@@ -359,15 +371,15 @@ func (ss *ContactStruct) Close(err error) {
 		ss.config.listlock.Unlock()
 		ss.ele = nil
 	}
-	if ss.topicToName != nil {
-		for key, realName := range ss.topicToName {
-			p := new(packets.Unsubscribe)
-			p.Address = realName
-			ss.config.lookup.sendUnsubscribeMessage(ss, p)
-			_ = key
-		}
-		ss.topicToName = nil
-	}
+	// if ss.topicToName != nil {
+	// 	for key, realName := range ss.topicToName {
+	// 		p := new(packets.Unsubscribe)
+	// 		p.Address = realName
+	// 		ss.config.lookup.sendUnsubscribeMessage(ss, p)
+	// 		_ = key
+	// 	}
+	// 	ss.topicToName = nil
+	// }
 	//ss.key = 0
 	ss.config = nil
 }

@@ -54,3 +54,9 @@ operator-sdk generate k8s and go again
 #once:
 kind delete cluster
 
+#Create the namespace and CRDs, and then wait for them to be availble before creating the remaining resources
+cd ~/Documents/workspace/kube-prometheus/
+kubectl create -f manifests/setup
+until kubectl get servicemonitors --all-namespaces ; do date; sleep 1; echo ""; done
+kubectl create -f manifests/
+

@@ -46,7 +46,7 @@ type Executive struct {
 }
 
 // ClusterExecutive is a list of Executive
-// helpful for testing.
+// used for testing.
 type ClusterExecutive struct {
 	Aides              []*Executive
 	Gurus              []*Executive
@@ -64,7 +64,7 @@ type ExecutiveLimits struct {
 	Subscriptions int `json:"sub"`
 }
 
-// ExecutiveStats is
+// ExecutiveStats is including limits sometimes
 type ExecutiveStats struct {
 	Connections   float64 `json:"con"`
 	Subscriptions float64 `json:"sub"`
@@ -74,26 +74,7 @@ type ExecutiveStats struct {
 	HTTPAddress   string  `json:"http"`
 	TCPAddress    string  `json:"tcp"`
 
-	Limits *ExecutiveLimits
-}
-
-// DeepCopyInto the slow way
-func (in *ExecutiveStats) DeepCopyInto(out *ExecutiveStats) {
-	if in == nil {
-	}
-	jbytes, err := json.Marshal(in)
-	_ = err
-	json.Unmarshal(jbytes, out)
-}
-
-// DeepCopy is an atwgenerated deepcopy function, copying the receiver, creating a new AppService.
-func (in *ExecutiveStats) DeepCopy() *ExecutiveStats {
-	if in == nil {
-		return nil
-	}
-	out := new(ExecutiveStats)
-	in.DeepCopyInto(out)
-	return out
+	Limits *ExecutiveLimits `json:"limits"`
 }
 
 // TestLimits is for testsvar TestLimits = ExecutiveLimits{16, 10, 64}
@@ -134,6 +115,7 @@ func (ce *ClusterExecutive) AttachContact(cc ContactInterface, attacher ContactA
 		_ = fract
 	}
 	if smallestAide == nil {
+		fmt.Println("fix mesmallestAide fatal ")
 		return // fixme return error
 	}
 	attacher(cc, smallestAide.Config)
@@ -283,31 +265,38 @@ func (ce *ClusterExecutive) GetNextAddress() string {
 	return address
 }
 
-// Operate where we pretend to be an Operator and resize the cluster.
-// This is really only for test. Only works in non-tcp mode
-func (ce *ClusterExecutive) Operate() {
+// ExpansionDesired is
+type ExpansionDesired struct {
+	changeAides int    // +1 for grow, 0 for same, -1 for shrink
+	removeAide  string // the name of the aide to delete
+
+	changeGurus int // +1 for grow, 0 for same, -1 for shrink
+
+}
+
+// CalcExpansionDesired is used locally in tests and used by the operator to manage the cluster.
+func CalcExpansionDesired(aides []*ExecutiveStats, gurus []*ExecutiveStats) ExpansionDesired {
+
+	result := ExpansionDesired{}
 
 	subsTotal := 0.0
 	buffersFraction := 0.0
 	contactsTotal := 0.0
-	for _, ex := range ce.Aides {
-		c, fract := ex.GetSubsCount()
+
+	for _, ex := range aides {
+		c := ex.Subscriptions
 		// subsTotal += float64(c) don't scale aides on subscriptions just yet
 		_ = c
-		buffersFraction += float64(fract)
-		con := ex.GetLowerContactsCount()
+		buffersFraction += float64(ex.Buffers)
+		con := ex.Connections
 		contactsTotal += float64(con)
-		// check bps up and down
+		// todo: check bps up and down
 	}
-	subsTotal /= float64(len(ce.Aides))
-	subsTotal /= float64(ce.limits.Subscriptions)
+	subsTotal /= float64(len(aides))
+	buffersFraction /= float64(len(aides))
+	contactsTotal /= float64(len(aides))
 
-	buffersFraction /= float64(len(ce.Aides))
-
-	contactsTotal /= float64(len(ce.Aides))
-	contactsTotal /= float64(ce.limits.Connections)
-
-	max := subsTotal
+	max := subsTotal // pick the one closest to being 100%
 	if max < buffersFraction {
 		max = buffersFraction
 	}
@@ -317,6 +306,93 @@ func (ce *ClusterExecutive) Operate() {
 
 	// if the average is > 90% then grow
 	if max >= 0.9 {
+		result.changeAides = +1
+	} else if len(aides) > 1 {
+		// we can only shrink if the result won't just grow again.
+		// with some (10%) margin.
+		tmp := max * float64(len(aides))
+		tmp /= float64(len(aides) - 1)
+		if tmp < 0.80 {
+			result.changeAides = -1
+			// we can shrink, which one?
+			index := 0
+			max := 0.0
+			for i, ex := range aides {
+				c := ex.Subscriptions
+				fract := ex.Buffers
+				if c > max {
+					max = c
+					index = i
+				}
+				buffersFraction += float64(fract)
+				con := ex.Connections
+				contactsTotal += float64(con)
+				// check bps
+			}
+			i := index
+			result.removeAide = aides[i].Name
+		}
+	}
+
+	// now, same routine for gurus
+
+	subsTotal = 0.0
+	buffersFraction = 0.0
+	contactsTotal = 0.0
+	for i, ex := range gurus {
+		c := ex.Subscriptions
+		subsTotal += float64(c)
+		_ = c
+		buffersFraction += float64(ex.Buffers)
+		con := ex.Connections
+		contactsTotal += float64(con)
+		// check bps up and down
+		_ = i
+	}
+	subsTotal /= float64(len(gurus))
+	buffersFraction /= float64(len(gurus))
+	contactsTotal /= float64(len(gurus))
+
+	max = subsTotal
+	if max < buffersFraction {
+		max = buffersFraction
+	}
+
+	if max >= 0.9 {
+
+		result.changeGurus = +1
+
+	} else if len(gurus) > 1 {
+		// we can only shrink if the result won't just grow again.
+		// with some (10%) margin.
+		tmp := max * float64(len(gurus))
+		tmp /= float64(len(gurus) - 1)
+		if tmp < 0.80 {
+
+			result.changeGurus = -1
+		}
+	}
+	return result
+}
+
+// Operate where we pretend to be an Operator and resize the cluster.
+// This is really only for test. Only works in non-tcp mode
+func (ce *ClusterExecutive) Operate() {
+
+	aides := make([]*ExecutiveStats, len(ce.Aides))
+	gurus := make([]*ExecutiveStats, len(ce.Gurus))
+
+	for i, n := range ce.Aides {
+		aides[i] = n.GetExecutiveStats()
+	}
+	for i, n := range ce.Gurus {
+		gurus[i] = n.GetExecutiveStats()
+	}
+
+	expansion := CalcExpansionDesired(aides, gurus)
+
+	// if the average is > 90% then grow
+	if expansion.changeAides > 0 {
 		anaide := ce.Aides[0]
 		n := strconv.FormatInt(int64(len(ce.Aides)), 10)
 		aide1 := NewExecutive(100, "aide"+n, anaide.getTime, false)
@@ -329,27 +405,14 @@ func (ce *ClusterExecutive) Operate() {
 		for _, ex := range ce.Aides {
 			ex.Looker.FlushMarkerAndWait()
 		}
-	} else if len(ce.Aides) > 1 {
-		// we can only shrink if the result won't just grow again.
-		// with some (10%) margin.
-		tmp := max * float64(len(ce.Aides))
-		tmp /= float64(len(ce.Aides) - 1)
-		if tmp < 0.80 {
-
+	} else if expansion.changeAides < 0 {
+		if true {
 			// we can shrink, which one?
 			index := 0
-			max := 0.0
-			for i, ex := range ce.Aides {
-				c, fract := ex.GetSubsCount()
-				tmp += float64(c) / float64(ce.limits.Subscriptions)
-				if tmp > max {
-					max = tmp
+			for i, ex := range aides {
+				if ex.Name == expansion.removeAide {
 					index = i
 				}
-				buffersFraction += float64(fract)
-				con := ex.GetLowerContactsCount()
-				contactsTotal += float64(con)
-				// check bps
 			}
 			i := index
 			minion := ce.Aides[i]
@@ -368,10 +431,10 @@ func (ce *ClusterExecutive) Operate() {
 			}
 			minion.Config.listlock.Unlock()
 			for _, cc := range contactList {
-				cc.Close(errors.New("routine maintainance"))
+				cc.Close(errors.New("routine maintainance a1"))
 			}
 			for _, cc := range minion.Looker.upstreamRouter.contacts {
-				cc.Close(errors.New("routine maintainance"))
+				cc.Close(errors.New("routine maintainance a2"))
 			}
 			for _, ex := range ce.Gurus {
 				ex.Looker.FlushMarkerAndWait()
@@ -383,34 +446,7 @@ func (ce *ClusterExecutive) Operate() {
 	}
 
 	// now, same routine for gurus
-
-	subsTotal = 0.0
-	buffersFraction = 0.0
-	contactsTotal = 0.0
-	for i, ex := range ce.Gurus {
-		subs, fract := ex.GetSubsCount()
-		//fmt.Println("guru", i, " has ", subs)
-		subsTotal += float64(subs)
-		buffersFraction += float64(fract)
-		con := ex.GetLowerContactsCount()
-		contactsTotal += float64(con)
-		// check bps up and down
-		_ = i
-	}
-	subsTotal /= float64(len(ce.Gurus))
-	subsTotal /= float64(ce.limits.Subscriptions)
-
-	buffersFraction /= float64(len(ce.Gurus))
-
-	contactsTotal /= float64(len(ce.Gurus))
-	contactsTotal /= float64(ce.limits.Connections)
-
-	max = subsTotal
-	if max < buffersFraction {
-		max = buffersFraction
-	}
-
-	if max >= 0.9 {
+	if expansion.changeGurus > 0 {
 		sample := ce.Gurus[0]
 		n := strconv.FormatInt(int64(len(ce.Gurus)), 10)
 		newName := "guru" + n
@@ -432,21 +468,18 @@ func (ce *ClusterExecutive) Operate() {
 		for _, ex := range ce.Aides {
 			ex.Looker.FlushMarkerAndWait()
 		}
-	} else if len(ce.Gurus) > 1 {
+	} else if expansion.changeGurus < 0 {
 		// we can only shrink if the result won't just grow again.
 		// with some (10%) margin.
-		tmp := max * float64(len(ce.Gurus))
-		tmp /= float64(len(ce.Gurus) - 1)
-		if tmp < 0.80 {
-
+		if true {
 			// we can shrink, which one?
 			index := 0
 			index = len(ce.Gurus) - 1 // always the last one with gurus
 			i := index
 			minion := ce.Gurus[i]
 			minion.Config.listlock.Lock()
-			contactList := make([]ContactInterface, 0, len(ce.Aides))
-			ce.Gurus[i] = ce.Gurus[len(ce.Aides)-1] // Copy last element to index i.
+			contactList := make([]ContactInterface, 0)
+			ce.Gurus[i] = ce.Gurus[len(ce.Gurus)-1] // Copy last element to index i.
 			ce.Gurus[len(ce.Gurus)-1] = nil         // Erase last element (write zero value).
 			ce.Gurus = ce.Gurus[:len(ce.Gurus)-1]   // shorten list
 			ce.currentGuruList = ce.currentGuruList[0:index]
@@ -466,10 +499,10 @@ func (ce *ClusterExecutive) Operate() {
 			}
 			// we need to wait?
 			for _, cc := range contactList {
-				cc.Close(errors.New("routine maintainance"))
+				cc.Close(errors.New("routine maintainance g1"))
 			}
 			for _, cc := range minion.Looker.upstreamRouter.contacts {
-				cc.Close(errors.New("routine maintainance"))
+				cc.Close(errors.New("routine maintainance g2"))
 			}
 
 			for _, ex := range ce.Gurus {
@@ -552,4 +585,23 @@ func (ex *Executive) GetTextAddress() string {
 // GetMQTTAddress is a getter
 func (ex *Executive) GetMQTTAddress() string {
 	return ex.mqttAddress
+}
+
+// DeepCopyInto the slow way
+func (in *ExecutiveStats) DeepCopyInto(out *ExecutiveStats) {
+	if in == nil {
+	}
+	jbytes, err := json.Marshal(in)
+	_ = err
+	json.Unmarshal(jbytes, out)
+}
+
+// DeepCopy is an atwgenerated deepcopy function, copying the receiver, creating a new AppService.
+func (in *ExecutiveStats) DeepCopy() *ExecutiveStats {
+	if in == nil {
+		return nil
+	}
+	out := new(ExecutiveStats)
+	in.DeepCopyInto(out)
+	return out
 }

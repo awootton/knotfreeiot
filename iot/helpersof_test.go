@@ -80,7 +80,7 @@ func MakeTestContact(config *iot.ContactStructConfig) iot.ContactInterface {
 				//fmt.Println("contact reattaching", cc.index)
 				globalClusterExec.AttachContact(cc, AttachTestContact)
 				// we should also reiterate our connect and our subscription.
-				SendText(cc, "S "+cc.String()) // FIXME: this is garbage
+				// FIXME: really
 			} else {
 				cc.mostRecent = append(cc.mostRecent, thing)
 			}

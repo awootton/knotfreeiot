@@ -4,6 +4,7 @@
 my_number: 5
 ---
 
+Some Markdown text with <span style="color:blue">some *blue* text</span>.
 
 ### Promoting and enabling 
 Because they say these are 'static' pages but that's not true at all is it! 

@@ -85,7 +85,7 @@ func (me *LookupTableStruct) PushUp(p packets.Interface, h HashType) error {
 		return nil
 	}
 	cc := router.GetUpperContact(h.GetUint64())
-	if cc != nil {
+	if cc != nil && cc.GetConfig() != nil {
 		err := cc.WriteUpstream(p)
 		if err != nil {
 			fmt.Println("upstream write fail needs to reattach", err)
@@ -201,7 +201,13 @@ func (me *LookupTableStruct) SetUpstreamNames(names []string, addresses []string
 			com, ok := me.upstreamRouter.name2contact[name]
 			var err error
 			var newContact ContactInterface
-			if !ok {
+			if ok {
+				newContact = com.ss
+				if newContact.GetConfig() == nil {
+					ok = false
+				}
+			}
+			if ok == false {
 				newContact, err = me.NameResolver(address, me.config)
 				counter := 0
 				for err != nil {
@@ -215,10 +221,17 @@ func (me *LookupTableStruct) SetUpstreamNames(names []string, addresses []string
 					newContact = nil // try again
 					newContact, err = me.NameResolver(address, me.config)
 				}
+				if newContact.GetConfig() == nil {
+					fmt.Println("break here ss")
+				}
 				com = common{newContact, HashType{}}
 				me.upstreamRouter.name2contact[name] = com
 			} else {
 				newContact = com.ss
+			}
+
+			if newContact.GetConfig() == nil {
+				fmt.Println("break here ss2")
 			}
 
 			me.upstreamRouter.contacts[i] = newContact
