@@ -64,8 +64,6 @@ type apiHandler struct {
 
 func (api apiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
-	fmt.Println(req.RequestURI)
-
 	if req.RequestURI == "/api1/getstats" {
 
 		stats := api.ex.GetExecutiveStats()
@@ -76,17 +74,19 @@ func (api apiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		}
 		w.Write(bytes)
 
+		fmt.Println("/api1/getstats", string(bytes))
+
 	} else if req.RequestURI == "/api1/set" {
-
-		fmt.Println("new guru names", req.Body) // fixme this is a stat, not a log
-
 		decoder := json.NewDecoder(req.Body)
 		args := &UpstreamNamesArg{}
 		err := decoder.Decode(args)
+		fmt.Println("/api1/set ", args.Names, args.Addresses) // fixme this is a stat, not a log
 		if err != nil {
 			panic(err)
 		}
-		api.ex.Looker.SetUpstreamNames(args.Names, args.Addresses)
+		if len(args.Names) > 0 && len(args.Names) == len(args.Addresses) {
+			api.ex.Looker.SetUpstreamNames(args.Names, args.Addresses)
+		}
 
 	} else {
 		http.NotFound(w, req)
@@ -148,6 +148,9 @@ func TCPNameResolver(address string, config *ContactStructConfig) (ContactInterf
 				fmt.Println("dial 3 fail", address, err, failed)
 				//return cc, err
 				failed++
+				if failed > 10 {
+					time.Sleep(time.Duration(100*failed) * time.Millisecond)
+				}
 				continue
 			}
 			cc.tcpConn = conn.(*net.TCPConn)
@@ -360,12 +363,13 @@ func GetServerStats(addr string) *ExecutiveStats {
 		var bytes [1024]byte
 		n, err := resp.Body.Read(bytes[:])
 		// = string(bytes[0:n])
-		fmt.Println("GetServerStats returned ", resp, err)
+		//fmt.Println("GetServerStats returned ", resp, err)
 
 		err = json.Unmarshal(bytes[0:n], &stats)
 		_ = err
+	} else {
+		fmt.Println("GetServerStats failed ", resp, err)
 	}
-	fmt.Println("GetServerStats failed ", resp, err)
 	return &stats
 }
 

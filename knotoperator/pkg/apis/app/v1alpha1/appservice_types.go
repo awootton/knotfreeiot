@@ -28,19 +28,19 @@ type ClusterState struct {
 	GuruNames []string `json:"gurunames"` //this specifies an ordering
 
 	// name to stats
-	Nodes map[string]*NodeStats // includes aides
+	Nodes map[string]*iot.ExecutiveStats // includes aides
 }
 
 // NewClusterState is
 func NewClusterState() *ClusterState {
 	ce := &ClusterState{}
 	ce.GuruNames = make([]string, 0)
-	ce.Nodes = make(map[string]*NodeStats)
+	ce.Nodes = make(map[string]*iot.ExecutiveStats)
 	return ce
 }
 
-// NodeStats is too much like iot.Executive
-type NodeStats struct {
+// xxxNodeStats is too much like iot.Executive
+type xxxNodeStats struct {
 	//
 	Name   string
 	IsGuru bool

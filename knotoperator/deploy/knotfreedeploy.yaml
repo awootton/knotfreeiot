@@ -20,7 +20,7 @@ spec:
         imagePullPolicy: Always
         image: gcr.io/fair-theater-238820/knotfreeserver 
         command: ["/go/bin/linux_386/knotfreeiot"] 
-        args: ["--server"]
+        args: ["--server","--nano"]
         ports:
         - containerPort: 8384
           name : iot
@@ -34,7 +34,7 @@ spec:
           limits:
             cpu: 250m  #INSERT_CPU_NEEDED_HERE
             memory: 800Mi #INSERT_MEM_NEEDED_HERE
-          requests:
+          #requests:
             #cpu: 250m  #INSERT_CPU_NEEDED_HERE
             #memory: 800Mi #INSERT_MEM_NEEDED_HERE
         env:

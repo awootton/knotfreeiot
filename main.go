@@ -36,21 +36,32 @@ func main() {
 	server := flag.Bool("server", false, "start a server.")
 	//isGuru := flag.Bool("isguru", false, "")
 
+	// means that the limits are very small
+	nano := flag.Bool("nano", false, "")
+
 	token := flag.String("token", "", " an access token for our superiors")
+
+	flag.Parse()
+
 	if *token == "" {
 		*token = tokens.SampleSmallToken
 	}
 
-	flag.Parse()
-
-	var mainLimits = iot.ExecutiveLimits{}
+	var mainLimits = &iot.ExecutiveLimits{}
 	mainLimits.Connections = 16 * 1024
 	mainLimits.BytesPerSec = 16 * 1024
 	mainLimits.Subscriptions = 1024 * 1024
 
+	limits := mainLimits
+
 	name := os.Getenv("POD_NAME")
 	if len(name) == 0 {
 		name = "apodnamefixme"
+	}
+
+	if *nano == true {
+		limits = &iot.TestLimits
+		fmt.Println("nano limits")
 	}
 
 	if *server {
@@ -60,7 +71,7 @@ func main() {
 		// aide1.textAddress = ":7465"
 		// aide1.mqttAddress = ":1883"
 
-		iot.MakeTCPMain(name, &mainLimits, *token)
+		iot.MakeTCPMain(name, limits, *token)
 		for {
 			time.Sleep(1000 * time.Second)
 		}
@@ -70,7 +81,7 @@ func main() {
 		// FIXME: put the stress tests back in here.
 
 	} else {
-		iot.MakeTCPMain(name, &mainLimits, *token)
+		iot.MakeTCPMain(name, limits, *token)
 		for {
 			time.Sleep(1000 * time.Second)
 		}

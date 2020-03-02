@@ -267,10 +267,10 @@ func (ce *ClusterExecutive) GetNextAddress() string {
 
 // ExpansionDesired is
 type ExpansionDesired struct {
-	changeAides int    // +1 for grow, 0 for same, -1 for shrink
-	removeAide  string // the name of the aide to delete
+	ChangeAides int    // +1 for grow, 0 for same, -1 for shrink
+	RemoveAide  string // the name of the aide to delete
 
-	changeGurus int // +1 for grow, 0 for same, -1 for shrink
+	ChangeGurus int // +1 for grow, 0 for same, -1 for shrink
 
 }
 
@@ -306,14 +306,14 @@ func CalcExpansionDesired(aides []*ExecutiveStats, gurus []*ExecutiveStats) Expa
 
 	// if the average is > 90% then grow
 	if max >= 0.9 {
-		result.changeAides = +1
+		result.ChangeAides = +1
 	} else if len(aides) > 1 {
 		// we can only shrink if the result won't just grow again.
 		// with some (10%) margin.
 		tmp := max * float64(len(aides))
 		tmp /= float64(len(aides) - 1)
 		if tmp < 0.80 {
-			result.changeAides = -1
+			result.ChangeAides = -1
 			// we can shrink, which one?
 			index := 0
 			max := 0.0
@@ -330,7 +330,7 @@ func CalcExpansionDesired(aides []*ExecutiveStats, gurus []*ExecutiveStats) Expa
 				// check bps
 			}
 			i := index
-			result.removeAide = aides[i].Name
+			result.RemoveAide = aides[i].Name
 		}
 	}
 
@@ -360,7 +360,7 @@ func CalcExpansionDesired(aides []*ExecutiveStats, gurus []*ExecutiveStats) Expa
 
 	if max >= 0.9 {
 
-		result.changeGurus = +1
+		result.ChangeGurus = +1
 
 	} else if len(gurus) > 1 {
 		// we can only shrink if the result won't just grow again.
@@ -369,7 +369,7 @@ func CalcExpansionDesired(aides []*ExecutiveStats, gurus []*ExecutiveStats) Expa
 		tmp /= float64(len(gurus) - 1)
 		if tmp < 0.80 {
 
-			result.changeGurus = -1
+			result.ChangeGurus = -1
 		}
 	}
 	return result
@@ -392,7 +392,7 @@ func (ce *ClusterExecutive) Operate() {
 	expansion := CalcExpansionDesired(aides, gurus)
 
 	// if the average is > 90% then grow
-	if expansion.changeAides > 0 {
+	if expansion.ChangeAides > 0 {
 		anaide := ce.Aides[0]
 		n := strconv.FormatInt(int64(len(ce.Aides)), 10)
 		aide1 := NewExecutive(100, "aide"+n, anaide.getTime, false)
@@ -405,12 +405,12 @@ func (ce *ClusterExecutive) Operate() {
 		for _, ex := range ce.Aides {
 			ex.Looker.FlushMarkerAndWait()
 		}
-	} else if expansion.changeAides < 0 {
+	} else if expansion.ChangeAides < 0 {
 		if true {
 			// we can shrink, which one?
 			index := 0
 			for i, ex := range aides {
-				if ex.Name == expansion.removeAide {
+				if ex.Name == expansion.RemoveAide {
 					index = i
 				}
 			}
@@ -446,7 +446,7 @@ func (ce *ClusterExecutive) Operate() {
 	}
 
 	// now, same routine for gurus
-	if expansion.changeGurus > 0 {
+	if expansion.ChangeGurus > 0 {
 		sample := ce.Gurus[0]
 		n := strconv.FormatInt(int64(len(ce.Gurus)), 10)
 		newName := "guru" + n
@@ -468,7 +468,7 @@ func (ce *ClusterExecutive) Operate() {
 		for _, ex := range ce.Aides {
 			ex.Looker.FlushMarkerAndWait()
 		}
-	} else if expansion.changeGurus < 0 {
+	} else if expansion.ChangeGurus < 0 {
 		// we can only shrink if the result won't just grow again.
 		// with some (10%) margin.
 		if true {

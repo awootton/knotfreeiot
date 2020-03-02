@@ -108,7 +108,9 @@ func textConnection(tcpConn *net.TCPConn, ex *Executive) {
 		//fmt.Println("got line ", str)
 		if err != nil {
 			//connLogThing.Collect("se err " + err.Error())
-			fmt.Println("packets 1 read err", err)
+			if err.Error() != "EOF" {
+				fmt.Println("packets 2 read err", err)
+			}
 			cc.Close(err)
 			return
 		}

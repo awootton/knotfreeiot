@@ -12,6 +12,7 @@ FROM golang:1.14.0-stretch
 ENV PORT 8384
 ENV PORT 1883
 ENV PORT 7465
+ENV PORT 8080
 
 WORKDIR /knotfreeiot/
 

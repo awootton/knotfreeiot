@@ -4,5 +4,5 @@ metadata:
   name: knotfree-appservice
 spec:
   Ce:
-    gurunames: []
-    nodes: {}
+    Gurunames: []
+    Nodes: {}

@@ -93,6 +93,9 @@ type ReconcileAppService struct {
 	scheme *runtime.Scheme
 }
 
+// LastClusterState is sort of a cache
+var LastClusterState *appv1alpha1.ClusterState
+
 // Reconcile reads that state of the cluster for a AppService object and makes changes based on the state read
 // and what is in the AppService.Spec
 // Note:
@@ -102,13 +105,11 @@ func (r *ReconcileAppService) Reconcile(request reconcile.Request) (reconcile.Re
 
 	fmt.Println("")
 	fmt.Println("")
-	fmt.Println("")
-	fmt.Println("")
-	fmt.Println("")
 	fmt.Println("count", count)
 	count++
 
 	appchanged := false
+	triggerGuruRebalance := false
 
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling AppService")
@@ -147,150 +148,229 @@ func (r *ReconcileAppService) Reconcile(request reconcile.Request) (reconcile.Re
 		instance.Spec.Ce = v1alpha1.NewClusterState()
 		appchanged = true
 	}
+	triggerGuruRebalance = appchanged
 
-	// else instance is the service!
-	fmt.Println("spec names", instance.Spec.Ce.GuruNames)
-	fmt.Println("status names", instance.Status.Ce.GuruNames)
-	fmt.Println("namespace is ", request.Namespace)
-	fmt.Println("spec count", len(instance.Spec.Ce.Nodes))
-	fmt.Println("status count", len(instance.Spec.Ce.Nodes))
+	LastClusterState = instance.Spec.Ce
+
+	fmt.Println("guru names", instance.Spec.Ce.GuruNames)
 
 	namespace := request.Namespace
 
 	items := &corev1.PodList{}
-
-	aides := make(map[string]corev1.Pod, 0)
-	gurus := make(map[string]corev1.Pod, 0)
-	others := make(map[string]corev1.Pod, 0)
-
 	err2 := r.client.List(context.TODO(), items)
-	_ = err2
-	if err2 == nil {
-		for i, pod := range items.Items {
-			pname := pod.GetName()
-
-			if strings.HasPrefix(pname, "aide-") {
-				aides[pname] = pod
-			} else if strings.HasPrefix(pname, "guru-") {
-				gurus[pname] = pod
-			} else {
-				others[pname] = pod
-			}
-
-			_ = i
-		}
-	} else {
+	if err2 != nil {
 		return reconcile.Result{}, err2
 	}
+	aidePods := make(map[string]corev1.Pod, 0)
+	guruPods := make(map[string]corev1.Pod, 0)
+	otherPods := make(map[string]corev1.Pod, 0)
 
-	neededGurus := 1
+	for i, pod := range items.Items {
+		pname := pod.GetName()
 
-	// are there any non-pending guru's that are not on the list?
-	for i, pod := range gurus {
+		if strings.HasPrefix(pname, "aide-") {
+			aidePods[pname] = pod
+		} else if strings.HasPrefix(pname, "guru-") {
+			guruPods[pname] = pod
+		} else {
+			otherPods[pname] = pod
+		}
+		_ = i
+	}
+
+	// are there nodes on the app list that don't exist as pods?
+	for name, spec := range instance.Spec.Ce.Nodes {
+		if strings.HasPrefix(name, "aide-") {
+			_, ok := aidePods[name]
+			if ok == false {
+				delete(instance.Spec.Ce.Nodes, name)
+				appchanged = true
+			}
+		} else if strings.HasPrefix(name, "guru-") {
+			_, ok := guruPods[name]
+			if ok == false {
+				delete(instance.Spec.Ce.Nodes, name)
+				appchanged = true
+				triggerGuruRebalance = true
+				for i, str := range instance.Spec.Ce.GuruNames {
+					if str == name {
+						// remove from GuruNames also which creates a big rebalance.
+						lm1 := len(instance.Spec.Ce.GuruNames) - 1
+						instance.Spec.Ce.GuruNames[i] = instance.Spec.Ce.GuruNames[lm1]
+						instance.Spec.Ce.GuruNames = instance.Spec.Ce.GuruNames[0:lm1]
+						break
+					}
+				}
+			}
+		}
+		_ = spec
+	}
+
+	for _, name := range instance.Spec.Ce.GuruNames {
+		if strings.HasPrefix(name, "aide-") {
+			fmt.Println("HOW did an AIDE get on this list?")
+		} else if strings.HasPrefix(name, "guru-") {
+			_, ok := guruPods[name]
+			if ok == false {
+				delete(instance.Spec.Ce.Nodes, name)
+				appchanged = true
+				triggerGuruRebalance = true
+				for i, str := range instance.Spec.Ce.GuruNames {
+					if str == name {
+						// remove from GuruNames also which creates a big rebalance.
+						lm1 := len(instance.Spec.Ce.GuruNames) - 1
+						instance.Spec.Ce.GuruNames[i] = instance.Spec.Ce.GuruNames[lm1]
+						instance.Spec.Ce.GuruNames = instance.Spec.Ce.GuruNames[0:lm1]
+						break
+					}
+				}
+			}
+		}
+	}
+
+	// are there any non-pending guru's that are not on the app list?
+	// what if it's on the list but it's not feeling well?
+	for i, pod := range guruPods {
 		nodeStats, present := instance.Spec.Ce.Nodes[pod.Name]
 		if present == false {
 			// so it's not on the list.
 			// is it running?
-			ready := pod.Status.ContainerStatuses[0].Ready
+			ready := false
+			if len(pod.Status.ContainerStatuses) != 0 {
+				ready = pod.Status.ContainerStatuses[0].Ready
+			}
 			if ready && len(pod.Status.PodIP) > 0 {
 
-				ns := &v1alpha1.NodeStats{}
-				ns.IsGuru = true
-				ns.Name = pod.Name
-				ns.Stats = new(iot.ExecutiveStats)
-				ns.Stats.TCPAddress = pod.Status.PodIP + ":8384"
-				ns.Stats.HTTPAddress = pod.Status.PodIP + ":8080"
-				ns.Stats.Name = pod.Name
+				stats := new(iot.ExecutiveStats)
+				stats.TCPAddress = pod.Status.PodIP + ":8384"
+				stats.HTTPAddress = pod.Status.PodIP + ":8080"
+				stats.Name = pod.Name
 
-				instance.Spec.Ce.Nodes[pod.Name] = ns
+				instance.Spec.Ce.Nodes[pod.Name] = stats
 
 				instance.Spec.Ce.GuruNames = append(instance.Spec.Ce.GuruNames, pod.Name)
 
 				appchanged = true
+				triggerGuruRebalance = true
+			}
+		} else if len(pod.Status.ContainerStatuses) != 0 {
+			// we found it.
+			// check the address
+			if pod.Status.ContainerStatuses[0].Ready && len(pod.Status.PodIP) > 0 {
+				nodeStats.TCPAddress = pod.Status.PodIP + ":8384"
+				nodeStats.HTTPAddress = pod.Status.PodIP + ":8080"
 			}
 		}
-		_ = nodeStats
 		_ = i
 	}
 
 	// are lets also walk the aides list
-	for i, pod := range aides {
+	for i, pod := range aidePods {
 		nodeStats, present := instance.Spec.Ce.Nodes[pod.Name]
 		if present == false {
 			// so it's not on the list.
 			// is it running?
-			ready := pod.Status.ContainerStatuses[0].Ready
+			ready := false
+			if len(pod.Status.ContainerStatuses) != 0 {
+				ready = pod.Status.ContainerStatuses[0].Ready
+			}
 			if ready && len(pod.Status.PodIP) > 0 {
 
-				ns := &v1alpha1.NodeStats{}
-				ns.IsGuru = false
-				ns.Name = pod.Name
-				ns.Stats = new(iot.ExecutiveStats)
-				ns.Stats.TCPAddress = pod.Status.PodIP + ":8384"
-				ns.Stats.HTTPAddress = pod.Status.PodIP + ":8080"
-				ns.Stats.Name = pod.Name
-				instance.Spec.Ce.Nodes[pod.Name] = ns
+				stats := new(iot.ExecutiveStats)
+				stats.TCPAddress = pod.Status.PodIP + ":8384"
+				stats.HTTPAddress = pod.Status.PodIP + ":8080"
+				stats.Name = pod.Name
+				instance.Spec.Ce.Nodes[pod.Name] = stats
 
 				appchanged = true
 			}
+		} else if len(pod.Status.ContainerStatuses) != 0 {
+			// we found it.
+			// check the address
+			if pod.Status.ContainerStatuses[0].Ready && len(pod.Status.PodIP) > 0 {
+				nodeStats.TCPAddress = pod.Status.PodIP + ":8384"
+				nodeStats.HTTPAddress = pod.Status.PodIP + ":8080"
+			}
 		}
-		_ = nodeStats
 		_ = i
 	}
 
+	// http to all the nodes (aides and gurus) and get their status
 	var wg = sync.WaitGroup{}
-
 	var mux = sync.Mutex{}
 
-	for i, pod := range aides {
+	for i, pod := range aidePods {
 		add := pod.Status.PodIP
 		add = add + ":8080"
 		wg.Add(1)
-		go func() {
+		go func(name, add string) {
 			defer wg.Done()
-			es, err := GetServerStats(pod.Name, add)
+			es, err := GetServerStats(name, add)
+			mux.Lock()
+			defer mux.Unlock()
 			if err != nil {
-				mux.Lock()
-				defer mux.Unlock()
-				delete(instance.Spec.Ce.Nodes, pod.Name)
+				delete(instance.Spec.Ce.Nodes, name)
 			} else {
-				nodeStats, present := instance.Spec.Ce.Nodes[pod.Name]
+				nodeStats, present := instance.Spec.Ce.Nodes[name]
 				if present {
-					if !reflect.DeepEqual(nodeStats.Stats, es) {
-						nodeStats.Stats = es // did they change?
+					es.TCPAddress = nodeStats.TCPAddress
+					es.HTTPAddress = nodeStats.HTTPAddress
+					if !reflect.DeepEqual(nodeStats, es) {
+						instance.Spec.Ce.Nodes[name] = es
 						appchanged = true
 					}
 				}
 			}
-		}()
+		}(pod.Name, add)
 		_ = i
 	}
-	for i, pod := range gurus {
+	for i, pod := range guruPods {
 		add := pod.Status.PodIP
 		add = add + ":8080"
 		wg.Add(1)
-		go func() {
+		go func(name, add string) {
 			defer wg.Done()
-			es, err := GetServerStats(pod.Name, add)
+			es, err := GetServerStats(name, add)
+			mux.Lock()
+			defer mux.Unlock()
 			if err != nil {
-				mux.Lock()
-				defer mux.Unlock()
-				delete(instance.Spec.Ce.Nodes, pod.Name)
+				delete(instance.Spec.Ce.Nodes, name)
 			} else {
-				nodeStats, present := instance.Spec.Ce.Nodes[pod.Name]
+				nodeStats, present := instance.Spec.Ce.Nodes[name]
+				es.TCPAddress = nodeStats.TCPAddress
+				es.HTTPAddress = nodeStats.HTTPAddress
 				if present {
-					if !reflect.DeepEqual(nodeStats.Stats, es) {
-						nodeStats.Stats = es // did they change?
+					if !reflect.DeepEqual(nodeStats, es) {
+						instance.Spec.Ce.Nodes[name] = es
 						appchanged = true
 					}
 				}
 			}
-		}()
+		}(pod.Name, add)
 		_ = i
 	}
 	wg.Wait()
 
-	if len(gurus) < neededGurus {
+	// so now we have all the stats
+	aideList := make([]*iot.ExecutiveStats, 0)
+	guruList := make([]*iot.ExecutiveStats, 0)
+
+	for key, val := range instance.Spec.Ce.Nodes {
+		if strings.HasPrefix(val.Name, "aide-") {
+			aideList = append(aideList, val)
+		} else {
+			guruList = append(guruList, val)
+		}
+		_ = key
+	}
+
+	resize := iot.CalcExpansionDesired(aideList, guruList)
+
+	if resize.ChangeGurus != 0 {
+		triggerGuruRebalance = true
+	}
+
+	if resize.ChangeGurus > 0 || len(guruList) == 0 { //} len(gurus) < neededGurus {
 		// make a new one
 		pod := newPodForCR(instance)
 		// Set AppService instance as the owner and controller
@@ -310,6 +390,24 @@ func (r *ReconcileAppService) Reconcile(request reconcile.Request) (reconcile.Re
 		//fmt.Println("new guru has ip ", address)
 		//instance.Spec.GuruAddresses = append(instance.Spec.GuruAddresses, address+":8384")
 		//appchanged = true
+	} else if resize.ChangeGurus < 0 {
+
+		// delete the last one
+		name := instance.Spec.Ce.GuruNames[len(instance.Spec.Ce.GuruNames)-1]
+		pod, ok := guruPods[name]
+		if ok {
+			err := r.client.Delete(context.TODO(), &pod)
+			if err != nil {
+				fmt.Println("pod delete fail", err)
+				return reconcile.Result{}, err
+			}
+		}
+		mux.Lock()
+
+		instance.Spec.Ce.GuruNames = instance.Spec.Ce.GuruNames[0 : len(instance.Spec.Ce.GuruNames)-1]
+		delete(instance.Spec.Ce.Nodes, name)
+		appchanged = true
+		defer mux.Unlock()
 	}
 
 	items2 := &corev1.NodeList{}
@@ -343,12 +441,22 @@ func (r *ReconcileAppService) Reconcile(request reconcile.Request) (reconcile.Re
 		return reconcile.Result{}, err
 	}
 	name, ok, err := unstructured.NestedString(u.UnstructuredContent(), "metadata", "name")
-	fmt.Println("get got name ", name, ok, err)
+	//fmt.Println("get got name ", name, ok, err)
 
 	repcount, ok, err := unstructured.NestedInt64(u.UnstructuredContent(), "spec", "replicas")
-	fmt.Println("get got repcount ", repcount, ok, err)
+	//fmt.Println("get got repcount ", repcount, ok, err)
+	_ = name
+	_ = ok
 
-	targetRepCount := int64(1)
+	targetRepCount := int64(len(aidePods))
+	if resize.ChangeAides > 0 {
+		targetRepCount++
+	} else if resize.ChangeAides < 0 {
+		targetRepCount--
+	}
+	if targetRepCount <= 0 {
+		targetRepCount = 1
+	}
 
 	if geterr == nil && repcount != targetRepCount {
 		unstructured.SetNestedField(u.UnstructuredContent(), targetRepCount, "spec", "replicas")
@@ -391,43 +499,44 @@ func (r *ReconcileAppService) Reconcile(request reconcile.Request) (reconcile.Re
 			fmt.Println("app update err", err)
 			return reconcile.Result{}, err
 		}
+		if triggerGuruRebalance {
 
-		guruNames := instance.Spec.Ce.GuruNames
-		guruAddresses := make([]string, len(guruNames))
-		for i, n := range guruNames {
-			g, ok := instance.Spec.Ce.Nodes[n]
-			if !ok {
-				fmt.Println("TODO handlefatal problem")
-			} else {
-				guruAddresses[i] = g.Stats.TCPAddress
+			guruNames := instance.Spec.Ce.GuruNames
+			guruAddresses := make([]string, len(guruNames))
+			for i, n := range guruNames {
+				g, ok := instance.Spec.Ce.Nodes[n]
+				if !ok {
+					fmt.Println("TODO handlefatal problem")
+				} else {
+					guruAddresses[i] = g.TCPAddress
+				}
 			}
-		}
 
-		var wg = sync.WaitGroup{}
-		for i, pod := range aides {
-			add := pod.Status.PodIP
-			add = add + ":8080"
-			wg.Add(1)
-			go func() {
-				es := PostUpstreamNames(guruNames, guruAddresses, pod.Name, add)
-				fmt.Println(es)
-				wg.Done()
-			}()
-			_ = i
+			var wg = sync.WaitGroup{}
+			for i, pod := range aidePods {
+				add := pod.Status.PodIP
+				add = add + ":8080"
+				wg.Add(1)
+				go func() {
+					es := PostUpstreamNames(guruNames, guruAddresses, pod.Name, add)
+					fmt.Println(es)
+					wg.Done()
+				}()
+				_ = i
+			}
+			for i, pod := range guruPods {
+				add := pod.Status.PodIP
+				add = add + ":8080"
+				wg.Add(1)
+				go func() {
+					es := PostUpstreamNames(guruNames, guruAddresses, pod.Name, add)
+					fmt.Println(es)
+					wg.Done()
+				}()
+				_ = i
+			}
+			wg.Wait()
 		}
-		for i, pod := range gurus {
-			add := pod.Status.PodIP
-			add = add + ":8080"
-			wg.Add(1)
-			go func() {
-				es := PostUpstreamNames(guruNames, guruAddresses, pod.Name, add)
-				fmt.Println(es)
-				wg.Done()
-			}()
-			_ = i
-		}
-		wg.Wait()
-
 	}
 
 	rr := reconcile.Result{}
@@ -453,7 +562,7 @@ func newPodForCR(cr *appv1alpha1.AppService) *corev1.Pod {
 				{
 					Name:    "guru",
 					Image:   "gcr.io/fair-theater-238820/knotfreeserver",
-					Command: []string{"/go/bin/linux_386/knotfreeiot", "--server"},
+					Command: []string{"/go/bin/linux_386/knotfreeiot", "--server", "--nano"},
 					Ports: []corev1.ContainerPort{
 						{Name: "iot", ContainerPort: 8384},
 						{Name: "http", ContainerPort: 8080},
