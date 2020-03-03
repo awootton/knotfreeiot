@@ -12,8 +12,8 @@ func buildTheKnotFreeMain() {
 }
 
 func buildTheOperator() {
-	kubectl.K("cd ..;docker build -t gcr.io/fair-theater-238820/app-operatorc ./build/Dockerfile")
-	kubectl.K("docker push gcr.io/fair-theater-238820/app-operatorc")
+	kubectl.K("cd ..;operator-sdk build gcr.io/fair-theater-238820/knotoperator")
+	kubectl.K("docker push gcr.io/fair-theater-238820/knotoperator")
 }
 
 // See deploy.sh
@@ -23,22 +23,29 @@ func buildTheOperator() {
 // kubectl config use-context "kind-kind"
 // kk create ns knotspace
 // kubectl config set-context --current --namespace=knotspace
+// or else kubectl points to google
 
 func main() {
 
 	kubectl.K("pwd") // /Users/awootton/Documents/workspace/knotfreeiot/knotoperator/deploy
+	kubectl.K("cd ..;operator-sdk generate k8s")
 
 	var wg sync.WaitGroup
+
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		buildTheKnotFreeMain()
 	}()
 
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		buildTheOperator()
+	}()
+
 	kubectl.K("kubectl create ns knotspace")
 	kubectl.K("kubectl config set-context --current --namespace=knotspace")
-
-	kubectl.K("cd ..;operator-sdk generate k8s")
 
 	kubectl.K("kubectl apply -f service_account.yaml")
 	kubectl.K("kubectl apply -f role.yaml")
@@ -51,7 +58,7 @@ func main() {
 
 	kubectl.K("kubectl apply -f knotfreedeploy.yaml")
 
-	// now build and push the deploy operator.yaml
+	kubectl.K("kubectl apply -f operator.yaml")
 
 	// cd ~/Documents/workspace/kube-prometheus/
 	// # Create the namespace and CRDs, and then wait for them to be availble before creating the remaining resources

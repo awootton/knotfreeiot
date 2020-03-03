@@ -26,14 +26,13 @@ import (
 	"github.com/awootton/knotfreeiot/iot"
 	"github.com/awootton/knotfreeiot/packets"
 	"github.com/awootton/knotfreeiot/tokens"
-	"github.com/gbrlsnchs/jwt/v3"
 )
 
 var globalClusterExec *iot.ClusterExecutive
 
 func TestGrowGurus(t *testing.T) {
 
-	tokens.SavePublicKey("1iVt", string(tokens.GetSamplePublic()))
+	tokens.LoadPublicKeys()
 
 	got := ""
 	want := ""
@@ -140,7 +139,7 @@ func TestGrowGurus(t *testing.T) {
 // test auto scale in the minions and also reconnect when a minion is lost.
 func TestExec(t *testing.T) {
 
-	tokens.SavePublicKey("1iVt", string(tokens.GetSamplePublic()))
+	tokens.LoadPublicKeys()
 
 	got := ""
 	want := ""
@@ -310,40 +309,4 @@ func TestExec(t *testing.T) {
 		t.Errorf("got %v, want %v", got, want)
 	}
 
-}
-
-// 123480 ns/op	    1248 B/op	      22 allocs/op  	~8000/sec
-func BenchmarkCheckToken(b *testing.B) {
-	ticket := []byte("eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiSldUIn0.eyJleHAiOjE2MDk0NjI4MDAsImlzcyI6IjFpVnQiLCJqdGkiOiIxMjM0NTYiLCJpbiI6NzAwMDAsIm91dCI6NzAwMDAsInN1IjoyLCJjbyI6Mn0.N22xJiYz_FMQu_nG_cxlQk7gnvbeO9zOiuzbkZYWpxSzAPtQ_WyCVwWYBPZtA-0Oj-AggWakTNsmGoe8JIzaAg")
-	publicKey := tokens.GetSamplePublic()
-	// run the verify function b.N times
-	for n := 0; n < b.N; n++ {
-
-		p, ok := tokens.VerifyTicket(ticket, publicKey)
-		_ = p
-		_ = ok
-
-	}
-}
-
-// this is not especially quick
-// 122662 ns/op	    1088 B/op	      19 allocs/op 	~8000/sec
-func BenchmarkCheckToken2(b *testing.B) {
-	ticket := []byte("eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiSldUIn0.eyJleHAiOjE2MDk0NjI4MDAsImlzcyI6IjFpVnQiLCJqdGkiOiIxMjM0NTYiLCJpbiI6NzAwMDAsIm91dCI6NzAwMDAsInN1IjoyLCJjbyI6Mn0.N22xJiYz_FMQu_nG_cxlQk7gnvbeO9zOiuzbkZYWpxSzAPtQ_WyCVwWYBPZtA-0Oj-AggWakTNsmGoe8JIzaAg")
-	publicKey := tokens.GetSamplePublic()
-	payload := tokens.KnotFreePayload{}
-	algo := jwt.NewEd25519(jwt.Ed25519PublicKey(publicKey))
-
-	// run the verify function b.N times
-	for n := 0; n < b.N; n++ {
-
-		hd, err := jwt.Verify([]byte(ticket), algo, &payload)
-		_ = hd
-		_ = err
-		if payload.Connections != 2 {
-			fmt.Println("wrong")
-		}
-		payload.Connections = -1
-
-	}
 }

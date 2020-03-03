@@ -28,7 +28,7 @@ import (
 // Hint: add "127.0.0.1 knotfreeserver" to /etc/hosts
 func main() {
 
-	tokens.SavePublicKey("1iVt", string(tokens.GetSamplePublic()))
+	tokens.LoadPublicKeys()
 
 	fmt.Println("Hello knotfreeserver")
 
@@ -48,9 +48,9 @@ func main() {
 	}
 
 	var mainLimits = &iot.ExecutiveLimits{}
-	mainLimits.Connections = 16 * 1024
-	mainLimits.BytesPerSec = 16 * 1024
-	mainLimits.Subscriptions = 1024 * 1024
+	mainLimits.Connections = 10 * 1000
+	mainLimits.BytesPerSec = 10 * 1000
+	mainLimits.Subscriptions = 1000 * 1000
 
 	limits := mainLimits
 

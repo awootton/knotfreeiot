@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/awootton/knotfreeiot/tokens"
 )
@@ -23,7 +24,7 @@ func startSockets(n int) {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			servAddr := "localhost:7465"
+			servAddr := "34.66.147.208:7465"
 			tcpAddr, err := net.ResolveTCPAddr("tcp", servAddr)
 			if err != nil {
 				println("ResolveTCPAddr failed:", err.Error())
@@ -37,32 +38,47 @@ func startSockets(n int) {
 				return //os.Exit(1)
 			}
 
-			str := "C " + tokens.SampleSmallToken
-			_, err = conn.Write([]byte(str))
-			if err != nil {
-				println("Write to server failed:", err.Error())
-				os.Exit(1)
-			}
-			var b [1]byte
-			_, _ = rand.Read(b[:])
-
-			for i := 0; i < 10; i++ {
-				str = "S test_topic_" + strconv.FormatInt(int64(127&b[0]), 10)
-				_, err = conn.Write([]byte(str))
+			go func() {
+				str := "C token " + tokens.SampleSmallToken
+				_, err = conn.Write([]byte(str + "\n"))
 				if err != nil {
 					println("Write to server failed:", err.Error())
-					os.Exit(1)
+					return //os.Exit(1)
 				}
-			}
+				for i := 0; i < 10; i++ {
+					var b [1]byte
+					_, _ = rand.Read(b[:])
+					topic := "test_topic_" + strconv.FormatInt(int64(15&b[0]), 10)
+					str = "S " + topic
+					_, err = conn.Write([]byte(str + "\n"))
+					if err != nil {
+						println("Write to server failed:", err.Error())
+						return // os.Exit(1)
+					}
+				}
+				for {
+					var b [1]byte
+					_, _ = rand.Read(b[:])
+					topic := "test_topic_" + strconv.FormatInt(int64(15&b[0]), 10)
+					str = "P " + topic + " ,,,, hello_from_here"
+					_, err = conn.Write([]byte(str + "\n"))
+					if err != nil {
+						println("Write to server failed:", err.Error())
+						return // os.Exit(1)
+					}
+					time.Sleep(60 * time.Second)
+				}
 
+			}()
+			lineReader := bufio.NewReader(conn)
 			for {
-				lineReader := bufio.NewReader(conn)
 				str, err := lineReader.ReadString('\n')
 				if err != nil {
+					println("client err:", err.Error())
 					goto top
 					//return
 				}
-				println("client got:", str, err.Error())
+				println("client got:", str)
 			}
 		}(i)
 	}
@@ -72,7 +88,7 @@ func startSockets(n int) {
 func TestGrowGurus(t *testing.T) {
 
 	if os.Getenv("KUBE_EDITOR") == "atom --wait" {
-		startSockets(25)
+		startSockets(100)
 
 		wg.Wait()
 	}

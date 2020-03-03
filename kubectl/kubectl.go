@@ -27,7 +27,8 @@ import (
 	"time"
 )
 
-var quiet = false
+// Quiet for when we don't like the echo
+var Quiet = false
 
 // For doing kubernetes cluster namespace configuration using the
 // command line technique. There is also a better technique using go-client.
@@ -37,7 +38,7 @@ var quiet = false
 // Returns what the command outputs and not before it's done.
 // and that's annoying because I kinda like watching Docker build.
 func K8s(command string, input string) (string, error) {
-	if !quiet {
+	if !Quiet {
 		fmt.Println(">" + command)
 	}
 	cmd := exec.Command("bash", "-c", command)
@@ -65,14 +66,14 @@ func K8s(command string, input string) (string, error) {
 
 // K - a shorter version of K8s
 func K(command string) {
-	if !quiet {
+	if !Quiet {
 		fmt.Println(">" + command)
 	}
 	out, err := K8s(command, "")
 	if err != nil {
 		fmt.Println(">ERROR:", err, out)
 	}
-	if !quiet {
+	if !Quiet {
 		fmt.Println("", out)
 	}
 }
@@ -85,9 +86,9 @@ func GetThePodNames(deploymentName string) map[string]bool {
 	thepodnames := make(map[string]bool)
 	count := 1
 	for { // wait for them to come up
-		quiet = true
+		Quiet = true
 		pods, err := K8s("kubectl get po | grep "+deploymentName, "")
-		quiet = false
+		Quiet = false
 		if err != nil {
 			fmt.Println("kubectl get po err ", err)
 			time.Sleep(2000 * time.Millisecond)

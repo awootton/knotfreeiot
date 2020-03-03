@@ -5,7 +5,6 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"os"
 	"reflect"
 	"strings"
@@ -15,6 +14,7 @@ import (
 	"github.com/awootton/knotfreeiot/knotoperator/pkg/apis/app/v1alpha1"
 	appv1alpha1 "github.com/awootton/knotfreeiot/knotoperator/pkg/apis/app/v1alpha1"
 	"github.com/awootton/knotfreeiot/kubectl"
+	"github.com/go-logr/logr"
 	"gomodules.xyz/jsonpatch/v2"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -35,7 +35,7 @@ import (
 	"github.com/awootton/knotfreeiot/iot"
 )
 
-var log = logf.Log.WithName("controller_appservice")
+var log = logf.Log.WithName("controller_appservice_knotfree")
 
 /**
 * atw ha ha lUSER ACTION REQUIRED: This is a scaffold file intended for the user to modify with their own Controller
@@ -96,23 +96,38 @@ type ReconcileAppService struct {
 // LastClusterState is sort of a cache
 var LastClusterState *appv1alpha1.ClusterState
 
+var reconcileLogger logr.Logger = log
+
+// PrintMe is needing work
+func PrintMe(msg string, args ...interface{}) {
+	if reconcileLogger != nil {
+		if len(args)&1 == 0 {
+			reconcileLogger.Info(msg, "dummy", args)
+		} else {
+			reconcileLogger.Info(msg, args)
+		}
+	}
+}
+
 // Reconcile reads that state of the cluster for a AppService object and makes changes based on the state read
 // and what is in the AppService.Spec
-// Note:
+// Note: fixme too long
 // The Controller will requeue the Request to be processed again if the returned error is non-nil or
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
 func (r *ReconcileAppService) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 
-	fmt.Println("")
-	fmt.Println("")
-	fmt.Println("count", count)
+	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
+	reconcileLogger = reqLogger
+	reqLogger.Info("Reconciling AppService")
+
+	PrintMe("count", "n", count) // atw fixme: this is a stat, not a log
 	count++
 
-	appchanged := false
+	_appchanged := false
+	appchanged := func() {
+		_appchanged = true
+	}
 	triggerGuruRebalance := false
-
-	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
-	reqLogger.Info("Reconciling AppService")
 
 	// Fetch the AppService instance
 	instance := &appv1alpha1.AppService{}
@@ -122,13 +137,13 @@ func (r *ReconcileAppService) Reconcile(request reconcile.Request) (reconcile.Re
 			// Request object not found, could have been deleted after reconcile request.
 			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
 			// Return and don't requeue
-			fmt.Println("AppService NOT FOUND")
+			PrintMe("AppService NOT FOUND") // atw fixme: this is a error, not a log
 			rr := reconcile.Result{}
 			rr.RequeueAfter = 10 * time.Second
 			return rr, nil
 		}
 		// Error reading the object - requeue the request.
-		fmt.Println("AppService FAIL", err)
+		PrintMe("AppService FAIL", "err", err)
 		return reconcile.Result{}, err
 	}
 	virginInstance := instance
@@ -136,25 +151,24 @@ func (r *ReconcileAppService) Reconcile(request reconcile.Request) (reconcile.Re
 
 	if instance.Status.Ce == nil {
 		instance.Status.Ce = v1alpha1.NewClusterState()
-		//appchanged = true
+		//appchanged()
 	} else if len(instance.Status.Ce.GuruNames) == 0 {
 		instance.Status.Ce = v1alpha1.NewClusterState()
-		appchanged = true
+		appchanged()
 	}
 	if instance.Spec.Ce == nil {
 		instance.Spec.Ce = v1alpha1.NewClusterState()
-		appchanged = true
+		appchanged()
 	} else if len(instance.Spec.Ce.GuruNames) == 0 {
 		instance.Spec.Ce = v1alpha1.NewClusterState()
-		appchanged = true
+		appchanged()
 	}
-	triggerGuruRebalance = appchanged
+	triggerGuruRebalance = _appchanged
 
 	LastClusterState = instance.Spec.Ce
 
-	fmt.Println("guru names", instance.Spec.Ce.GuruNames)
-
-	namespace := request.Namespace
+	//PrintMe("guru ", "names", instance.Spec.Ce.GuruNames)
+	//namespace := request.Namespace
 
 	items := &corev1.PodList{}
 	err2 := r.client.List(context.TODO(), items)
@@ -178,19 +192,19 @@ func (r *ReconcileAppService) Reconcile(request reconcile.Request) (reconcile.Re
 		_ = i
 	}
 
-	// are there nodes on the app list that don't exist as pods?
+	// are there nodes on the AppService list that don't exist as pods?
 	for name, spec := range instance.Spec.Ce.Nodes {
 		if strings.HasPrefix(name, "aide-") {
 			_, ok := aidePods[name]
 			if ok == false {
 				delete(instance.Spec.Ce.Nodes, name)
-				appchanged = true
+				appchanged()
 			}
 		} else if strings.HasPrefix(name, "guru-") {
 			_, ok := guruPods[name]
 			if ok == false {
 				delete(instance.Spec.Ce.Nodes, name)
-				appchanged = true
+				appchanged()
 				triggerGuruRebalance = true
 				for i, str := range instance.Spec.Ce.GuruNames {
 					if str == name {
@@ -206,14 +220,15 @@ func (r *ReconcileAppService) Reconcile(request reconcile.Request) (reconcile.Re
 		_ = spec
 	}
 
+	// clean up guru names on the AppService list
 	for _, name := range instance.Spec.Ce.GuruNames {
 		if strings.HasPrefix(name, "aide-") {
-			fmt.Println("HOW did an AIDE get on this list?")
+			PrintMe("HOW did an AIDE get on this list?")
 		} else if strings.HasPrefix(name, "guru-") {
 			_, ok := guruPods[name]
 			if ok == false {
 				delete(instance.Spec.Ce.Nodes, name)
-				appchanged = true
+				appchanged()
 				triggerGuruRebalance = true
 				for i, str := range instance.Spec.Ce.GuruNames {
 					if str == name {
@@ -228,7 +243,7 @@ func (r *ReconcileAppService) Reconcile(request reconcile.Request) (reconcile.Re
 		}
 	}
 
-	// are there any non-pending guru's that are not on the app list?
+	// are there any non-pending guru's that are not on the AppService list?
 	// what if it's on the list but it's not feeling well?
 	for i, pod := range guruPods {
 		nodeStats, present := instance.Spec.Ce.Nodes[pod.Name]
@@ -250,7 +265,7 @@ func (r *ReconcileAppService) Reconcile(request reconcile.Request) (reconcile.Re
 
 				instance.Spec.Ce.GuruNames = append(instance.Spec.Ce.GuruNames, pod.Name)
 
-				appchanged = true
+				appchanged()
 				triggerGuruRebalance = true
 			}
 		} else if len(pod.Status.ContainerStatuses) != 0 {
@@ -282,7 +297,8 @@ func (r *ReconcileAppService) Reconcile(request reconcile.Request) (reconcile.Re
 				stats.Name = pod.Name
 				instance.Spec.Ce.Nodes[pod.Name] = stats
 
-				appchanged = true
+				appchanged()
+				triggerGuruRebalance = true // FIXME: We really only need to send the gurunames to this pod not everyone.
 			}
 		} else if len(pod.Status.ContainerStatuses) != 0 {
 			// we found it.
@@ -317,7 +333,7 @@ func (r *ReconcileAppService) Reconcile(request reconcile.Request) (reconcile.Re
 					es.HTTPAddress = nodeStats.HTTPAddress
 					if !reflect.DeepEqual(nodeStats, es) {
 						instance.Spec.Ce.Nodes[name] = es
-						appchanged = true
+						//appchanged()
 					}
 				}
 			}
@@ -342,7 +358,7 @@ func (r *ReconcileAppService) Reconcile(request reconcile.Request) (reconcile.Re
 				if present {
 					if !reflect.DeepEqual(nodeStats, es) {
 						instance.Spec.Ce.Nodes[name] = es
-						appchanged = true
+						//appchanged()
 					}
 				}
 			}
@@ -375,21 +391,21 @@ func (r *ReconcileAppService) Reconcile(request reconcile.Request) (reconcile.Re
 		pod := newPodForCR(instance)
 		// Set AppService instance as the owner and controller
 		if err := controllerutil.SetControllerReference(instance, pod, r.scheme); err != nil {
-			fmt.Println("SetControllerReference ", err)
+			PrintMe("SetControllerReference ", "err", err)
 			return reconcile.Result{}, err
 		}
 		reqLogger.Info("Creating a new Pod", "Pod.Namespace", pod.Namespace, "Pod.Name", pod.Name)
 		err = r.client.Create(context.TODO(), pod)
 		if err != nil {
-			fmt.Println("pod create fail", err)
+			PrintMe("pod create fail", "err", err)
 			return reconcile.Result{}, err
 		}
 		// don't modify the app yet.
 		//instance.Spec.GuruNames = append(instance.Spec.GuruNames, pod.Name)
 		//address := pod.Status.PodIP
-		//fmt.Println("new guru has ip ", address)
+		//PrintMe("new guru has ip ", address)
 		//instance.Spec.GuruAddresses = append(instance.Spec.GuruAddresses, address+":8384")
-		//appchanged = true
+		//appchanged()
 	} else if resize.ChangeGurus < 0 {
 
 		// delete the last one
@@ -398,7 +414,7 @@ func (r *ReconcileAppService) Reconcile(request reconcile.Request) (reconcile.Re
 		if ok {
 			err := r.client.Delete(context.TODO(), &pod)
 			if err != nil {
-				fmt.Println("pod delete fail", err)
+				PrintMe("pod delete fail", "err", err)
 				return reconcile.Result{}, err
 			}
 		}
@@ -406,24 +422,22 @@ func (r *ReconcileAppService) Reconcile(request reconcile.Request) (reconcile.Re
 
 		instance.Spec.Ce.GuruNames = instance.Spec.Ce.GuruNames[0 : len(instance.Spec.Ce.GuruNames)-1]
 		delete(instance.Spec.Ce.Nodes, name)
-		appchanged = true
+		appchanged()
 		defer mux.Unlock()
 	}
 
-	items2 := &corev1.NodeList{}
-
-	err3 := r.client.List(context.TODO(), items2)
-	if err3 == nil {
-		for i, node := range items2.Items {
-			nname := node.GetName()
-			fmt.Println("node/", nname)
-			_ = i
-		}
-	}
+	// items2 := &corev1.NodeList{} // forbidden on google gce
+	// err3 := r.client.List(context.TODO(), items2)
+	// if err3 == nil {
+	// 	for i, node := range items2.Items {
+	// 		nname := node.GetName()
+	// 		PrintMe("node/", "name", nname)
+	// 		_ = i
+	// 	}
+	// }
 
 	// can  we get the replicas of the deployment?
 	// List Deployments
-	fmt.Printf("Listing deployments in namespace %q:\n", namespace)
 	// Using a unstructured object.
 	u := &unstructured.Unstructured{}
 	u.SetGroupVersionKind(schema.GroupVersionKind{
@@ -437,14 +451,14 @@ func (r *ReconcileAppService) Reconcile(request reconcile.Request) (reconcile.Re
 	}
 	geterr := r.client.Get(context.TODO(), ckey, u)
 	if geterr != nil {
-		fmt.Println("depl list get err", geterr)
+		PrintMe("depl list get err", "err", geterr)
 		return reconcile.Result{}, err
 	}
 	name, ok, err := unstructured.NestedString(u.UnstructuredContent(), "metadata", "name")
-	//fmt.Println("get got name ", name, ok, err)
+	//PrintMe("get got name ", name, ok, err)
 
 	repcount, ok, err := unstructured.NestedInt64(u.UnstructuredContent(), "spec", "replicas")
-	//fmt.Println("get got repcount ", repcount, ok, err)
+	//PrintMe("get got repcount ", repcount, ok, err)
 	_ = name
 	_ = ok
 
@@ -462,41 +476,39 @@ func (r *ReconcileAppService) Reconcile(request reconcile.Request) (reconcile.Re
 		unstructured.SetNestedField(u.UnstructuredContent(), targetRepCount, "spec", "replicas")
 		err = r.client.Update(context.TODO(), u)
 		if err != nil {
-			fmt.Println("update err", err)
+			PrintMe("update err", "err", err)
 			return reconcile.Result{}, err
 		}
 	}
 
-	if appchanged {
-		fmt.Println("UPDATING app")
-		fmt.Println("UPDATING app")
-		fmt.Println("UPDATING app")
+	if _appchanged {
+		PrintMe("UPDATING app")
 
 		podJSON, err := json.Marshal(virginInstance)
 		if err != nil {
-			fmt.Println("sss", err)
+			PrintMe("sss", "err", err)
 			return reconcile.Result{}, err
 		}
 		newPodJSON, err := json.Marshal(instance)
 		if err != nil {
-			fmt.Println("ttt", err)
+			PrintMe("ttt", "err", err)
 			return reconcile.Result{}, err
 		}
 		patch, err := jsonpatch.CreatePatch(podJSON, newPodJSON)
 		if err != nil {
-			fmt.Println("ttsst", err)
+			PrintMe("ttsst", "err", err)
 			return reconcile.Result{}, err
 		}
 		_ = patch
 		payloadBytes, _ := json.Marshal(patch)
-		//fmt.Println("the patch", string(payloadBytes))
+		//PrintMe("the patch", string(payloadBytes))
 
 		jpatch := client.ConstantPatch(types.JSONPatchType, payloadBytes)
 		_ = jpatch
 		//err = r.client.Patch(context.TODO(), instance, jpatch)
 		err = r.client.Update(context.TODO(), instance)
 		if err != nil {
-			fmt.Println("app update err", err)
+			PrintMe("app update err", "err", err)
 			return reconcile.Result{}, err
 		}
 		if triggerGuruRebalance {
@@ -506,10 +518,10 @@ func (r *ReconcileAppService) Reconcile(request reconcile.Request) (reconcile.Re
 			for i, n := range guruNames {
 				g, ok := instance.Spec.Ce.Nodes[n]
 				if !ok {
-					fmt.Println("TODO handlefatal problem")
-				} else {
-					guruAddresses[i] = g.TCPAddress
+					PrintMe("TODO handlefatal problem")
+					return reconcile.Result{}, err
 				}
+				guruAddresses[i] = g.TCPAddress
 			}
 
 			var wg = sync.WaitGroup{}
@@ -518,8 +530,8 @@ func (r *ReconcileAppService) Reconcile(request reconcile.Request) (reconcile.Re
 				add = add + ":8080"
 				wg.Add(1)
 				go func() {
-					es := PostUpstreamNames(guruNames, guruAddresses, pod.Name, add)
-					fmt.Println(es)
+					err := PostUpstreamNames(guruNames, guruAddresses, pod.Name, add)
+					_ = err
 					wg.Done()
 				}()
 				_ = i
@@ -529,8 +541,8 @@ func (r *ReconcileAppService) Reconcile(request reconcile.Request) (reconcile.Re
 				add = add + ":8080"
 				wg.Add(1)
 				go func() {
-					es := PostUpstreamNames(guruNames, guruAddresses, pod.Name, add)
-					fmt.Println(es)
+					err := PostUpstreamNames(guruNames, guruAddresses, pod.Name, add)
+					_ = err
 					wg.Done()
 				}()
 				_ = i
@@ -562,7 +574,7 @@ func newPodForCR(cr *appv1alpha1.AppService) *corev1.Pod {
 				{
 					Name:    "guru",
 					Image:   "gcr.io/fair-theater-238820/knotfreeserver",
-					Command: []string{"/go/bin/linux_386/knotfreeiot", "--server", "--nano"},
+					Command: []string{"/go/bin/linux_386/knotfreeiot", "--server"},
 					Ports: []corev1.ContainerPort{
 						{Name: "iot", ContainerPort: 8384},
 						{Name: "http", ContainerPort: 8080},
@@ -590,7 +602,7 @@ func GetServerStats(name string, address string) (*iot.ExecutiveStats, error) {
 	if os.Getenv("KUBE_EDITOR") == "atom --wait" {
 		// running over kubectl when developing locally
 		cmd := `kubectl exec ` + name + ` -- curl -s localhost:8080/api1/getstats`
-		//fmt.Println(cmd)
+		kubectl.Quiet = true
 		str, err := kubectl.K8s(cmd, "")
 		if err != nil {
 			return es, err
@@ -618,7 +630,7 @@ func PostUpstreamNames(guruList []string, addressList []string, name string, add
 
 		jbytes, err := json.Marshal(arg)
 		if err != nil {
-			fmt.Println("unreachable ?? bb")
+			PrintMe("unreachable ?? bb")
 			return err
 		}
 

@@ -41,7 +41,7 @@ type ContactStruct struct {
 	// but then how do we unsubscribe when the tcp conn fails? (don't, timeout)
 	//topicToName map[HalfHash][]byte // a tree would be better?
 
-	token *tokens.KnotFreePayload
+	token *tokens.KnotFreeTokenPayload
 }
 
 // ContactInterface is usually supplied by a tcp connection
@@ -50,8 +50,8 @@ type ContactInterface interface {
 
 	GetKey() HalfHash
 
-	GetToken() *tokens.KnotFreePayload
-	SetToken(*tokens.KnotFreePayload)
+	GetToken() *tokens.KnotFreeTokenPayload
+	SetToken(*tokens.KnotFreeTokenPayload)
 
 	GetConfig() *ContactStructConfig
 
@@ -76,12 +76,12 @@ func (ss *ContactStruct) String() string {
 }
 
 // GetToken return the verified and decoded payload or else nil
-func (ss *ContactStruct) GetToken() *tokens.KnotFreePayload {
+func (ss *ContactStruct) GetToken() *tokens.KnotFreeTokenPayload {
 	return ss.token
 }
 
 // SetToken return the verified and decoded payload or else nil
-func (ss *ContactStruct) SetToken(t *tokens.KnotFreePayload) {
+func (ss *ContactStruct) SetToken(t *tokens.KnotFreeTokenPayload) {
 	ss.token = t
 }
 
@@ -209,7 +209,7 @@ func Push(ssi ContactInterface, p packets.Interface) error {
 			ssi.Close(err)
 			return err
 		}
-		foundPayload, ok := tokens.VerifyTicket(b64Token, []byte(publicKeyBytes))
+		foundPayload, ok := tokens.VerifyToken(b64Token, []byte(publicKeyBytes))
 		if !ok {
 			err := errors.New("not verified")
 			dis := packets.Disconnect{}

@@ -133,8 +133,10 @@ func testNameResolver(name string, config *iot.ContactStructConfig) (iot.Contact
 
 		connect := packets.Connect{}
 		connect.SetOption("token", []byte(tokens.SampleSmallToken))
-		iot.Push(&newLowerContact, &connect)
-
+		err := iot.Push(&newLowerContact, &connect)
+		if err != nil {
+			return &contactTop1, err
+		}
 		// wire them up
 		contactTop1.guruBottomContact = &newLowerContact
 		go func() {
@@ -144,6 +146,7 @@ func testNameResolver(name string, config *iot.ContactStructConfig) (iot.Contact
 			}
 		}()
 		return &contactTop1, nil
+
 	} else {
 		return &testUpperContact{}, errors.New("unknown name " + name)
 	}

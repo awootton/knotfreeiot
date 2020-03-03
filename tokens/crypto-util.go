@@ -13,22 +13,22 @@ import (
 	"github.com/gbrlsnchs/jwt/v3"
 )
 
-// KnotFreePayload is our MQTT password.
-type KnotFreePayload struct {
+// KnotFreeTokenPayload is our MQTT password.
+type KnotFreeTokenPayload struct {
 	ExpirationTime uint32 `json:"exp"` // unix seconds
 	Issuer         string `json:"iss"` // first 4 bytes (or more) of base64 public key of issuer
 	JWTID          string `json:"jti"` // a unique serial number for this Issuer
 
-	Input         float32 `json:"in"`  // bytes per hour
-	Output        float32 `json:"out"` // bytes per hour
-	Subscriptions float32 `json:"su"`  // hours per hour
-	Connections   float32 `json:"co"`  // hours per hour
+	Input         float32 `json:"in"`  // bytes per sec
+	Output        float32 `json:"out"` // bytes per sec
+	Subscriptions float32 `json:"su"`  // hours per sec
+	Connections   float32 `json:"co"`  // hours per sec
 
 	URL string `json:"url"` // address of the service eg. "knotfree.net"
 }
 
-// MakeTicket is
-func MakeTicket(data *KnotFreePayload, privateKey []byte) ([]byte, error) {
+// MakeToken is
+func MakeToken(data *KnotFreeTokenPayload, privateKey []byte) ([]byte, error) {
 
 	algo := jwt.NewEd25519(jwt.Ed25519PrivateKey(privateKey))
 	token, err := jwt.Sign(data, algo)
@@ -38,15 +38,15 @@ func MakeTicket(data *KnotFreePayload, privateKey []byte) ([]byte, error) {
 	return token, nil
 }
 
-// VerifyTicket is
-func VerifyTicket(ticket []byte, publicKey []byte) (*KnotFreePayload, bool) {
+// VerifyToken is
+func VerifyToken(ticket []byte, publicKey []byte) (*KnotFreeTokenPayload, bool) {
 
-	payload := KnotFreePayload{}
+	payload := KnotFreeTokenPayload{}
 
 	algo := jwt.NewEd25519(jwt.Ed25519PublicKey(publicKey))
 	hd, err := jwt.Verify([]byte(ticket), algo, &payload)
 	if err != nil {
-		return &KnotFreePayload{}, false
+		return &KnotFreeTokenPayload{}, false
 	}
 	_ = hd
 	// TODO: compare all the fields with limits.
@@ -55,9 +55,9 @@ func VerifyTicket(ticket []byte, publicKey []byte) (*KnotFreePayload, bool) {
 }
 
 // GetKnotFreePayload returns the payload THAT IS NOT VERIFIED YET.
-func GetKnotFreePayload(token string) (*KnotFreePayload, string, error) {
+func GetKnotFreePayload(token string) (*KnotFreeTokenPayload, string, error) {
 
-	payload := new(KnotFreePayload)
+	payload := new(KnotFreeTokenPayload)
 	parts := strings.Split(token, ".")
 	if len(parts) != 3 {
 		return payload, "", errors.New("expected 3 parts")
@@ -84,6 +84,9 @@ var allThePublicKeysInUniverseMux sync.Mutex
 // publicKey is actually an immutable array of bytes and not utf8. Is that going to be a problem?
 func SavePublicKey(key string, publicKey string) {
 
+	if key == "1iVt" { // TODO: better black list
+		return
+	}
 	if FindPublicKey(key) == publicKey {
 		return
 	}
@@ -109,6 +112,10 @@ func SavePublicKey(key string, publicKey string) {
 
 // FindPublicKey is
 func FindPublicKey(thekey string) string {
+
+	if thekey == "1iVt" { // TODO: better black list
+		return ""
+	}
 
 	var prefixArr [43]byte
 	n, err := decodeKey(thekey, prefixArr[:])
@@ -138,8 +145,8 @@ func decodeKey(key string, destination []byte) (int, error) {
 	return n, err
 }
 
-// SampleSmallToken is a small token signed by "1iVt" (below)
-var SampleSmallToken = "eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiSldUIn0.eyJleHAiOjE2MDk0NjI4MDAsImlzcyI6IjFpVnQiLCJqdGkiOiIxMjM0NTYiLCJpbiI6NzAwMDAsIm91dCI6NzAwMDAsInN1IjoyLCJjbyI6MiwidXJsIjoia25vdGZyZWUubmV0In0.T7SrbbXq7V7otfX0eo9eFabWguxwuPsG4Zn9XArGwMc2Q4ifMBm9aSOgvBIBn1Q0Or7pvIsA8u_UL9FnOW-aDg"
+// SampleSmallToken is a small token signed by "/9sh" (below)
+var SampleSmallToken = "eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiSldUIn0.eyJleHAiOjE2MDk0NjI4MDAsImlzcyI6Ii85c2giLCJqdGkiOiIxMjM0NTYiLCJpbiI6MjAsIm91dCI6MjAsInN1IjoyLCJjbyI6MiwidXJsIjoia25vdGZyZWUubmV0In0.YmKO8U_jKYyZsJo4m4lj0wjP8NJhciY4y3QXt_xlxvnHYznfWI455JJnnPh4HZluGaUcvrNdKAENGh4CfG4tBg"
 
 // ZeroReader is too public
 type ZeroReader struct{}
@@ -230,44 +237,91 @@ func parseString(in []byte) (out, rest []byte, ok bool) {
 	return
 }
 
-var samplePublic = "1iVt3d1E9TaxD/N0rC8c70pD5GryNlu49JC+iWD6UJc"
-var samplePrivate = "u36xbHik/s/5uG6RCPT6MfAYHKJzk/nCZPHzZYZi2czWJW3d3UT1NrEP83SsLxzvSkPkavI2W7j0kL6JYPpQlw"
+// LoadPublicKeys adds the public keys below
+func LoadPublicKeys() {
 
-// GetSamplePublic is
-func GetSamplePublic() []byte {
-	bytes, _ := base64.RawStdEncoding.DecodeString(samplePublic)
-	return bytes
+	if len(allThePublicKeysInUniverse) > 0 {
+		return // just do this once
+	}
+
+	tmp := strings.Trim(publicKeys, " \n")
+	parts := strings.Split(tmp, "\n")
+
+	for _, s := range parts {
+		s = strings.Trim(s, " \n")
+		if len(s) != 43 {
+			fmt.Println("fatal", len(s))
+		}
+		front := s[0:4]
+		bytes, _ := base64.RawStdEncoding.DecodeString(s)
+		SavePublicKey(front, string(bytes))
+	}
+
 }
 
-// GetSamplePrivate is
-func GetSamplePrivate() []byte {
-	bytes, _ := base64.RawStdEncoding.DecodeString(samplePrivate)
-	return bytes
-}
-
-// GetSampleTokenPayload is used for testing.
-func GetSampleTokenPayload(startTime uint32) *KnotFreePayload {
-	p := &KnotFreePayload{}
-	p.Issuer = "1iVt" // first 4 from public
-	p.ExpirationTime = startTime + 60*60*24*(365+1)
-	p.JWTID = "123456"
-	p.Input = 7e4
-	p.Output = 7e4
-	p.Subscriptions = 2
-	p.Connections = 2
-	p.URL = "knotfree.net"
-	return p
-}
-
-// GetSampleBigToken is used for testing.
-func GetSampleBigToken(startTime uint32) *KnotFreePayload {
-	p := &KnotFreePayload{}
-	p.Issuer = "1iVt" // first 4 from public
-	p.ExpirationTime = startTime + 60*60*24*(365+1)
-	p.JWTID = "123457"
-	p.Input = 1e6
-	p.Output = 1e6
-	p.Subscriptions = 200
-	p.Connections = 200
-	return p
-}
+var publicKeys string = `
+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
+`

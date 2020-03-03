@@ -1,24 +1,23 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: app-operator
+  name: knotoperator
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
-      name: app-operator
+      name: knotoperator
   template:
     metadata:
       labels:
-        name: app-operator
+        name: knotoperator
     spec:
-      serviceAccountName: app-operator
+      serviceAccountName: knotoperator
       containers:
-        - name: app-operator
-          # Replaced this is the built image name
-          image: gcr.io/fair-theater-238820/app-operatorc
+        - name: knotoperator
+          image: gcr.io/fair-theater-238820/knotoperator
           command:
-          - app-operator
+          - knotoperator
           imagePullPolicy: Always
           env:
             - name: WATCH_NAMESPACE
@@ -30,4 +29,11 @@ spec:
                 fieldRef:
                   fieldPath: metadata.name
             - name: OPERATOR_NAME
-              value: "app-operator"
+              value: "knotoperator"
+          resources:
+            limits:
+              cpu: 250m  #INSERT_CPU_NEEDED_HERE
+              memory: 800Mi #INSERT_MEM_NEEDED_HERE
+            requests:
+              cpu: 25m  #INSERT_CPU_NEEDED_HERE
+              memory: 80Mi #INSERT_MEM_NEEDED_HERE

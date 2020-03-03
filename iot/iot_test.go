@@ -26,7 +26,7 @@ import (
 
 func TestTwoLevel(t *testing.T) {
 
-	tokens.SavePublicKey("1iVt", string(tokens.GetSamplePublic()))
+	tokens.LoadPublicKeys()
 
 	got := ""
 	want := ""
@@ -128,7 +128,7 @@ func TestTwoLevel(t *testing.T) {
 
 func TestSend(t *testing.T) {
 
-	tokens.SavePublicKey("1iVt", string(tokens.GetSamplePublic()))
+	tokens.LoadPublicKeys()
 
 	got := ""
 	want := ""

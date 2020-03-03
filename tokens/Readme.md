@@ -1,10 +1,10 @@
 
-## Tickets aka tokens used for access defined here.
+## Tokens used for access defined here.
 
-See: `type KnotFreePayload struct`
+See: `type KnotFreeTokenPayload struct`
 
-and `MakeTicket(data *KnotFreePayload, privateKey []byte) ([]byte, error)`
+and `MakeToken(data *KnotFreeTokenPayload, privateKey []byte) ([]byte, error)`
 
-and `func VerifyTicket(ticket []byte, publicKey []byte) (*KnotFreePayload, bool)`
+and `func VerifyToken(ticket []byte, publicKey []byte) (*KnotFreeTokenPayload, bool)`
 
 

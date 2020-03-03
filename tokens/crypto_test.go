@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/user"
 	"strings"
 	"testing"
 	"time"
@@ -31,15 +32,17 @@ func TestFind(t *testing.T) {
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
 	}
-	tokens.SavePublicKey("1iVt", string(tokens.GetSamplePublic()))
-	got = tokens.FindPublicKey("1iVt")
-	want = string(tokens.GetSamplePublic())
-	if got != want {
-		t.Errorf("got %v, want %v", got, want)
-	}
+	// tokens.SavePublicKey("1iVt", string(GetSamplePublic()))
+	// got = tokens.FindPublicKey("1iVt")
+	// want = string(GetSamplePublic())
+	// if got != want {
+	// 	t.Errorf("got %v, want %v", got, want)
+	// }
 
 	dat, err := ioutil.ReadFile("./publicKeys.txt")
-	check(err)
+	if err != nil {
+		fmt.Println("fail 1")
+	}
 	datparts := strings.Split(string(dat), "\n")
 	if len(datparts) < 64 {
 		t.Errorf("got %v, want %v", len(datparts), 64)
@@ -50,7 +53,9 @@ func TestFind(t *testing.T) {
 		}
 		prefix := part[0:4]
 		bytes, err := base64.RawStdEncoding.DecodeString(part)
-		check(err)
+		if err != nil {
+			fmt.Println("fail 2")
+		}
 		tokens.SavePublicKey(prefix, string(bytes))
 	}
 
@@ -61,7 +66,9 @@ func TestFind(t *testing.T) {
 		prefix := part[0:4]
 		bytes, err := base64.RawStdEncoding.DecodeString(part)
 		want = string(bytes)
-		check(err)
+		if err != nil {
+			fmt.Println("fail 3")
+		}
 		got = tokens.FindPublicKey(prefix)
 		if got != want {
 			t.Errorf("got %v, want %v", got, want)
@@ -70,13 +77,25 @@ func TestFind(t *testing.T) {
 
 }
 
+func TestFind2(t *testing.T) {
+
+	got := "ok"
+	want := "ok"
+
+	got = tokens.FindPublicKey("abc")
+	want = "" // because it's empty.
+	if got != want {
+		t.Errorf("got %v, want %v", got, want)
+	}
+}
+
 func TestKnotVerify(t *testing.T) {
 	got := "ok"
 	want := "ok"
 
 	token := []byte("eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiSldUIn0.eyJleHAiOjE2MDk0NjI4MDAsImlzcyI6IjFpVnQiLCJqdGkiOiIxMjM0NTYiLCJpbiI6NzAwMDAsIm91dCI6NzAwMDAsInN1IjoyLCJjbyI6MiwidXJsIjoia25vdGZyZWUubmV0In0.T7SrbbXq7V7otfX0eo9eFabWguxwuPsG4Zn9XArGwMc2Q4ifMBm9aSOgvBIBn1Q0Or7pvIsA8u_UL9FnOW-aDg")
 
-	p, ok := tokens.VerifyTicket(token, tokens.GetSamplePublic())
+	p, ok := tokens.VerifyToken(token, GetSamplePublic())
 	if !ok {
 		t.Errorf("got %v, want %v", "false", "true")
 	}
@@ -94,8 +113,9 @@ func TestKnotEncode(t *testing.T) {
 	got := "ok"
 	want := "ok"
 
-	p := tokens.GetSampleTokenPayload(starttime)
+	p := GetSampleTokenPayload(starttime)
 
+	// or:
 	// p := &tickets.KnotFreePayload{}
 	// p.Issuer = "1iVt" // first 4 from public
 	// p.ExpirationTime = starttime + 60*60*24*(365+1))
@@ -105,15 +125,57 @@ func TestKnotEncode(t *testing.T) {
 	// p.Subscriptions = 2
 	// p.Connections = 2
 
-	bytes, err := tokens.MakeTicket(p, tokens.GetSamplePrivate())
+	if os.Getenv("KUBE_EDITOR") == "atom --wait" {
+		p.Issuer = "/9sh"
+		bytes, err := tokens.MakeToken(p, []byte(getRemotePublic("/9sh")))
+		if err != nil {
+			got = err.Error()
+		}
+		got = string(bytes)
+		//the old one `eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiSldUIn0.eyJleHAiOjE2MDk0NjI4MDAsImlzcyI6IjFpVnQiLCJqdGkiOiIxMjM0NTYiLCJpbiI6NzAwMDAsIm91dCI6NzAwMDAsInN1IjoyLCJjbyI6MiwidXJsIjoia25vdGZyZWUubmV0In0.T7SrbbXq7V7otfX0eo9eFabWguxwuPsG4Zn9XArGwMc2Q4ifMBm9aSOgvBIBn1Q0Or7pvIsA8u_UL9FnOW-aDg`
+		// this is the sample token used in the tests. It's a /9sh small token.
+		want = `eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiSldUIn0.eyJleHAiOjE2MDk0NjI4MDAsImlzcyI6Ii85c2giLCJqdGkiOiIxMjM0NTYiLCJpbiI6MjAsIm91dCI6MjAsInN1IjoyLCJjbyI6MiwidXJsIjoia25vdGZyZWUubmV0In0.YmKO8U_jKYyZsJo4m4lj0wjP8NJhciY4y3QXt_xlxvnHYznfWI455JJnnPh4HZluGaUcvrNdKAENGh4CfG4tBg`
+		if got != want {
+			t.Errorf("got %v, want %v", got, want)
+		}
+	}
+}
+
+func getRemotePublic(key string) string {
+
+	usr, _ := user.Current()
+	dir := usr.HomeDir
+
+	dat, err := ioutil.ReadFile(dir + "/atw/privateKeys.txt")
 	if err != nil {
-		got = err.Error()
+		fmt.Println("fail 4")
 	}
-	got = string(bytes)
-	want = `eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiSldUIn0.eyJleHAiOjE2MDk0NjI4MDAsImlzcyI6IjFpVnQiLCJqdGkiOiIxMjM0NTYiLCJpbiI6NzAwMDAsIm91dCI6NzAwMDAsInN1IjoyLCJjbyI6MiwidXJsIjoia25vdGZyZWUubmV0In0.T7SrbbXq7V7otfX0eo9eFabWguxwuPsG4Zn9XArGwMc2Q4ifMBm9aSOgvBIBn1Q0Or7pvIsA8u_UL9FnOW-aDg`
-	if got != want {
-		t.Errorf("got %v, want %v", got, want)
+	datparts := strings.Split(string(dat), "\n")
+	if len(datparts) < 64 {
+		fmt.Printf("got %v, want %v", len(datparts), 64)
 	}
+	for _, part := range datparts {
+
+		bytes, err := base64.RawStdEncoding.DecodeString(part)
+		if err != nil {
+			fmt.Println("fail 5")
+		}
+
+		privateKey := ed25519.PrivateKey(bytes)
+		publicKey := privateKey.Public()
+		epublic := bytes[32:] // publicKey.([]byte) or get bytes or something
+		public64 := base64.RawStdEncoding.EncodeToString([]byte(epublic))
+		//fmt.Println(public64)
+		first4 := public64[0:4]
+		if first4 == key {
+			return string(bytes)
+		}
+
+		_ = publicKey
+		_ = epublic
+	}
+
+	return ""
 }
 
 type CustomPayload struct {
@@ -128,7 +190,7 @@ func TestVerify(t *testing.T) {
 	want := "ok"
 
 	ticket := "eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiSldUIn0.eyJpc3MiOiJhdHciLCJzdWIiOiJrbm90ZnJlZSIsImF1ZCI6WyJodHRwczovL2dvbGFuZy5vcmciLCJodHRwczovL2p3dC5pbyJdLCJleHAiOjE2MTI5MzA4MDEsIm5iZiI6MTU4MTgyODYwMSwiaWF0IjoxNTgxODI2ODAxLCJqdGkiOiJmb29iYXIiLCJmb28iOiJmb28iLCJiYXIiOjEzMzd9.AvRapYOS1WHzds8zFscDdwWngj0t4OYYPLoyfEPnWNknwJbaHandfzMGenn9sNh6IHYpSoUXZe-1i5lek2F9AQ"
-	algo := jwt.NewEd25519(jwt.Ed25519PublicKey(tokens.GetSamplePublic()))
+	algo := jwt.NewEd25519(jwt.Ed25519PublicKey(GetSamplePublic()))
 
 	var plout CustomPayload
 	hd, err := jwt.Verify([]byte(ticket), algo, &plout)
@@ -147,7 +209,7 @@ func TestVerify(t *testing.T) {
 
 func TestMakeTicket(t *testing.T) {
 
-	algo := jwt.NewEd25519(jwt.Ed25519PrivateKey(tokens.GetSamplePrivate()))
+	algo := jwt.NewEd25519(jwt.Ed25519PrivateKey(GetSamplePrivate()))
 
 	fmt.Println("algo=", algo)
 
@@ -173,7 +235,7 @@ func TestMakeTicket(t *testing.T) {
 
 	fmt.Println("token=", string(token))
 
-	algoPublic := jwt.NewEd25519(jwt.Ed25519PublicKey(tokens.GetSamplePublic()))
+	algoPublic := jwt.NewEd25519(jwt.Ed25519PublicKey(GetSamplePublic()))
 
 	var plout CustomPayload
 	hd, err := jwt.Verify(token, algoPublic, &plout)
@@ -263,10 +325,14 @@ func Test1(t *testing.T) {
 		_, err := os.Stat("./publicKeys.txt")
 		if os.IsNotExist(err) {
 			puf, err := os.Create("./publicKeys.txt")
-			check(err)
+			if err != nil {
+				fmt.Println("fail 6")
+			}
 			defer puf.Close()
 			prf, err := os.Create("privateKeys.txt")
-			check(err)
+			if err != nil {
+				fmt.Println("fail 7")
+			}
 			defer prf.Close()
 
 			for i := 0; i < 64; i++ {
@@ -280,12 +346,6 @@ func Test1(t *testing.T) {
 		}
 	}
 
-}
-
-func check(e error) {
-	if e != nil {
-		panic(e)
-	}
 }
 
 func Test2(t *testing.T) {
@@ -351,4 +411,84 @@ func Test2(t *testing.T) {
 
 	_ = err
 
+}
+
+// never use these
+var samplePublic = "1iVt3d1E9TaxD/N0rC8c70pD5GryNlu49JC+iWD6UJc"
+var samplePrivate = "u36xbHik/s/5uG6RCPT6MfAYHKJzk/nCZPHzZYZi2czWJW3d3UT1NrEP83SsLxzvSkPkavI2W7j0kL6JYPpQlw"
+
+// GetSamplePublic is
+func GetSamplePublic() []byte {
+	bytes, _ := base64.RawStdEncoding.DecodeString(samplePublic)
+	return bytes
+}
+
+// GetSamplePrivate is
+func GetSamplePrivate() []byte {
+	bytes, _ := base64.RawStdEncoding.DecodeString(samplePrivate)
+	return bytes
+}
+
+// GetSampleTokenPayload is used for testing.
+func GetSampleTokenPayload(startTime uint32) *tokens.KnotFreeTokenPayload {
+	p := &tokens.KnotFreeTokenPayload{}
+	p.Issuer = "1iVt" // first 4 from public
+	p.ExpirationTime = startTime + 60*60*24*(365+1)
+	p.JWTID = "123456"
+	p.Input = 20
+	p.Output = 20
+	p.Subscriptions = 2
+	p.Connections = 2
+	p.URL = "knotfree.net"
+	return p
+}
+
+// GetSampleBigToken is used for testing.
+func GetSampleBigToken(startTime uint32) *tokens.KnotFreeTokenPayload {
+	p := &tokens.KnotFreeTokenPayload{}
+	p.Issuer = "1iVt" // first 4 from public
+	p.ExpirationTime = startTime + 60*60*24*(365+1)
+	p.JWTID = "123457"
+	p.Input = 1e6
+	p.Output = 1e6
+	p.Subscriptions = 200
+	p.Connections = 200
+	p.URL = "knotfree.net"
+	return p
+}
+
+// 123480 ns/op	    1248 B/op	      22 allocs/op  	~8000/sec
+func BenchmarkCheckToken(b *testing.B) {
+	ticket := []byte("eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiSldUIn0.eyJleHAiOjE2MDk0NjI4MDAsImlzcyI6IjFpVnQiLCJqdGkiOiIxMjM0NTYiLCJpbiI6NzAwMDAsIm91dCI6NzAwMDAsInN1IjoyLCJjbyI6Mn0.N22xJiYz_FMQu_nG_cxlQk7gnvbeO9zOiuzbkZYWpxSzAPtQ_WyCVwWYBPZtA-0Oj-AggWakTNsmGoe8JIzaAg")
+	publicKey := GetSamplePublic()
+	// run the verify function b.N times
+	for n := 0; n < b.N; n++ {
+
+		p, ok := tokens.VerifyToken(ticket, publicKey)
+		_ = p
+		_ = ok
+
+	}
+}
+
+// this is not especially quick
+// 122662 ns/op	    1088 B/op	      19 allocs/op 	~8000/sec
+func BenchmarkCheckToken2(b *testing.B) {
+	ticket := []byte("eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiSldUIn0.eyJleHAiOjE2MDk0NjI4MDAsImlzcyI6IjFpVnQiLCJqdGkiOiIxMjM0NTYiLCJpbiI6NzAwMDAsIm91dCI6NzAwMDAsInN1IjoyLCJjbyI6Mn0.N22xJiYz_FMQu_nG_cxlQk7gnvbeO9zOiuzbkZYWpxSzAPtQ_WyCVwWYBPZtA-0Oj-AggWakTNsmGoe8JIzaAg")
+	publicKey := GetSamplePublic()
+	payload := tokens.KnotFreeTokenPayload{}
+	algo := jwt.NewEd25519(jwt.Ed25519PublicKey(publicKey))
+
+	// run the verify function b.N times
+	for n := 0; n < b.N; n++ {
+
+		hd, err := jwt.Verify([]byte(ticket), algo, &payload)
+		_ = hd
+		_ = err
+		if payload.Connections != 2 {
+			fmt.Println("wrong")
+		}
+		payload.Connections = -1
+
+	}
 }

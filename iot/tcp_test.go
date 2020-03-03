@@ -26,8 +26,7 @@ import (
 
 func TestTwoTierTcp(t *testing.T) {
 
-	tokens.SavePublicKey("1iVt", string(tokens.GetSamplePublic()))
-
+	tokens.LoadPublicKeys()
 	got := ""
 	want := ""
 	ok := true
@@ -105,8 +104,7 @@ func TestTwoTierTcp(t *testing.T) {
 
 func TestSimpleText(t *testing.T) {
 
-	tokens.SavePublicKey("1iVt", string(tokens.GetSamplePublic()))
-
+	tokens.LoadPublicKeys()
 	got := ""
 	want := ""
 	ok := true
@@ -160,7 +158,7 @@ func TestSimpleText(t *testing.T) {
 
 func TestSimpleExecutive(t *testing.T) {
 
-	tokens.SavePublicKey("1iVt", string(tokens.GetSamplePublic()))
+	tokens.LoadPublicKeys()
 
 	got := ""
 	want := ""

@@ -1,11 +1,11 @@
 kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: app-operator
+  name: knotoperator
 subjects:
 - kind: ServiceAccount
-  name: app-operator
+  name: knotoperator
 roleRef:
   kind: Role
-  name: app-operator
+  name: knotoperator
   apiGroup: rbac.authorization.k8s.io
