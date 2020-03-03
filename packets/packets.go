@@ -762,6 +762,15 @@ func (p *PacketCommon) GetOption(key string) ([]byte, bool) {
 	return val.([]byte), ok
 }
 
+// DeleteOption returns the value,true to go with the key or nil,false
+func (p *PacketCommon) DeleteOption(key string) {
+	if p.optionalKeyValues == nil {
+		return
+	}
+	p.optionalKeyValues.Remove(key)
+
+}
+
 // SetOption adds the key,value
 func (p *PacketCommon) SetOption(key string, val []byte) {
 	if p.optionalKeyValues == nil {

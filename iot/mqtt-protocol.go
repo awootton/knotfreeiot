@@ -50,10 +50,12 @@ func (cc *mqttContact) WriteDownstream(p packets.Interface) error {
 		fmt.Println("cant happen")
 	case *packets.Disconnect:
 		mq := &mqttpackets.DisconnectPacket{}
+		mq.MessageType = mqttpackets.Disconnect
 		return mq.Write(cc.tcpConn)
 	case *packets.Subscribe:
 		fmt.Println("cant happen3")
 		mq := &mqttpackets.SubscribePacket{}
+		mq.MessageType = mqttpackets.Subscribe
 		mq.Topics = []string{string(v.Address)}
 		err := mq.Write(cc.tcpConn)
 		return err
@@ -66,10 +68,12 @@ func (cc *mqttContact) WriteDownstream(p packets.Interface) error {
 	case *packets.Send:
 
 		mq := &mqttpackets.PublishPacket{}
+		mq.MessageType = mqttpackets.Publish
 		mq.TopicName = string(v.Address)
-		err := mq.Write(cc.tcpConn)
 		mq.Retain = false
 		mq.Payload = v.Payload
+		//fmt.Println("mqtt pay", string(mq.Payload))
+		err := mq.Write(cc.tcpConn)
 		return err
 
 	default:
@@ -149,12 +153,25 @@ func mqttConnection(tcpConn *net.TCPConn, ex *Executive) {
 			p := &packets.Connect{}
 			p.SetOption("token", mq.Password)
 			mqttName = mq.Username
-			_ = Push(cc, p)
+			// TODO: validate things.
+			err = Push(cc, p)
+			if err != nil {
+				fmt.Println("mqtt push connect fail", err)
+			}
+			// write an ack
+			conack := &mqttpackets.ConnackPacket{}
+			conack.FixedHeader.MessageType = mqttpackets.Connack
+			err = conack.Write(tcpConn)
+			if err != nil {
+				fmt.Println("errrr", err)
+			}
+
 		case *mqttpackets.PublishPacket: // handle upstream publish
 			p := &packets.Send{}
 			p.Address = []byte(mq.TopicName)
 			p.Source = []byte(mqttName)
 			p.Payload = mq.Payload
+			p.SetOption("toself", []byte("y"))
 			_ = Push(cc, p)
 			// // TODO: do we need to ack?
 			// ack := mqttpackets.PubackPacket ... etc
@@ -176,13 +193,17 @@ func mqttConnection(tcpConn *net.TCPConn, ex *Executive) {
 
 			}
 		case *mqttpackets.PingreqPacket:
-			// TODO: FIXME atw add ping to packets mqttWrite(ss, &mqttpackets.PingrespPacket{})
+			p := &mqttpackets.PingrespPacket{}
+			p.MessageType = mqttpackets.Pingresp
+			p.Write(tcpConn)
+
 		case *mqttpackets.DisconnectPacket:
+			fmt.Println("client sent us an error", mq)
 			// client sent us an error. close.
 			// str := "mqtt DisconnectPacket"
 			// err := errors.New(str)
 			// mqttLogThing.Collect(str)
-			// ss.Close(err)
+			//ss.Close(err)
 			// return
 		default:
 			// client sent us junk somehow

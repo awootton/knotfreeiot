@@ -60,10 +60,10 @@ func main() {
 
 	kubectl.K("kubectl apply -f operator.yaml")
 
-	// cd ~/Documents/workspace/kube-prometheus/
-	// # Create the namespace and CRDs, and then wait for them to be availble before creating the remaining resources
-	// kubectl create -f manifests/setup
-	// until kubectl get servicemonitors --all-namespaces ; do date; sleep 1; echo ""; done
-	// kubectl create -f manifests/
-
 }
+
+// cd ~/Documents/workspace/kube-prometheus/
+// # Create the namespace and CRDs, and then wait for them to be availble before creating the remaining resources
+// kubectl create -f manifests/setup
+// until kubectl get servicemonitors --all-namespaces ; do date; sleep 1; echo ""; done
+// kubectl create -f manifests/

@@ -42,13 +42,17 @@ func processPublish(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *publ
 			if !ok {
 				continue // real bad
 			}
-			if key != pubmsg.ss.GetKey() {
+			_, selfReturn := pubmsg.p.GetOption("toself")
+			if selfReturn || key != pubmsg.ss.GetKey() {
 				if me.checkForBadSS(ss, watcheditem) == false {
 					ss.WriteDownstream(pubmsg.p)
 					sentMessages.Inc()
 				}
 			}
 		}
+
+		pubmsg.p.DeleteOption("toself")
+
 		err := bucket.looker.PushUp(pubmsg.p, pubmsg.h)
 		if err != nil {
 			// what? we're sad? todo: man up
