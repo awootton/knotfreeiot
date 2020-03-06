@@ -31,7 +31,8 @@ See the mqtt example [here](https://github.com/awootton/knotfreeiot/blob/master/
 <div id = "atwheader" >
 - Alan Tracey Wootton -
 </div>
+<a href="https://twitter.com/alan_wootton?ref_src=twsrc%5Etfw" class="twitter-follow-button" data-show-count="false">Follow @alan_wootton</a><script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
 
 <script type="text/javascript" src="/util.js"></script> 
-<!-- <div id="commento"></div>
-<script src="https://cdn.commento.io/js/commento.js"></script> -->
+<div id="commento"></div>
+<script src="https://cdn.commento.io/js/commento.js"></script>

@@ -3,6 +3,7 @@
 # pip3 install paho-mqtt
 
 import time
+import datetime
 import paho.mqtt.client as paho
 
 # These used to work: broker = "broker.hivemq.com"
@@ -17,7 +18,7 @@ password = "eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiSldUIn0.eyJleHAiOjE2MDk0NjI4MDAsImlz
 # define callbacks
 
 def on_message(client, userdata, message):
-    print("received message =", str(message.payload.decode("utf-8")))
+    print(str(datetime.datetime.now())+"received message =", str(message.payload.decode("utf-8")))
 
 def on_connect(client, userdata, flags, rc):
     if rc==0:
@@ -60,7 +61,7 @@ time.sleep(12)
 print("publishing ")
 for x in range(9999):
     print(x)
-    client.publish("atw/xsgournklogc/house/bulb1/client-001", "on"+clientid+"_"+str(x))
+    client.publish("atw/xsgournklogc/house/bulb1/client-001", "msg#"+clientid+"_"+str(x))
     time.sleep(10)
      
 client.disconnect()  # disconnect

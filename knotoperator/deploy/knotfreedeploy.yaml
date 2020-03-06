@@ -54,6 +54,8 @@ metadata:
   labels:
     app: "knotfreeaide"
   name: "knotfreeaide"
+  annotations:
+    #cloud.google.com/load-balancer-type: "Internal"
 spec:
   type: LoadBalancer
   ports:
