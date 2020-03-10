@@ -10,6 +10,15 @@ apiVersion: kind.x-k8s.io/v1alpha4
 # on the control-plane node.
 #
 # You probably don't need this unless you are testing Kubernetes itself.
+#
+# use: kind create cluster --config kind-example-config.yaml
+#
 nodes:
 - role: control-plane
-#- role: worker
+  extraMounts:
+  - hostPath: /Users/awootton/Documents/kind_mounts
+    containerPath: /files
+# - role: worker
+#   extraMounts:
+#   - hostPath: /Users/awootton/Documents/kind_mounts
+#     containerPath: /files

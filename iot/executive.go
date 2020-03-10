@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"strconv"
 	"time"
 )
@@ -223,10 +224,12 @@ func MakeTCPMain(name string, limits *ExecutiveLimits, token string) *ClusterExe
 	ce.Aides = append(ce.Aides, aide1)
 	aide1.Looker.NameResolver = nameResolver
 
-	aide1.httpAddress = ":8080"
-	aide1.tcpAddress = ":8384"
-	aide1.textAddress = ":7465"
-	aide1.mqttAddress = ":1883"
+	myip := os.Getenv("MY_POD_IP")
+
+	aide1.httpAddress = myip + ":8080"
+	aide1.tcpAddress = myip + ":8384"
+	aide1.textAddress = myip + ":7465"
+	aide1.mqttAddress = myip + ":1883"
 
 	MakeTCPExecutive(aide1, aide1.tcpAddress)
 	MakeTextExecutive(aide1, aide1.textAddress)

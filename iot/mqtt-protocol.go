@@ -123,12 +123,22 @@ func mqttConnection(tcpConn *net.TCPConn, ex *Executive) {
 	mqttName := "unknown"
 	for ex.IAmBadError == nil {
 		// SetReadDeadline
-		err := cc.tcpConn.SetDeadline(time.Now().Add(20 * time.Minute))
-		if err != nil {
-			//connLogThing.Collect("server err2 " + err.Error())
-			fmt.Println("deadline err", err)
-			cc.Close(err)
-			return // quit, close the sock, be forgotten
+		if cc.GetToken() == nil {
+			err := cc.tcpConn.SetDeadline(time.Now().Add(2 * time.Second))
+			if err != nil {
+				//connLogThing.Collect("server err2 " + err.Error())
+				fmt.Println("deadline err", err)
+				cc.Close(err)
+				return // quit, close the sock, be forgotten
+			}
+		} else {
+			err := cc.tcpConn.SetDeadline(time.Now().Add(20 * time.Minute))
+			if err != nil {
+				//connLogThing.Collect("server err2 " + err.Error())
+				fmt.Println("deadline err", err)
+				cc.Close(err)
+				return // quit, close the sock, be forgotten
+			}
 		}
 		//fmt.Println("waiting for packet")
 		//str, err := lineReader.ReadString('\n')

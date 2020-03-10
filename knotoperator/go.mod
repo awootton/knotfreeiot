@@ -13,13 +13,13 @@ replace github.com/awootton/knotfreeiot/tokens => ../tokens
 replace github.com/awootton/knotfreeiot/kubectl => ../kubectl
 
 require (
+	github.com/awootton/knotfreeiot v0.0.0-20200306225827-17115dfc6f70 // indirect
 	github.com/awootton/knotfreeiot/iot v0.0.0-00010101000000-000000000000
 	github.com/awootton/knotfreeiot/kubectl v0.0.0-00010101000000-000000000000
 	github.com/go-logr/logr v0.1.0
 	github.com/operator-framework/operator-sdk v0.14.1
 	github.com/spf13/pflag v1.0.5
 	gomodules.xyz/jsonpatch/v2 v2.0.1
-	gopkg.in/yaml.v2 v2.2.8
 	k8s.io/api v0.0.0
 	k8s.io/apimachinery v0.0.0
 	k8s.io/client-go v12.0.0+incompatible // v12.0.0+incompatible

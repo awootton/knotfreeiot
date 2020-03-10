@@ -87,7 +87,7 @@ func startSockets(n int) {
 
 func TestGrowGurus(t *testing.T) {
 
-	if os.Getenv("KUBE_EDITOR") == "atom --wait" {
+	if os.Getenv("KNOT_KUNG_FOO") == "atw" {
 		startSockets(100)
 
 		wg.Wait()

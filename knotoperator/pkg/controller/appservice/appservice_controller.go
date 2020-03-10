@@ -562,12 +562,17 @@ func newPodForCR(cr *appv1alpha1.AppService) *corev1.Pod {
 	labels := map[string]string{
 		"app": cr.Name,
 	}
+	annots := map[string]string{
+		"prometheus.io/scrape": "true",
+		"prometheus.io/port":   "9102",
+	}
 	podName := "guru-" + getRandomString()
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      podName,
-			Namespace: cr.Namespace,
-			Labels:    labels,
+			Name:        podName,
+			Namespace:   cr.Namespace,
+			Labels:      labels,
+			Annotations: annots,
 		},
 		Spec: corev1.PodSpec{
 			Containers: []corev1.Container{
@@ -577,10 +582,12 @@ func newPodForCR(cr *appv1alpha1.AppService) *corev1.Pod {
 					Command: []string{"/go/bin/linux_386/knotfreeiot", "--server"},
 					Ports: []corev1.ContainerPort{
 						{Name: "iot", ContainerPort: 8384},
-						{Name: "http", ContainerPort: 8080},
+						{Name: "httplocal", ContainerPort: 8080},
+						{Name: "prom", ContainerPort: 9102},
 					},
 					Env: []corev1.EnvVar{
 						{Name: "POD_NAME", Value: podName},
+						{Name: "MY_POD_IP", ValueFrom: &corev1.EnvVarSource{FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"}}},
 					},
 				},
 			},
@@ -636,7 +643,7 @@ func PostUpstreamNames(guruList []string, addressList []string, name string, add
 
 		jstr := string(jbytes)
 
-		curlcmd := `curl --header "Content-Type: application/json" --request POST --data '` + jstr + `'  http://localhost:8080/api1/set`
+		curlcmd := `curl --header "Content-Type: application/json" --request POST --data '` + jstr + `'  http://localhost:8080/api2/set`
 
 		cmd := `kubectl exec ` + name + ` -- ` + curlcmd
 

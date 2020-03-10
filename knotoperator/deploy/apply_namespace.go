@@ -7,6 +7,7 @@ import (
 )
 
 func buildTheKnotFreeMain() {
+	kubectl.K("cd ../../docs;bundle exec jekyll build")
 	kubectl.K("cd ../..;docker build -t gcr.io/fair-theater-238820/knotfreeserver .")
 	kubectl.K("docker push gcr.io/fair-theater-238820/knotfreeserver")
 }
@@ -21,9 +22,16 @@ func buildTheOperator() {
 // pre-req:
 // kind create cluster --config kind-example-config.yaml
 // kubectl config use-context "kind-kind"
-// kk create ns knotspace
+// kubectl create ns knotspace
 // kubectl config set-context --current --namespace=knotspace
-// or else kubectl points to google
+// or else kubectl goes to google
+
+// cd workspace/kube-prometheus
+// kubectl create -f manifests/setup
+// until kubectl get servicemonitors --all-namespaces ; do date; sleep 1; echo ""; done
+// kubectl apply -f manifests/
+
+var needtobuild = true
 
 func main() {
 
@@ -35,13 +43,17 @@ func main() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		buildTheKnotFreeMain()
+		if needtobuild {
+			buildTheKnotFreeMain()
+		}
 	}()
 
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		buildTheOperator()
+		if needtobuild {
+			buildTheOperator()
+		}
 	}()
 
 	kubectl.K("kubectl create ns knotspace")
@@ -51,7 +63,6 @@ func main() {
 	kubectl.K("kubectl apply -f role.yaml")
 	kubectl.K("kubectl apply -f role_binding.yaml")
 	kubectl.K("kubectl apply -f crds/app.knotfree.io_appservices_crd.yaml")
-	//kubectl.K("kubectl apply -f promethius_op.yaml")
 	kubectl.K("kubectl apply -f crds/app.knotfree.io_v1alpha1_appservice_cr.yaml")
 
 	wg.Wait()
@@ -61,9 +72,3 @@ func main() {
 	kubectl.K("kubectl apply -f operator.yaml")
 
 }
-
-// cd ~/Documents/workspace/kube-prometheus/
-// # Create the namespace and CRDs, and then wait for them to be availble before creating the remaining resources
-// kubectl create -f manifests/setup
-// until kubectl get servicemonitors --all-namespaces ; do date; sleep 1; echo ""; done
-// kubectl create -f manifests/

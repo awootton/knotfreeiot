@@ -321,7 +321,7 @@ func Test1(t *testing.T) {
 	fmt.Println(base64.StdEncoding.WithPadding(base64.NoPadding).EncodeToString(public))
 	fmt.Println(base64.StdEncoding.WithPadding(base64.NoPadding).EncodeToString(private))
 
-	if os.Getenv("KNOT_KUNG_FOO") == "atw" {
+	if os.Getenv("KNOT_KUNG_FOO") == "xxxxxatw" {
 		_, err := os.Stat("./publicKeys.txt")
 		if os.IsNotExist(err) {
 			puf, err := os.Create("./publicKeys.txt")

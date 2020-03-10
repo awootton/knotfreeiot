@@ -54,16 +54,12 @@ func MakeTCPExecutive(ex *Executive, serverName string) *Executive {
 	return ex
 }
 
-func hello(w http.ResponseWriter, req *http.Request) {
-	fmt.Fprintf(w, "hello from, atw\n")
-}
-
 type apiHandler struct {
 	ex *Executive
 }
 
 func (api apiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-
+	//fmt.Println("req.RequestURI", req.RequestURI)
 	if req.RequestURI == "/api1/getstats" {
 
 		stats := api.ex.GetExecutiveStats()
@@ -74,34 +70,35 @@ func (api apiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		}
 		w.Write(bytes)
 
-		fmt.Println("/api1/getstats", string(bytes))
+		API1GetStats.Inc()
 
-	} else if req.RequestURI == "/api1/set" {
+	} else if req.RequestURI == "/api2/set" {
 		decoder := json.NewDecoder(req.Body)
 		args := &UpstreamNamesArg{}
 		err := decoder.Decode(args)
-		fmt.Println("/api1/set ", args.Names, args.Addresses) // fixme this is a stat, not a log
+
 		if err != nil {
-			panic(err)
+			http.Error(w, "decode error", 500)
+			API1PostGurusFail.Inc()
+			return
 		}
+		API1PostGurus.Inc()
 		if len(args.Names) > 0 && len(args.Names) == len(args.Addresses) {
 			api.ex.Looker.SetUpstreamNames(args.Names, args.Addresses)
 		}
 
 	} else {
 		http.NotFound(w, req)
-		//fmt.Fprintf(w, "expected known path "+api.ex.Name)
+		IotHTTP404.Inc()
 	}
-	//fmt.Fprintf(w, "hello from, atw and "+api.ex.Name)
-	//fmt.Println(req.RequestURI) //api1/getstats
 }
 
-// MakeHTTPExecutive sets up an http server
+// MakeHTTPExecutive sets up a http server
 func MakeHTTPExecutive(ex *Executive, serverName string) *Executive {
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/hello", hello)
 	mux.Handle("/api1/", apiHandler{ex})
+	mux.Handle("/api2/", apiHandler{ex})
 
 	s := &http.Server{
 		Addr:           serverName,
@@ -135,7 +132,9 @@ func TCPNameResolver(address string, config *ContactStructConfig) (ContactInterf
 	servAddr := address //"127.0.0.1:7654"
 	tcpAddr, err := net.ResolveTCPAddr("tcp", servAddr)
 	if err != nil {
-		fmt.Println("fixme kkk", tcpAddr, err)
+		//fmt.Println("fixme kkk", tcpAddr, err)
+		TCPNameResolverFail1.Inc()
+		_ = tcpAddr
 		return cc, err
 	}
 	go func(cc *tcpUpperContact) {
@@ -145,7 +144,8 @@ func TCPNameResolver(address string, config *ContactStructConfig) (ContactInterf
 			// todo: tell prometheius we're dialing
 			conn, err := net.DialTimeout("tcp", address, time.Duration(uint64(time.Second)*uint64(cc.GetConfig().defaultTimeoutSeconds)))
 			if err != nil {
-				fmt.Println("dial 3 fail", address, err, failed)
+				//fmt.Println("dial 2 fail", address, err, failed)
+				TCPNameResolverFail2.Inc()
 				//return cc, err
 				failed++
 				if failed > 10 {
@@ -154,7 +154,8 @@ func TCPNameResolver(address string, config *ContactStructConfig) (ContactInterf
 				continue
 			}
 			cc.tcpConn = conn.(*net.TCPConn)
-			fmt.Println("tcpUpperContact connected", cc)
+			//fmt.Println("tcpUpperContact connected", cc)
+			TCPNameResolverConnected.Inc()
 
 			conn.(*net.TCPConn).SetNoDelay(true)
 			conn.(*net.TCPConn).SetWriteBuffer(4096)
@@ -236,7 +237,7 @@ func (cc *tcpContact) WriteDownstream(packet packets.Interface) error {
 }
 
 func (cc *tcpContact) WriteUpstream(cmd packets.Interface) error {
-	fmt.Println("FIXME tcp received from below", cmd, reflect.TypeOf(cmd))
+	fmt.Println("FIXME tcp received from below dead code", cmd, reflect.TypeOf(cmd))
 	err := cmd.Write(cc.tcpConn)
 	if err != nil {
 		cc.Close(err)
@@ -250,7 +251,8 @@ func server(ex *Executive, name string) {
 	if err != nil {
 		// handle error
 		//srvrLogThing.Collect(err.Error())
-		fmt.Println("server didnt' stary ", err)
+		//fmt.Println("server didnt' stary ", err)
+		TCPServerDidntStart.Inc()
 		return
 	}
 	for {
@@ -258,7 +260,8 @@ func server(ex *Executive, name string) {
 		tmpconn, err := ln.Accept()
 		if err != nil {
 			//	srvrLogThing.Collect(err.Error())
-			fmt.Println("accept err ", err)
+			//fmt.Println("accept err ", err)
+			TCPServerAcceptError.Inc()
 			continue
 		}
 		go handleConnection(tmpconn.(*net.TCPConn), ex) //,handler types.ProtocolHandler)
@@ -269,11 +272,13 @@ func handleConnection(tcpConn *net.TCPConn, ex *Executive) {
 
 	// FIXME: all the *LogThing expressions need to be re-written for prom
 	//srvrLogThing.Collect("Conn Accept")
+	TCPServerConnAccept.Inc()
 
 	cc := localMakeTCPContact(ex.Config, tcpConn)
 	defer cc.Close(nil)
 
 	// connLogThing.Collect("new connection")
+	TCPServerNewConnection.Inc()
 
 	err := SocketSetup(tcpConn)
 	if err != nil {
@@ -284,20 +289,28 @@ func handleConnection(tcpConn *net.TCPConn, ex *Executive) {
 	// we might just for over the range of the handler input channel?
 	for ex.IAmBadError == nil {
 		// SetReadDeadline
-		err := cc.tcpConn.SetDeadline(time.Now().Add(20 * time.Minute))
-		if err != nil {
-			//connLogThing.Collect("server err2 " + err.Error())
-			fmt.Println("deadline err", err)
-			cc.Close(err)
-			return // quit, close the sock, be forgotten
+		if cc.GetToken() == nil {
+			err := cc.tcpConn.SetDeadline(time.Now().Add(2 * time.Second))
+			if err != nil {
+				fmt.Println("deadline err", err)
+				cc.Close(err)
+				return // quit, close the sock, be forgotten
+			}
+		} else {
+			err := cc.tcpConn.SetDeadline(time.Now().Add(20 * time.Minute))
+			if err != nil {
+				fmt.Println("deadline err", err)
+				cc.Close(err)
+				return // quit, close the sock, be forgotten
+			}
 		}
-
 		//fmt.Println("waiting for packet")
 
 		p, err := packets.ReadPacket(cc.tcpConn)
 		if err != nil {
 			//connLogThing.Collect("se err " + err.Error())
-			fmt.Println("packets 3 read err", err)
+			//fmt.Println("packets 3 read err", err)
+			TCPServerPacketReadError.Inc()
 			cc.Close(err)
 			return
 		}
@@ -305,7 +318,8 @@ func handleConnection(tcpConn *net.TCPConn, ex *Executive) {
 		err = Push(cc, p)
 		if err != nil {
 			//connLogThing.Collect("se err " + err.Error())
-			fmt.Println("iot.push err", err)
+			//fmt.Println("iot.push err", err)
+			TCPServerIotPushEror.Inc()
 			cc.Close(err)
 			return
 		}
@@ -318,24 +332,24 @@ func SocketSetup(tcpConn *net.TCPConn) error {
 	//tcpConn := conn.(*net.TCPConn)
 	err := tcpConn.SetReadBuffer(4096)
 	if err != nil {
-		//srvrLogThing.Collect("SS err1 " + err.Error())
+		fmt.Println("SS err1 " + err.Error())
 		return err
 	}
 	err = tcpConn.SetWriteBuffer(4096)
 	if err != nil {
-		//srvrLogThing.Collect("SS err2 " + err.Error())
+		fmt.Println("SS err2 " + err.Error())
 		return err
 	}
 	err = tcpConn.SetNoDelay(true)
 	if err != nil {
-		//	srvrLogThing.Collect("SS err3 " + err.Error())
+		fmt.Println("SS err3 " + err.Error())
 		return err
 	}
 	// SetReadDeadline and SetWriteDeadline
 
 	err = tcpConn.SetDeadline(time.Now().Add(20 * time.Minute))
 	if err != nil {
-		// /srvrLogThing.Collect("cl err4 " + err.Error())
+		fmt.Println("cl err4 " + err.Error())
 		return err
 	}
 	return nil
@@ -392,7 +406,7 @@ func PostUpstreamNames(guruList []string, addressList []string, addr string) err
 		return errors.New("upstreamNamesArg marshal fail")
 	}
 
-	resp, err := http.Post("http://"+addr+"/api1/set", "application/json", bytes.NewReader(jbytes))
+	resp, err := http.Post("http://"+addr+"/api2/set", "application/json", bytes.NewReader(jbytes))
 	if err != nil {
 		return err
 	}

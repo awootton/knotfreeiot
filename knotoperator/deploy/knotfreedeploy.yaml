@@ -14,6 +14,9 @@ spec:
     metadata:
       labels:
         run: "knotfreeaide"
+      annotations:
+        prometheus.io/scrape: 'true'
+        prometheus.io/port: '9102'
     spec:
       containers:
       - name: golang
@@ -28,8 +31,18 @@ spec:
           name : mqtt
         - containerPort: 8080 
           name : http
+        - containerPort: 8085 
+          name : http-public
         - containerPort: 7465 
           name : text
+        - containerPort: 3000 
+          name : graf
+        - containerPort: 9090 
+          name : promsvc
+        - containerPort: 8000 
+          name : libra
+        - containerPort: 9102 
+          name : prom
         resources:
           limits:
             cpu: 250m  #INSERT_CPU_NEEDED_HERE
@@ -40,6 +53,10 @@ spec:
         env:
         - name: NAME
           value: "knotfreeaide"
+        - name: MY_POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
         - name: POD_NAME
           valueFrom:
             fieldRef:
@@ -55,6 +72,7 @@ metadata:
     app: "knotfreeaide"
   name: "knotfreeaide"
   annotations:
+    s: "knotfreeaide"
     #cloud.google.com/load-balancer-type: "Internal"
 spec:
   type: LoadBalancer
@@ -72,9 +90,25 @@ spec:
     name: iot
     protocol: TCP
 
-  - port: 8080
-    name: http
+  - name: http
+    port: 80
+    targetPort: 8085
     protocol: TCP
+
+  - name: prom
+    port: 9090
+    targetPort: 9090 
+    protocol: TCP
+
+  - name: graf
+    port: 3000
+    targetPort: 3000
+    protocol: TCP 
+
+  - name: libra
+    port: 8000
+    targetPort: 8000
+    protocol: TCP 
 
   selector:
     run: "knotfreeaide"
