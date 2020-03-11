@@ -1,7 +1,9 @@
 package main
 
 import (
+	"fmt"
 	"sync"
+	"time"
 
 	"github.com/awootton/knotfreeiot/kubectl"
 )
@@ -13,8 +15,8 @@ func buildTheKnotFreeMain() {
 }
 
 func buildTheOperator() {
-	kubectl.K("cd ..;operator-sdk build gcr.io/fair-theater-238820/knotoperator")
-	kubectl.K("docker push gcr.io/fair-theater-238820/knotoperator")
+	//kubectl.K("cd ..;operator-sdk build gcr.io/fair-theater-238820/knotoperator")
+	//kubectl.K("docker push gcr.io/fair-theater-238820/knotoperator")
 }
 
 // See deploy.sh
@@ -31,12 +33,12 @@ func buildTheOperator() {
 // until kubectl get servicemonitors --all-namespaces ; do date; sleep 1; echo ""; done
 // kubectl apply -f manifests/
 
+// it's much faster when we don't build the docker every time.
 var needtobuild = true
 
 func main() {
 
 	kubectl.K("pwd") // /Users/awootton/Documents/workspace/knotfreeiot/knotoperator/deploy
-	kubectl.K("cd ..;operator-sdk generate k8s")
 
 	var wg sync.WaitGroup
 
@@ -70,5 +72,7 @@ func main() {
 	kubectl.K("kubectl apply -f knotfreedeploy.yaml")
 
 	kubectl.K("kubectl apply -f operator.yaml")
+
+	fmt.Println(time.Now())
 
 }

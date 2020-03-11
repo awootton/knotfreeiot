@@ -279,6 +279,8 @@ func (r *ReconcileAppService) Reconcile(request reconcile.Request) (reconcile.Re
 		_ = i
 	}
 
+	podsPending := 0
+
 	// are lets also walk the aides list
 	for i, pod := range aidePods {
 		nodeStats, present := instance.Spec.Ce.Nodes[pod.Name]
@@ -299,6 +301,8 @@ func (r *ReconcileAppService) Reconcile(request reconcile.Request) (reconcile.Re
 
 				appchanged()
 				triggerGuruRebalance = true // FIXME: We really only need to send the gurunames to this pod not everyone.
+			} else {
+				podsPending++
 			}
 		} else if len(pod.Status.ContainerStatuses) != 0 {
 			// we found it.
@@ -463,7 +467,7 @@ func (r *ReconcileAppService) Reconcile(request reconcile.Request) (reconcile.Re
 	_ = ok
 
 	targetRepCount := int64(len(aidePods))
-	if resize.ChangeAides > 0 {
+	if resize.ChangeAides > 0 && podsPending == 0 {
 		targetRepCount++
 	} else if resize.ChangeAides < 0 {
 		targetRepCount--

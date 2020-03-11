@@ -27,6 +27,8 @@ To use it you need a 'password' and here is one (the text in red):
 This token is only good for a couple of connections and will expire soon so check back here later for personalized tokens.
 
 See the mqtt example [here](https://github.com/awootton/knotfreeiot/blob/master/clients/mqttclient.py).
+
+There are a cluster of Libra Acceptor nodes. Libra clients can connect on port 8000. 
  
 <div id = "atwheader" >
 - Alan Tracey Wootton -

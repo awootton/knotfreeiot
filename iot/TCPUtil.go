@@ -175,7 +175,7 @@ func TCPNameResolver(address string, config *ContactStructConfig) (ContactInterf
 				//fmt.Println("waiting for packet from above ")
 				packet, err := packets.ReadPacket(conn)
 				if err != nil {
-					fmt.Println("amke a note ", err)
+					fmt.Println("amke a note ", err) // FIXME: inc counter in prom
 					break
 				}
 				PushDown(cc, packet)

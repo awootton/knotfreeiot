@@ -10,7 +10,7 @@ This repository is for the code. [The IoT blog is in another repository](https:/
 ## Note to Developers
 * knotfree is a prototype of how a common iot backend could function.
 * Some API's may change in the future. 
-* There is a live demonstration running. The MQTT service is at knotfree.net:1883 To use it you need a 'password' [and you can get one here](https://awootton.github.io/knotfreeiot/):
+* There is a live demonstration running. The MQTT service is at knotfree.net:1883 To use it you need a 'password' [and you can get one here](https://awootton.github.io/knotfreeiot/). There are Libra Validator nodes running on port 8000. 
 
 See the mqtt example [here](https://github.com/awootton/knotfreeiot/blob/master/clients/mqttclient.py).
 
