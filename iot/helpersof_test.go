@@ -216,8 +216,12 @@ func SendText(cc iot.ContactInterface, text string) {
 // WaitForActions needs to be properly implemented.
 // The correct thing to do is to inject tracer packets with wait groups into q's
 // and then wait for that.
-func WaitForActions() {
-	for i := 0; i < 10; i++ { // this is going to be a problem
+func WaitForActions(ex *iot.Executive) {
+
+	if ex != nil {
+		ex.Looker.FlushMarkerAndWait()
+	}
+	for i := 0; i < 10; i++ { // this is going to be a problem?
 		time.Sleep(time.Millisecond)
 		runtime.Gosched() // single this
 	}

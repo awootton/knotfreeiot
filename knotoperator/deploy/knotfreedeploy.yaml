@@ -38,7 +38,7 @@ spec:
         - containerPort: 3000 
           name : graf
         - containerPort: 9090 
-          name : promsvc
+          name : promfwd
         - containerPort: 8000 
           name : libra
         - containerPort: 9102 
@@ -72,8 +72,7 @@ metadata:
     app: "knotfreeaide"
   name: "knotfreeaide"
   annotations:
-    s: "knotfreeaide"
-    #cloud.google.com/load-balancer-type: "Internal"
+    team: "knotfree"
 spec:
   type: LoadBalancer
   ports:
@@ -95,9 +94,14 @@ spec:
     targetPort: 8085
     protocol: TCP
 
-  - name: prom
+  - name: promfwd
     port: 9090
     targetPort: 9090 
+    protocol: TCP
+
+  - name: prom
+    port: 9102
+    targetPort: 9102 
     protocol: TCP
 
   - name: graf
@@ -112,3 +116,34 @@ spec:
 
   selector:
     run: "knotfreeaide"
+
+--- 
+
+
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: knotfreeaide
+  labels:
+    team: knotfree
+spec:
+  selector:
+    matchLabels:
+      app: knotfreeaide
+  endpoints:
+  - port: prom
+
+--- 
+
+  # required
+apiVersion: monitoring.coreos.com/v1
+kind: Prometheus
+metadata:
+  name: prometheus
+spec:
+  serviceMonitorSelector:
+    matchLabels:
+      team: knotfree
+  resources:
+    requests:
+      memory: 200Mi

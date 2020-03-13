@@ -52,7 +52,7 @@ func TestGrowGurus(t *testing.T) {
 	c2 := ce.GetNewContact(MakeTestContact)
 	SendText(c2, "S "+c2.String()) // subscribe to my name
 
-	WaitForActions()
+	WaitForActions(ce.Aides[0])
 
 	c1test := c1.(*testContact)
 	got = c1test.getResultAsString() // always nil
@@ -75,7 +75,7 @@ func TestGrowGurus(t *testing.T) {
 		ce.Operate()
 	}
 
-	WaitForActions()
+	WaitForActions(ce.Aides[0])
 
 	//fmt.Println("c1 has ", c1test.mostRecent)
 
@@ -92,7 +92,7 @@ func TestGrowGurus(t *testing.T) {
 		//fmt.Println(command)
 		SendText(c2, command) // publish to c1 from c2
 	}
-	WaitForActions()
+	WaitForActions(ce.Aides[0])
 	got = c1test.getResultAsString()
 	for i := 0; i < subsStressSize; i++ {
 
@@ -123,7 +123,7 @@ func TestGrowGurus(t *testing.T) {
 		currentTime += 60 // a minute
 		ce.Operate()
 	}
-	WaitForActions()
+	WaitForActions(ce.Aides[0])
 	ce.Operate()
 	subsStressSize = 4
 
@@ -155,7 +155,7 @@ func TestExec(t *testing.T) {
 	allContacts = append(allContacts, c1.(*testContact))
 	SendText(c1, "S "+c1.String()) // subscribe to my name
 
-	WaitForActions()
+	WaitForActions(ce.Aides[0])
 
 	// there one in the aide and one in the guru
 	got = fmt.Sprint("topics collected ", ce.GetSubsCount())
@@ -178,7 +178,7 @@ func TestExec(t *testing.T) {
 		ce.Operate()
 	}
 
-	WaitForActions()
+	WaitForActions(ce.Aides[0])
 
 	got = fmt.Sprint("topics collected ", ce.GetSubsCount())
 	want = "topics collected 107" // + strconv.FormatInt(int64(contactStressSize*3+2), 10)
@@ -198,7 +198,7 @@ func TestExec(t *testing.T) {
 		SendText(c1, command) // publish to cc from c1
 	}
 
-	WaitForActions()
+	WaitForActions(ce.Aides[0])
 
 	for i, cc := range allContacts {
 		if i == 0 {
@@ -225,7 +225,7 @@ func TestExec(t *testing.T) {
 		}
 	}
 
-	WaitForActions()
+	WaitForActions(ce.Aides[0])
 
 	// now. kill one of the minions and see if it reconnects and works
 	if true {
@@ -243,7 +243,7 @@ func TestExec(t *testing.T) {
 		}
 	}
 
-	WaitForActions()
+	WaitForActions(ce.Aides[0])
 
 	fmt.Println("check 1")
 
@@ -257,7 +257,7 @@ func TestExec(t *testing.T) {
 		SendText(c1, command) // publish to cc from c1
 	}
 
-	WaitForActions()
+	WaitForActions(ce.Aides[0])
 
 	fmt.Println("check 2")
 

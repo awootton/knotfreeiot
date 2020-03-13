@@ -150,7 +150,6 @@ func (h *HashType) String() string {
 	//return hex.EncodeToString(h.bytes[0:16])
 	var bytes [24]byte
 	h.GetBytes(bytes[:])
-
 	return base64.RawStdEncoding.EncodeToString(bytes[:])
 }
 

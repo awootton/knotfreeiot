@@ -15,51 +15,54 @@
 
 package main
 
-import "github.com/prometheus/client_golang/prometheus"
+import (
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+)
 
 var (
-	HttpServe404 = prometheus.NewCounter(
+	httpServe404 = promauto.NewCounter(
 		prometheus.CounterOpts{
 			Name: "main_http_404",
 			Help: "Number of 404 main.ServeHTTP.",
 		},
 	)
 
-	ForwardsCount3000 = prometheus.NewCounter(
+	forwardsCount3000 = promauto.NewCounter(
 		prometheus.CounterOpts{
 			Name: "main_3000_forwards",
 			Help: "Number forwards main.startPublicServer3000.",
 		},
 	)
 
-	ForwardsCount9090 = prometheus.NewCounter(
+	forwardsCount9090 = promauto.NewCounter(
 		prometheus.CounterOpts{
 			Name: "main_9090_forwards",
 			Help: "http forwards main.startPublicServer9090.",
 		},
 	)
 
-	ForwardsCount8000 = prometheus.NewCounter(
+	forwardsCount8000 = promauto.NewCounter(
 		prometheus.CounterOpts{
 			Name: "main_8000_forwards",
 			Help: "tcp count main.startPublicServer9090.",
 		},
 	)
-	ForwardsDialFail8000 = prometheus.NewCounter(
+	forwardsDialFail8000 = promauto.NewCounter(
 		prometheus.CounterOpts{
 			Name: "main_8000_dialfail",
 			Help: "tcp dialfail main.startPublicServer9090.",
 		},
 	)
 
-	ForwardsConnectedl8000 = prometheus.NewCounter(
+	forwardsConnectedl8000 = promauto.NewCounter(
 		prometheus.CounterOpts{
 			Name: "main_8000_connected",
 			Help: "tcp conected main.startPublicServer9090.",
 		},
 	)
 
-	ForwardsAcceptl8000 = prometheus.NewCounter(
+	forwardsAcceptl8000 = promauto.NewCounter(
 		prometheus.CounterOpts{
 			Name: "main_8000_accepted",
 			Help: "tcp accepted main.startPublicServer9090.",

@@ -1,4 +1,7 @@
 
+go get github.com/brancz/gojsontoyaml
+
+
 
 operator-sdk generate k8s
 operator-sdk generate k8s
@@ -65,4 +68,5 @@ cd ~/Documents/workspace/kube-prometheus/
 kubectl create -f manifests/setup
 until kubectl get servicemonitors --all-namespaces ; do date; sleep 1; echo ""; done
 kubectl create -f manifests/
+
 

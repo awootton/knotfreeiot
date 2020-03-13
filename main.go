@@ -112,7 +112,7 @@ func (api apiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	} else {
 		http.NotFound(w, req)
 		//fmt.Fprintf(w, "expected known path "+req.RequestURI)
-		HttpServe404.Inc()
+		httpServe404.Inc()
 	}
 }
 
@@ -124,6 +124,13 @@ func startPublicServer(ce *iot.ClusterExecutive) {
 	go startPublicServer8000(ce)
 
 	go startPublicServer9102(ce)
+
+	go func() {
+		for {
+			ce.Aides[0].Heartbeat(uint32(time.Now().Unix()))
+			time.Sleep(10 * time.Second)
+		}
+	}()
 
 	mux := http.NewServeMux()
 	mux.Handle("/api1/", apiHandler{ce})
@@ -148,8 +155,10 @@ func startPublicServer(ce *iot.ClusterExecutive) {
 }
 
 func startPublicServer9102(ce *iot.ClusterExecutive) {
+	fmt.Println("http service 9102")
 	http.Handle("/metrics", promhttp.Handler())
 	http.ListenAndServe(":9102", nil)
+	fmt.Println("http service 9102 FAIL")
 }
 
 func startPublicServer3000(ce *iot.ClusterExecutive) {
@@ -165,7 +174,7 @@ func startPublicServer3000(ce *iot.ClusterExecutive) {
 			req.URL.Scheme = "http"
 			req.URL.Host = origin.Host
 			//fmt.Println("fwd graf:", req.URL.Host, req.URL.Port(), req.URL.Path)
-			ForwardsCount3000.Inc()
+			forwardsCount3000.Inc()
 		}
 		proxy := &httputil.ReverseProxy{Director: director}
 		mux.Handle("/", proxy)
@@ -200,7 +209,7 @@ func startPublicServer9090(ce *iot.ClusterExecutive) {
 			req.URL.Scheme = "http"
 			req.URL.Host = origin.Host
 			//fmt.Println("fwd prom:", req.URL.Host, req.URL.Port(), req.URL.Path)
-			ForwardsCount9090.Inc()
+			forwardsCount9090.Inc()
 		}
 		proxy := &httputil.ReverseProxy{Director: director}
 		mux.Handle("/", proxy)
@@ -235,7 +244,7 @@ func xxxstartPublicServer8000(ce *iot.ClusterExecutive) {
 			req.URL.Scheme = "http"
 			req.URL.Host = origin.Host
 			//fmt.Println("fwd prom:", req.URL.Host, req.URL.Port(), req.URL.Path)
-			ForwardsCount8000.Inc()
+			forwardsCount8000.Inc()
 		}
 		proxy := &httputil.ReverseProxy{Director: director}
 		mux.Handle("/", proxy)
@@ -269,7 +278,7 @@ func startPublicServer8000(ce *iot.ClusterExecutive) {
 		conn, err := ln.Accept()
 		if err != nil {
 			//panic(err)
-			ForwardsAcceptl8000.Inc()
+			forwardsAcceptl8000.Inc()
 			break
 		}
 		go handleRequest(conn)
@@ -282,11 +291,11 @@ func handleRequest(conn net.Conn) {
 	if err != nil {
 		//panic(err)
 		//fmt.Println("startPublicServer8000 FAIL to dial", err)
-		ForwardsDialFail8000.Inc()
+		forwardsDialFail8000.Inc()
 		return
 	}
 	//fmt.Println("proxy 8000 connected")
-	ForwardsConnectedl8000.Inc()
+	forwardsConnectedl8000.Inc()
 	go copyIO(conn, proxy)
 	go copyIO(proxy, conn)
 }

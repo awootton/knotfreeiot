@@ -39,16 +39,22 @@ type ContactStruct struct {
 	// not sure about this one. At the upper levels a socket could own millons of these.
 	// and maybe the root doesn't want the real names.
 	// but then how do we unsubscribe when the tcp conn fails? (don't, timeout)
-	//topicToName map[HalfHash][]byte // a tree would be better?
+	// topicToName map[HalfHash][]byte // a tree would be better?
 
 	token *tokens.KnotFreeTokenPayload
+
+	expires uint32
 }
 
 // ContactInterface is usually supplied by a tcp connection
 type ContactInterface interface {
 	Close(err error)
 
+	GetClosed() bool
+
 	GetKey() HalfHash
+
+	GetExpires() uint32
 
 	GetToken() *tokens.KnotFreeTokenPayload
 	SetToken(*tokens.KnotFreeTokenPayload)
@@ -66,9 +72,13 @@ type ContactInterface interface {
 	//RemoveSubscription(sub *packets.Unsubscribe)
 }
 
-// AddSubscription to remember
-func (ss *ContactStruct) AddSubscription(sub *packets.Subscribe) {
-
+// GetClosed because the contact is still referenced by looker after closed.
+func (ss *ContactStruct) GetClosed() bool {
+	// close always nulls th elist and the config
+	if ss.ele == nil || ss.config == nil {
+		return true
+	}
+	return false
 }
 
 func (ss *ContactStruct) String() string {
@@ -83,6 +93,11 @@ func (ss *ContactStruct) GetToken() *tokens.KnotFreeTokenPayload {
 // SetToken return the verified and decoded payload or else nil
 func (ss *ContactStruct) SetToken(t *tokens.KnotFreeTokenPayload) {
 	ss.token = t
+}
+
+// GetExpires returns when the cc should expire
+func (ss *ContactStruct) GetExpires() uint32 {
+	return ss.expires
 }
 
 // ContactStructConfig could be just a stack frame but I'd like to return it.

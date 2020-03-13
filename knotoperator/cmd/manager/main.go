@@ -85,6 +85,7 @@ func main() {
 	}
 
 	ctx := context.TODO()
+	log.Info("Application to lead.")
 	// Become the leader before proceeding
 	err = leader.Become(ctx, "knotoperator-lock")
 	if err != nil {

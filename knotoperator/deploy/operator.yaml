@@ -3,7 +3,7 @@ kind: Deployment
 metadata:
   name: knotoperator
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       name: knotoperator
@@ -13,7 +13,7 @@ spec:
         name: knotoperator
       annotations:
         prometheus.io/scrape: 'true'
-        #prometheus.io/port: '9102'
+        #prometheus.io/port: '8383'
     spec:
       serviceAccountName: knotoperator
       containers:

@@ -67,7 +67,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	// TO DO(user): Modify this to be the types you create that are owned by the primary resource
+	//  (user): Modify this to be the types you create that are owned by the primary resource
 	// Watch for changes to secondary resource Pods and requeue the owner AppService
 	err = c.Watch(&source.Kind{Type: &corev1.Pod{}}, &handler.EnqueueRequestForOwner{
 		IsController: true,
@@ -243,6 +243,8 @@ func (r *ReconcileAppService) Reconcile(request reconcile.Request) (reconcile.Re
 		}
 	}
 
+	gurusPending := 0
+
 	// are there any non-pending guru's that are not on the AppService list?
 	// what if it's on the list but it's not feeling well?
 	for i, pod := range guruPods {
@@ -267,7 +269,10 @@ func (r *ReconcileAppService) Reconcile(request reconcile.Request) (reconcile.Re
 
 				appchanged()
 				triggerGuruRebalance = true
+			} else {
+				gurusPending++
 			}
+
 		} else if len(pod.Status.ContainerStatuses) != 0 {
 			// we found it.
 			// check the address
@@ -357,9 +362,9 @@ func (r *ReconcileAppService) Reconcile(request reconcile.Request) (reconcile.Re
 				delete(instance.Spec.Ce.Nodes, name)
 			} else {
 				nodeStats, present := instance.Spec.Ce.Nodes[name]
-				es.TCPAddress = nodeStats.TCPAddress
-				es.HTTPAddress = nodeStats.HTTPAddress
 				if present {
+					es.TCPAddress = nodeStats.TCPAddress
+					es.HTTPAddress = nodeStats.HTTPAddress
 					if !reflect.DeepEqual(nodeStats, es) {
 						instance.Spec.Ce.Nodes[name] = es
 						//appchanged()
@@ -386,11 +391,16 @@ func (r *ReconcileAppService) Reconcile(request reconcile.Request) (reconcile.Re
 
 	resize := iot.CalcExpansionDesired(aideList, guruList)
 
+	if len(guruList) > 7 || gurusPending != 0 { //FIXME: remove this
+		if resize.ChangeGurus == 1 {
+			resize.ChangeGurus = 0 //FIXME: remove this
+		}
+	}
 	if resize.ChangeGurus != 0 {
 		triggerGuruRebalance = true
 	}
 
-	if resize.ChangeGurus > 0 || len(guruList) == 0 { //} len(gurus) < neededGurus {
+	if resize.ChangeGurus > 0 || (len(guruList) == 0 && 0 == gurusPending) { //} len(gurus) < neededGurus {
 		// make a new one
 		pod := newPodForCR(instance)
 		// Set AppService instance as the owner and controller
@@ -416,6 +426,7 @@ func (r *ReconcileAppService) Reconcile(request reconcile.Request) (reconcile.Re
 		name := instance.Spec.Ce.GuruNames[len(instance.Spec.Ce.GuruNames)-1]
 		pod, ok := guruPods[name]
 		if ok {
+			reqLogger.Info("Deleting a Pod", "Pod.Namespace", pod.Namespace, "Pod.Name", name)
 			err := r.client.Delete(context.TODO(), &pod)
 			if err != nil {
 				PrintMe("pod delete fail", "err", err)
@@ -469,8 +480,10 @@ func (r *ReconcileAppService) Reconcile(request reconcile.Request) (reconcile.Re
 	targetRepCount := int64(len(aidePods))
 	if resize.ChangeAides > 0 && podsPending == 0 {
 		targetRepCount++
-	} else if resize.ChangeAides < 0 {
+		reqLogger.Info("More aides")
+	} else if resize.ChangeAides < 0 || podsPending > 2 {
 		targetRepCount--
+		reqLogger.Info("Less aides")
 	}
 	if targetRepCount <= 0 {
 		targetRepCount = 1
@@ -556,7 +569,7 @@ func (r *ReconcileAppService) Reconcile(request reconcile.Request) (reconcile.Re
 	}
 
 	rr := reconcile.Result{}
-	rr.RequeueAfter = 10 * time.Second
+	rr.RequeueAfter = 30 * time.Second
 	rr.Requeue = true
 	return rr, nil
 }

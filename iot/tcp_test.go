@@ -36,7 +36,7 @@ func TestTwoTierTcp(t *testing.T) {
 	ce := iot.MakeSimplestCluster(getTime, iot.TCPNameResolver, true, 2)
 	globalClusterExec = ce
 
-	WaitForActions()
+	WaitForActions(ce.Aides[0])
 
 	sss := iot.GetServerStats(ce.Aides[0].GetHTTPAddress())
 	fmt.Println("aide stats", sss)
@@ -54,7 +54,7 @@ func TestTwoTierTcp(t *testing.T) {
 	sock1.SetNoDelay(true)
 	sock2.SetNoDelay(true)
 
-	WaitForActions()
+	WaitForActions(ce.Aides[0])
 
 	connectStr := "C token " + `"` + tokens.SampleSmallToken + `"` + "\n"
 	sock1.Write([]byte(connectStr))
@@ -64,11 +64,11 @@ func TestTwoTierTcp(t *testing.T) {
 	sock1.Write([]byte("S sock1channel  \n"))
 	sock2.Write([]byte("S sock2channel  \n"))
 
-	WaitForActions() // blech sock2 has to finish before sock1 sends
+	WaitForActions(ce.Aides[0]) // blech sock2 has to finish before sock1 sends
 
 	sock1.Write([]byte("P sock2channel :::: some_test_hello1\n"))
 
-	WaitForActions()
+	WaitForActions(ce.Aides[0])
 
 	got = readLine(sock2)
 	want = `[P,sock2channel,=1CHKeHF6q1WLMSylXwB0gRs+VVKJvEiHD7dB2+H78OQ,,,some_test_hello1]`
@@ -98,7 +98,7 @@ func TestTwoTierTcp(t *testing.T) {
 
 	sock1.Close()
 	sock2.Close()
-	WaitForActions()
+	WaitForActions(ce.Aides[0])
 
 }
 
@@ -136,7 +136,7 @@ func TestSimpleText(t *testing.T) {
 
 	sock1.Write([]byte("P sock2channel :::: some_test_hello2\n"))
 
-	WaitForActions()
+	WaitForActions(guru)
 
 	got = readLine(sock2)
 	want = `[P,sock2channel,=1CHKeHF6q1WLMSylXwB0gRs+VVKJvEiHD7dB2+H78OQ,,,some_test_hello2]`

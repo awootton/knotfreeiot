@@ -47,7 +47,10 @@ func TestTwoLevel(t *testing.T) {
 	names := []string{"guru0"}
 	aide1.Looker.SetUpstreamNames(names, names)
 	aide2.Looker.SetUpstreamNames(names, names)
-	WaitForActions()
+	WaitForActions(guru0)
+	WaitForActions(aide1)
+	WaitForActions(aide2)
+	WaitForActions(guru0)
 	// make a contact
 	contact1 := MakeTestContact(aide1.Config) //testContact{}
 	//contact1.downMessages = make(chan packets.Interface, 1000)
@@ -68,7 +71,10 @@ func TestTwoLevel(t *testing.T) {
 	subs.Address = []byte("contact1 address")
 	err = iot.Push(contact1, &subs)
 
-	WaitForActions()
+	WaitForActions(guru0)
+	WaitForActions(aide1)
+	WaitForActions(aide2)
+	WaitForActions(guru0)
 
 	got = contact1.(*testContact).getResultAsString()
 	want = "no message received"
@@ -92,7 +98,10 @@ func TestTwoLevel(t *testing.T) {
 
 	iot.Push(contact2, &sendmessage)
 
-	WaitForActions()
+	WaitForActions(guru0)
+	WaitForActions(aide1)
+	WaitForActions(aide2)
+	WaitForActions(guru0)
 
 	got = contact1.(*testContact).getResultAsString()
 	want = `[P,"contact1 address",=ygRnE97Kfx0usxBqx5cygy4enA1eojeRWdV/XMwSGzw,"contact2 address",,"can you hear me now?"]`
@@ -107,7 +116,10 @@ func TestTwoLevel(t *testing.T) {
 
 	iot.Push(contact2, &sendmessage2)
 
-	WaitForActions()
+	WaitForActions(guru0)
+	WaitForActions(aide1)
+	WaitForActions(aide2)
+	WaitForActions(guru0)
 
 	got = contact1.(*testContact).getResultAsString()
 	want = `[P,"contact1 address",=ygRnE97Kfx0usxBqx5cygy4enA1eojeRWdV/XMwSGzw,"contact2 address",,"can you hear me now?"]`
@@ -120,9 +132,10 @@ func TestTwoLevel(t *testing.T) {
 	_ = err
 	_ = ok
 
-	for i := 0; i < 10; i++ {
-		WaitForActions()
-	}
+	WaitForActions(guru0)
+	WaitForActions(aide1)
+	WaitForActions(aide2)
+	WaitForActions(guru0)
 
 }
 
@@ -167,7 +180,7 @@ func TestSend(t *testing.T) {
 		t.Errorf("got %v, want %v", got, want)
 	}
 
-	WaitForActions()
+	WaitForActions(guru)
 
 	val := readCounter(iot.TopicsAdded)
 	got = fmt.Sprint("topics collected ", val)
@@ -186,7 +199,7 @@ func TestSend(t *testing.T) {
 
 	iot.Push(contact2, &sendmessage)
 
-	WaitForActions()
+	WaitForActions(guru)
 
 	got = contact1.(*testContact).getResultAsString()
 	want = `[P,contact1_address,=zC7beEa1uwyGGqQpWw+CxYn8/A8IV3bhYkAfKKktWv4,contact2_address,,"hello, can you hear me"]`
@@ -200,7 +213,7 @@ func TestSend(t *testing.T) {
 	lookmsg.Source = []byte("contact2_address")
 	iot.Push(contact2, &lookmsg)
 
-	WaitForActions()
+	WaitForActions(guru)
 
 	got = contact2.(*testContact).getResultAsString()
 	want = `[L,contact1_address,=zC7beEa1uwyGGqQpWw+CxYn8/A8IV3bhYkAfKKktWv4,contact2_address,,count,1]`
@@ -217,7 +230,7 @@ func TestSend(t *testing.T) {
 	lookmsg.Source = []byte("contact2_address")
 	iot.Push(contact2, &lookmsg)
 
-	WaitForActions()
+	WaitForActions(guru)
 
 	got = contact2.(*testContact).getResultAsString()
 	// note that the count is ZERO

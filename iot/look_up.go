@@ -28,7 +28,6 @@ import (
 	"github.com/emirpasic/gods/trees/redblacktree"
 	"github.com/emirpasic/gods/utils"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
 // LookupTableStruct is what we're up to
@@ -47,6 +46,8 @@ type LookupTableStruct struct {
 	NameResolver GuruNameResolver
 
 	config *ContactStructConfig
+
+	getTime func() uint32
 }
 
 // GuruNameResolver will return an upper contact from a name
@@ -149,6 +150,7 @@ type callBackCommand struct { // todo make interface
 	callback func(me *LookupTableStruct, bucket *subscribeBucket, cmd *callBackCommand)
 	index    int
 	wg       sync.WaitGroup
+	expires  uint32
 }
 
 func guruDeleteRemappedAndGoneTopics(me *LookupTableStruct, bucket *subscribeBucket, cmd *callBackCommand) {
@@ -293,10 +295,11 @@ func reSubscribeRemappedTopics(me *LookupTableStruct, bucket *subscribeBucket, c
 // NewLookupTable makes a LookupTableStruct, usually a singleton.
 // In the tests we call here and then use the result to init a server.
 // Starts 16 go routines that are hung on their 32 deep q's
-func NewLookupTable(projectedTopicCount int, aname string, isGuru bool) *LookupTableStruct {
+func NewLookupTable(projectedTopicCount int, aname string, isGuru bool, getTime func() uint32) *LookupTableStruct {
 	me := LookupTableStruct{}
 	me.myname = aname
 	me.isGuru = isGuru
+	me.getTime = getTime
 	me.key.Random()
 	portion := projectedTopicCount / int(theBucketsSize)
 	portion2 := projectedTopicCount >> theBucketsSizeLog2 // we can init the hash maps big
@@ -528,8 +531,59 @@ type lookupMessageDown struct {
 // watchedTopic is what we'll be collecting a lot of.
 // what if *everyone* is watching this topic? and then the watchers is huge.
 type watchedTopic struct {
-	name     HashType // not my real name
-	watchers *redblacktree.Tree
+	name    HashType // not my real name
+	expires uint32
+	thetree *redblacktree.Tree // of uint64 to watcherItem
+}
+
+func (wt *watchedTopic) put(key HalfHash, ci ContactInterface) {
+	item := new(watcherItem)
+	item.ci = ci
+	item.expires = 20 * 60 * ci.GetConfig().GetLookup().getTime()
+	wt.thetree.Put(uint64(key), item)
+}
+
+func (wt *watchedTopic) remove(key HalfHash) {
+	wt.thetree.Remove(uint64(key))
+}
+
+func (wt *watchedTopic) getSize() int {
+	return wt.thetree.Size()
+}
+
+type subIterator struct {
+	rbi *redblacktree.Iterator
+}
+
+func (wt *watchedTopic) Iterator() *subIterator {
+	si := new(subIterator)
+	rbi := wt.thetree.Iterator()
+	si.rbi = &rbi
+	return si
+}
+
+func (it *subIterator) Next() bool {
+	rbit := it.rbi
+	return rbit.Next()
+}
+
+func (it *subIterator) KeyValue() (HalfHash, *watcherItem) {
+	rbit := it.rbi
+	tmp, ok := rbit.Key().(uint64)
+	if !ok {
+		panic("expect key to be uint64")
+	}
+	key := HalfHash(tmp)
+	ss, ok := rbit.Value().(*watcherItem)
+	if !ok {
+		panic("expect val to be watcherItem")
+	}
+	return key, ss
+}
+
+type watcherItem struct {
+	expires uint32
+	ci      ContactInterface
 }
 
 // theBucketsSize is 16 and there's 16 channels
@@ -543,38 +597,6 @@ type subscribeBucket struct {
 	incoming        chan interface{}
 	looker          *LookupTableStruct
 }
-
-var (
-	namesAdded = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "look_names_added",
-		Help: "The total number of subscriptions requests",
-	})
-	// TopicsAdded is
-	TopicsAdded = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "look_topics_added",
-		Help: "The total number new topics/subscriptions] added",
-	})
-
-	topicsRemoved = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "look_topics_removed",
-		Help: "The total number new topics/subscriptions] deleted",
-	})
-
-	missedPushes = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "look_missed_pushes",
-		Help: "The total number of publish to empty topic",
-	})
-
-	sentMessages = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "look_sent_messages",
-		Help: "The total number of messages sent down",
-	})
-
-	fatalMessups = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "look_fatal_messages",
-		Help: "The total number garbage messages",
-	})
-)
 
 // NewWithInt64Comparator for HalfHash
 func NewWithInt64Comparator() *redblacktree.Tree {
@@ -628,7 +650,47 @@ func setWatchers(bucket *subscribeBucket, h *HashType, watcher *watchedTopic) {
 	} else {
 		delete(hashtable, *h)
 	}
+}
 
+func guruDeleteExpiredTopics(me *LookupTableStruct, bucket *subscribeBucket, cmd *callBackCommand) {
+
+	// we don't delete them here and now. We q up Unsubscribe packets.
+	for _, s := range bucket.mySubscriptions {
+		for h, watchedTopic := range s {
+			expireAll := watchedTopic.expires < cmd.expires
+			it := watchedTopic.Iterator()
+			for it.Next() {
+				key, item := it.KeyValue()
+				if item.expires < cmd.expires || expireAll || item.ci.GetClosed() {
+
+					p := new(packets.Unsubscribe)
+					p.AddressAlias = new([32]byte)[:]
+					watchedTopic.name.GetBytes(p.AddressAlias)
+					me.sendUnsubscribeMessage(item.ci, p)
+				}
+				_ = key
+			}
+			_ = h
+		}
+	}
+	cmd.wg.Done()
+}
+
+// Heartbeat is every 10 sec. now is unix seconds.
+func (me *LookupTableStruct) Heartbeat(now uint32) {
+
+	timer := prometheus.NewTimer(heartbeatLookerDuration)
+	defer timer.ObserveDuration()
+
+	// drop and ex
+	command := callBackCommand{}
+	command.callback = guruDeleteExpiredTopics // inline?
+
+	for _, bucket := range me.allTheSubscriptions {
+		command.wg.Add(1)
+		bucket.incoming <- &command
+	}
+	command.wg.Wait() // should we wait?
 }
 
 // DEBUG because I don't know a better way.

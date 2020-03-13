@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -15,11 +16,12 @@ func buildTheKnotFreeMain() {
 }
 
 func buildTheOperator() {
-	//kubectl.K("cd ..;operator-sdk build gcr.io/fair-theater-238820/knotoperator")
-	//kubectl.K("docker push gcr.io/fair-theater-238820/knotoperator")
+	kubectl.K("cd ..;operator-sdk build gcr.io/fair-theater-238820/knotoperator")
+	kubectl.K("docker push gcr.io/fair-theater-238820/knotoperator")
 }
 
-// See deploy.sh
+// build and deploy knotfree using kubectl.
+// See deploy.sh which is how I used to do it. todo: make better
 
 // pre-req:
 // kind create cluster --config kind-example-config.yaml
@@ -28,17 +30,14 @@ func buildTheOperator() {
 // kubectl config set-context --current --namespace=knotspace
 // or else kubectl goes to google
 
-// cd workspace/kube-prometheus
-// kubectl create -f manifests/setup
-// until kubectl get servicemonitors --all-namespaces ; do date; sleep 1; echo ""; done
-// kubectl apply -f manifests/
-
 // it's much faster when we don't build the docker every time.
 var needtobuild = true
 
 func main() {
 
 	kubectl.K("pwd") // /Users/awootton/Documents/workspace/knotfreeiot/knotoperator/deploy
+
+	kubectl.K("kubectl get no")
 
 	var wg sync.WaitGroup
 
@@ -58,6 +57,11 @@ func main() {
 		}
 	}()
 
+	// do thi slast
+	// kubectl.K("cd ../my-kube-prometheus;kubectl create -f manifests/setup")
+	// kubectl.K(`until kubectl get servicemonitors --all-namespaces ; do date; sleep 1; echo ""; done`)
+	// kubectl.K("cd ../my-kube-prometheus;kubectl apply -f manifests/")
+
 	kubectl.K("kubectl create ns knotspace")
 	kubectl.K("kubectl config set-context --current --namespace=knotspace")
 
@@ -69,9 +73,35 @@ func main() {
 
 	wg.Wait()
 
+	deploymentName := "aide-"
+	previousPodNames, err := kubectl.K8s("kubectl get po | grep "+deploymentName, "")
+	_ = err
+
 	kubectl.K("kubectl apply -f knotfreedeploy.yaml")
 
 	kubectl.K("kubectl apply -f operator.yaml")
+
+	// do libra now in the other project.
+
+	kubectl.K("cd ../my-kube-prometheus;kubectl create -f manifests/setup")
+	kubectl.K(`until kubectl get servicemonitors --all-namespaces ; do date; sleep 1; echo ""; done`)
+	kubectl.K("cd ../my-kube-prometheus;kubectl apply -f manifests/")
+
+	if needtobuild {
+		// delete the aides
+		lines := strings.Split(previousPodNames, "\n")
+		for _, line := range lines {
+			if len(line) < len(deploymentName) {
+				continue
+			}
+			i := strings.Index(line, " ")
+			podname := line[0:i]
+			podname = strings.Trim(podname, " ")
+			// eg aide-7428876776-54rws
+			kubectl.K("kubectl delete po " + podname)
+		}
+
+	}
 
 	fmt.Println(time.Now())
 

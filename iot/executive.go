@@ -19,9 +19,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
 	"strconv"
 	"time"
+
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 // Utility and controller struct and functions for LookupTable
@@ -224,7 +225,7 @@ func MakeTCPMain(name string, limits *ExecutiveLimits, token string) *ClusterExe
 	ce.Aides = append(ce.Aides, aide1)
 	aide1.Looker.NameResolver = nameResolver
 
-	myip := os.Getenv("MY_POD_IP")
+	myip := "" //os.Getenv("MY_POD_IP")
 
 	aide1.httpAddress = myip + ":8080"
 	aide1.tcpAddress = myip + ":8384"
@@ -242,7 +243,7 @@ func MakeTCPMain(name string, limits *ExecutiveLimits, token string) *ClusterExe
 // NewExecutive A wrapper to hold and operate
 func NewExecutive(sizeEstimate int, aname string, timegetter func() uint32, isGuru bool) *Executive {
 
-	look0 := NewLookupTable(sizeEstimate, aname, isGuru)
+	look0 := NewLookupTable(sizeEstimate, aname, isGuru, timegetter)
 	config0 := NewContactStructConfig(look0)
 	config0.Name = aname
 
@@ -541,6 +542,27 @@ func (ex *Executive) GetExecutiveStats() *ExecutiveStats {
 	stats.TCPAddress = ex.GetTCPAddress()
 	stats.HTTPAddress = ex.GetHTTPAddress()
 	return stats
+}
+
+// Heartbeat one per 10 sec?
+func (ex *Executive) Heartbeat(now uint32) {
+
+	connectionsTotal.Set(float64(ex.Config.list.Len()))
+	subscriptions, queuefraction := ex.Looker.GetAllSubsCount()
+	topicsTotal.Set(float64(subscriptions))
+	qFullness.Set(float64(queuefraction))
+
+	ex.Looker.Heartbeat(now)
+
+	timer := prometheus.NewTimer(heartbeatContactsDuration)
+	defer timer.ObserveDuration()
+
+	for e := ex.Config.list.Front(); e != nil; e = e.Next() {
+		ci := e.Value.(ContactInterface)
+		if ci.GetExpires() < now {
+			ci.Close(errors.New("timed out"))
+		}
+	}
 }
 
 // GetLowerContactsCount is how many tcp sessions do we have going on at the bottom

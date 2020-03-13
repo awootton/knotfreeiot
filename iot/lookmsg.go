@@ -27,7 +27,7 @@ func processLookup(me *LookupTableStruct, bucket *subscribeBucket, lookmsg *look
 	if ok == false {
 		// nobody watching
 	} else {
-		count = uint32(watcheditem.watchers.Size())
+		count = uint32(watcheditem.getSize())
 		// todo: add more info
 	}
 	// set count, in decimal
@@ -49,7 +49,7 @@ func processLookupDown(me *LookupTableStruct, bucket *subscribeBucket, lookmsg *
 	if ok == false {
 		// nobody watching
 	} else {
-		count = uint32(watcheditem.watchers.Size())
+		count = uint32(watcheditem.getSize())
 		// todo: add more info
 	}
 	// set count, in decimal

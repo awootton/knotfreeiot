@@ -24,7 +24,7 @@ func startSockets(n int) {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			servAddr := "34.66.147.208:7465"
+			servAddr := "knotfree.io:7465"
 			tcpAddr, err := net.ResolveTCPAddr("tcp", servAddr)
 			if err != nil {
 				println("ResolveTCPAddr failed:", err.Error())
@@ -88,7 +88,7 @@ func startSockets(n int) {
 func TestGrowGurus(t *testing.T) {
 
 	if os.Getenv("KNOT_KUNG_FOO") == "atw" {
-		startSockets(100)
+		startSockets(10)
 
 		wg.Wait()
 	}

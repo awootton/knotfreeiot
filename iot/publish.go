@@ -31,21 +31,16 @@ func processPublish(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *publ
 			// we should die and reconnect
 		}
 	} else {
-		it := watcheditem.watchers.Iterator()
+		it := watcheditem.Iterator()
 		for it.Next() {
-			tmp, ok := it.Key().(uint64)
-			if !ok {
-				continue // this is bad
-			}
-			key := HalfHash(tmp)
-			ss, ok := it.Value().(ContactInterface)
-			if !ok {
-				continue // real bad
-			}
+
+			key, item := it.KeyValue()
+			ci := item.ci
+
 			_, selfReturn := pubmsg.p.GetOption("toself")
 			if selfReturn || key != pubmsg.ss.GetKey() {
-				if me.checkForBadSS(ss, watcheditem) == false {
-					ss.WriteDownstream(pubmsg.p)
+				if me.checkForBadSS(ci, watcheditem) == false {
+					ci.WriteDownstream(pubmsg.p)
 					sentMessages.Inc()
 				}
 			}
@@ -74,20 +69,16 @@ func processPublishDown(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *
 		// NO send upstream publish
 
 	} else {
-		it := watcheditem.watchers.Iterator()
+		watcheditem.expires = 20 * 60 * me.getTime()
+		it := watcheditem.Iterator()
 		for it.Next() {
-			tmp, ok := it.Key().(uint64)
-			if !ok {
-				continue // this is bad
-			}
-			key := HalfHash(tmp)
-			ss, ok := it.Value().(ContactInterface)
-			if !ok {
-				continue // real bad
-			}
+
+			key, item := it.KeyValue()
+			ci := item.ci
+
 			if key != pubmsg.ss.GetKey() {
-				if me.checkForBadSS(ss, watcheditem) == false {
-					ss.WriteDownstream(pubmsg.p)
+				if me.checkForBadSS(ci, watcheditem) == false {
+					ci.WriteDownstream(pubmsg.p)
 					sentMessages.Inc()
 				}
 			}

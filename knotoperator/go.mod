@@ -16,9 +16,17 @@ require (
 	github.com/awootton/knotfreeiot v0.0.0-20200306225827-17115dfc6f70 // indirect
 	github.com/awootton/knotfreeiot/iot v0.0.0-00010101000000-000000000000
 	github.com/awootton/knotfreeiot/kubectl v0.0.0-00010101000000-000000000000
+	github.com/blang/semver v3.5.1+incompatible
+	github.com/brancz/gojsontoyaml v0.0.0-20191212081931-bf2969bbd742 // indirect
 	github.com/go-logr/logr v0.1.0
+	github.com/go-openapi/spec v0.19.4
+	github.com/go-openapi/swag v0.19.5
+	github.com/google/go-jsonnet v0.15.0
+	github.com/ksonnet/ksonnet-lib v0.1.12
 	github.com/operator-framework/operator-sdk v0.14.1
+	github.com/pkg/errors v0.8.1
 	github.com/spf13/pflag v1.0.5
+	github.com/stretchr/testify v1.4.0
 	gomodules.xyz/jsonpatch/v2 v2.0.1
 	k8s.io/api v0.0.0
 	k8s.io/apimachinery v0.0.0

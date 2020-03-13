@@ -19,17 +19,18 @@ import "fmt"
 
 func processSubscribe(me *LookupTableStruct, bucket *subscribeBucket, submsg *subscriptionMessage) {
 
-	watcheditem, ok := getWatchers(bucket, &submsg.h) //bucket.mySubscriptions[submsg.h]
+	watcheditem, ok := getWatchers(bucket, &submsg.h)
 	if !ok {
 		watcheditem = &watchedTopic{}
 		watcheditem.name = submsg.h
-		watcheditem.watchers = NewWithInt64Comparator() //make(map[HalfHash]ContactInterface, 0)
-		//bucket.mySubscriptions[submsg.h] = watcheditem
+		watcheditem.thetree = NewWithInt64Comparator()
+		watcheditem.expires = 20 * 60 * me.getTime()
+
 		setWatchers(bucket, &submsg.h, watcheditem)
 		TopicsAdded.Inc()
 	}
 	// this is the important part:  add the caller to  the set
-	watcheditem.watchers.Put(uint64(submsg.ss.GetKey()), submsg.ss)
+	watcheditem.put(submsg.ss.GetKey(), submsg.ss)
 	namesAdded.Inc()
 	err := bucket.looker.PushUp(submsg.p, submsg.h)
 	if err != nil {
@@ -54,8 +55,8 @@ func processUnsubscribe(me *LookupTableStruct, bucket *subscribeBucket, unmsg *u
 
 	watcheditem, ok := getWatchers(bucket, &unmsg.h) //bucket.mySubscriptions[unmsg.h]
 	if ok == true {
-		watcheditem.watchers.Remove(uint64(unmsg.ss.GetKey()))
-		if watcheditem.watchers.Size() == 0 {
+		watcheditem.remove(unmsg.ss.GetKey())
+		if watcheditem.getSize() == 0 {
 			// if nobody here is subscribing anymore then delete the entry in the hash
 			//delete(bucket.mySubscriptions, unmsg.h)
 			setWatchers(bucket, &unmsg.h, nil)
