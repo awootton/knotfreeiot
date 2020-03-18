@@ -17,13 +17,13 @@
 // It respects a notation to specify byte arrays by hex or base64. See parse_test.go and the readme.
 // It will parse a lot of JSON and the output from `String()` resembles JSON but it's not really
 // and the objects in key:value notation are just alternating fields in a list and there's no map here.
+// 3/2020 Commented out all the number recognitions since we're not using it.
 package badjson
 
 import (
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
-	"strconv"
 	"strings"
 	"unicode/utf8"
 )
@@ -39,12 +39,28 @@ type Segment interface {
 
 // Chop up a line of text into segments. Calling it a parser would be overstating.
 // Returns a head of a list, the number of bytes consumed, and maybe an error.
-// TODO: don't recurse.
 func Chop(inputLineOfText string) (Segment, error) {
 	s, _, err := chop(inputLineOfText, utf8.RuneError, 0)
-	return s, err
+	if err != nil {
+		return s, err
+	}
+	if s == nil { // parsed nothing
+		//not fond of returning nil return s, errors.New("no content")
+		b := new(RuneArray)
+		b.input = ""
+		s = b
+	} else if s.Next() == nil { // special case for '[ content ]' just return content
+		parent := AsParent(s)
+		// if has child, and was an array
+		// return child
+		if parent != nil && parent.wasArray && parent.children != nil {
+			return parent.children, nil
+		}
+	}
+	return s, nil
 }
 
+// TODO: rewrite without recursion (stack the head and the tail).
 // closer might be } or ] when recursing
 func chop(inputLineOfText string, closer rune, depth int) (Segment, int, error) {
 
@@ -108,7 +124,7 @@ func chop(inputLineOfText string, closer rune, depth int) (Segment, int, error) 
 		}
 		start = i
 		if r == closer {
-			return head.Next(), i, nil
+			return head.nexts, i, nil
 		}
 		switch r {
 		case '$': // hex for a byte array
@@ -146,26 +162,26 @@ func chop(inputLineOfText string, closer rune, depth int) (Segment, int, error) 
 			if pop() {
 				break
 			}
-		case '+', '-': // numbers
-			sign := r
-			if pop() { // pass the +
-				break
-			}
-			start = i
-			previousr := r
-		morenum:
-			for r != ' ' && r != ':' && r != ',' && r != '+' && r != '-' && r != closer {
-				previousr = r
-				if pop() {
-					break
-				}
-			}
-			if (r == '+' || r == '-') && previousr == 'e' {
-				if pop() == false {
-					goto morenum
-				}
-			}
-			tail = NewNumber(currentString(), tail, sign == '-')
+		// case '+', '-': // numbers
+		// 	sign := r
+		// 	if pop() { // pass the +
+		// 		break
+		// 	}
+		// 	start = i
+		// 	previousr := r
+		// morenum:
+		// 	for r != ' ' && r != ':' && r != ',' && r != '+' && r != '-' && r != closer {
+		// 		previousr = r
+		// 		if pop() {
+		// 			break
+		// 		}
+		// 	}
+		// 	if (r == '+' || r == '-') && previousr == 'e' {
+		// 		if pop() == false {
+		// 			goto morenum
+		// 		}
+		// 	}
+		// 	tail = NewNumber(currentString(), tail, sign == '-')
 		case '=':
 			var sss string
 			if pop() { // pass the =
@@ -198,7 +214,7 @@ func chop(inputLineOfText string, closer rune, depth int) (Segment, int, error) 
 			}
 			childList, newi, err := chop(str[i:], closewith, depth+1)
 			if err != nil {
-				return head.Next(), newi, nil
+				return head.nexts, newi, nil
 			}
 			i = i + newi
 			tail = NewParent(tail, childList, paren == '[')
@@ -450,59 +466,59 @@ func (b *RuneArray) Raw() string {
 	return str
 }
 
-// Number is a float64
-type Number struct {
-	Base
-	wasNegative bool
-}
+// // Number is a float64
+// type Number struct {
+// 	Base
+// 	wasNegative bool
+// }
 
-// NewNumber is a factory
-func NewNumber(data string, previous Segment, wasNegative bool) Segment {
-	b := new(Number)
-	b.input = data
-	b.wasNegative = wasNegative
-	previous.setNext(b)
-	return b
-}
+// // NewNumber is a factory
+// func NewNumber(data string, previous Segment, wasNegative bool) Segment {
+// 	b := new(Number)
+// 	b.input = data
+// 	b.wasNegative = wasNegative
+// 	previous.setNext(b)
+// 	return b
+// }
 
-// GetNumber parses errors into zeros.
-func (b *Number) GetNumber() float64 {
-	var val float64
-	if len(b.input) == 0 {
-		return val
-	}
-	if b.input[0] == '$' {
-		if len(b.input) >= 2 {
-			ival, _ := strconv.ParseInt(b.input[1:], 16, 64)
-			val = float64(ival)
-		} else {
-			val = 0
-		}
-	} else {
-		val, _ = strconv.ParseFloat(b.input, 64)
-	}
-	if b.wasNegative {
-		val = -val
-	}
-	return val
-}
+// // GetNumber parses errors into zeros.
+// func (b *Number) GetNumber() float64 {
+// 	var val float64
+// 	if len(b.input) == 0 {
+// 		return val
+// 	}
+// 	if b.input[0] == '$' {
+// 		if len(b.input) >= 2 {
+// 			ival, _ := strconv.ParseInt(b.input[1:], 16, 64)
+// 			val = float64(ival)
+// 		} else {
+// 			val = 0
+// 		}
+// 	} else {
+// 		val, _ = strconv.ParseFloat(b.input, 64)
+// 	}
+// 	if b.wasNegative {
+// 		val = -val
+// 	}
+// 	return val
+// }
 
-func (b *Number) String() string {
-	val := b.GetNumber()
-	prefix := ""
-	if val >= 0 {
-		prefix = "+"
-	}
-	if float64(int64(val)) == val {
-		return prefix + strconv.FormatInt(int64(val), 10)
-	}
-	return prefix + strconv.FormatFloat(val, 'g', -1, 64)
-}
+// func (b *Number) String() string {
+// 	val := b.GetNumber()
+// 	prefix := ""
+// 	if val >= 0 {
+// 		prefix = "+"
+// 	}
+// 	if float64(int64(val)) == val {
+// 		return prefix + strconv.FormatInt(int64(val), 10)
+// 	}
+// 	return prefix + strconv.FormatFloat(val, 'g', -1, 64)
+// }
 
-// Raw is
-func (b *Number) Raw() string {
-	return b.String()
-}
+// // Raw is
+// func (b *Number) Raw() string {
+// 	return b.String()
+// }
 
 // Parent has a sub-list
 type Parent struct {
@@ -533,7 +549,8 @@ func (b *Parent) Raw() string {
 	return sb.String()
 }
 
-const encodeStd = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+//const encodeStd = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+const encodeStd = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/-_"
 
 // B64DecodeMap from ascii to b64
 var B64DecodeMap [256]byte
@@ -566,13 +583,14 @@ func init() {
 }
 
 // IsASCII is true if all chars are >= ' ' and <= 127
-// the 2nd bool is if the string has delimeters so it would need quotes.
+// the 2nd bool is if the string has delimeters so it would *need quotes*.
 func IsASCII(bstr []byte) (bool, bool) {
 	isascii := true
 	hasdelimeters := false
 	r, runeLength := utf8.DecodeRune(bstr)
 	if runeLength == 1 {
-		if r == '"' || r == ',' || r == ':' || r == ' ' || r == '$' || r == '+' || r == '-' || r == '=' || r == '[' || r == '{' {
+		//if r == '"' || r == ',' || r == ':' || r == ' ' || r == '$' || r == '+' || r == '-' || r == '=' || r == '[' || r == '{' {
+		if r == '"' || r == ',' || r == ':' || r == ' ' || r == '$' || r == '=' || r == '[' || r == '{' {
 			hasdelimeters = true
 		}
 	}
@@ -589,4 +607,13 @@ func IsASCII(bstr []byte) (bool, bool) {
 	}
 
 	return isascii, hasdelimeters
+}
+
+// AsParent returns pointer to Parent if s is a Parent
+func AsParent(s Segment) *Parent {
+	ch, ok := s.(*Parent)
+	if ok {
+		return ch
+	}
+	return nil
 }

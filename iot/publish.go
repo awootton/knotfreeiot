@@ -15,11 +15,14 @@
 
 package iot
 
-import "fmt"
+import (
+	"encoding/json"
+	"fmt"
+)
 
 func processPublish(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *publishMessage) {
 
-	watcheditem, ok := getWatchers(bucket, &pubmsg.h) //[pubmsg.h]
+	watchedItem, ok := getWatchers(bucket, &pubmsg.h) //[pubmsg.h]
 	if ok == false {
 		// no publish possible !
 		// it's sad really when someone sends messages to nobody.
@@ -31,21 +34,50 @@ func processPublish(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *publ
 			// we should die and reconnect
 		}
 	} else {
-		it := watcheditem.Iterator()
-		for it.Next() {
 
-			key, item := it.KeyValue()
-			ci := item.ci
+		billingAccumulator, ok := watchedItem.GetBilling()
+		if ok {
+			// statsHandled.Inc()
+			// it's a billing channel
+			// publishing to a billing channel is a special case
+			billstr, ok := pubmsg.p.GetOption("stats")
+			if ok {
+				msg := &StatsWithTime{}
+				err := json.Unmarshal(billstr, msg)
+				if err == nil {
 
-			_, selfReturn := pubmsg.p.GetOption("toself")
-			if selfReturn || key != pubmsg.ss.GetKey() {
-				if me.checkForBadSS(ci, watcheditem) == false {
-					ci.WriteDownstream(pubmsg.p)
-					sentMessages.Inc()
+					billingAccumulator.Add(&msg.KnotFreeContactStats, msg.Start)
+
+				} else {
+					// statsUnmarshalFail.Inc()
+				}
+			} else {
+				// statsMissingStats.Inc()
+			}
+			watchedItem.expires = 60 * 60 * me.getTime()
+
+		} else {
+			watchedItem.expires = 20 * 60 * me.getTime()
+
+			it := watchedItem.Iterator()
+			for it.Next() {
+
+				key, item := it.KeyValue()
+				ci := item.ci
+
+				_, selfReturn := pubmsg.p.GetOption("toself")
+				if selfReturn || key != pubmsg.ss.GetKey() {
+					if me.checkForBadContact(ci, watchedItem) == false {
+						//fmt.Println("pub down", string(pubmsg.p.Payload))
+						if string(pubmsg.p.Payload) == "a_test_message2_45" {
+							//fmt.Println("pub down", string(pubmsg.p.Payload))
+						}
+						ci.WriteDownstream(pubmsg.p)
+						sentMessages.Inc()
+					}
 				}
 			}
 		}
-
 		pubmsg.p.DeleteOption("toself")
 
 		err := bucket.looker.PushUp(pubmsg.p, pubmsg.h)
@@ -53,6 +85,7 @@ func processPublish(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *publ
 			// what? we're sad? todo: man up
 			// we should die and reconnect
 			fmt.Println("FIXME tws0")
+			// sendPushUpFail.Inc()
 		}
 	}
 
@@ -77,7 +110,7 @@ func processPublishDown(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *
 			ci := item.ci
 
 			if key != pubmsg.ss.GetKey() {
-				if me.checkForBadSS(ci, watcheditem) == false {
+				if me.checkForBadContact(ci, watcheditem) == false {
 					ci.WriteDownstream(pubmsg.p)
 					sentMessages.Inc()
 				}

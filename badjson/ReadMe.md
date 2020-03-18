@@ -12,7 +12,7 @@ For example, all the forms below parse into the same 4 byte arrays:
 
 `abc def ghi "jkl`  and
 
-`"abc":"def","ghi":"jkl"`  and the bizarre form
+`"abc":"def","ghi":"jkl"`  and the bizarre form:
 
 `"abc""def""ghi""jkl"` and also the common form 
 
@@ -20,6 +20,7 @@ For example, all the forms below parse into the same 4 byte arrays:
 
 `$616263 $646566 =Z2hp =amts` also becomes the same three byte arrays (which is the true reason I wrote it).
 
+Delimiters are space, comma, semicolon, and '}' or ']' in some circumstances. 
 
 TODO: Replace with something more formal.
 

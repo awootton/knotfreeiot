@@ -1,30 +1,58 @@
 package tokens
 
 import (
+	"crypto/ed25519"
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
+	"os"
 	"sort"
 	"strings"
 	"sync"
 
+	"github.com/awootton/knotfreeiot/badjson"
 	"github.com/gbrlsnchs/jwt/v3"
 )
 
-// KnotFreeTokenPayload is our MQTT password.
+// KnotFreeTokenPayload is our JWT 'claims'.
 type KnotFreeTokenPayload struct {
-	ExpirationTime uint32 `json:"exp"` // unix seconds
-	Issuer         string `json:"iss"` // first 4 bytes (or more) of base64 public key of issuer
-	JWTID          string `json:"jti"` // a unique serial number for this Issuer
+	//
+	ExpirationTime uint32 `json:"exp,omitempty"` // unix seconds
+	Issuer         string `json:"iss"`           // first 4 bytes (or more) of base64 public key of issuer
+	JWTID          string `json:"jti,omitempty"` // a unique serial number for this Issuer
 
+	KnotFreeContactStats // limits on what we're allowed to do.
+
+	URL string `json:"url"` // address of the service eg. "knotfree.net"
+}
+
+// KnotFreeContactStats is the numeric part of the token claims
+// it is floats to compress numbers and allow fractions in json
+// these don't count above 2^24 or else we need more bits.
+type KnotFreeContactStats struct {
+	//
 	Input         float32 `json:"in"`  // bytes per sec
 	Output        float32 `json:"out"` // bytes per sec
 	Subscriptions float32 `json:"su"`  // hours per sec
 	Connections   float32 `json:"co"`  // hours per sec
+}
 
-	URL string `json:"url"` // address of the service eg. "knotfree.net"
+// TokenRequest is created in javascript and sent as json.
+type TokenRequest struct {
+	//
+	Pkey    string                `json:"pkey"` // a curve25519 pub key of caller
+	Payload *KnotFreeTokenPayload `json:"payload"`
+	Comment string                `json:"comment"`
+}
+
+// TokenReply is created here and boxed and sent back to js
+type TokenReply struct {
+	Pkey    string `json:"pkey"` // a curve25519 pub key of server
+	Payload string `json:"payload"`
+	Nonce   string `json:"nonce"`
 }
 
 // MakeToken is
@@ -54,23 +82,70 @@ func VerifyToken(ticket []byte, publicKey []byte) (*KnotFreeTokenPayload, bool) 
 	return &payload, true
 }
 
-// GetKnotFreePayload returns the payload THAT IS NOT VERIFIED YET.
-func GetKnotFreePayload(token string) (*KnotFreeTokenPayload, string, error) {
+// GetKnotFreePayload returns the trimmed token
+// and the issuer. We allow all kinds of not b64 junk around our JWT's
+// it is tolerant of junk before and after the token.
+// Only return the issuer. Let Verify get the claims.
+// yes, we end up unmarshaling KnotFreeTokenPayload twice.
+func GetKnotFreePayload(token string) (string, string, error) {
 
-	payload := new(KnotFreeTokenPayload)
-	parts := strings.Split(token, ".")
-	if len(parts) != 3 {
-		return payload, "", errors.New("expected 3 parts")
+	issuer := ""
+	tokenStartIndex := 0
+	tokenEndIndex := 0
+
+	// part 1
+	{
+		firstPart := "eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiSldUIn0."
+		index := strings.Index(token, firstPart)
+		tokenStartIndex = index
+		tokenEndIndex = index + len(firstPart)
+		if index < 0 {
+			s := "expected eyJhbG..."
+			return token, issuer, errors.New(s)
+		}
 	}
-	middle, err := base64.RawStdEncoding.DecodeString(parts[1])
-	if err != nil {
-		return payload, "", err
+	// part 2
+	{
+		t := token[tokenEndIndex:]
+		index := strings.Index(t, ".")
+		if index < 0 {
+			s := "expected ."
+			return token, issuer, errors.New(s)
+		}
+		part2 := token[tokenEndIndex : tokenEndIndex+index]
+		claimsPlain, err := base64.RawStdEncoding.DecodeString(part2)
+		if err != nil {
+			return token, issuer, err
+		}
+		payload := KnotFreeTokenPayload{}
+		err = json.Unmarshal(claimsPlain, &payload)
+		if err != nil {
+			return token, issuer, err
+		}
+		issuer = payload.Issuer
+		tokenEndIndex += index + 1
 	}
-	err = json.Unmarshal(middle, &payload)
-	if err != nil {
-		return payload, "", err
+	// part 3
+	// scan as b64
+	// is it not always the same length? Why are we scanning?
+	for {
+		if tokenEndIndex >= len(token) {
+			break
+		}
+		//r, runeLength := utf8.DecodeRuneInString(token[tokenEndIndex:])
+		r := token[tokenEndIndex]
+		runeLength := 1
+		if runeLength != 1 {
+			break
+		}
+		if badjson.B64DecodeMap[r] == byte(0xFF) {
+			break
+		}
+		tokenEndIndex += runeLength
 	}
-	return payload, parts[2], nil
+
+	trimmedToken := token[tokenStartIndex:tokenEndIndex]
+	return trimmedToken, issuer, nil
 }
 
 // AllThePublicKeys is a globalservice with a list of public keys that
@@ -145,8 +220,55 @@ func decodeKey(key string, destination []byte) (int, error) {
 	return n, err
 }
 
+// from the short name of first 4 b64 from pub key to the 128 byte private key in hex
+// ed25519 token signing private keys.
+var knownPrivateKeys = make(map[string]string)
+
+// GetPrivateKey is
+func GetPrivateKey(first4 string) string {
+	return knownPrivateKeys[first4]
+}
+
+// LoadPrivateKeys is
+func LoadPrivateKeys(fname string) error {
+	home, _ := os.UserHomeDir()
+	fname = strings.Replace(fname, "~", home, 1)
+	data, err := ioutil.ReadFile(fname)
+	if err != nil {
+		return err
+	}
+	datparts := strings.Split(string(data), "\n")
+	for _, part := range datparts {
+
+		bytes, err := base64.RawStdEncoding.DecodeString(part)
+		if err != nil {
+			fmt.Println("fail 5")
+			continue
+		}
+		if len(bytes) != 64 {
+			fmt.Println("fail 64")
+			continue
+		}
+
+		privateKey := ed25519.PrivateKey(bytes)
+		publicKey := privateKey.Public()
+		epublic := bytes[32:] // publicKey.([]byte) or get bytes or something
+		public64 := base64.RawStdEncoding.EncodeToString([]byte(epublic))
+		//fmt.Println(public64)
+		first4 := public64[0:4]
+		knownPrivateKeys[first4] = string(privateKey)
+		_ = publicKey
+		_ = epublic
+	}
+	return nil
+}
+
 // SampleSmallToken is a small token signed by "/9sh" (below)
-var SampleSmallToken = "eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiSldUIn0.eyJleHAiOjE2MDk0NjI4MDAsImlzcyI6Ii85c2giLCJqdGkiOiIxMjM0NTYiLCJpbiI6MjAsIm91dCI6MjAsInN1IjoyLCJjbyI6MiwidXJsIjoia25vdGZyZWUubmV0In0.YmKO8U_jKYyZsJo4m4lj0wjP8NJhciY4y3QXt_xlxvnHYznfWI455JJnnPh4HZluGaUcvrNdKAENGh4CfG4tBg"
+// p.Input = 20
+// p.Output = 20
+// p.Subscriptions = 2
+// p.Connections = 2
+var SampleSmallToken = `["My token expires: 2020-12-30",{"iss":"/9sh","in":32,"out":32,"su":4,"co":2,"url":"knotfree.net"},"eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiSldUIn0.eyJleHAiOjE2MDkzNzI4MDAsImlzcyI6Ii85c2giLCJqdGkiOiJyMWxkWnRsU3ljSVJlcFpRbWtPYVFIdGsiLCJpbiI6MzIsIm91dCI6MzIsInN1Ijo0LCJjbyI6MiwidXJsIjoia25vdGZyZWUubmV0In0.xkFa05XXUXphdBXwVTaZKLQlpsXzZtuVIET0dStobB1JhTcqEikw7snxUbR4YxLg7DlT_LpKeS1G2arYm3pgDw"]`
 
 // ZeroReader is too public
 type ZeroReader struct{}
@@ -158,11 +280,21 @@ func (ZeroReader) Read(buf []byte) (int, error) {
 	return len(buf), nil
 }
 
-// or  crypto/rand:  rand.Read(b []byte) (n int, err error)
+// CountReader is too public
+type CountReader struct {
+	count int
+}
 
-// some routines to parse open ssl that we'll probably never use
+func (cr *CountReader) Read(buf []byte) (int, error) {
+	for i := range buf {
+		buf[i] = byte(cr.count)
+		cr.count++
+	}
+	return len(buf), nil
+}
 
 // ParseOpenSSHPublicKey an ed25519 result is 32 bytes
+// some routines to parse open ssl that we'll probably never use
 func ParseOpenSSHPublicKey(in []byte) []byte {
 
 	out, rest, ok := parseString(in)

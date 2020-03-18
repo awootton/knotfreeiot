@@ -16,11 +16,14 @@
 package iot
 
 import (
+	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
 	"time"
+
+	"golang.org/x/crypto/nacl/box"
 
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -57,6 +60,9 @@ type ClusterExecutive struct {
 	currentAddressList []string
 	isTCP              bool
 	currentPort        int
+
+	PublicKeyTemp  *[32]byte //curve25519.PublicKey // temporary to this run not ed25519
+	PrivateKeyTemp *[32]byte //curve25519.PrivateKey
 }
 
 // ExecutiveLimits will be how we tell if the ex is 'full'
@@ -83,8 +89,8 @@ type ExecutiveStats struct {
 // eg 16 contects is 100% or 10 bytes per sec is 100% or 64 contacts is 100%
 var TestLimits = ExecutiveLimits{16, 10, 64}
 
-// GetNewContact add a contect to the least used of the aides
-func (ce *ClusterExecutive) GetNewContact(factory ContactFactory) ContactInterface {
+// GetNewContactFromSlackestAide add a contect to the least used of the aides
+func (ce *ClusterExecutive) GetNewContactFromSlackestAide(factory ContactFactory, token string) ContactInterface {
 	min := 1 << 30
 	var smallestAide *Executive
 	for _, aide := range ce.Aides {
@@ -99,13 +105,23 @@ func (ce *ClusterExecutive) GetNewContact(factory ContactFactory) ContactInterfa
 		return nil // fixme return error
 	}
 	//fmt.Println("smallest aide is ", smallestAide.Name)
-	cc := factory(smallestAide.Config)
+	cc := factory(smallestAide.Config, token)
+	return cc
+}
+
+// GetNewContactFromAide contacts the aide
+func (ce *ClusterExecutive) GetNewContactFromAide(factory ContactFactory, aide *Executive, token string) ContactInterface {
+
+	if aide == nil {
+		return nil // fixme return error
+	}
+	cc := factory(aide.Config, token)
 	return cc
 }
 
 // AttachContact add a contect to the least used of the aides
 // it's for an existing contact that's reconnecting.
-func (ce *ClusterExecutive) AttachContact(cc ContactInterface, attacher ContactAttach) {
+func (ce *ClusterExecutive) AttachContact(cc ContactInterface, attacher ContactAttach, token string) {
 	max := -1
 	var smallestAide *Executive
 	for _, aide := range ce.Aides {
@@ -120,7 +136,7 @@ func (ce *ClusterExecutive) AttachContact(cc ContactInterface, attacher ContactA
 		fmt.Println("fix mesmallestAide fatal ")
 		return // fixme return error
 	}
-	attacher(cc, smallestAide.Config)
+	attacher(cc, smallestAide.Config, token)
 }
 
 // MakeSimplestCluster is just for testing as k8s doesn't work like this.
@@ -131,6 +147,10 @@ func MakeSimplestCluster(timegetter func() uint32, nameResolver GuruNameResolver
 	if isTCP {
 		ce.currentPort = 9000
 	}
+	a, b, c := box.GenerateKey(rand.Reader) //was ed25519.GenerateKey(rand.Reader)
+	ce.PublicKeyTemp = a
+	ce.PrivateKeyTemp = b
+	_ = c
 
 	ce.limits = &TestLimits
 
@@ -214,6 +234,11 @@ func MakeTCPMain(name string, limits *ExecutiveLimits, token string) *ClusterExe
 
 	ce := &ClusterExecutive{}
 	ce.isTCP = isTCP
+
+	a, b, c := box.GenerateKey(rand.Reader) //was ed25519.GenerateKey(rand.Reader)
+	ce.PublicKeyTemp = a
+	ce.PrivateKeyTemp = b
+	_ = c
 
 	ce.currentPort = 80
 
@@ -381,6 +406,7 @@ func CalcExpansionDesired(aides []*ExecutiveStats, gurus []*ExecutiveStats) Expa
 
 // Operate where we pretend to be an Operator and resize the cluster.
 // This is really only for test. Only works in non-tcp mode
+// Does not call heartbeat or advance the time.
 func (ce *ClusterExecutive) Operate() {
 
 	aides := make([]*ExecutiveStats, len(ce.Aides))
@@ -518,7 +544,6 @@ func (ce *ClusterExecutive) Operate() {
 
 		}
 	}
-
 }
 
 // GetSubsCount returns a count of how many names it's remembering.
@@ -559,9 +584,18 @@ func (ex *Executive) Heartbeat(now uint32) {
 
 	for e := ex.Config.list.Front(); e != nil; e = e.Next() {
 		ci := e.Value.(ContactInterface)
-		if ci.GetExpires() < now {
-			ci.Close(errors.New("timed out"))
-		}
+		ci.Heartbeat(now)
+	}
+}
+
+// Heartbeat everyone when testing
+func (ce *ClusterExecutive) Heartbeat(now uint32) {
+
+	for _, ex := range ce.Aides {
+		ex.Heartbeat(now)
+	}
+	for _, ex := range ce.Gurus {
+		ex.Heartbeat(now)
 	}
 }
 
@@ -629,4 +663,28 @@ func (in *ExecutiveStats) DeepCopy() *ExecutiveStats {
 	out := new(ExecutiveStats)
 	in.DeepCopyInto(out)
 	return out
+}
+
+// WaitForActions is a utility for unit tests.
+// we must wait for things to happen during tests
+func (ce *ClusterExecutive) WaitForActions() {
+
+	for _, ex := range ce.Aides {
+		ex.WaitForActions()
+	}
+	for _, ex := range ce.Gurus {
+		ex.WaitForActions()
+	}
+}
+
+// WaitForActions needs to be properly implemented.
+// The we inject tracer packets with wait groups into q's
+// and then wait for that.
+func (ex *Executive) WaitForActions() {
+
+	if ex != nil {
+		ex.Looker.FlushMarkerAndWait()
+		// can we flush the lower and upper contacts too ?
+		// TODO:
+	}
 }

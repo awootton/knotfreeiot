@@ -30,13 +30,15 @@ func buildTheOperator() {
 // kubectl config set-context --current --namespace=knotspace
 // or else kubectl goes to google
 
+// TODO: have config and args
 // it's much faster when we don't build the docker every time.
-var needtobuild = true
+var needtobuild = false
+
+var alsoDoLibra = false // might be deprecating libra due to excessive dick usage.
 
 func main() {
 
 	kubectl.K("pwd") // /Users/awootton/Documents/workspace/knotfreeiot/knotoperator/deploy
-
 	kubectl.K("kubectl get no")
 
 	var wg sync.WaitGroup
@@ -83,9 +85,9 @@ func main() {
 
 	// do libra now in the other project.
 
-	kubectl.K("cd ../my-kube-prometheus;kubectl create -f manifests/setup")
+	kubectl.K("cd ./my-kube-prometheus;kubectl create -f manifests/setup")
 	kubectl.K(`until kubectl get servicemonitors --all-namespaces ; do date; sleep 1; echo ""; done`)
-	kubectl.K("cd ../my-kube-prometheus;kubectl apply -f manifests/")
+	kubectl.K("cd ./my-kube-prometheus;kubectl apply -f manifests/")
 
 	if needtobuild {
 		// delete the aides
@@ -102,6 +104,13 @@ func main() {
 		}
 
 	}
+
+	if alsoDoLibra {
+
+		ldir := "/Users/awootton/Documents/workspace/libra-statefulset"
+		kubectl.K("cd " + ldir + "; go test -run TestApply")
+	}
+	kubectl.K("kubectl config set-context --current --namespace=knotspace")
 
 	fmt.Println(time.Now())
 

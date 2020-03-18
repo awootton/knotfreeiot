@@ -36,7 +36,10 @@ func TestGrowGurus(t *testing.T) {
 
 	got := ""
 	want := ""
-
+	localtime := starttime
+	getTime := func() uint32 {
+		return localtime
+	}
 	subsStressSize := 100
 
 	ce := iot.MakeSimplestCluster(getTime, testNameResolver, false, 1)
@@ -46,10 +49,10 @@ func TestGrowGurus(t *testing.T) {
 	bytes, _ := json.Marshal(stats)
 	fmt.Println(string(bytes))
 
-	c1 := ce.GetNewContact(MakeTestContact)
+	c1 := ce.GetNewContactFromSlackestAide(MakeTestContact, "")
 	SendText(c1, "S "+c1.String()) // subscribe to my name
 
-	c2 := ce.GetNewContact(MakeTestContact)
+	c2 := ce.GetNewContactFromSlackestAide(MakeTestContact, "")
 	SendText(c2, "S "+c2.String()) // subscribe to my name
 
 	WaitForActions(ce.Aides[0])
@@ -71,7 +74,7 @@ func TestGrowGurus(t *testing.T) {
 		cmd := "S " + c1.String() + "_" + strconv.FormatInt(int64(i), 10)
 		//fmt.Println("sub cmd", cmd)
 		SendText(c1, cmd)
-		currentTime += 60 // a minute
+		localtime += 60 // a minute
 		ce.Operate()
 	}
 
@@ -120,7 +123,7 @@ func TestGrowGurus(t *testing.T) {
 		cmd := "U " + c1.String() + "_" + strconv.FormatInt(int64(i), 10)
 		//fmt.Println("cmd", cmd)
 		SendText(c1, cmd)
-		currentTime += 60 // a minute
+		localtime += 60 // a minute
 		ce.Operate()
 	}
 	WaitForActions(ce.Aides[0])
@@ -143,6 +146,10 @@ func TestExec(t *testing.T) {
 
 	got := ""
 	want := ""
+	localtime := starttime
+	getTime := func() uint32 {
+		return localtime
+	}
 
 	contactStressSize := 50
 
@@ -151,11 +158,11 @@ func TestExec(t *testing.T) {
 	ce := iot.MakeSimplestCluster(getTime, testNameResolver, false, 1)
 	globalClusterExec = ce
 
-	c1 := ce.GetNewContact(MakeTestContact)
+	c1 := ce.GetNewContactFromSlackestAide(MakeTestContact, "")
 	allContacts = append(allContacts, c1.(*testContact))
 	SendText(c1, "S "+c1.String()) // subscribe to my name
 
-	WaitForActions(ce.Aides[0])
+	ce.WaitForActions()
 
 	// there one in the aide and one in the guru
 	got = fmt.Sprint("topics collected ", ce.GetSubsCount())
@@ -166,7 +173,7 @@ func TestExec(t *testing.T) {
 
 	// add a contact a minute and see what happens.
 	for i := 0; i < contactStressSize; i++ {
-		ci := ce.GetNewContact(MakeTestContact)
+		ci := ce.GetNewContactFromSlackestAide(MakeTestContact, "")
 		allContacts = append(allContacts, ci.(*testContact))
 		index := len(allContacts)
 		ci.(*testContact).index = index
@@ -174,11 +181,11 @@ func TestExec(t *testing.T) {
 		cmd := "S contactTopic" + indexstr
 		//fmt.Println("sub cmd1", cmd)
 		SendText(ci, cmd) //ci.String())
-		currentTime += 60 // a minute
+		localtime += 60   // a minute
 		ce.Operate()
 	}
 
-	WaitForActions(ce.Aides[0])
+	ce.WaitForActions()
 
 	got = fmt.Sprint("topics collected ", ce.GetSubsCount())
 	want = "topics collected 107" // + strconv.FormatInt(int64(contactStressSize*3+2), 10)
@@ -198,7 +205,7 @@ func TestExec(t *testing.T) {
 		SendText(c1, command) // publish to cc from c1
 	}
 
-	WaitForActions(ce.Aides[0])
+	ce.WaitForActions()
 
 	for i, cc := range allContacts {
 		if i == 0 {
@@ -225,7 +232,7 @@ func TestExec(t *testing.T) {
 		}
 	}
 
-	WaitForActions(ce.Aides[0])
+	ce.WaitForActions()
 
 	// now. kill one of the minions and see if it reconnects and works
 	if true {
@@ -243,7 +250,9 @@ func TestExec(t *testing.T) {
 		}
 	}
 
-	WaitForActions(ce.Aides[0])
+	ce.WaitForActions()
+
+	// is the guru connected?
 
 	fmt.Println("check 1")
 
@@ -257,7 +266,8 @@ func TestExec(t *testing.T) {
 		SendText(c1, command) // publish to cc from c1
 	}
 
-	WaitForActions(ce.Aides[0])
+	ce.WaitForActions()
+	ce.WaitForActions()
 
 	fmt.Println("check 2")
 
@@ -273,7 +283,7 @@ func TestExec(t *testing.T) {
 			send := p[0].(*packets.Send)
 			got = string(send.Payload)
 		} else {
-			fmt.Println("i expected Send, got ", reflect.TypeOf(p), p, index)
+			fmt.Println("i expected Send, got ", cc.mostRecent, want)
 		}
 		if len(cc.mostRecent) > 0 {
 			if i > 42 {
@@ -291,20 +301,24 @@ func TestExec(t *testing.T) {
 	}
 
 	fmt.Println("check 3")
-
+	// close all the contacts and the aides should shrink
 	for i, cc := range allContacts {
 		if i == 0 {
 			continue // the first one has no message
 		}
 		cc.doNotReconnect = true
 		cc.Close(errors.New("test"))
-		currentTime += 60 // a minute
+		localtime += 60 // a minute
 		ce.Operate()
+		ce.WaitForActions()
 	}
 	ce.Operate()
+	ce.WaitForActions()
+	ce.Operate()
+	ce.WaitForActions()
 
-	got = fmt.Sprint("total minions", len(ce.Aides))
-	want = "total minions1"
+	got = fmt.Sprint("total minions ", len(ce.Aides))
+	want = "total minions 2"
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
 	}

@@ -15,22 +15,66 @@
 
 package iot
 
-import "fmt"
+import (
+	"encoding/json"
+	"fmt"
+
+	"github.com/awootton/knotfreeiot/tokens"
+)
 
 func processSubscribe(me *LookupTableStruct, bucket *subscribeBucket, submsg *subscriptionMessage) {
 
-	watcheditem, ok := getWatchers(bucket, &submsg.h)
+	watchedItem, ok := getWatchers(bucket, &submsg.h)
 	if !ok {
-		watcheditem = &watchedTopic{}
-		watcheditem.name = submsg.h
-		watcheditem.thetree = NewWithInt64Comparator()
-		watcheditem.expires = 20 * 60 * me.getTime()
+		watchedItem = &watchedTopic{}
+		watchedItem.name = submsg.h
+		watchedItem.thetree = NewWithInt64Comparator()
+		watchedItem.expires = 20 * 60 * me.getTime()
 
-		setWatchers(bucket, &submsg.h, watcheditem)
+		t, _ := submsg.p.GetOption("JWTID") // an alias
+		watchedItem.SetOption("JWTID", t)   // an alias
+
+		setWatchers(bucket, &submsg.h, watchedItem)
 		TopicsAdded.Inc()
 	}
 	// this is the important part:  add the caller to  the set
-	watcheditem.put(submsg.ss.GetKey(), submsg.ss)
+	watchedItem.put(submsg.ss.GetKey(), submsg.ss)
+
+	// check some options
+	val, ok := submsg.p.GetOption("statsmax")
+	if ok {
+		// now we're a billing channel
+		stats := &tokens.KnotFreeContactStats{}
+		err := json.Unmarshal(val, stats)
+		if err == nil {
+			ba := &BillingAccumulator{}
+			ba.name = submsg.h.String()[0:4]
+			BucketCopy(stats, &ba.max)
+			watchedItem.SetOption("bill", ba)
+		}
+		watchedItem.expires = 60 * 60 * me.getTime()
+	} else {
+		watchedItem.expires = 20 * 60 * me.getTime()
+	}
+	// todo: permanent subscription.
+
+	// only the first subscriber can set the IPv6 address that lookup can return.
+	val, ok = submsg.p.GetOption("IPv6")
+	if ok {
+		_, exists := watchedItem.GetOption("IPv6")
+		if exists == false {
+			watchedItem.SetOption("IPv6", val)
+		}
+	}
+
+	val, ok = submsg.p.GetOption("misc")
+	if ok {
+		_, exists := watchedItem.GetOption("misc")
+		if exists == false {
+			watchedItem.SetOption("misc", val)
+		}
+	}
+
 	namesAdded.Inc()
 	err := bucket.looker.PushUp(submsg.p, submsg.h)
 	if err != nil {
@@ -56,7 +100,8 @@ func processUnsubscribe(me *LookupTableStruct, bucket *subscribeBucket, unmsg *u
 	watcheditem, ok := getWatchers(bucket, &unmsg.h) //bucket.mySubscriptions[unmsg.h]
 	if ok == true {
 		watcheditem.remove(unmsg.ss.GetKey())
-		if watcheditem.getSize() == 0 {
+		_, isBilling := watcheditem.GetBilling()
+		if watcheditem.getSize() == 0 && !isBilling {
 			// if nobody here is subscribing anymore then delete the entry in the hash
 			//delete(bucket.mySubscriptions, unmsg.h)
 			setWatchers(bucket, &unmsg.h, nil)

@@ -13,7 +13,7 @@ import paho.mqtt.client as paho
 broker = "knotfree.net"
 
 clientid = "client-001"
-password = "eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiSldUIn0.eyJleHAiOjE2MDk0NjI4MDAsImlzcyI6Ii85c2giLCJqdGkiOiIxMjM0NTYiLCJpbiI6MjAsIm91dCI6MjAsInN1IjoyLCJjbyI6MiwidXJsIjoia25vdGZyZWUubmV0In0.YmKO8U_jKYyZsJo4m4lj0wjP8NJhciY4y3QXt_xlxvnHYznfWI455JJnnPh4HZluGaUcvrNdKAENGh4CfG4tBg"
+password = '["My token expires: 2020-12-30",{"iss":"/9sh","in":32,"out":32,"su":4,"co":1,"url":"knotfree.net"},"eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiSldUIn0.eyJleHAiOjE2MDkzNzI4MDAsImlzcyI6Ii85c2giLCJqdGkiOiJjNkgzOERtMmNqZndTdVFzMXZhUWJ5ZEgiLCJpbiI6MzIsIm91dCI6MzIsInN1Ijo0LCJjbyI6MSwidXJsIjoia25vdGZyZWUubmV0In0.oCIyyJuwQZh8iRxfLlmXY0dJQM3ORJzWjknsmBcNMtZMysP7kQ75kgqerlCNuBaHKVlwVAuapvo--Xi0PJbbDw"]'
 
 # define callbacks
 

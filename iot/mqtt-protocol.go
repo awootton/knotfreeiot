@@ -51,13 +51,13 @@ func (cc *mqttContact) WriteDownstream(p packets.Interface) error {
 	case *packets.Disconnect:
 		mq := &mqttpackets.DisconnectPacket{}
 		mq.MessageType = mqttpackets.Disconnect
-		return mq.Write(cc.tcpConn)
+		return mq.Write(cc)
 	case *packets.Subscribe:
 		fmt.Println("cant happen3")
 		mq := &mqttpackets.SubscribePacket{}
 		mq.MessageType = mqttpackets.Subscribe
 		mq.Topics = []string{string(v.Address)}
-		err := mq.Write(cc.tcpConn)
+		err := mq.Write(cc)
 		return err
 
 	case *packets.Unsubscribe:
@@ -73,7 +73,17 @@ func (cc *mqttContact) WriteDownstream(p packets.Interface) error {
 		mq.Retain = false
 		mq.Payload = v.Payload
 		//fmt.Println("mqtt pay", string(mq.Payload))
-		err := mq.Write(cc.tcpConn)
+		err := mq.Write(cc)
+
+		// since there's no message in mqtt disconnect, send the pub first.
+		u := HasError(v)
+		if u != nil {
+			mq := &mqttpackets.DisconnectPacket{}
+			mq.MessageType = mqttpackets.Disconnect
+			// no place for message
+			mq.Write(cc)
+			err = errors.New(string(v.Payload))
+		}
 		return err
 
 	default:
@@ -124,18 +134,18 @@ func mqttConnection(tcpConn *net.TCPConn, ex *Executive) {
 	for ex.IAmBadError == nil {
 		// SetReadDeadline
 		if cc.GetToken() == nil {
-			err := cc.tcpConn.SetDeadline(time.Now().Add(2 * time.Second))
+			err := cc.netDotTCPConn.SetDeadline(time.Now().Add(2 * time.Second))
 			if err != nil {
 				//connLogThing.Collect("server err2 " + err.Error())
-				fmt.Println("deadline err", err)
+				fmt.Println("deadline err m1", err)
 				cc.Close(err)
 				return // quit, close the sock, be forgotten
 			}
 		} else {
-			err := cc.tcpConn.SetDeadline(time.Now().Add(20 * time.Minute))
+			err := cc.netDotTCPConn.SetDeadline(time.Now().Add(20 * time.Minute))
 			if err != nil {
 				//connLogThing.Collect("server err2 " + err.Error())
-				fmt.Println("deadline err", err)
+				fmt.Println("deadline err ,2", err)
 				cc.Close(err)
 				return // quit, close the sock, be forgotten
 			}
@@ -151,6 +161,7 @@ func mqttConnection(tcpConn *net.TCPConn, ex *Executive) {
 			cc.Close(err)
 			return
 		}
+		// how many bytes was that????
 
 		fmt.Println("mqtt packet", control)
 		// As much fun as it would be to make the following code into virtual methods
@@ -232,6 +243,8 @@ func mqttConnection(tcpConn *net.TCPConn, ex *Executive) {
 func localMakeMqttContact(config *ContactStructConfig, tcpConn *net.TCPConn) *mqttContact {
 	contact1 := mqttContact{}
 	AddContactStruct(&contact1.ContactStruct, &contact1, config)
-	contact1.tcpConn = tcpConn
+	contact1.netDotTCPConn = tcpConn
+	contact1.realReader = tcpConn
+	contact1.realWriter = tcpConn
 	return &contact1
 }

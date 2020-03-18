@@ -16,6 +16,9 @@
 package main
 
 import (
+	"crypto/rand"
+	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -30,12 +33,15 @@ import (
 	"github.com/awootton/knotfreeiot/iot"
 	"github.com/awootton/knotfreeiot/tokens"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"golang.org/x/crypto/nacl/box"
 )
 
 // Hint: add "127.0.0.1 knotfreeserver" to /etc/hosts
 func main() {
 
 	tokens.LoadPublicKeys()
+
+	tokens.LoadPrivateKeys("~/atw/privateKeys4.txt")
 
 	fmt.Println("Hello knotfreeserver")
 
@@ -109,11 +115,115 @@ func (api apiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		}
 		w.Write(bytes)
 
+	} else if req.RequestURI == "/api1/getToken" {
+
+		// what is IP or id of sender?
+		fmt.Println("token req from", req.RemoteAddr)
+
+		var buff1024 [1024]byte
+		n, err := req.Body.Read(buff1024[:])
+		buf := buff1024[:n]
+		fmt.Println("read body", string(buf), n)
+
+		time.Sleep(8 * time.Second)
+
+		tokenRequest := &tokens.TokenRequest{}
+		err = json.Unmarshal(buf, tokenRequest)
+		if err != nil {
+			badTokenRequests.Inc()
+			fmt.Println("TokenRequest err", err.Error())
+			http.Error(w, err.Error(), 500)
+		} else {
+			// todo: calc cost of this token and have limit.
+
+			clientPublicKey := tokenRequest.Pkey
+			if len(clientPublicKey) != 64 {
+				badTokenRequests.Inc()
+				http.Error(w, "bad client key", 500)
+			}
+
+			signingKey := tokens.GetPrivateKey("/9sh")
+
+			payload := tokenRequest.Payload
+			payload.Issuer = "/9sh"
+			payload.JWTID = getRandomB64String()
+			nonce := payload.JWTID
+
+			exp := payload.ExpirationTime
+			if exp > uint32(time.Now().Unix()+60*60*24*365) {
+				// more than a year in the future not allowed now.
+				exp = uint32(time.Now().Unix() + 60*60*24*365)
+				fmt.Println("had long token ", string(payload.JWTID)) // TODO: store in db
+			}
+
+			tokenString, err := tokens.MakeToken(payload, []byte(signingKey))
+			if err != nil {
+				badTokenRequests.Inc()
+				http.Error(w, err.Error(), 500)
+				return
+			}
+
+			when := time.Unix(int64(exp), 0)
+			year, month, day := when.Date()
+
+			payload.JWTID = ""
+			payload.ExpirationTime = 0
+			// payloadstr, err := json.Marshal(payload)
+			// if err != nil {
+			// 	badTokenRequests.Inc()
+			// 	http.Error(w, err.Error(), 500)
+			// 	return
+			// }
+			// don't use payload again since we modified it.
+
+			comments := make([]interface{}, 3)
+			tmp := fmt.Sprintf(" expires: %v-%v-%v", year, int(month), day)
+			comments[0] = tokenRequest.Comment + tmp
+			comments[1] = payload
+			comments[2] = string(tokenString)
+			returnval, err := json.Marshal(comments)
+			fmt.Println("sending token package ", string(returnval))
+
+			// box it up
+			boxout := make([]byte, len(returnval)+box.Overhead)
+			boxout = boxout[:0]
+			var jwtid [24]byte
+			copy(jwtid[:], []byte(nonce))
+
+			var clipub [32]byte
+			n, err := hex.Decode(clipub[:], []byte(clientPublicKey))
+			if n != 32 {
+				badTokenRequests.Inc()
+				http.Error(w, "bad size2", 500)
+				return
+			}
+
+			sealed := box.Seal(boxout, returnval, &jwtid, &clipub, api.ce.PrivateKeyTemp)
+
+			reply := tokens.TokenReply{}
+			reply.Nonce = nonce
+			reply.Pkey = hex.EncodeToString(api.ce.PublicKeyTemp[:])
+			reply.Payload = hex.EncodeToString(sealed)
+			bytes, err := json.Marshal(reply)
+			if err != nil {
+				badTokenRequests.Inc()
+				http.Error(w, err.Error(), 500)
+				return
+			}
+			w.Write(bytes)
+		}
+
 	} else {
 		http.NotFound(w, req)
 		//fmt.Fprintf(w, "expected known path "+req.RequestURI)
 		httpServe404.Inc()
 	}
+}
+
+func getRandomB64String() string {
+	var tmp [18]byte
+	rand.Read(tmp[:])
+	return base64.RawStdEncoding.EncodeToString(tmp[:])
 }
 
 func startPublicServer(ce *iot.ClusterExecutive) {

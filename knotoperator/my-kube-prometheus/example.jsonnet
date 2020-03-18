@@ -5,7 +5,7 @@ local kp =
     namespace: 'monitoring',
 
     prometheus+:: {
-      namespaces+: ['knotspace', 'libra'],
+      namespaces+: ['knotspace'] // , 'libra'],
     },
   },
 };

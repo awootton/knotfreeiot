@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"reflect"
@@ -35,7 +36,7 @@ import (
 type tcpContact struct {
 	ContactStruct
 
-	tcpConn *net.TCPConn
+	netDotTCPConn *net.TCPConn
 }
 
 type tcpUpperContact struct {
@@ -153,7 +154,9 @@ func TCPNameResolver(address string, config *ContactStructConfig) (ContactInterf
 				}
 				continue
 			}
-			cc.tcpConn = conn.(*net.TCPConn)
+			cc.netDotTCPConn = conn.(*net.TCPConn)
+			cc.realReader = cc.netDotTCPConn
+			cc.realWriter = cc.netDotTCPConn
 			//fmt.Println("tcpUpperContact connected", cc)
 			TCPNameResolverConnected.Inc()
 
@@ -161,7 +164,7 @@ func TCPNameResolver(address string, config *ContactStructConfig) (ContactInterf
 			conn.(*net.TCPConn).SetWriteBuffer(4096)
 
 			connect := packets.Connect{}
-			connect.SetOption("token", []byte(tokens.SampleSmallToken)) // fixme, use token that the ex has
+			connect.SetOption("token", []byte(tokens.SampleSmallToken)) // FIXME: fixme, use token that the ex has
 			cc.WriteUpstream(&connect)
 			if err != nil {
 				//return cc, err
@@ -185,7 +188,7 @@ func TCPNameResolver(address string, config *ContactStructConfig) (ContactInterf
 
 	// don't return until it's connected.
 	count := 0
-	for cc.tcpConn == nil {
+	for cc.netDotTCPConn == nil {
 		time.Sleep(time.Millisecond)
 		count++
 		if count > 50 { // ?? how much ??
@@ -199,15 +202,15 @@ func TCPNameResolver(address string, config *ContactStructConfig) (ContactInterf
 // called by Lookup PushUp
 func (cc *tcpUpperContact) WriteUpstream(p packets.Interface) error {
 
-	if cc.tcpConn == nil {
-		fmt.Println("need non nil tcpConn", cc)
+	if cc.GetConfig() == nil {
+		fmt.Println("closed already", cc)
+		return errors.New(fmt.Sprint("closed already", cc))
+	}
+	if cc.netDotTCPConn == nil {
+		fmt.Println("need non nil netDotTCPConn", cc)
 		return errors.New(fmt.Sprint("need non nil tcpConn", cc))
 	}
-	if cc.GetConfig() == nil {
-		fmt.Println("we are closed", cc)
-		return errors.New(fmt.Sprint("we are closed", cc))
-	}
-	err := p.Write(cc.tcpConn)
+	err := p.Write(cc)
 	if err != nil {
 		cc.Close(err)
 		return err
@@ -221,15 +224,23 @@ func (cc *tcpContact) Close(err error) {
 	ss.Close(err) // close my parent
 	if hadConfig {
 		dis := packets.Disconnect{}
-		dis.SetOption("error", []byte("nil config"))
+		dis.SetOption("error", []byte(err.Error()))
 		cc.WriteDownstream(&dis)
-		cc.tcpConn.Close()
+		cc.netDotTCPConn.Close()
 	}
 }
 
 func (cc *tcpContact) WriteDownstream(packet packets.Interface) error {
 	//fmt.Println("received from above", cmd, reflect.TypeOf(cmd))
-	err := packet.Write(cc.tcpConn)
+	if cc.GetClosed() == false && cc.GetConfig().GetLookup().isGuru == false {
+		u := HasError(packet)
+		if u != nil {
+			u.Write(cc)
+			cc.Close(errors.New(u.String()))
+			return errors.New(u.String()) // ?
+		}
+	}
+	err := packet.Write(cc)
 	if err != nil {
 		cc.Close(err)
 	}
@@ -238,7 +249,7 @@ func (cc *tcpContact) WriteDownstream(packet packets.Interface) error {
 
 func (cc *tcpContact) WriteUpstream(cmd packets.Interface) error {
 	fmt.Println("FIXME tcp received from below dead code", cmd, reflect.TypeOf(cmd))
-	err := cmd.Write(cc.tcpConn)
+	err := cmd.Write(cc)
 	if err != nil {
 		cc.Close(err)
 	}
@@ -290,23 +301,23 @@ func handleConnection(tcpConn *net.TCPConn, ex *Executive) {
 	for ex.IAmBadError == nil {
 		// SetReadDeadline
 		if cc.GetToken() == nil {
-			err := cc.tcpConn.SetDeadline(time.Now().Add(2 * time.Second))
+			err := cc.netDotTCPConn.SetDeadline(time.Now().Add(2 * time.Second))
 			if err != nil {
-				fmt.Println("deadline err", err)
+				fmt.Println("deadline err 3", err)
 				cc.Close(err)
 				return // quit, close the sock, be forgotten
 			}
 		} else {
-			err := cc.tcpConn.SetDeadline(time.Now().Add(20 * time.Minute))
+			err := cc.netDotTCPConn.SetDeadline(time.Now().Add(20 * time.Minute))
 			if err != nil {
-				fmt.Println("deadline err", err)
+				fmt.Println("deadline err 4", err)
 				cc.Close(err)
 				return // quit, close the sock, be forgotten
 			}
 		}
 		//fmt.Println("waiting for packet")
 
-		p, err := packets.ReadPacket(cc.tcpConn)
+		p, err := packets.ReadPacket(cc)
 		if err != nil {
 			//connLogThing.Collect("se err " + err.Error())
 			//fmt.Println("packets 3 read err", err)
@@ -360,7 +371,9 @@ func localMakeTCPContact(config *ContactStructConfig, tcpConn *net.TCPConn) *tcp
 	contact1 := tcpContact{}
 
 	AddContactStruct(&contact1.ContactStruct, &contact1, config)
-	contact1.tcpConn = tcpConn
+	contact1.netDotTCPConn = tcpConn
+	contact1.realReader = tcpConn
+	contact1.realWriter = tcpConn
 
 	return &contact1
 }
@@ -414,4 +427,28 @@ func PostUpstreamNames(guruList []string, addressList []string, addr string) err
 		return errors.New("upstreamNamesArg not 200")
 	}
 	return nil
+}
+
+// ByteCountingReader keeps track of how much was read.
+type ByteCountingReader struct {
+	count      int
+	realReader io.Reader
+}
+
+func (bcr *ByteCountingReader) Read(p []byte) (int, error) {
+	n, err := bcr.realReader.Read(p)
+	bcr.count += n
+	return n, err
+}
+
+// ByteCountingWriter keeps track of how much was written.
+type ByteCountingWriter struct {
+	count      int
+	realWriter io.Writer
+}
+
+func (bcw *ByteCountingWriter) Write(p []byte) (int, error) {
+	n, err := bcw.realWriter.Write(p)
+	bcw.count += n
+	return n, err
 }

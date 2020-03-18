@@ -32,7 +32,10 @@ func TestTwoLevel(t *testing.T) {
 	want := ""
 	ok := true
 	var err error
-	currentTime = starttime
+	localtime := starttime
+	getTime := func() uint32 {
+		return localtime
+	}
 
 	// set up
 	guru0 := iot.NewExecutive(100, "guru0", getTime, true)
@@ -52,11 +55,11 @@ func TestTwoLevel(t *testing.T) {
 	WaitForActions(aide2)
 	WaitForActions(guru0)
 	// make a contact
-	contact1 := MakeTestContact(aide1.Config) //testContact{}
+	contact1 := MakeTestContact(aide1.Config, "") //testContact{}
 	//contact1.downMessages = make(chan packets.Interface, 1000)
 	//iot.AddContactStruct(&contact1.ContactStruct, &contact1, aide1.Config)
 	// another
-	contact2 := MakeTestContact(aide2.Config) //testContact{}
+	contact2 := MakeTestContact(aide2.Config, "") //testContact{}
 	//contact2.downMessages = make(chan packets.Interface, 1000)
 	//iot.AddContactStruct(&contact2.ContactStruct, &contact2, aide2.Config)
 	// note that they are in *different* lookups so normally they could not communicate but here we have a guru.
@@ -147,17 +150,20 @@ func TestSend(t *testing.T) {
 	want := ""
 	ok := true
 	var err error
-	currentTime = starttime
+	localtime := starttime
+	getTime := func() uint32 {
+		return localtime
+	}
 
 	// set up
 	guru := iot.NewExecutive(100, "guru", getTime, true)
 
 	// make a contact
-	contact1 := MakeTestContact(guru.Config) //testContact{}
+	contact1 := MakeTestContact(guru.Config, "") //testContact{}
 	//contact1.downMessages = make(chan packets.Interface, 1000)
 	//iot.AddContactStruct(&contact1.ContactStruct, &contact1, guru.Config)
 	// another
-	contact2 := MakeTestContact(guru.Config) //testContact{}
+	contact2 := MakeTestContact(guru.Config, "") //testContact{}
 	//contact2.downMessages = make(chan packets.Interface, 1000)
 	//iot.AddContactStruct(&contact2.ContactStruct, &contact2, guru.Config)
 

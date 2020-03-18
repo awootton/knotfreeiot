@@ -35,7 +35,7 @@ import (
 )
 
 const starttime = uint32(1577840400) // Wednesday, January 1, 2020 1:00:00 AM
-var currentTime = uint32(1577840400)
+//var currentTime = uint32(1577840400)
 
 // a typical bottom contact with a q instead of a writer
 type testContact struct {
@@ -56,11 +56,15 @@ type testUpperContact struct {
 	guruBottomContact *testContact
 }
 
-func MakeTestContact(config *iot.ContactStructConfig) iot.ContactInterface {
+func MakeTestContact(config *iot.ContactStructConfig, token string) iot.ContactInterface {
 
 	acontact := testContact{}
 	acontact.downMessages = make(chan packets.Interface, 1000)
 	acontact.mostRecent = make([]packets.Interface, 0, 1000)
+
+	if len(token) == 0 {
+		token = tokens.SampleSmallToken
+	}
 
 	go func(cc *testContact) {
 		for {
@@ -74,22 +78,28 @@ func MakeTestContact(config *iot.ContactStructConfig) iot.ContactInterface {
 
 			if reflect.TypeOf(thing) == reflect.TypeOf(&packets.Disconnect{}) {
 				if cc.doNotReconnect == true {
+					e, _ := thing.GetOption("error")
+					cc.Close(errors.New(string(e)))
 					return // we're done forever.
 				}
 				// now we have to reconnect
 				//fmt.Println("contact reattaching", cc.index)
-				globalClusterExec.AttachContact(cc, AttachTestContact)
+				globalClusterExec.AttachContact(cc, AttachTestContact, token)
 				// we should also reiterate our connect and our subscription.
-				// FIXME: really
+				// FIXME: really, we should.
 			} else {
+				//fmt.Println("appending mostRecent", thing)
 				cc.mostRecent = append(cc.mostRecent, thing)
 			}
 		}
 	}(&acontact)
 	iot.AddContactStruct(&acontact.ContactStruct, &acontact, config)
 
+	if len(token) == 0 {
+		token = tokens.SampleSmallToken
+	}
 	connect := packets.Connect{}
-	connect.SetOption("token", []byte(tokens.SampleSmallToken))
+	connect.SetOption("token", []byte(token))
 	iot.Push(&acontact, &connect)
 
 	return &acontact
@@ -97,13 +107,17 @@ func MakeTestContact(config *iot.ContactStructConfig) iot.ContactInterface {
 
 // the contact is already made but got closed or something and needs to
 // re-attach
-func AttachTestContact(cc iot.ContactInterface, config *iot.ContactStructConfig) {
+func AttachTestContact(cc iot.ContactInterface, config *iot.ContactStructConfig, token string) {
 	contact1 := cc.(*testContact)
 	//contact1.downMessages = make(chan packets.Interface, 1000)
 	iot.AddContactStruct(&contact1.ContactStruct, contact1, config)
 
+	if len(token) == 0 {
+		token = tokens.SampleSmallToken
+	}
+
 	connect := packets.Connect{}
-	connect.SetOption("token", []byte(tokens.SampleSmallToken))
+	connect.SetOption("token", []byte(token))
 	iot.Push(contact1, &connect)
 }
 
@@ -114,12 +128,11 @@ func (cc *testUpperContact) WriteUpstream(cmd packets.Interface) error {
 	return err
 }
 
-func getTime() uint32 {
-	return currentTime
-}
-
 func testNameResolver(name string, config *iot.ContactStructConfig) (iot.ContactInterface, error) {
 	exec, ok := iot.GuruNameToConfigMap[name]
+
+	//fmt.Println(config.Name, " resolving conn to ", name, " found ", exec)
+
 	if ok && exec != nil { // todo: better names.
 		// IRL this is a tcp connect to the guru
 		// this is the contect that aide1 and aide2 will be using at their top
@@ -139,12 +152,18 @@ func testNameResolver(name string, config *iot.ContactStructConfig) (iot.Contact
 		}
 		// wire them up
 		contactTop1.guruBottomContact = &newLowerContact
-		go func() {
+		go func(contact *testUpperContact, lower *testContact) {
 			for { // add timeout?
-				packet := <-newLowerContact.downMessages
-				iot.PushDown(&contactTop1, packet)
+				packet := <-lower.downMessages
+				_, ok := packet.(*packets.Disconnect)
+				if ok {
+					// except when test is calling close.
+					//fmt.Println("guru no tsupposed to ever send disconnect", lower.GetConfig().Name)
+				}
+				//fmt.Println("top push down", packet)
+				iot.PushDown(contact, packet)
 			}
-		}()
+		}(&contactTop1, &newLowerContact)
 		return &contactTop1, nil
 
 	} else {
@@ -162,12 +181,12 @@ func testNameResolver(name string, config *iot.ContactStructConfig) (iot.Contact
 // }
 
 func (cc *testContact) Close(err error) {
-	ss := &cc.ContactStruct
-	ss.Close(err)
-
 	dis := packets.Disconnect{}
 	dis.SetOption("error", []byte(err.Error()))
 	cc.WriteDownstream(&dis)
+
+	ss := &cc.ContactStruct
+	ss.Close(err)
 }
 
 func (cc *testContact) getResultAsString() string {
@@ -186,11 +205,31 @@ func (cc *testContact) getResultAsString() string {
 
 func (cc *testContact) WriteDownstream(packet packets.Interface) error {
 
-	str := packet.String()
-	if strings.HasPrefix(str, "[P,contactTopic45") {
-		//fmt.Println("received from above", packet, reflect.TypeOf(packet))
+	if cc.GetClosed() {
+		return nil
 	}
+	_, ok := packet.(*packets.Disconnect)
+	if ok {
+		// Close(..) in this file will write Disconnect
+		// unless his token is bad, I guess.
+		//fmt.Println("guru not supposed to ever send disconnect", cc.GetConfig().Name)
+	}
+	text := packet.String()
+	cc.ContactStruct.GetBilling().Input += float32(len(text))
+
+	_, ok = packet.(*packets.Send)
+	if ok {
+		//fmt.Println("have send", cc.GetConfig().Name)
+	}
+
 	cc.downMessages <- packet
+
+	if !cc.GetConfig().IsGuru() { // fixme: ignore them only if jwtid doesn't match.
+		u := iot.HasError(packet)
+		if u != nil {
+			cc.downMessages <- u
+		}
+	}
 	return nil
 }
 
@@ -208,23 +247,12 @@ func readCounter(m prometheus.Counter) float64 {
 // SendText chops up the text and creates a packets.Interface packet.
 func SendText(cc iot.ContactInterface, text string) {
 
+	contact1 := cc.(*testContact)
+	contact1.ContactStruct.GetBilling().Input += float32(len(text))
+
 	p, _ := iot.Text2Packet(text)
 	iot.Push(cc, p)
 
-}
-
-// WaitForActions needs to be properly implemented.
-// The correct thing to do is to inject tracer packets with wait groups into q's
-// and then wait for that.
-func WaitForActions(ex *iot.Executive) {
-
-	if ex != nil {
-		ex.Looker.FlushMarkerAndWait()
-	}
-	for i := 0; i < 10; i++ { // this is going to be a problem?
-		time.Sleep(time.Millisecond)
-		runtime.Gosched() // single this
-	}
 }
 
 func readSocket(conn *net.TCPConn) packets.Interface {
@@ -270,7 +298,7 @@ func readLine(conn *net.TCPConn) string {
 	return str
 }
 
-func openConnectedSocket(name string, t *testing.T) *net.TCPConn {
+func openConnectedSocket(name string, t *testing.T, token string) *net.TCPConn {
 
 	// tcpAddr, err := net.ResolveTCPAddr("tcp", name)
 	// if err != nil {
@@ -283,8 +311,13 @@ func openConnectedSocket(name string, t *testing.T) *net.TCPConn {
 		println("Dial 1 failed:", err.Error())
 		t.Fail()
 	}
+
+	if len(token) == 0 {
+		token = tokens.SampleSmallToken
+	}
+
 	connect := packets.Connect{}
-	connect.SetOption("token", []byte(tokens.SampleSmallToken))
+	connect.SetOption("token", []byte(token))
 	err = connect.Write(conn1)
 	if err != nil {
 		println("connect failed:", err.Error())
@@ -301,4 +334,14 @@ func openPlainSocket(name string, t *testing.T) *net.TCPConn {
 		t.Fail()
 	}
 	return conn1.(*net.TCPConn)
+}
+
+// WaitForActions is a utility for test that attempts to wait for all async activity to finish.
+// in test
+func WaitForActions(ex *iot.Executive) {
+	ex.WaitForActions()
+	for i := 0; i < 10; i++ { // this is going to be a problem?
+		time.Sleep(time.Millisecond)
+		runtime.Gosched() // single this
+	}
 }

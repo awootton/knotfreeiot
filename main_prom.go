@@ -68,4 +68,11 @@ var (
 			Help: "tcp accepted main.startPublicServer9090.",
 		},
 	)
+
+	badTokenRequests = promauto.NewCounter(
+		prometheus.CounterOpts{
+			Name: "main_bad_token_requests",
+			Help: "Token requests with flaws.",
+		},
+	)
 )

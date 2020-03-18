@@ -31,7 +31,10 @@ func TestTwoTierTcp(t *testing.T) {
 	want := ""
 	ok := true
 	var err error
-	currentTime = starttime
+	localtime := starttime
+	getTime := func() uint32 {
+		return localtime
+	}
 
 	ce := iot.MakeSimplestCluster(getTime, iot.TCPNameResolver, true, 2)
 	globalClusterExec = ce
@@ -56,7 +59,7 @@ func TestTwoTierTcp(t *testing.T) {
 
 	WaitForActions(ce.Aides[0])
 
-	connectStr := "C token " + `"` + tokens.SampleSmallToken + `"` + "\n"
+	connectStr := "C token " + `'` + tokens.SampleSmallToken + `'` + "\n"
 	sock1.Write([]byte(connectStr))
 	sock2.Write([]byte(connectStr))
 
@@ -109,7 +112,10 @@ func TestSimpleText(t *testing.T) {
 	want := ""
 	ok := true
 	var err error
-	currentTime = starttime
+	localtime := starttime
+	getTime := func() uint32 {
+		return localtime
+	}
 
 	// set up
 	guru := iot.NewExecutive(100, "guru", getTime, true)
@@ -125,7 +131,7 @@ func TestSimpleText(t *testing.T) {
 	sock1.SetNoDelay(true)
 	sock2.SetNoDelay(true)
 
-	connectStr := "C token " + `"` + tokens.SampleSmallToken + `"` + "\n"
+	connectStr := "C token " + `'` + tokens.SampleSmallToken + `'` + "\n"
 	sock1.Write([]byte(connectStr))
 	sock2.Write([]byte(connectStr))
 
@@ -164,7 +170,10 @@ func TestSimpleExecutive(t *testing.T) {
 	want := ""
 	ok := true
 	var err error
-	currentTime = starttime
+	localtime := starttime
+	getTime := func() uint32 {
+		return localtime
+	}
 
 	// set up
 	guru := iot.NewExecutive(100, "guru", getTime, true)
@@ -173,8 +182,8 @@ func TestSimpleExecutive(t *testing.T) {
 
 	time.Sleep(10 * time.Millisecond)
 	// open a socket
-	sock1 := openConnectedSocket("localhost:8089", t)
-	sock2 := openConnectedSocket("localhost:8089", t)
+	sock1 := openConnectedSocket("localhost:8089", t, "")
+	sock2 := openConnectedSocket("localhost:8089", t, "")
 
 	sock1.SetNoDelay(true)
 	sock2.SetNoDelay(true)

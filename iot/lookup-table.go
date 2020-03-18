@@ -37,22 +37,22 @@ type LookupTableStruct struct {
 
 	key HashType // unique name for me.
 
-	myname string
+	myname string // like a pod name
 
 	isGuru bool
 
 	upstreamRouter *UpstreamRouterStruct
 
-	NameResolver GuruNameResolver
+	NameResolver GuruNameResolver // pointer to function
 
-	config *ContactStructConfig
+	config *ContactStructConfig // all the contacts share this pointer
 
-	getTime func() uint32
+	getTime func() uint32 // can't call time directly because of test
 }
 
 // GuruNameResolver will return an upper contact from a name
 // in prod it's a DNS lookup followed by a tcp connect
-// in unit test there's a global map that can be consulted. see
+// in unit test there's a global map that can be consulted.
 type GuruNameResolver func(name string, config *ContactStructConfig) (ContactInterface, error)
 
 // UpstreamRouterStruct is maybe virtual in the future
@@ -64,8 +64,25 @@ type UpstreamRouterStruct struct {
 	maglev         *maglev.Table
 	previousmaglev *maglev.Table
 
-	name2contact map[string]common
+	name2contact map[string]baseMessage
 	mux          sync.Mutex
+}
+
+// watchedTopic is what we'll be collecting a lot of.
+// what if *everyone* is watching this topic? and then the watchers is huge.
+type watchedTopic struct {
+	name    HashType // not my real name
+	expires uint32
+	thetree *redblacktree.Tree // of uint64 to watcherItem
+
+	optionalKeyValues *redblacktree.Tree // might be nil if no options.
+
+	// billing?? can we NOT use the optionalKeyValues ?
+}
+
+type watcherItem struct {
+	// expires uint32 expire the contact instead
+	ci ContactInterface
 }
 
 // GetUpperContact returns which contact handles i
@@ -77,7 +94,8 @@ func (router *UpstreamRouterStruct) GetUpperContact(h uint64) ContactInterface {
 	return router.contacts[index]
 }
 
-// PushUp is. may need q per contact
+// PushUp is to send msg up to guruness. may need q per contact
+// this is called directly by the pub/sub/look commands.
 func (me *LookupTableStruct) PushUp(p packets.Interface, h HashType) error {
 
 	router := me.upstreamRouter
@@ -99,8 +117,8 @@ func (me *LookupTableStruct) PushUp(p packets.Interface, h HashType) error {
 	return nil
 }
 
-// FlushMarkerAndWait puts a command into the head of all the q's
-// and waits for it. This way we can wait
+// FlushMarkerAndWait puts a command into the head of *all* the q's
+// and waits for *all* of them to arrive. This way we can wait. for testing.
 func (me *LookupTableStruct) FlushMarkerAndWait() {
 
 	command := callBackCommand{}
@@ -115,7 +133,8 @@ func flushMarkerCallback(me *LookupTableStruct, bucket *subscribeBucket, cmd *ca
 	cmd.wg.Done()
 }
 
-// SetGuruUpstreamNames because the guru needs to know also
+// SetGuruUpstreamNames because the guru needs to know also.
+// recalc the maglev. reveal all the subs and delete the ones we wouldn't have.
 func (me *LookupTableStruct) SetGuruUpstreamNames(names []string) {
 
 	router := me.upstreamRouter
@@ -226,7 +245,7 @@ func (me *LookupTableStruct) SetUpstreamNames(names []string, addresses []string
 				if newContact.GetConfig() == nil {
 					fmt.Println("break here ss")
 				}
-				com = common{newContact, HashType{}}
+				com = baseMessage{HashType{}, newContact}
 				me.upstreamRouter.name2contact[name] = com
 			} else {
 				newContact = com.ss
@@ -318,7 +337,7 @@ func NewLookupTable(projectedTopicCount int, aname string, isGuru bool, getTime 
 		go me.allTheSubscriptions[i].processMessages(&me)
 	}
 	me.upstreamRouter = new(UpstreamRouterStruct)
-	me.upstreamRouter.name2contact = make(map[string]common)
+	me.upstreamRouter.name2contact = make(map[string]baseMessage)
 	// default is no upstream gurus. SetUpstreamNames to change that
 	me.upstreamRouter.maglev = nil // maglev.New([]string{"none"}, maglev.SmallM)
 	me.upstreamRouter.previousmaglev = me.upstreamRouter.maglev
@@ -478,68 +497,190 @@ func (bucket *subscribeBucket) processMessages(me *LookupTableStruct) {
 	}
 }
 
-type common struct {
-	ss ContactInterface
+type baseMessage struct {
 	h  HashType // 3*8 bytes
+	ss ContactInterface
 	// lookup has a time getter timestamp uint32   // timestamp
 }
 
 type subscriptionMessage struct {
-	common
+	baseMessage
 	p *packets.Subscribe
 }
 
 // unsubscribeMessage for real
 type unsubscribeMessage struct {
-	common
+	baseMessage
 	p *packets.Unsubscribe
 }
 
 // publishMessage used here
 type publishMessage struct {
-	common
+	baseMessage
 	p *packets.Send
 }
 
 type lookupMessage struct {
-	common
+	baseMessage
 	p *packets.Lookup
 }
 
 type subscriptionMessageDown struct {
-	common
+	baseMessage
 	p *packets.Subscribe
 }
 
 // unsubscribeMessage for real
 type unsubscribeMessageDown struct {
-	common
+	baseMessage
 	p *packets.Unsubscribe
 }
 
 // publishMessage used here
 type publishMessageDown struct {
-	common
+	baseMessage
 	p *packets.Send
 }
 
 type lookupMessageDown struct {
-	common
+	baseMessage
 	p *packets.Lookup
 }
 
-// watchedTopic is what we'll be collecting a lot of.
-// what if *everyone* is watching this topic? and then the watchers is huge.
-type watchedTopic struct {
-	name    HashType // not my real name
-	expires uint32
-	thetree *redblacktree.Tree // of uint64 to watcherItem
+// theBucketsSize is 16 and there's 16 channels
+// it's just to keep the threads busy.
+const theBucketsSize = uint(16)
+const theBucketsSizeLog2 = 4
+
+// each bucket has 64 maps so 1024 maps total
+type subscribeBucket struct {
+	mySubscriptions [64]map[HashType]*watchedTopic
+	incoming        chan interface{}
+	looker          *LookupTableStruct
 }
+
+// NewWithInt64Comparator for HalfHash
+func NewWithInt64Comparator() *redblacktree.Tree {
+	return &redblacktree.Tree{Comparator: utils.UInt64Comparator}
+}
+
+// A grab bag of paranoid ideas about bad states.
+func (me *LookupTableStruct) checkForBadContact(badsock ContactInterface, pubstruct *watchedTopic) bool {
+
+	if badsock.GetConfig() == nil {
+		return true
+	}
+	return false
+}
+
+func getWatchers(bucket *subscribeBucket, h *HashType) (*watchedTopic, bool) {
+
+	// the first 4 bits were used to select the bucket
+	// the next 6 will select the hash table inside the bucket.
+	sixbits := h.GetFractionalBits(10) & 0x3F
+	hashtable := bucket.mySubscriptions[sixbits]
+	watcheditem, ok := hashtable[*h]
+	return watcheditem, ok
+}
+
+func setWatchers(bucket *subscribeBucket, h *HashType, watcher *watchedTopic) {
+
+	// the first 4 bits were used to select the bucket
+	// the next 6 will select the hash table inside the bucket.
+	sixbits := h.GetFractionalBits(10) & 0x3F
+	hashtable := bucket.mySubscriptions[sixbits]
+	if watcher != nil {
+		hashtable[*h] = watcher
+	} else {
+		delete(hashtable, *h)
+	}
+}
+
+func guruDeleteExpiredTopics(me *LookupTableStruct, bucket *subscribeBucket, cmd *callBackCommand) {
+	defer cmd.wg.Done()
+	// we don't delete them here and now. We q up Unsubscribe packets.
+	// except the billing.
+	for _, s := range bucket.mySubscriptions {
+		for h, watchedItem := range s {
+			expireAll := watchedItem.expires < cmd.expires
+			it := watchedItem.Iterator()
+			for it.Next() {
+				key, item := it.KeyValue()
+				//if item.expires < cmd.expires || expireAll || item.ci.GetClosed() {
+				if expireAll || item.ci.GetClosed() {
+
+					p := new(packets.Unsubscribe)
+					p.AddressAlias = new([32]byte)[:]
+					watchedItem.name.GetBytes(p.AddressAlias)
+					me.sendUnsubscribeMessage(item.ci, p)
+				}
+				_ = key
+			}
+			_ = h
+			// check if this is a billing topic
+			// if it's billing then those unsubscribes get rid of it
+			billingAccumulator, ok := watchedItem.GetBilling()
+			if ok {
+				if expireAll {
+					setWatchers(bucket, &h, nil) // kill it now
+				} else {
+					good, msg := billingAccumulator.AreUnderMax(me.getTime())
+					if !good {
+						p := &packets.Send{}
+						p.AddressAlias = new([24]byte)[:]
+						h.GetBytes(p.AddressAlias)
+						p.Payload = []byte(msg)
+						p.SetOption("error", p.Payload)
+						// just like a publish down.
+						it = watchedItem.Iterator()
+						for it.Next() {
+							key, item := it.KeyValue()
+							_ = key
+							ci := item.ci
+							if me.checkForBadContact(ci, watchedItem) == false {
+								ci.WriteDownstream(p)
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+// Heartbeat is every 10 sec. now is unix seconds.
+func (me *LookupTableStruct) Heartbeat(now uint32) {
+
+	timer := prometheus.NewTimer(heartbeatLookerDuration)
+	defer timer.ObserveDuration()
+
+	// drop and ex
+	command := callBackCommand{}
+	command.callback = guruDeleteExpiredTopics // inline?
+
+	for _, bucket := range me.allTheSubscriptions {
+		command.wg.Add(1)
+		bucket.incoming <- &command
+	}
+	command.wg.Wait() // should we wait?
+}
+
+// DEBUG because I don't know a better way.
+// todo: look into conditional inclusion
+var DEBUG = false
+
+func init() {
+	if os.Getenv("KUBE_EDITOR") == "atom --wait" {
+		DEBUG = true
+	}
+}
+
+// utility routines for watchedTopic put, get etc.
 
 func (wt *watchedTopic) put(key HalfHash, ci ContactInterface) {
 	item := new(watcherItem)
 	item.ci = ci
-	item.expires = 20 * 60 * ci.GetConfig().GetLookup().getTime()
+	//item.expires = 20 * 60 * ci.GetConfig().GetLookup().getTime()
 	wt.thetree.Put(uint64(key), item)
 }
 
@@ -581,123 +722,62 @@ func (it *subIterator) KeyValue() (HalfHash, *watcherItem) {
 	return key, ss
 }
 
-type watcherItem struct {
-	expires uint32
-	ci      ContactInterface
-}
-
-// theBucketsSize is 16 and there's 16 channels
-// it's just to keep the threads busy.
-const theBucketsSize = uint(16)
-const theBucketsSizeLog2 = 4
-
-// each bucket has 64 maps so 1024 maps total
-type subscribeBucket struct {
-	mySubscriptions [64]map[HashType]*watchedTopic
-	incoming        chan interface{}
-	looker          *LookupTableStruct
-}
-
-// NewWithInt64Comparator for HalfHash
-func NewWithInt64Comparator() *redblacktree.Tree {
-	return &redblacktree.Tree{Comparator: utils.UInt64Comparator}
-}
-
-// A grab bag of paranoid ideas about bad states. FIXME: let's be more formal.
-func (me *LookupTableStruct) checkForBadSS(badsock ContactInterface, pubstruct *watchedTopic) bool {
-
-	if badsock.GetConfig() == nil {
-		return true
+// utility routines for watchedTopic options
+// OptionSize returns key count which is same as value count
+func (wt *watchedTopic) OptionSize() int {
+	if wt.optionalKeyValues == nil {
+		return 0
 	}
-	// forgetme := false
-	// //if badsock.conn == nil {
-	// //	forgetme = true
-	// //}
-	// if badsock.ele == nil {
-	// 	forgetme = true
-	// }
-	// if forgetme {
-	// 	for topic, realName := range badsock.topicToName {
-	// 		//me.SendUnsubscribeMessage(badsock, realName)
-	// 		_ = realName
-	// 		badsock.topicToName = nil
-	// 		_ = topic
-	// 	}
-	// 	delete(pubstruct.watchers, badsock.key)
-	// 	return true
-	// }
-	return false
+	return wt.optionalKeyValues.Size()
 }
 
-func getWatchers(bucket *subscribeBucket, h *HashType) (*watchedTopic, bool) {
-
-	// the first 4 bits were used to select the bucket
-	// the next 6 will select the hash table inside the bucket.
-	sixbits := h.GetFractionalBits(10) & 0x3F
-	hashtable := bucket.mySubscriptions[sixbits]
-	watcheditem, ok := hashtable[*h]
-	return watcheditem, ok
-}
-
-func setWatchers(bucket *subscribeBucket, h *HashType, watcher *watchedTopic) {
-
-	// the first 4 bits were used to select the bucket
-	// the next 6 will select the hash table inside the bucket.
-	sixbits := h.GetFractionalBits(10) & 0x3F
-	hashtable := bucket.mySubscriptions[sixbits]
-	if watcher != nil {
-		hashtable[*h] = watcher
+// GetOption returns the value,true to go with the key or nil,false
+func (wt *watchedTopic) GetOption(key string) ([]byte, bool) {
+	if wt.optionalKeyValues == nil {
+		return nil, false
+	}
+	var bytes []byte
+	val, ok := wt.optionalKeyValues.Get(key)
+	if !ok {
+		bytes = []byte("")
 	} else {
-		delete(hashtable, *h)
-	}
-}
-
-func guruDeleteExpiredTopics(me *LookupTableStruct, bucket *subscribeBucket, cmd *callBackCommand) {
-
-	// we don't delete them here and now. We q up Unsubscribe packets.
-	for _, s := range bucket.mySubscriptions {
-		for h, watchedTopic := range s {
-			expireAll := watchedTopic.expires < cmd.expires
-			it := watchedTopic.Iterator()
-			for it.Next() {
-				key, item := it.KeyValue()
-				if item.expires < cmd.expires || expireAll || item.ci.GetClosed() {
-
-					p := new(packets.Unsubscribe)
-					p.AddressAlias = new([32]byte)[:]
-					watchedTopic.name.GetBytes(p.AddressAlias)
-					me.sendUnsubscribeMessage(item.ci, p)
-				}
-				_ = key
-			}
-			_ = h
+		bytes, ok = val.([]byte)
+		if !ok {
+			bytes = []byte("")
 		}
 	}
-	cmd.wg.Done()
+	return bytes, ok
 }
 
-// Heartbeat is every 10 sec. now is unix seconds.
-func (me *LookupTableStruct) Heartbeat(now uint32) {
-
-	timer := prometheus.NewTimer(heartbeatLookerDuration)
-	defer timer.ObserveDuration()
-
-	// drop and ex
-	command := callBackCommand{}
-	command.callback = guruDeleteExpiredTopics // inline?
-
-	for _, bucket := range me.allTheSubscriptions {
-		command.wg.Add(1)
-		bucket.incoming <- &command
+// GetOption returns the value,true to go with the key or nil,false
+func (wt *watchedTopic) GetBilling() (*BillingAccumulator, bool) {
+	if wt.optionalKeyValues == nil {
+		return nil, false
 	}
-	command.wg.Wait() // should we wait?
+	val, ok := wt.optionalKeyValues.Get("bill")
+	if !ok {
+		return nil, ok
+	}
+	stats, ok := val.(*BillingAccumulator)
+	if !ok {
+		return nil, ok
+	}
+	return stats, ok
 }
 
-// DEBUG because I don't know a better way.
-var DEBUG = false
-
-func init() {
-	if os.Getenv("KUBE_EDITOR") == "atom --wait" {
-		DEBUG = true
+// DeleteOption returns the value,true to go with the key or nil,false
+func (wt *watchedTopic) DeleteOption(key string) {
+	if wt.optionalKeyValues == nil {
+		return
 	}
+	wt.optionalKeyValues.Remove(key)
+
+}
+
+// SetOption adds the key,value
+func (wt *watchedTopic) SetOption(key string, val interface{}) {
+	if wt.optionalKeyValues == nil {
+		wt.optionalKeyValues = redblacktree.NewWithStringComparator()
+	}
+	wt.optionalKeyValues.Put(key, val)
 }

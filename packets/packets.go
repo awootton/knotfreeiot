@@ -46,6 +46,8 @@ type Interface interface {
 	//
 	ToJSON() ([]byte, error) // for debugging and String() etc.
 	String() string
+
+	GetOption(key string) ([]byte, bool)
 }
 
 // StandardAlias is really a HashType in bytes or [20]byte or [32]byte. enforced elsewhere.

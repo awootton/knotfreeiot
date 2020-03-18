@@ -20,6 +20,8 @@
 package kubectl
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"os/exec"
@@ -28,7 +30,10 @@ import (
 )
 
 // Quiet for when we don't like the echo
-var Quiet = false
+var Quiet = true
+
+// SuperQuiet = Don't even show the stdout
+var SuperQuiet = false
 
 // For doing kubernetes cluster namespace configuration using the
 // command line technique. There is also a better technique using go-client.
@@ -60,8 +65,34 @@ func K8s(command string, input string) (string, error) {
 		cmd.Process.Kill()
 	})
 
-	out, err := cmd.CombinedOutput()
+	out, err := myCombinedOutput(cmd)
 	return string(out), err
+}
+
+type buffWriter struct {
+	b bytes.Buffer
+}
+
+func (bw *buffWriter) Write(barr []byte) (int, error) {
+	if !SuperQuiet {
+		fmt.Println("kubectlgo>>", string(barr))
+	}
+	return bw.b.Write(barr)
+}
+
+func myCombinedOutput(c *exec.Cmd) ([]byte, error) {
+	if c.Stdout != nil {
+		return nil, errors.New("exec: Stdout already set")
+	}
+	if c.Stderr != nil {
+		return nil, errors.New("exec: Stderr already set")
+	}
+	var b bytes.Buffer
+	bw := buffWriter{b}
+	c.Stdout = &bw
+	c.Stderr = &bw
+	err := c.Run()
+	return bw.b.Bytes(), err
 }
 
 // K - a shorter version of K8s

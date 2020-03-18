@@ -33,15 +33,15 @@ function whenCreateClicked(e) {
 
     pair = nacl.sign.keyPair()
 
-    console.log(toHexString(new Uint8Array(pair.publicKey)))
+    //console.log(toHexString(new Uint8Array(pair.publicKey)))
 
-    console.log(toHexString(new Uint8Array(pair.privateKey)))
+    //console.log(toHexString(new Uint8Array(pair.secretKey)))
 
     user = document.getElementById('usernameDiv');
     user.value = toHexString(new Uint8Array(pair.publicKey))
 
     pass = document.getElementById('passwordDiv');
-    pass.value = "ddddd" + toHexString(new Uint8Array(pair.secretKey))
+    pass.value = toHexString(new Uint8Array(pair.secretKey))
 }
 createButton = document.getElementById('createKeyPair');
 console.log(createButton)

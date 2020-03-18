@@ -34,16 +34,27 @@ func MakeTextExecutive(ex *Executive, serverName string) *Executive {
 	go textServer(ex, serverName)
 
 	return ex
-
 }
 
 // a simple iot wire protocol that is text based.
 
 func (cc *textContact) WriteDownstream(packet packets.Interface) error {
+
+	u := HasError(packet)
+	if u != nil {
+		text := u.String()
+		bytes := []byte(text + "\n")
+		_, err := cc.Write(bytes)
+		if err != nil {
+			cc.Close(err)
+		}
+		return err
+	}
+
 	text := packet.String()
 	bytes := []byte(text + "\n")
 	//fmt.Println("writing down ", string(bytes))
-	_, err := cc.tcpConn.Write(bytes)
+	_, err := cc.Write(bytes)
 	if err != nil {
 		cc.Close(err)
 	}
@@ -80,7 +91,7 @@ func textConnection(tcpConn *net.TCPConn, ex *Executive) {
 	cc := localMakeTextContact(ex.Config, tcpConn)
 	defer cc.Close(nil)
 
-	// connLogThing.Collect("new connection")
+	// connLogThing.Collect("new connection") FIXME: all the connLogThing become prometheus
 
 	err := SocketSetup(tcpConn)
 	if err != nil {
@@ -89,37 +100,39 @@ func textConnection(tcpConn *net.TCPConn, ex *Executive) {
 		return
 	}
 	for ex.IAmBadError == nil {
-		// SetReadDeadline
-		// SetReadDeadline
+		if cc.GetClosed() {
+			return
+		}
 		if cc.GetToken() == nil {
-			err := cc.tcpConn.SetDeadline(time.Now().Add(20 * time.Second))
+			err := cc.netDotTCPConn.SetDeadline(time.Now().Add(20 * time.Second))
+			//fmt.Println("set deadline SHORT")
 			if err != nil {
 				//connLogThing.Collect("server err2 " + err.Error())
-				fmt.Println("deadline err", err)
+				fmt.Println("set deadline err1", err)
 				cc.Close(err)
 				return // quit, close the sock, be forgotten
 			}
 		} else {
-			err := cc.tcpConn.SetDeadline(time.Now().Add(20 * time.Minute))
+			err := cc.netDotTCPConn.SetDeadline(time.Now().Add(20 * time.Minute))
+			//fmt.Println("set deadline LONG")
 			if err != nil {
 				//connLogThing.Collect("server err2 " + err.Error())
-				fmt.Println("deadline err", err)
+				fmt.Println("set deadline err2", err)
 				cc.Close(err)
 				return // quit, close the sock, be forgotten
 			}
 		}
 		//fmt.Println("waiting for packet")
-		//fmt.Println("waiting for packet")
 		str, err := lineReader.ReadString('\n')
+		//fmt.Println("got line ", str)
 		if len(str) > 0 {
 			str = str[0 : len(str)-1]
 		}
 		if len(str) == 0 {
 			continue
 		}
-		//fmt.Println("got line ", str)
 		if err != nil {
-			//connLogThing.Collect("se err " + err.Error())
+			//connLogThing.Collect("se err " + err.Error())FIXME: all the connLogThing become prometheus
 			if err.Error() != "EOF" {
 				fmt.Println("packets 2 read err", err)
 			}
@@ -129,7 +142,8 @@ func textConnection(tcpConn *net.TCPConn, ex *Executive) {
 		p, err := Text2Packet(str)
 		if err != nil {
 			//connLogThing.Collect("se err " + err.Error())
-			fmt.Println("packets 2 read err", err)
+			fmt.Println("packets 3 read err", err)
+			// should we write 'man' page and keep going?
 			cc.Close(err)
 			return
 		}
@@ -148,6 +162,8 @@ func textConnection(tcpConn *net.TCPConn, ex *Executive) {
 func localMakeTextContact(config *ContactStructConfig, tcpConn *net.TCPConn) *textContact {
 	contact1 := textContact{}
 	AddContactStruct(&contact1.ContactStruct, &contact1, config)
-	contact1.tcpConn = tcpConn
+	contact1.netDotTCPConn = tcpConn
+	contact1.realReader = tcpConn
+	contact1.realWriter = tcpConn
 	return &contact1
 }

@@ -17,6 +17,7 @@ import (
 
 	"github.com/awootton/knotfreeiot/tokens"
 	"github.com/gbrlsnchs/jwt/v3"
+	"golang.org/x/crypto/nacl/box"
 )
 
 const starttime = uint32(1577840400) // Wednesday, January 1, 2020 1:00:00 AM
@@ -491,4 +492,86 @@ func BenchmarkCheckToken2(b *testing.B) {
 		payload.Connections = -1
 
 	}
+}
+
+func TestMakeTok2(t *testing.T) {
+
+	tokens.LoadPublicKeys()
+
+	tokens.LoadPrivateKeys("~/atw/privateKeys4.txt")
+	signingKey := tokens.GetPrivateKey("/9sh")
+
+	payload := GetSampleTokenPayload(starttime)
+	payload.Issuer = "/9sh"
+
+	tok, err := tokens.MakeToken(payload, []byte(signingKey))
+	fmt.Println("tok is ", tok, err)
+
+	_, ok := tokens.VerifyToken(tok, []byte(tokens.FindPublicKey("/9sh")))
+
+	fmt.Println("OK", ok)
+
+}
+
+func TestBox(t *testing.T) {
+
+	counter := &tokens.CountReader{}
+
+	// client
+	clipub, clipriv, c := box.GenerateKey(counter)
+
+	// server
+	serpub, serpriv, g := box.GenerateKey(counter)
+	_ = c
+	_ = g
+
+	tokens.LoadPublicKeys()
+
+	tokens.LoadPrivateKeys("~/atw/privateKeys4.txt")
+	signingKey := tokens.GetPrivateKey("/9sh")
+
+	payload := GetSampleTokenPayload(starttime)
+	payload.Issuer = "/9sh"
+	payload.JWTID = getRandomB64String() // has len = 24
+
+	tok, err := tokens.MakeToken(payload, []byte(signingKey))
+	fmt.Println("tok is ", tok, err)
+
+	// box it up
+	boxout := make([]byte, len(tok)+box.Overhead+99)
+	boxout = boxout[:0]
+	// Seal appends an encrypted and authenticated copy of message to out, which
+	// will be Overhead bytes longer than the original and must not overlap it. The
+	// nonce must be unique for each distinct message for a given pair of keys.
+	//func Seal(out, message []byte, nonce *[24]byte, peersPublicKey, privateKey *[32]byte) []byte {
+
+	var jwtid [24]byte
+	copy(jwtid[:], []byte(payload.JWTID))
+
+	sealed := box.Seal(boxout, tok, &jwtid, clipub, serpriv)
+
+	/////
+	//  send the sealed and the nonce and the server pub key to the client
+	/////
+
+	// Open authenticates and decrypts a box produced by Seal and appends the
+	// message to out, which must not overlap box. The output will be Overhead
+	// bytes smaller than box.
+	//func Open(out, box []byte, nonce *[24]byte, peersPublicKey, privateKey *[32]byte) ([]byte, bool) {
+	openbuffer := make([]byte, len(tok)*2)
+	opened, ok := box.Open(openbuffer, sealed, &jwtid, serpub, clipriv)
+	if !ok {
+		fmt.Println("OK 1 not ok ", ok)
+	}
+
+	_, ok = tokens.VerifyToken(opened, []byte(tokens.FindPublicKey("/9sh")))
+
+	fmt.Println("OK", ok)
+
+}
+
+func getRandomB64String() string {
+	var tmp [18]byte
+	rand.Read(tmp[:])
+	return base64.RawStdEncoding.EncodeToString(tmp[:])
 }

@@ -16,17 +16,12 @@
 package iot
 
 import (
-	"crypto/md5"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/binary"
-	"encoding/hex"
 	"fmt"
-	"io"
 	"math/rand"
 	"strconv"
-
-	"github.com/minio/highwayhash"
 )
 
 // HashType will be the key
@@ -41,6 +36,32 @@ type HashType [3]uint64
 // GetUint64 just for debug
 func (h *HashType) GetUint64() uint64 {
 	return h[0]
+}
+
+// HashString will hash the string and init the HashType
+func (h *HashType) HashString(s string) {
+	h.HashBytes([]byte(s))
+}
+
+// HashNameToAlias returns the 'standard alias' of the name.
+func HashNameToAlias(name []byte) []byte {
+	sh := sha256.New()
+	sh.Write(name)
+	shabytes := sh.Sum(nil)
+	return shabytes
+}
+
+// HashBytes will initialize an existing hash from a string.
+// The string will get hashed to provide the bits so we'll wish this was faster.
+// It doesn't have to be crypto safe but it does need to be evenly distributed.
+// allocates. wanted to use highwayhash.New128 but was scared of 128 bits.
+func (h *HashType) HashBytes(s []byte) {
+
+	sh := sha256.New()
+	sh.Write(s)
+	shabytes := sh.Sum(nil)
+	h.InitFromBytes(shabytes)
+
 }
 
 // InitFromBytes because I need to convert from [] to HashType
@@ -89,48 +110,6 @@ func (h *HashType) GetFractionalBits(n uint) int {
 }
 
 var hashstartkey *[]byte
-
-// HashString will hash the string and init the HashType
-func (h *HashType) HashString(s string) {
-	h.HashBytes([]byte(s))
-}
-
-// HashBytes will initialize an existing hash from a string.
-// The string will get hashed to provide the bits so we'll wish this was faster.
-// It doesn't have to be crypto safe but it does need to be evenly distributed.
-// allocates
-func (h *HashType) HashBytes(s []byte) {
-	if 0 == 2 {
-		md5er := md5.New()
-		io.WriteString(md5er, string(s))
-		bytes := md5er.Sum(nil)
-		h.InitFromBytes(bytes)
-		//copy((*h)[:], bytes[0:16])
-		//h.a = binary.BigEndian.Uint64(bytes)
-		//h.b = binary.BigEndian.Uint64(bytes[8:])
-		//fmt.Println(h.a, h.b)
-	} else if "64" == "enough bits" {
-		if hashstartkey == nil {
-			tmp, err := hex.DecodeString("00E5060708090A0BC0B0A00C0D0E0FF90807060504030201000D000102030400")
-			if err != nil {
-				fmt.Println("FIXME: moron")
-			}
-			hashstartkey = &tmp
-		}
-		hhash, _ := highwayhash.New128(*hashstartkey)
-		n, err := hhash.Write(s)
-		_ = n
-		_ = err
-		bytes := hhash.Sum(nil)
-		h.InitFromBytes(bytes)
-
-	} else {
-		sh := sha256.New()
-		sh.Write(s)
-		shabytes := sh.Sum(nil)
-		h.InitFromBytes(shabytes)
-	}
-}
 
 // FromHashType init an existing hash from another - basically a copy
 func (h *HashType) FromHashType(src *HashType) {
