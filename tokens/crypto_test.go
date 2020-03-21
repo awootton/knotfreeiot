@@ -444,20 +444,6 @@ func GetSampleTokenPayload(startTime uint32) *tokens.KnotFreeTokenPayload {
 	return p
 }
 
-// GetSampleBigToken is used for testing.
-func GetSampleBigToken(startTime uint32) *tokens.KnotFreeTokenPayload {
-	p := &tokens.KnotFreeTokenPayload{}
-	p.Issuer = "1iVt" // first 4 from public
-	p.ExpirationTime = startTime + 60*60*24*(365+1)
-	p.JWTID = "123457"
-	p.Input = 1e6
-	p.Output = 1e6
-	p.Subscriptions = 200
-	p.Connections = 200
-	p.URL = "knotfree.net"
-	return p
-}
-
 // 123480 ns/op	    1248 B/op	      22 allocs/op  	~8000/sec
 func BenchmarkCheckToken(b *testing.B) {
 	ticket := []byte("eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiSldUIn0.eyJleHAiOjE2MDk0NjI4MDAsImlzcyI6IjFpVnQiLCJqdGkiOiIxMjM0NTYiLCJpbiI6NzAwMDAsIm91dCI6NzAwMDAsInN1IjoyLCJjbyI6Mn0.N22xJiYz_FMQu_nG_cxlQk7gnvbeO9zOiuzbkZYWpxSzAPtQ_WyCVwWYBPZtA-0Oj-AggWakTNsmGoe8JIzaAg")

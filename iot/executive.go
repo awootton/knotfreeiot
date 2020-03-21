@@ -16,6 +16,7 @@
 package iot
 
 import (
+	"container/list"
 	"crypto/rand"
 	"encoding/json"
 	"errors"
@@ -25,13 +26,15 @@ import (
 
 	"golang.org/x/crypto/nacl/box"
 
+	"github.com/awootton/knotfreeiot/packets"
+	"github.com/awootton/knotfreeiot/tokens"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
 // Utility and controller struct and functions for LookupTable
 
 // Executive is one instance of iot service.
-// TODO: Executive and LookupTableStruct and ContactStructConfig are really just one thing.
+// TODO: FYI: Executive and LookupTableStruct and ContactStructConfig and upstreamRouterStruct are really just one thing.
 type Executive struct {
 	Looker *LookupTableStruct
 	Config *ContactStructConfig
@@ -39,15 +42,23 @@ type Executive struct {
 	isGuru bool
 
 	httpAddress string // eg 33.44.55.66:7374 or localhost:8089 or something
-	tcpAddress  string // eg 33.44.55.66:7374 or localhost:8089 or something
-	textAddress string // eg 33.44.55.66:7374 or localhost:8089 or something
-	mqttAddress string // eg 33.44.55.66:7374 or localhost:8089 or something
+	tcpAddress  string
+	textAddress string
+	mqttAddress string
 
 	getTime func() uint32
 
 	Limits *ExecutiveLimits
 
+	ClusterStats *ClusterStats // All the stats
+
+	ClusterStatsString string // serialization of ClusterStats
+
 	IAmBadError error // if something happened to simply ruin us and we're quitting.
+
+	channelToAnyAide chan packets.Interface
+
+	ce *ClusterExecutive
 }
 
 // ClusterExecutive is a list of Executive
@@ -67,80 +78,46 @@ type ClusterExecutive struct {
 
 // ExecutiveLimits will be how we tell if the ex is 'full'
 type ExecutiveLimits struct {
-	Connections   int `json:"con"`
-	BytesPerSec   int `json:"bps"`
-	Subscriptions int `json:"sub"`
+	tokens.KnotFreeContactStats //   in out su co
 }
 
-// ExecutiveStats is including limits sometimes
+// ExecutiveStats is fractions relative to the limits.
+// a fraction: 1.0 is 100% maxed out. 0 is idle.
 type ExecutiveStats struct {
-	Connections   float64 `json:"con"`
-	Subscriptions float64 `json:"sub"`
-	Buffers       float64 `json:"buf"`
-	BytesPerSec   float64 `json:"bps"`
-	Name          string  `json:"name"`
-	HTTPAddress   string  `json:"http"`
-	TCPAddress    string  `json:"tcp"`
+	// four float32 :   in out su co
+	tokens.KnotFreeContactStats
+	Buffers     float32 `json:"buf"`
+	Name        string  `json:"name"`
+	HTTPAddress string  `json:"http"`
+	TCPAddress  string  `json:"tcp"`
+	IsGuru      bool    `json:"guru"`
 
 	Limits *ExecutiveLimits `json:"limits"`
 }
 
-// TestLimits is for testsvar TestLimits = ExecutiveLimits{16, 10, 64}
-// eg 16 contects is 100% or 10 bytes per sec is 100% or 64 contacts is 100%
-var TestLimits = ExecutiveLimits{16, 10, 64}
-
-// GetNewContactFromSlackestAide add a contect to the least used of the aides
-func (ce *ClusterExecutive) GetNewContactFromSlackestAide(factory ContactFactory, token string) ContactInterface {
-	min := 1 << 30
-	var smallestAide *Executive
-	for _, aide := range ce.Aides {
-		cons, fract := aide.Looker.GetAllSubsCount()
-		if cons < min {
-			min = cons
-			smallestAide = aide
-		}
-		_ = fract
-	}
-	if smallestAide == nil {
-		return nil // fixme return error
-	}
-	//fmt.Println("smallest aide is ", smallestAide.Name)
-	cc := factory(smallestAide.Config, token)
-	return cc
+// ClusterStats is ExecutiveStats from everyone in the cluster.
+// maybe slightly delayed
+type ClusterStats struct {
+	When  uint32 // unix time
+	Stats []*ExecutiveStats
 }
 
-// GetNewContactFromAide contacts the aide
-func (ce *ClusterExecutive) GetNewContactFromAide(factory ContactFactory, aide *Executive, token string) ContactInterface {
+// TestLimits is for tests of autoscaling.TestLimits
+// These are executive limits and not to be confused with token limits.
+// irl connections limit is likely to be 10k and subscriptions 1e6
+var TestLimits = ExecutiveLimits{}
 
-	if aide == nil {
-		return nil // fixme return error
-	}
-	cc := factory(aide.Config, token)
-	return cc
-}
-
-// AttachContact add a contect to the least used of the aides
-// it's for an existing contact that's reconnecting.
-func (ce *ClusterExecutive) AttachContact(cc ContactInterface, attacher ContactAttach, token string) {
-	max := -1
-	var smallestAide *Executive
-	for _, aide := range ce.Aides {
-		cons, fract := aide.Looker.GetAllSubsCount()
-		if cons > max {
-			max = cons
-			smallestAide = aide
-		}
-		_ = fract
-	}
-	if smallestAide == nil {
-		fmt.Println("fix mesmallestAide fatal ")
-		return // fixme return error
-	}
-	attacher(cc, smallestAide.Config, token)
+func init() {
+	TestLimits.Connections = 16
+	TestLimits.Input = 10
+	TestLimits.Output = 10
+	TestLimits.Subscriptions = 64
 }
 
 // MakeSimplestCluster is just for testing as k8s doesn't work like this.
-func MakeSimplestCluster(timegetter func() uint32, nameResolver GuruNameResolver, isTCP bool, aideCount int) *ClusterExecutive {
+func MakeSimplestCluster(timegetter func() uint32, isTCP bool, aideCount int) *ClusterExecutive {
+
+	GuruNameToConfigMap = make(map[string]*Executive)
 
 	ce := &ClusterExecutive{}
 	ce.isTCP = isTCP
@@ -152,14 +129,15 @@ func MakeSimplestCluster(timegetter func() uint32, nameResolver GuruNameResolver
 	ce.PrivateKeyTemp = b
 	_ = c
 
+	defer ce.WaitForActions()
+
 	ce.limits = &TestLimits
 
 	// set up
-	guru0 := NewExecutive(100, "guru0", timegetter, true)
+	guru0 := NewExecutive(100, "guru0", timegetter, true, ce)
 	GuruNameToConfigMap["guru0"] = guru0
 	guru0.Config.ce = ce
 	ce.Gurus = append(ce.Gurus, guru0)
-	guru0.Looker.NameResolver = nameResolver
 
 	if isTCP {
 		guru0.httpAddress = ce.GetNextAddress()
@@ -174,10 +152,10 @@ func MakeSimplestCluster(timegetter func() uint32, nameResolver GuruNameResolver
 	ce.currentAddressList = []string{guru0.tcpAddress}
 
 	for i := int64(0); i < int64(aideCount); i++ {
-		aide1 := NewExecutive(100, "aide"+strconv.FormatInt(i, 10), timegetter, false)
+		aide1 := NewExecutive(100, "aide"+strconv.FormatInt(i, 10), timegetter, false, ce)
 		aide1.Config.ce = ce
 		ce.Aides = append(ce.Aides, aide1)
-		aide1.Looker.NameResolver = nameResolver
+		GuruNameToConfigMap[aide1.Name] = aide1
 
 		if isTCP {
 			aide1.httpAddress = ce.GetNextAddress()
@@ -189,7 +167,11 @@ func MakeSimplestCluster(timegetter func() uint32, nameResolver GuruNameResolver
 			MakeHTTPExecutive(aide1, aide1.httpAddress)
 			// FIXME : MakeMQTTExecutive
 		}
+		go aide1.DialContactToAnyAide(isTCP, ce)
+
 	}
+
+	go guru0.DialContactToAnyAide(isTCP, ce)
 
 	if isTCP {
 		// don't cheat: send these by http
@@ -199,18 +181,12 @@ func MakeSimplestCluster(timegetter func() uint32, nameResolver GuruNameResolver
 				fmt.Println("post fail1")
 			}
 		}
-
 		for _, aide := range ce.Aides {
 			err := PostUpstreamNames(ce.currentGuruList, ce.currentAddressList, aide.httpAddress)
 			if err != nil {
 				fmt.Println("post fail2")
 			}
 		}
-		// guru0.Looker.SetUpstreamNames(ce.currentGuruList, ce.currentAddressList)
-		// for _, aide := range ce.Aides {
-		// 	aide.Looker.SetUpstreamNames(ce.currentGuruList, ce.currentAddressList)
-		// }
-
 	} else {
 		if len(ce.Gurus) > 0 {
 			ce.Gurus[0].Looker.SetUpstreamNames(ce.currentGuruList, ce.currentGuruList)
@@ -230,7 +206,6 @@ func MakeTCPMain(name string, limits *ExecutiveLimits, token string) *ClusterExe
 	timegetter := func() uint32 {
 		return uint32(time.Now().Unix())
 	}
-	nameResolver := TCPNameResolver
 
 	ce := &ClusterExecutive{}
 	ce.isTCP = isTCP
@@ -244,11 +219,10 @@ func MakeTCPMain(name string, limits *ExecutiveLimits, token string) *ClusterExe
 
 	ce.limits = limits
 
-	aide1 := NewExecutive(100, name, timegetter, false)
+	aide1 := NewExecutive(1024*1024, name, timegetter, false, ce)
 	aide1.Limits = limits
 	aide1.Config.ce = ce
 	ce.Aides = append(ce.Aides, aide1)
-	aide1.Looker.NameResolver = nameResolver
 
 	myip := "" //os.Getenv("MY_POD_IP")
 
@@ -262,25 +236,37 @@ func MakeTCPMain(name string, limits *ExecutiveLimits, token string) *ClusterExe
 	MakeHTTPExecutive(aide1, aide1.httpAddress)
 	MakeMqttExecutive(aide1, aide1.mqttAddress)
 
+	go aide1.DialContactToAnyAide(isTCP, ce)
+
 	return ce
 }
 
 // NewExecutive A wrapper to hold and operate
-func NewExecutive(sizeEstimate int, aname string, timegetter func() uint32, isGuru bool) *Executive {
+func NewExecutive(sizeEstimate int, aname string, timegetter func() uint32, isGuru bool, ce *ClusterExecutive) *Executive {
 
-	look0 := NewLookupTable(sizeEstimate, aname, isGuru, timegetter)
-	config0 := NewContactStructConfig(look0)
-	config0.Name = aname
+	look := NewLookupTable(sizeEstimate, aname, isGuru, timegetter)
+	config := NewContactStructConfig(look)
+	config.Name = aname
 
-	e := Executive{}
-	e.Looker = look0
-	e.Config = config0
-	e.Name = aname
-	e.getTime = timegetter
-	e.Limits = &TestLimits
-	e.isGuru = isGuru
-	return &e
+	ex := &Executive{}
+	ex.Looker = look
+	ex.Config = config
+	ex.Name = aname
+	ex.getTime = timegetter
+	ex.Limits = &TestLimits
+	ex.isGuru = isGuru
+	ex.ClusterStatsString = "none-yet"
+	ex.ce = ce
 
+	if sizeEstimate > 1000 {
+		ex.channelToAnyAide = make(chan packets.Interface, 10)
+	} else {
+		ex.channelToAnyAide = make(chan packets.Interface, 1024)
+	}
+
+	look.ex = ex
+
+	return ex
 }
 
 // GetNextAddress hands out localhost addresses starting at 9000
@@ -345,7 +331,7 @@ func CalcExpansionDesired(aides []*ExecutiveStats, gurus []*ExecutiveStats) Expa
 			result.ChangeAides = -1
 			// we can shrink, which one?
 			index := 0
-			max := 0.0
+			max := float32(0.0)
 			for i, ex := range aides {
 				c := ex.Subscriptions
 				fract := ex.Buffers
@@ -423,11 +409,13 @@ func (ce *ClusterExecutive) Operate() {
 
 	// if the average is > 90% then grow
 	if expansion.ChangeAides > 0 {
+
+		_ = CalcExpansionDesired(aides, gurus)
+
 		anaide := ce.Aides[0]
 		n := strconv.FormatInt(int64(len(ce.Aides)), 10)
-		aide1 := NewExecutive(100, "aide"+n, anaide.getTime, false)
+		aide1 := NewExecutive(100, "aide"+n, anaide.getTime, false, ce)
 		ce.Aides = append(ce.Aides, aide1)
-		aide1.Looker.NameResolver = anaide.Looker.NameResolver
 		aide1.Looker.SetUpstreamNames(ce.currentGuruList, ce.currentGuruList)
 		for _, ex := range ce.Gurus {
 			ex.Looker.FlushMarkerAndWait()
@@ -444,28 +432,31 @@ func (ce *ClusterExecutive) Operate() {
 					index = i
 				}
 			}
+
 			i := index
 			minion := ce.Aides[i]
-			//	subsTotal /= float64(len(ce.Aides))
-			//	subsTotal /= float64(ce.limits.subscriptions)
-			minion.Config.listlock.Lock()
-			contactList := make([]ContactInterface, 0, minion.Config.list.Len())
+			contactList := minion.Config.GetContactsListCopy()
+			// copy out the list of contacts.
+			// minion.Config.AccessContactsList(func(config *ContactStructConfig, listOfCi *list.List) {
+			// 	l := listOfCi
+			// 	e := l.Front()
+			// 	for ; e != nil; e = e.Next() {
+			// 		cc := e.Value.(ContactInterface)
+			// 		contactList = append(contactList, cc)
+			// 	}
+			// })
+
 			ce.Aides[i] = ce.Aides[len(ce.Aides)-1] // Copy last element to index i.
 			ce.Aides[len(ce.Aides)-1] = nil         // Erase last element (write zero value).
 			ce.Aides = ce.Aides[:len(ce.Aides)-1]   // shorten list
-			l := minion.Config.GetContactsList()
-			e := l.Front()
-			for ; e != nil; e = e.Next() {
-				cc := e.Value.(ContactInterface)
-				contactList = append(contactList, cc)
-			}
-			minion.Config.listlock.Unlock()
+
+			// close them all
 			for _, cc := range contactList {
 				cc.Close(errors.New("routine maintainance a1"))
 			}
-			for _, cc := range minion.Looker.upstreamRouter.contacts {
-				cc.Close(errors.New("routine maintainance a2"))
-			}
+			//for _, cc := range minion.Looker.upstreamRouter.contacts {
+			//	cc.Close(errors.New("routine maintainance a2"))
+			//}
 			for _, ex := range ce.Gurus {
 				ex.Looker.FlushMarkerAndWait()
 			}
@@ -480,10 +471,9 @@ func (ce *ClusterExecutive) Operate() {
 		sample := ce.Gurus[0]
 		n := strconv.FormatInt(int64(len(ce.Gurus)), 10)
 		newName := "guru" + n
-		n1 := NewExecutive(100, newName, sample.getTime, true)
+		n1 := NewExecutive(100, newName, sample.getTime, true, ce)
 		ce.Gurus = append(ce.Gurus, n1)
 		GuruNameToConfigMap[newName] = n1 // for test
-		n1.Looker.NameResolver = sample.Looker.NameResolver
 		ce.currentGuruList = append(ce.currentGuruList, newName)
 
 		for _, ex := range ce.Gurus {
@@ -507,20 +497,14 @@ func (ce *ClusterExecutive) Operate() {
 			index = len(ce.Gurus) - 1 // always the last one with gurus
 			i := index
 			minion := ce.Gurus[i]
-			minion.Config.listlock.Lock()
-			contactList := make([]ContactInterface, 0)
+
 			ce.Gurus[i] = ce.Gurus[len(ce.Gurus)-1] // Copy last element to index i.
 			ce.Gurus[len(ce.Gurus)-1] = nil         // Erase last element (write zero value).
 			ce.Gurus = ce.Gurus[:len(ce.Gurus)-1]   // shorten list
 			ce.currentGuruList = ce.currentGuruList[0:index]
 
-			l := minion.Config.GetContactsList()
-			e := l.Front()
-			for ; e != nil; e = e.Next() {
-				cc := e.Value.(ContactInterface)
-				contactList = append(contactList, cc)
-			}
-			minion.Config.listlock.Unlock()
+			contactList := minion.Config.GetContactsListCopy()
+
 			for _, ex := range ce.Gurus {
 				ex.Looker.SetUpstreamNames(ce.currentGuruList, ce.currentGuruList)
 			}
@@ -531,9 +515,9 @@ func (ce *ClusterExecutive) Operate() {
 			for _, cc := range contactList {
 				cc.Close(errors.New("routine maintainance g1"))
 			}
-			for _, cc := range minion.Looker.upstreamRouter.contacts {
-				cc.Close(errors.New("routine maintainance g2"))
-			}
+			// for _, cc := range minion.Looker.upstreamRouter.contacts {
+			// 	cc.Close(errors.New("routine maintainance g2"))
+			// }
 
 			for _, ex := range ce.Gurus {
 				ex.Looker.FlushMarkerAndWait()
@@ -553,15 +537,45 @@ func (ex *Executive) GetSubsCount() (int, float64) {
 	return subscriptions, queuefraction
 }
 
-// GetExecutiveStats is
+// GetExecutiveStats is fractions relative to the limits.
 func (ex *Executive) GetExecutiveStats() *ExecutiveStats {
 
-	stats := &ExecutiveStats{}
+	now := ex.getTime()
+
+	// call the looker to get the dirt on subscriptions and the buffers
 	subscriptions, queuefraction := ex.Looker.GetAllSubsCount()
-	stats.Buffers = queuefraction
-	stats.Subscriptions = float64(subscriptions) / float64(ex.Limits.Subscriptions)
-	stats.Connections = float64(ex.GetLowerContactsCount()) / float64(ex.Limits.Connections)
-	stats.BytesPerSec = float64(1) / float64(ex.Limits.BytesPerSec)
+
+	// scan the contacts for byte rates
+	contactCount := ex.Config.Len()
+	inputs := int64(0)
+	outputs := int64(0)
+	times := int64(0)
+
+	ex.Config.AccessContactsList(func(config *ContactStructConfig, listOfCi *list.List) {
+		e := listOfCi.Front()
+		for ; e != nil; e = e.Next() {
+			cc, ok := e.Value.(ContactInterface)
+			if !ok {
+				fmt.Println("not a ci?")
+			}
+			in, out, dt := cc.GetRates(now)
+			inputs += int64(in)
+			outputs += int64(out)
+			times += int64(dt)
+		}
+	})
+	if times <= 0 {
+		times = 1
+	}
+	stats := &ExecutiveStats{}
+	stats.IsGuru = ex.isGuru
+
+	stats.Input = (float32(inputs) / float32(times)) / ex.Limits.Input
+	stats.Output = (float32(outputs) / float32(times)) / ex.Limits.Output
+	stats.Connections = float32(contactCount) / ex.Limits.Connections
+	stats.Subscriptions = float32(subscriptions) / ex.Limits.Subscriptions
+	stats.Buffers = float32(queuefraction)
+
 	stats.Limits = ex.Limits
 	stats.Name = ex.Name
 	stats.TCPAddress = ex.GetTCPAddress()
@@ -572,7 +586,7 @@ func (ex *Executive) GetExecutiveStats() *ExecutiveStats {
 // Heartbeat one per 10 sec?
 func (ex *Executive) Heartbeat(now uint32) {
 
-	connectionsTotal.Set(float64(ex.Config.list.Len()))
+	connectionsTotal.Set(float64(ex.Config.Len()))
 	subscriptions, queuefraction := ex.Looker.GetAllSubsCount()
 	topicsTotal.Set(float64(subscriptions))
 	qFullness.Set(float64(queuefraction))
@@ -582,8 +596,9 @@ func (ex *Executive) Heartbeat(now uint32) {
 	timer := prometheus.NewTimer(heartbeatContactsDuration)
 	defer timer.ObserveDuration()
 
-	for e := ex.Config.list.Front(); e != nil; e = e.Next() {
-		ci := e.Value.(ContactInterface)
+	contactList := ex.Config.GetContactsListCopy()
+
+	for _, ci := range contactList {
 		ci.Heartbeat(now)
 	}
 }
@@ -600,9 +615,9 @@ func (ce *ClusterExecutive) Heartbeat(now uint32) {
 }
 
 // GetLowerContactsCount is how many tcp sessions do we have going on at the bottom
-func (ex *Executive) GetLowerContactsCount() int {
-	return ex.Config.list.Len()
-}
+// func (ex *Executive) GetLowerContactsCount() int {
+// 	return ex.Config.list.Len()
+// }
 
 // GuruNameToConfigMap for ease of unit test.
 var GuruNameToConfigMap map[string]*Executive
@@ -667,14 +682,65 @@ func (in *ExecutiveStats) DeepCopy() *ExecutiveStats {
 
 // WaitForActions is a utility for unit tests.
 // we must wait for things to happen during tests
+// we pretend to get service from the operator.
 func (ce *ClusterExecutive) WaitForActions() {
 
+	nodes := make([]*Executive, 0, len(ce.Aides)+len(ce.Gurus))
 	for _, ex := range ce.Aides {
 		ex.WaitForActions()
+		nodes = append(nodes, ex)
 	}
 	for _, ex := range ce.Gurus {
 		ex.WaitForActions()
+		nodes = append(nodes, ex)
 	}
+
+	stats := make([]*ExecutiveStats, 0, len(nodes))
+	// are we tcp mode?
+	if ce.isTCP {
+
+		when := uint32(0)
+		for _, ex := range nodes {
+			stat, err := GetServerStats(ex.GetHTTPAddress())
+			if err == nil {
+				stats = append(stats, stat)
+			} else {
+				fmt.Println("GetServerStats fail", err)
+			}
+			when = ex.getTime()
+		}
+		clusterStats := ClusterStats{}
+		clusterStats.When = when
+		clusterStats.Stats = stats
+
+		for _, ex := range nodes {
+			PostClusterStats(&clusterStats, ex.GetHTTPAddress())
+		}
+	} else {
+		/// get them directly
+		when := uint32(0)
+		for _, ex := range nodes {
+			stat := ex.GetExecutiveStats()
+			stats = append(stats, stat)
+			when = ex.getTime()
+		}
+		clusterStats := ClusterStats{}
+		clusterStats.When = when
+		clusterStats.Stats = stats
+
+		for _, ex := range nodes {
+			ex.ClusterStats = &clusterStats
+		}
+	}
+	time.Sleep(1 * time.Millisecond)
+	for _, ex := range nodes {
+		ex.WaitForActions()
+	}
+	time.Sleep(1 * time.Millisecond)
+	for _, ex := range nodes {
+		ex.WaitForActions()
+	}
+	time.Sleep(1 * time.Millisecond)
 }
 
 // WaitForActions needs to be properly implemented.

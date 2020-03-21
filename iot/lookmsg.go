@@ -20,10 +20,14 @@ import (
 	"strconv"
 )
 
+// FIXME: needs test. This is not right.
+// the reply doesn't go down - it becomes a publish to a
+// return address.
+
 func processLookup(me *LookupTableStruct, bucket *subscribeBucket, lookmsg *lookupMessage) {
 
-	watcheditem, ok := getWatchers(bucket, &lookmsg.h) // bucket.mySubscriptions[lookmsg.h]
-	count := uint32(0)                                 // people watching
+	watcheditem, ok := getWatcher(bucket, &lookmsg.h)
+	count := uint32(0) // people watching
 	if ok == false {
 		// nobody watching
 	} else {
@@ -39,22 +43,27 @@ func processLookup(me *LookupTableStruct, bucket *subscribeBucket, lookmsg *look
 		// we should be ashamed
 		fmt.Println("FIXME x-sw")
 	}
-
 }
 
-func processLookupDown(me *LookupTableStruct, bucket *subscribeBucket, lookmsg *lookupMessage) {
+func processLookupDown(me *LookupTableStruct, bucket *subscribeBucket, lookmsg *lookupMessageDown) {
 
-	watcheditem, ok := getWatchers(bucket, &lookmsg.h) //bucket.mySubscriptions[lookmsg.h]
-	count := uint32(0)                                 // people watching
-	if ok == false {
-		// nobody watching
-	} else {
-		count = uint32(watcheditem.getSize())
-		// todo: add more info
-	}
-	// set count, in decimal
-	str := strconv.FormatUint(uint64(count), 10)
-	lookmsg.p.SetOption("count", []byte(str))
-	lookmsg.ss.WriteDownstream(lookmsg.p)
+	fmt.Println("FIXME processLookupDown FIXME processLookupDown FIXME processLookupDown FIXME processLookupDown FIXME processLookupDown ")
+
+	// FIXME: needs test. This is not right. there is no processLookupDown
+	// the reply doesn't go down - it becomes a publish to a
+	// return address.
+
+	// watcheditem, ok := getWatcher(bucket, &lookmsg.h)
+	// count := uint32(0) // people watching
+	// if ok == false {
+	// 	// nobody watching
+	// } else {
+	// 	count = uint32(watcheditem.getSize())
+	// 	// todo: add more info
+	// }
+	// // set count, in decimal
+	// str := strconv.FormatUint(uint64(count), 10)
+	// lookmsg.p.SetOption("count", []byte(str))
+	// lookmsg.ss.WriteDownstream(lookmsg.p)
 
 }

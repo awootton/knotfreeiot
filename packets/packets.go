@@ -74,6 +74,11 @@ type Disconnect struct {
 	PacketCommon
 }
 
+// Ping is a utility. Aka Heartbeat.
+type Ping struct {
+	PacketCommon
+}
+
 // MessageCommon is
 type MessageCommon struct {
 	PacketCommon
@@ -154,48 +159,67 @@ func (p *PacketCommon) GetIPV6Option() []byte {
 
 // FillPacket construct a packet from supplied Universal
 func FillPacket(uni *Universal) (Interface, error) {
-	var p Interface
+
 	switch uni.Cmd {
 	case 'P': // Send aka Publish
-		p = new(Send)
+		p := new(Send)
 		err := p.Fill(uni)
 		if err != nil {
 			return nil, err
 		}
+		p.backingUniversal = nil
+		return p, nil
 	case 'S': //
-		p = &Subscribe{}
+		p := &Subscribe{}
 		err := p.Fill(uni)
 		if err != nil {
 			return nil, err
 		}
+		p.backingUniversal = nil
+		return p, nil
 	case 'U': //
-		p = &Unsubscribe{}
+		p := &Unsubscribe{}
 		err := p.Fill(uni)
 		if err != nil {
 			return nil, err
 		}
+		p.backingUniversal = nil
+		return p, nil
 	case 'L': //
-		p = &Lookup{}
+		p := &Lookup{}
 		err := p.Fill(uni)
 		if err != nil {
 			return nil, err
 		}
+		p.backingUniversal = nil
+		return p, nil
 	case 'C': //
-		p = &Connect{}
+		p := &Connect{}
 		err := p.Fill(uni)
 		if err != nil {
 			return nil, err
 		}
+		p.backingUniversal = nil
+		return p, nil
 	case 'D': //
-		p = &Disconnect{}
+		p := &Disconnect{}
 		err := p.Fill(uni)
 		if err != nil {
 			return nil, err
 		}
+		p.backingUniversal = nil
+		return p, nil
+	case 'H': // Ping aka Heartbeat
+		p := &Ping{}
+		err := p.Fill(uni)
+		if err != nil {
+			return nil, err
+		}
+		p.backingUniversal = nil
+		return p, nil
 	default:
 		return nil, errors.New("unknown command " + string(uni.Cmd))
 	}
-	return p, nil
 }
 
 // ReadPacket attempts to obtain a valid Packet from the stream
@@ -205,48 +229,8 @@ func ReadPacket(reader io.Reader) (Interface, error) {
 	if err != nil {
 		return nil, err
 	}
-	return FillPacket(uni)
-	// var p Interface
-	// switch uni.Cmd {
-	// case 'P': // Send aka Publish
-	// 	p = &Send{}
-	// 	err := p.Fill(uni)
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-	// case 'S': //
-	// 	p = &Subscribe{}
-	// 	err := p.Fill(uni)
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-	// case 'U': //
-	// 	p = &Unsubscribe{}
-	// 	err := p.Fill(uni)
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-	// case 'L': //
-	// 	p = &Lookup{}
-	// 	err := p.Fill(uni)
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-	// case 'C': //
-	// 	p = &Connect{}
-	// 	err := p.Fill(uni)
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-	// case 'D': //
-	// 	p = &Disconnect{}
-	// 	err := p.Fill(uni)
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-	// }
-
-	// return p, nil
+	p, err := FillPacket(uni)
+	return p, err
 }
 
 // The args slice is key then value in pairs
@@ -335,6 +319,13 @@ func (p *Disconnect) Fill(str *Universal) error {
 }
 
 // Fill implements the 2nd part of an unmarshal.
+func (p *Ping) Fill(str *Universal) error {
+
+	p.unpackOptions(str.Args[0:])
+	return nil
+}
+
+// Fill implements the 2nd part of an unmarshal.
 func (p *Lookup) Fill(str *Universal) error {
 
 	if len(str.Args) < 4 {
@@ -399,6 +390,7 @@ func UniversalToJSON(str *Universal) ([]byte, error) {
 
 // ToJSON to output a bad json version
 func (p *Send) ToJSON() ([]byte, error) {
+	p.backingUniversal = nil
 	p.Write(nil) // force existance of backingUniversal
 	bytes, err := UniversalToJSON(p.backingUniversal)
 	return bytes, err
@@ -406,6 +398,7 @@ func (p *Send) ToJSON() ([]byte, error) {
 
 // ToJSON is not that efficient
 func (p *Subscribe) ToJSON() ([]byte, error) {
+	p.backingUniversal = nil
 	p.Write(nil) // force existance of backingUniversal
 	bytes, err := UniversalToJSON(p.backingUniversal)
 	return bytes, err
@@ -413,6 +406,7 @@ func (p *Subscribe) ToJSON() ([]byte, error) {
 
 // ToJSON is something that wastes memory.
 func (p *Unsubscribe) ToJSON() ([]byte, error) {
+	p.backingUniversal = nil
 	p.Write(nil) // force existance of backingUniversal
 	bytes, err := UniversalToJSON(p.backingUniversal)
 	return bytes, err
@@ -420,6 +414,7 @@ func (p *Unsubscribe) ToJSON() ([]byte, error) {
 
 // ToJSON is
 func (p *Connect) ToJSON() ([]byte, error) {
+	p.backingUniversal = nil
 	p.Write(nil) // force existance of backingUniversal
 	bytes, err := UniversalToJSON(p.backingUniversal)
 	return bytes, err
@@ -427,6 +422,15 @@ func (p *Connect) ToJSON() ([]byte, error) {
 
 // ToJSON is all the same
 func (p *Disconnect) ToJSON() ([]byte, error) {
+	p.backingUniversal = nil
+	p.Write(nil) // force existance of backingUniversal
+	bytes, err := UniversalToJSON(p.backingUniversal)
+	return bytes, err
+}
+
+// ToJSON is all the same
+func (p *Ping) ToJSON() ([]byte, error) {
+	p.backingUniversal = nil
 	p.Write(nil) // force existance of backingUniversal
 	bytes, err := UniversalToJSON(p.backingUniversal)
 	return bytes, err
@@ -434,6 +438,7 @@ func (p *Disconnect) ToJSON() ([]byte, error) {
 
 // ToJSON is
 func (p *Lookup) ToJSON() ([]byte, error) {
+	p.backingUniversal = nil
 	p.Write(nil) // force existance of backingUniversal
 	bytes, err := UniversalToJSON(p.backingUniversal)
 	return bytes, err
@@ -467,6 +472,11 @@ func (p *Connect) String() string {
 }
 
 func (p *Disconnect) String() string {
+	b, _ := p.ToJSON()
+	return string(b)
+}
+
+func (p *Ping) String() string {
 	b, _ := p.ToJSON()
 	return string(b)
 }
@@ -548,6 +558,18 @@ func (p *Disconnect) Write(writer io.Writer) error {
 	return err
 }
 
+func (p *Ping) Write(writer io.Writer) error {
+	if p.backingUniversal == nil {
+		str := new(Universal)
+		p.backingUniversal = str
+		str.Cmd = 'H'
+		str.Args = make([][]byte, 0, 0+(p.OptionSize()*2))
+		str.Args = p.packOptions(str.Args)
+	}
+	err := p.backingUniversal.Write(writer)
+	return err
+}
+
 func (p *Lookup) Write(writer io.Writer) error {
 	if p.backingUniversal == nil {
 		str := new(Universal)
@@ -621,7 +643,6 @@ func ReadArrayOfByteArray(reader io.Reader) ([][]byte, error) {
 		}
 		lengths[i] = aval
 		total += aval
-
 	}
 	if total > 1024*16 {
 		return nil, errors.New("Packet too long for this reality")

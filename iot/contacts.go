@@ -16,8 +16,8 @@
 package iot
 
 import (
+	"bytes"
 	"container/list"
-	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -25,7 +25,6 @@ import (
 	"reflect"
 	"sync"
 
-	"github.com/awootton/knotfreeiot/badjson"
 	"github.com/awootton/knotfreeiot/packets"
 	"github.com/awootton/knotfreeiot/tokens"
 )
@@ -43,72 +42,20 @@ type ContactStruct struct {
 	// but then how do we unsubscribe when the tcp conn fails? (don't, timeout)
 	// topicToName map[HalfHash][]byte // a tree would be better?
 
-	token *tokens.KnotFreeTokenPayload // these are the limits, they have been sent to the subscription.
+	// these are the limits, they have been sent to the subscription.
+	// there is also the JWTID in the token.
+	token *tokens.KnotFreeTokenPayload
 
-	expires uint32
+	contactExpires uint32
 
 	nextBillingTime uint32
-	lastBillingTime uint32
-	billingAmounts  tokens.KnotFreeContactStats // in out su co = 0.0
+	lastBillingTime uint32 // input and output were cleared at this time.
+	//billingAmounts  tokens.KnotFreeContactStats // in out su co = 0.0
+	input  int
+	output int
 
 	realReader io.Reader
 	realWriter io.Writer
-}
-
-// Heartbeat is periodic service ~= 10 sec
-func (ss *ContactStruct) Heartbeat(now uint32) {
-
-	//fmt.Println("contact heartbeat ", ss.GetKey())
-
-	if ss.nextBillingTime < now && !ss.GetConfig().IsGuru() {
-
-		deltaTime := now - ss.lastBillingTime
-
-		ss.lastBillingTime = now
-		ss.nextBillingTime = now + 300 // 300 secs after first time
-
-		//fmt.Println("delta t", deltaTime, ss.String())
-
-		msg := &StatsWithTime{}
-		msg.Start = now
-		msg.Input = ss.billingAmounts.Input
-		ss.billingAmounts.Input -= msg.Input // todo: atomic
-		msg.Output = ss.billingAmounts.Output
-		ss.billingAmounts.Output -= msg.Output // todo: atomic
-
-		// what about subscriptions? FIXME:
-
-		msg.Connections = float32(deltaTime) // means one per sec, one per min ...
-		p := &packets.Send{}
-		p.Address = []byte(ss.token.JWTID)
-		str, err := json.Marshal(msg)
-		if err != nil {
-			fmt.Println("3 impossible")
-		}
-		p.SetOption("stats", str)
-		oldtimeout := ss.expires // don't let heartbeat reset the expiration.
-		err = Push(ss, p)
-		ss.expires = oldtimeout
-		if err != nil {
-			fmt.Println("things before")
-		}
-	}
-	if !ss.GetConfig().IsGuru() {
-		if ss.expires < now {
-			ss.Close(errors.New(" timed out in hb "))
-		}
-	}
-}
-
-// StatsMessage to send to the token subscription.
-type xxxStatsMessage struct {
-	tokens.KnotFreeContactStats
-	//	DeltaTime uint32 `json:"dt,omitempty"`
-}
-
-// GetBilling dangerously returns a pointer
-func (ss *ContactStruct) GetBilling() *tokens.KnotFreeContactStats {
-	return &ss.billingAmounts
 }
 
 // ContactInterface is usually supplied by a tcp connection
@@ -140,6 +87,11 @@ type ContactInterface interface {
 
 	Read(p []byte) (int, error)
 	Write(p []byte) (int, error)
+
+	GetRates(now uint32) (int, int, int)
+
+	SetReader(r io.Reader)
+	SetWriter(w io.Writer)
 }
 
 // ContactStructConfig could be just a stack frame but I'd like to return it.
@@ -148,7 +100,7 @@ type ContactInterface interface {
 type ContactStructConfig struct {
 
 	// a linked list of all the *Contacts that are open and not Close'd
-	list     *list.List
+	listOfCi *list.List
 	listlock *sync.RWMutex // so it's thread safe
 
 	key HashType // everyone needs to feel special and unique
@@ -166,13 +118,39 @@ type ContactStructConfig struct {
 	ce *ClusterExecutive // optional
 }
 
-// GetContactsList so we can disconnect them in test
-func (config *ContactStructConfig) GetContactsList() *list.List {
-	return config.list
+// AccessContactsList so we can disconnect them in test and stuff.
+// be sure to always lock. Don't call close or recurse in here or it will deadlock.
+func (config *ContactStructConfig) AccessContactsList(fn func(config *ContactStructConfig, listOfCi *list.List)) {
+	config.listlock.Lock()
+	defer config.listlock.Unlock()
+	fn(config, config.listOfCi)
+}
+
+// GetContactsListCopy copies the list.
+func (config *ContactStructConfig) GetContactsListCopy() []ContactInterface {
+	contactList := make([]ContactInterface, 0, config.listOfCi.Len())
+	// copy out the list of contacts.
+	config.AccessContactsList(func(config *ContactStructConfig, listOfCi *list.List) {
+		l := listOfCi
+		e := l.Front()
+		for ; e != nil; e = e.Next() {
+			cc := e.Value.(ContactInterface)
+			contactList = append(contactList, cc)
+		}
+	})
+	return contactList
+}
+
+// GetCe is a getter
+func (config *ContactStructConfig) GetCe() *ClusterExecutive {
+	return config.ce
 }
 
 // IsGuru exposes onfig.lookup.isGuru
 func (config *ContactStructConfig) IsGuru() bool {
+	if config.lookup == nil {
+		return false
+	}
 	return config.lookup.isGuru
 }
 
@@ -185,30 +163,20 @@ func AddContactStruct(ss *ContactStruct, ssi ContactInterface, config *ContactSt
 
 	//ss.topicToName = make(map[HalfHash][]byte) deprecate this feature
 
-	config.listlock.Lock()
-	defer config.listlock.Unlock()
-	if ss.key == 0 {
-		seq := config.sequence
-		config.sequence++
-		ss.key = HalfHash(seq + config.key.GetUint64())
-	}
-	ss.ele = ss.config.list.PushBack(ssi)
+	config.AccessContactsList(func(config *ContactStructConfig, listOfCi *list.List) {
+		if ss.key == 0 {
+			seq := config.sequence
+			config.sequence++
+			ss.key = HalfHash(seq + config.key.GetUint64())
+		}
+		ss.ele = listOfCi.PushBack(ssi)
+	})
 
 	now := config.GetLookup().getTime()
-	ss.expires = 20*60 + now // stale contacts expire in 20 min.
+	ss.contactExpires = 20*60 + now // stale contacts expire in 20 min.
 
 	ss.nextBillingTime = now + 30 // 30 seconds to start with
 	ss.lastBillingTime = now
-
-	return ss
-}
-
-// InitUpperContactStruct because upper contacts are different
-// they are not linked like the others, they are saved in a map in lookup
-func InitUpperContactStruct(ss *ContactStruct, config *ContactStructConfig) *ContactStruct {
-
-	//ss.topicToName = make(map[HalfHash][]byte)
-	ss.config = config
 
 	return ss
 }
@@ -220,18 +188,18 @@ func NewContactStructConfig(looker *LookupTableStruct) *ContactStructConfig {
 	looker.config = &config
 	var alock sync.RWMutex
 	config.listlock = &alock
-	config.list = list.New()
+	config.listOfCi = list.New()
 	config.key.Random()
 	config.sequence = 1
 	config.defaultTimeoutSeconds = 10
 	return &config
 }
 
-// Push to deal with an incoming message on a bottom contact heading up.
-func Push(ssi ContactInterface, p packets.Interface) error {
+// PushPacketUpFromBottom to deal with an incoming message on a bottom contact heading up.
+func PushPacketUpFromBottom(ssi ContactInterface, p packets.Interface) error {
 
 	if ssi.GetClosed() {
-		return errors.New("Push to closed contact")
+		return errors.New("closed contact")
 	}
 	config := ssi.GetConfig()
 	if config == nil {
@@ -249,54 +217,39 @@ func Push(ssi ContactInterface, p packets.Interface) error {
 
 	switch v := p.(type) {
 	case *packets.Connect:
-		// fmt.Println(v)
+		// handled the first time by expectToken(ssi, p)
 	case *packets.Disconnect:
-		//fmt.Println(v)
 		ssi.WriteDownstream(v)
 		ssi.Close(errors.New("closing on disconnect"))
 	case *packets.Subscribe:
-		//fmt.Println(v)
-		if len(v.AddressAlias) < 24 {
-			//v.AddressAlias = make([]byte, 24)
-			//sh := sha256.New()
-			//sh.Write(v.Address)
-			//v.AddressAlias = sh.Sum(nil)
+		if len(v.AddressAlias) != HashTypeLen {
 			v.AddressAlias = HashNameToAlias(v.Address)
 		}
-		_, found := v.GetOption("JWTID") // ss.token.JWTID
+		_, found := v.GetOption("jwtidAlias") // ss.token.JWTID
 		if found == false {
 			t := ssi.GetToken().JWTID
-			v.SetOption("JWTID", HashNameToAlias([]byte(t)))
+			v.SetOption("jwtidAlias", HashNameToAlias([]byte(t)))
 		}
 		//ssi.AddSubscription(v)
 		// send the token for reserving permanent ??
 		looker.sendSubscriptionMessage(ssi, v)
 	case *packets.Unsubscribe:
-		if len(v.AddressAlias) < 24 {
-			v.AddressAlias = make([]byte, 24)
-			sh := sha256.New()
-			sh.Write(v.Address)
-			v.AddressAlias = sh.Sum(nil)
+		if len(v.AddressAlias) != HashTypeLen {
+			v.AddressAlias = HashNameToAlias(v.Address)
 		}
 		looker.sendUnsubscribeMessage(ssi, v)
 	case *packets.Lookup:
-		//fmt.Println(v)
-		if len(v.AddressAlias) < 24 {
-			v.AddressAlias = make([]byte, 24)
-			sh := sha256.New()
-			sh.Write(v.Address)
-			v.AddressAlias = sh.Sum(nil)
+		if len(v.AddressAlias) != HashTypeLen {
+			v.AddressAlias = HashNameToAlias(v.Address)
 		}
 		looker.sendLookupMessage(ssi, v)
 	case *packets.Send:
-		//fmt.Println(v)
-		if len(v.AddressAlias) < 24 {
-			v.AddressAlias = make([]byte, 24)
-			sh := sha256.New()
-			sh.Write(v.Address)
-			v.AddressAlias = sh.Sum(nil)
+		if len(v.AddressAlias) != HashTypeLen {
+			v.AddressAlias = HashNameToAlias(v.Address)
 		}
 		looker.sendPublishMessage(ssi, v)
+	case *packets.Ping:
+		ssi.WriteDownstream(v)
 
 	default:
 		fmt.Printf("I don't know about type %T!\n", v)
@@ -309,62 +262,41 @@ func Push(ssi ContactInterface, p packets.Interface) error {
 	return nil
 }
 
-// PushDown to deal with an incoming message going down.
-// typically called by an upper Contact receiving a packet via tcp.
+// PushDownFromTop to deal with an incoming message going down.
+// typically called by an upperChannel receiving a packet via it's tcp that it dialed.
 // todo: upgrade and consolidate the address logic.
-func PushDown(ssi ContactInterface, p packets.Interface) error {
-
-	config := ssi.GetConfig()
-	looker := config.GetLookup()
-	var destination *HashType
+func PushDownFromTop(looker *LookupTableStruct, p packets.Interface) error {
 
 	switch v := p.(type) {
 	case *packets.Connect:
 		fmt.Println("got connect we don't need ", v)
 	case *packets.Disconnect:
-		fmt.Println("got disconnect from guru  ", v, config.Name)
+		fmt.Println("got disconnect from guru  ", v)
 		//ignore it. ssi.Close(errors.New("got disconnect from guru"))
 	case *packets.Subscribe:
-		if len(v.AddressAlias) < 24 {
-			v.AddressAlias = make([]byte, 24)
-			sh := sha256.New()
-			sh.Write(v.Address)
-			v.AddressAlias = sh.Sum(nil)
+		if len(v.AddressAlias) != HashTypeLen {
+			v.AddressAlias = HashNameToAlias(v.Address)
 		}
-		looker.sendSubscriptionMessageDown(ssi, v)
+		looker.sendSubscriptionMessageDown(v)
 	case *packets.Unsubscribe:
-		if len(v.AddressAlias) < 24 {
-			v.AddressAlias = make([]byte, 24)
-			sh := sha256.New()
-			sh.Write(v.Address)
-			v.AddressAlias = sh.Sum(nil)
+		if len(v.AddressAlias) != HashTypeLen {
+			v.AddressAlias = HashNameToAlias(v.Address)
 		}
-		looker.sendUnsubscribeMessageDown(ssi, v)
+		looker.sendUnsubscribeMessageDown(v)
 	case *packets.Lookup:
-		if len(v.AddressAlias) < 24 {
-			v.AddressAlias = make([]byte, 24)
-			sh := sha256.New()
-			sh.Write(v.Address)
-			v.AddressAlias = sh.Sum(nil)
+		if len(v.AddressAlias) != HashTypeLen {
+			v.AddressAlias = HashNameToAlias(v.Address)
 		}
-		looker.sendLookupMessageDown(ssi, v)
+		looker.sendLookupMessageDown(v)
 	case *packets.Send:
-		if len(v.AddressAlias) < 24 {
-			v.AddressAlias = make([]byte, 24)
-			sh := sha256.New()
-			sh.Write(v.Address)
-			v.AddressAlias = sh.Sum(nil)
+		if len(v.AddressAlias) != HashTypeLen {
+			v.AddressAlias = HashNameToAlias(v.Address)
 		}
-		looker.sendPublishMessageDown(ssi, v)
+		looker.sendPublishMessageDown(v)
 
 	default:
 		fmt.Printf("I don't know about type %T!\n", v)
 	}
-
-	_ = destination
-	_ = looker
-
-	//	looker.Send(ss, p)
 	return nil
 }
 
@@ -378,9 +310,18 @@ func (ss *ContactStruct) GetConfig() *ContactStructConfig {
 	return ss.config
 }
 
-// WriteDownstream needs to be overridden
+// WriteDownstream is often overridden
+// in *test* we force plain contacts on the bottom of the guru's
+// they just need to write.
 func (ss *ContactStruct) WriteDownstream(cmd packets.Interface) error {
-	panic("WriteDownstream needs to be overridden")
+	//fmt.Println("constract struct write off bottom", cmd)
+
+	// all at once
+	buff := &bytes.Buffer{}
+	cmd.Write(buff)
+	_, err := ss.Write(buff.Bytes())
+	//	err := cmd.Write(ss)
+	return err
 }
 
 // GetLookup is a getter
@@ -395,20 +336,10 @@ func (ss *ContactStruct) Close(err error) {
 
 	if ss.ele != nil && ss.config != nil {
 		ss.config.listlock.Lock()
-		ss.config.list.Remove(ss.ele)
+		ss.config.listOfCi.Remove(ss.ele)
 		ss.config.listlock.Unlock()
 		ss.ele = nil
 	}
-	// if ss.topicToName != nil {
-	// 	for key, realName := range ss.topicToName {
-	// 		p := new(packets.Unsubscribe)
-	// 		p.Address = realName
-	// 		ss.config.lookup.sendUnsubscribeMessage(ss, p)
-	// 		_ = key
-	// 	}
-	// 	ss.topicToName = nil
-	// }
-	//ss.key = 0
 	ss.config = nil
 }
 
@@ -422,10 +353,10 @@ func (ss *ContactStruct) setSequence(seq uint64) {
 	ss.key = HalfHash(ss.config.key.GetUint64() + seq*13)
 }
 
-// Len is an obvious wrapper
+// Len returns the count of the contacts.
 func (config *ContactStructConfig) Len() int {
 	config.listlock.Lock()
-	val := config.list.Len()
+	val := config.listOfCi.Len()
 	config.listlock.Unlock()
 	return val
 }
@@ -439,7 +370,7 @@ func (ss *ContactStruct) WriteUpstream(cmd packets.Interface) error {
 
 // GetClosed because the contact is still referenced by looker after closed.
 func (ss *ContactStruct) GetClosed() bool {
-	// close always nulls th elist and the config
+	// close always nulls the list and the config
 	if ss.ele == nil || ss.config == nil {
 		return true
 	}
@@ -466,23 +397,31 @@ func (ss *ContactStruct) SetToken(t *tokens.KnotFreeTokenPayload) {
 
 // GetExpires returns when the cc should expire
 func (ss *ContactStruct) GetExpires() uint32 {
-	return ss.expires
+	return ss.contactExpires
 }
 
 // SetExpires sets when the ss will expire in unix time
 func (ss *ContactStruct) SetExpires(when uint32) {
-	ss.expires = when
+	if when > ss.contactExpires {
+		ss.contactExpires = when
+	}
 }
 
 func (ss *ContactStruct) Read(p []byte) (int, error) {
+	if ss.realReader == nil {
+		panic("ss.realReader == nil")
+	}
 	n, err := ss.realReader.Read(p)
-	ss.billingAmounts.Input += float32(n)
+	ss.input += n
 	return n, err
 }
 
 func (ss *ContactStruct) Write(p []byte) (int, error) {
+	if ss.realWriter == nil {
+		panic("ss.realWriter == nil")
+	}
 	n, err := ss.realWriter.Write(p)
-	ss.billingAmounts.Output += float32(n)
+	ss.output += n
 	return n, err
 }
 
@@ -491,104 +430,50 @@ func expectToken(ssi ContactInterface, p packets.Interface) error {
 		// we can't do anything if we're not 'checked in'
 		connectPacket, ok := p.(*packets.Connect)
 		if !ok {
-			err := errors.New("expected Connect packet")
-			dis := packets.Disconnect{}
-			dis.SetOption("error", []byte(err.Error()))
-			ssi.WriteDownstream(&dis) // is this redundant?
-			ssi.Close(err)
-			return err
+			return makeErrorAndDisconnect(ssi, "expected Connect packet", nil)
 		}
 		b64Token, ok := connectPacket.GetOption("token")
 		if ok == false || b64Token == nil {
-			err := errors.New("expected token in Connect packet")
-			dis := packets.Disconnect{}
-			dis.SetOption("error", []byte(err.Error()))
-			ssi.WriteDownstream(&dis) // is this redundant?
-			ssi.Close(err)
-			return err
+			return makeErrorAndDisconnect(ssi, "expected Connect packet", nil)
 		}
 		trimmedToken, issuer, err := tokens.GetKnotFreePayload(string(b64Token))
 		if err != nil {
-			dis := packets.Disconnect{}
-			dis.SetOption("error", []byte(err.Error()))
-			ssi.WriteDownstream(&dis) // is this redundant?
-			ssi.Close(err)
-			return err
+			return makeErrorAndDisconnect(ssi, "", err)
 		}
 		// find the public key that matches.
 		publicKeyBytes := tokens.FindPublicKey(issuer)
 		if len(publicKeyBytes) != 32 {
-			err := errors.New("bad issuer")
-			dis := packets.Disconnect{}
-			dis.SetOption("error", []byte(err.Error()))
-			ssi.WriteDownstream(&dis) // is this redundant?
-			ssi.Close(err)
-			return err
+			return makeErrorAndDisconnect(ssi, "bad issuer", nil)
 		}
 		foundPayload, ok := tokens.VerifyToken([]byte(trimmedToken), []byte(publicKeyBytes))
 		if !ok {
-			err := errors.New("not verified")
-			dis := packets.Disconnect{}
-			dis.SetOption("error", []byte(err.Error()))
-			ssi.WriteDownstream(&dis) // is this redundant?
-			ssi.Close(err)
-			return err
+			return makeErrorAndDisconnect(ssi, "not verified", nil)
 		}
 		ssi.SetToken(foundPayload)
-		// subscribe to token for billing
-		billstr, err := json.Marshal(foundPayload.KnotFreeContactStats)
-		if err != nil {
-			dis := packets.Disconnect{}
-			dis.SetOption("error", []byte(err.Error()))
-			ssi.WriteDownstream(&dis) // is this redundant?
-			ssi.Close(err)
-			return err
+		{ // subscribe to token for billing
+			billstr, err := json.Marshal(foundPayload.KnotFreeContactStats)
+			if err != nil {
+				return makeErrorAndDisconnect(ssi, "", nil)
+			}
+			sub := packets.Subscribe{}
+			sub.Address = []byte(foundPayload.JWTID) // the billing channel real name JWTID
+			sub.SetOption("statsmax", billstr)
+			PushPacketUpFromBottom(ssi, &sub)
 		}
-
-		sub := packets.Subscribe{}
-		sub.Address = []byte(foundPayload.JWTID) // the billing channel real name JWTID
-		sub.SetOption("statsmax", billstr)
-		Push(ssi, &sub)
 		return nil
 	}
 	return nil
 }
 
-// ContactFactory is for exec
-type ContactFactory func(config *ContactStructConfig, token string) ContactInterface
-
-// ContactAttach for when the contact exists and we want to attach it to the config
-type ContactAttach func(cc ContactInterface, config *ContactStructConfig, token string)
-
-// Text2Packet turns badjson into a packet
-func Text2Packet(text string) (packets.Interface, error) {
-	// parse the text
-	segment, err := badjson.Chop(text)
-	if err != nil {
-		fmt.Println("SendText badjson err", err)
-		return nil, err
+func makeErrorAndDisconnect(ssi ContactInterface, str string, err error) error {
+	if err == nil {
+		err = errors.New(str)
 	}
-	uni := packets.Universal{}
-	uni.Args = make([][]byte, 64) // much too big
-	tmp := segment.Raw()          // will not be quoted
-	uni.Cmd = packets.CommandType(tmp[0])
-	segment = segment.Next()
-
-	// traverse the result
-	i := 0
-	for s := segment; s != nil; s = s.Next() {
-		stmp := s.Raw()
-		uni.Args[i] = []byte(stmp)
-		i++
-		if i > 10 {
-			break
-		}
-	}
-	p, err := packets.FillPacket(&uni)
-	if err != nil {
-		//fmt.Println("problem with packet", err)
-	}
-	return p, err
+	dis := &packets.Disconnect{}
+	dis.SetOption("error", []byte(err.Error()))
+	ssi.WriteDownstream(dis)
+	ssi.Close(err)
+	return err
 }
 
 // HasError literally means does this packet have an "error" option
@@ -602,4 +487,76 @@ func HasError(p packets.Interface) *packets.Disconnect {
 		return &dis
 	}
 	return nil
+}
+
+// GetRates to peek into in, out, dt := cc.GetRates(now)
+func (ss *ContactStruct) GetRates(now uint32) (int, int, int) {
+	in := ss.input
+	out := ss.output
+	dt := now - ss.lastBillingTime
+	if dt > 4*300 { // 300 is our normal reporting interval
+		dt = 0
+	}
+	return in, out, int(dt)
+}
+
+// SetReader allows test to monkey with the flow
+func (ss *ContactStruct) SetReader(r io.Reader) {
+	ss.realReader = r
+}
+
+// SetWriter used nuy helpersof_test.go
+func (ss *ContactStruct) SetWriter(w io.Writer) {
+	ss.realWriter = w
+}
+
+// Heartbeat is periodic service ~= 10 sec
+func (ss *ContactStruct) Heartbeat(now uint32) {
+
+	//fmt.Println("contact heartbeat ", ss.GetKey())
+	if ss.token == nil {
+		// it's not even started yet.
+		return
+	}
+
+	if ss.nextBillingTime < now && !ss.GetConfig().IsGuru() {
+
+		deltaTime := now - ss.lastBillingTime
+		ss.lastBillingTime = now
+		ss.nextBillingTime = now + 300 // 300 secs after first time
+
+		//fmt.Println("delta t", deltaTime, ss.String())
+
+		msg := &StatsWithTime{}
+		msg.Start = now
+		msg.Input = float32(ss.input)
+		ss.input -= int(msg.Input) // todo: atomic
+		msg.Output = float32(ss.output)
+		ss.output -= int(msg.Output)         // todo: atomic
+		msg.Connections = float32(deltaTime) // means one per sec, one per min ...
+		// Subscriptions handled elsewhere.
+		p := &packets.Send{}
+		p.Address = []byte(ss.token.JWTID)
+		str, err := json.Marshal(msg)
+		if err != nil {
+			fmt.Println("3 impossible")
+		}
+		p.SetOption("stats", str)
+		oldtimeout := ss.contactExpires // don't let heartbeat reset the expiration.
+		err = PushPacketUpFromBottom(ss, p)
+		ss.contactExpires = oldtimeout
+		if err != nil {
+			fmt.Println("things before")
+		}
+	}
+	if !ss.GetConfig().IsGuru() {
+		if ss.contactExpires < now {
+			ss.Close(errors.New(" timed out in hb "))
+		}
+	}
+}
+
+// IncOutput so test and fake bytes written
+func (ss *ContactStruct) IncOutput(amt int) {
+	ss.output += amt
 }

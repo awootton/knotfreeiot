@@ -24,18 +24,26 @@ import (
 
 func processSubscribe(me *LookupTableStruct, bucket *subscribeBucket, submsg *subscriptionMessage) {
 
-	watchedItem, ok := getWatchers(bucket, &submsg.h)
+	//fmt.Println("top of processSubscribe", string(submsg.p.Address), " in ", me.ex.Name, submsg.h)
+
+	watchedItem, ok := getWatcher(bucket, &submsg.h)
 	if !ok {
 		watchedItem = &watchedTopic{}
 		watchedItem.name = submsg.h
 		watchedItem.thetree = NewWithInt64Comparator()
 		watchedItem.expires = 20 * 60 * me.getTime()
 
-		t, _ := submsg.p.GetOption("JWTID") // an alias
-		watchedItem.SetOption("JWTID", t)   // an alias
-
-		setWatchers(bucket, &submsg.h, watchedItem)
+		t, _ := submsg.p.GetOption("jwtidAlias")
+		if len(t) == 24 {
+			watchedItem.jwtidAlias = string(t)
+		}
+		setWatcher(bucket, &submsg.h, watchedItem)
 		TopicsAdded.Inc()
+
+		now := me.getTime()
+		watchedItem.nextBillingTime = now + 30 // 30 seconds to start with
+		watchedItem.lastBillingTime = now
+
 	}
 	// this is the important part:  add the caller to  the set
 	watchedItem.put(submsg.ss.GetKey(), submsg.ss)
@@ -79,14 +87,13 @@ func processSubscribe(me *LookupTableStruct, bucket *subscribeBucket, submsg *su
 	err := bucket.looker.PushUp(submsg.p, submsg.h)
 	if err != nil {
 		// what? we're sad? todo: man up
-		fmt.Println("FIXME kad")
+		fmt.Println("FIXME kad", err, submsg.p)
 	}
-
 }
 
-func processSubscribeDown(me *LookupTableStruct, bucket *subscribeBucket, submsg *subscriptionMessage) {
+func processSubscribeDown(me *LookupTableStruct, bucket *subscribeBucket, submsg *subscriptionMessageDown) {
 
-	watcheditem, ok := getWatchers(bucket, &submsg.h) //bucket.mySubscriptions[submsg.h]
+	watcheditem, ok := getWatcher(bucket, &submsg.h)
 	if !ok {
 		fmt.Println("FIXME no such thing as subscribe down kadoo")
 	} else {
@@ -97,19 +104,17 @@ func processSubscribeDown(me *LookupTableStruct, bucket *subscribeBucket, submsg
 
 func processUnsubscribe(me *LookupTableStruct, bucket *subscribeBucket, unmsg *unsubscribeMessage) {
 
-	watcheditem, ok := getWatchers(bucket, &unmsg.h) //bucket.mySubscriptions[unmsg.h]
+	watcheditem, ok := getWatcher(bucket, &unmsg.h)
 	if ok == true {
 		watcheditem.remove(unmsg.ss.GetKey())
 		_, isBilling := watcheditem.GetBilling()
 		if watcheditem.getSize() == 0 && !isBilling {
 			// if nobody here is subscribing anymore then delete the entry in the hash
-			//delete(bucket.mySubscriptions, unmsg.h)
-			setWatchers(bucket, &unmsg.h, nil)
+			setWatcher(bucket, &unmsg.h, nil)
 			// and also tell upstream that we're not interested anymore.
 			err := bucket.looker.PushUp(unmsg.p, unmsg.h)
 			if err != nil {
-				// we should reconnect or what?
-				fmt.Println("FIXME jkd334j")
+				fmt.Println("help jkd334j")
 			}
 		}
 		topicsRemoved.Inc()
@@ -118,7 +123,7 @@ func processUnsubscribe(me *LookupTableStruct, bucket *subscribeBucket, unmsg *u
 
 func processUnsubscribeDown(me *LookupTableStruct, bucket *subscribeBucket, unmsg *unsubscribeMessageDown) {
 
-	watcheditem, ok := getWatchers(bucket, &unmsg.h) //bucket.mySubscriptions[unmsg.h]
+	watcheditem, ok := getWatcher(bucket, &unmsg.h) //bucket.mySubscriptions[unmsg.h]
 	if !ok {
 		fmt.Println("FIXME no such thing as UN subscribe down kad")
 	} else {

@@ -21,6 +21,7 @@ import (
 	"net"
 	"time"
 
+	"github.com/awootton/knotfreeiot/badjson"
 	"github.com/awootton/knotfreeiot/packets"
 )
 
@@ -36,6 +37,38 @@ func MakeTextExecutive(ex *Executive, serverName string) *Executive {
 	return ex
 }
 
+// Text2Packet turns badjson into a packet
+func Text2Packet(text string) (packets.Interface, error) {
+	// parse the text
+	segment, err := badjson.Chop(text)
+	if err != nil {
+		fmt.Println("SendText badjson err", err)
+		return nil, err
+	}
+	uni := packets.Universal{}
+	uni.Args = make([][]byte, 64) // much too big
+	tmp := segment.Raw()          // will not be quoted
+	uni.Cmd = packets.CommandType(tmp[0])
+	segment = segment.Next()
+
+	// traverse the result
+	// put raw bytes into the uni.
+	i := 0
+	for s := segment; s != nil; s = s.Next() {
+		stmp := s.Raw()
+		uni.Args[i] = []byte(stmp)
+		i++
+		if i > 10 {
+			break
+		}
+	}
+	p, err := packets.FillPacket(&uni)
+	if err != nil {
+		//fmt.Println("problem with packet", err)
+	}
+	return p, err
+}
+
 // a simple iot wire protocol that is text based.
 
 func (cc *textContact) WriteDownstream(packet packets.Interface) error {
@@ -49,6 +82,11 @@ func (cc *textContact) WriteDownstream(packet packets.Interface) error {
 			cc.Close(err)
 		}
 		return err
+	}
+	// let's strip off the alias
+	s, ok := packet.(*packets.Send)
+	if ok {
+		s.AddressAlias = []byte("")
 	}
 
 	text := packet.String()
@@ -68,7 +106,7 @@ func textServer(ex *Executive, name string) {
 	if err != nil {
 		// handle error
 		//srvrLogThing.Collect(err.Error())
-		fmt.Println("server didnt' stary ", err)
+		fmt.Println("server didnt' start ", err)
 		return
 	}
 	for ex.IAmBadError == nil {
@@ -83,6 +121,7 @@ func textServer(ex *Executive, name string) {
 	}
 }
 
+// reads a line from tcp then converts that to a packet and calls the Push.
 func textConnection(tcpConn *net.TCPConn, ex *Executive) {
 
 	//srvrLogThing.Collect("Conn Accept")
@@ -148,7 +187,7 @@ func textConnection(tcpConn *net.TCPConn, ex *Executive) {
 			return
 		}
 		//fmt.Println("t got packet", p)
-		err = Push(cc, p)
+		err = PushPacketUpFromBottom(cc, p)
 		if err != nil {
 			//connLogThing.Collect("se err " + err.Error())
 			fmt.Println("text.push err", err)

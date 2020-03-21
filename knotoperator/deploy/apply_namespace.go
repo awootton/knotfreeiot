@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -32,9 +33,11 @@ func buildTheOperator() {
 
 // TODO: have config and args
 // it's much faster when we don't build the docker every time.
-var needtobuild = false
+var needtobuild = true
 
-var alsoDoLibra = false // might be deprecating libra due to excessive dick usage.
+var alsoDoLibra = false // might be deprecating libra due to excessive disk usage.
+
+var alsoStartMonitoring = false // might be deprecating libra due to excessive disk usage.
 
 func main() {
 
@@ -59,7 +62,7 @@ func main() {
 		}
 	}()
 
-	// do thi slast
+	// do this last
 	// kubectl.K("cd ../my-kube-prometheus;kubectl create -f manifests/setup")
 	// kubectl.K(`until kubectl get servicemonitors --all-namespaces ; do date; sleep 1; echo ""; done`)
 	// kubectl.K("cd ../my-kube-prometheus;kubectl apply -f manifests/")
@@ -79,16 +82,20 @@ func main() {
 	previousPodNames, err := kubectl.K8s("kubectl get po | grep "+deploymentName, "")
 	_ = err
 
+	hh, _ := os.UserHomeDir()
+	path := hh + "/atw/privateKeys4.txt"
+	kubectl.K("kubectl create secret generic privatekeys4 --from-file=" + path)
+
 	kubectl.K("kubectl apply -f knotfreedeploy.yaml")
 
 	kubectl.K("kubectl apply -f operator.yaml")
 
-	// do libra now in the other project.
+	if alsoStartMonitoring {
 
-	kubectl.K("cd ./my-kube-prometheus;kubectl create -f manifests/setup")
-	kubectl.K(`until kubectl get servicemonitors --all-namespaces ; do date; sleep 1; echo ""; done`)
-	kubectl.K("cd ./my-kube-prometheus;kubectl apply -f manifests/")
-
+		kubectl.K("cd ../my-kube-prometheus;kubectl create -f manifests/setup")
+		kubectl.K(`until kubectl get servicemonitors --all-namespaces ; do date; sleep 1; echo ""; done`)
+		kubectl.K("cd ../my-kube-prometheus;kubectl apply -f manifests/")
+	}
 	if needtobuild {
 		// delete the aides
 		lines := strings.Split(previousPodNames, "\n")
@@ -102,11 +109,9 @@ func main() {
 			// eg aide-7428876776-54rws
 			kubectl.K("kubectl delete po " + podname)
 		}
-
 	}
 
 	if alsoDoLibra {
-
 		ldir := "/Users/awootton/Documents/workspace/libra-statefulset"
 		kubectl.K("cd " + ldir + "; go test -run TestApply")
 	}

@@ -30,10 +30,18 @@ type notHashType struct {
 	bytes [24]byte
 }
 
+// HashTypeLen now it's 24 bytes long
+const HashTypeLen = 24
+
 // HashType is for the hash table that Lookup uses.
 type HashType [3]uint64
 
-// GetUint64 just for debug
+// GetHalfHash is for cases when we can do with 'just' 64 bits.
+func (h *HashType) GetHalfHash() HalfHash {
+	return HalfHash(h[0])
+}
+
+// GetUint64 is for cases when we can do with 'just' 64 bits.
 func (h *HashType) GetUint64() uint64 {
 	return h[0]
 }
@@ -48,7 +56,7 @@ func HashNameToAlias(name []byte) []byte {
 	sh := sha256.New()
 	sh.Write(name)
 	shabytes := sh.Sum(nil)
-	return shabytes
+	return shabytes[0:HashTypeLen]
 }
 
 // HashBytes will initialize an existing hash from a string.
@@ -60,37 +68,30 @@ func (h *HashType) HashBytes(s []byte) {
 	sh := sha256.New()
 	sh.Write(s)
 	shabytes := sh.Sum(nil)
-	h.InitFromBytes(shabytes)
-
+	h.InitFromBytes(shabytes[0:24])
 }
 
 // InitFromBytes because I need to convert from [] to HashType
 // should return error?
 // rename
 func (h *HashType) InitFromBytes(addressBytes []byte) {
-	if len(addressBytes) < 24 {
-		// what now ?
-		fmt.Println("punt somehow")
-		// introduce side effect to punIsh those who call this wrong.
-		// and cool off label usage
-		var tmp [24]byte
-		rand.Read(tmp[:])
-		addressBytes = tmp[:]
+	if len(addressBytes) != HashTypeLen {
+		panic("InitFromBytes bad input")
 	}
 
 	h[0] = binary.BigEndian.Uint64(addressBytes[0:8])
 	h[1] = binary.BigEndian.Uint64(addressBytes[8:16])
-	h[2] = binary.BigEndian.Uint64(addressBytes[16:24])
+	h[2] = binary.BigEndian.Uint64(addressBytes[16:HashTypeLen])
 }
 
 // GetBytes will fill b byte array with value from h.
 func (h *HashType) GetBytes(b []byte) {
-	if len(b) < 24 {
+	if len(b) < HashTypeLen {
 		return // err ?
 	}
 	binary.BigEndian.PutUint64(b[0:8], h[0])
 	binary.BigEndian.PutUint64(b[8:16], h[1])
-	binary.BigEndian.PutUint64(b[16:24], h[2])
+	binary.BigEndian.PutUint64(b[16:HashTypeLen], h[2])
 }
 
 // HalfHash represents
@@ -98,9 +99,9 @@ func (h *HashType) GetBytes(b []byte) {
 type HalfHash uint64
 
 // GetFractionalBits returns a slice of n bits. Values of n greater than 64 are not implemented.
-func (h *HashType) GetFractionalBits(n uint) int {
+func (h *HashType) GetFractionalBits(n int) int {
 	if n < 64 {
-		a := h.GetUint64()
+		a := h.GetHalfHash()
 		return int(a >> (64 - n))
 	}
 	fmt.Println("FIXME: implement GetFractionalBits for > 64")
@@ -120,14 +121,14 @@ func (h *HashType) FromHashType(src *HashType) {
 // We don't need to hash these more do we?
 func (h *HashType) Random() {
 
-	var bytes [24]byte
+	var bytes [HashTypeLen]byte
 	rand.Read(bytes[:])
 	h.InitFromBytes(bytes[:])
 }
 
 func (h *HashType) String() string {
 	//return hex.EncodeToString(h.bytes[0:16])
-	var bytes [24]byte
+	var bytes [HashTypeLen]byte
 	h.GetBytes(bytes[:])
 	return base64.RawStdEncoding.EncodeToString(bytes[:])
 }

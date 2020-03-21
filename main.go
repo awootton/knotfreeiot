@@ -28,6 +28,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/awootton/knotfreeiot/iot"
@@ -62,7 +63,8 @@ func main() {
 
 	var mainLimits = &iot.ExecutiveLimits{}
 	mainLimits.Connections = 10 * 1000
-	mainLimits.BytesPerSec = 10 * 1000
+	mainLimits.Input = 10 * 1000
+	mainLimits.Output = 10 * 1000
 	mainLimits.Subscriptions = 1000 * 1000
 
 	limits := mainLimits
@@ -106,7 +108,13 @@ func (api apiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	fmt.Println("ServeHTTP", req.RequestURI)
 
-	if req.RequestURI == "/api1/getstats" {
+	if req.RequestURI == "/api1/getallstats" {
+
+		stats := api.ce.Aides[0].ClusterStatsString
+
+		w.Write([]byte(stats))
+
+	} else if req.RequestURI == "/api1/getstats" {
 
 		stats := api.ce.Aides[0].GetExecutiveStats()
 		bytes, err := json.Marshal(stats)
@@ -118,14 +126,12 @@ func (api apiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	} else if req.RequestURI == "/api1/getToken" {
 
 		// what is IP or id of sender?
-		fmt.Println("token req from", req.RemoteAddr)
+		fmt.Println("token req RemoteAddr", req.RemoteAddr) // FIXME: use db
 
 		var buff1024 [1024]byte
 		n, err := req.Body.Read(buff1024[:])
 		buf := buff1024[:n]
-		fmt.Println("read body", string(buf), n)
-
-		time.Sleep(8 * time.Second)
+		//fmt.Println("read body", string(buf), n)
 
 		tokenRequest := &tokens.TokenRequest{}
 		err = json.Unmarshal(buf, tokenRequest)
@@ -135,6 +141,7 @@ func (api apiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			http.Error(w, err.Error(), 500)
 		} else {
 			// todo: calc cost of this token and have limit.
+			// move this phat routine somewhere else TODO:
 
 			clientPublicKey := tokenRequest.Pkey
 			if len(clientPublicKey) != 64 {
@@ -168,13 +175,6 @@ func (api apiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 			payload.JWTID = ""
 			payload.ExpirationTime = 0
-			// payloadstr, err := json.Marshal(payload)
-			// if err != nil {
-			// 	badTokenRequests.Inc()
-			// 	http.Error(w, err.Error(), 500)
-			// 	return
-			// }
-			// don't use payload again since we modified it.
 
 			comments := make([]interface{}, 3)
 			tmp := fmt.Sprintf(" expires: %v-%v-%v", year, int(month), day)
@@ -182,7 +182,9 @@ func (api apiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			comments[1] = payload
 			comments[2] = string(tokenString)
 			returnval, err := json.Marshal(comments)
-			fmt.Println("sending token package ", string(returnval))
+			returnval = []byte(strings.ReplaceAll(string(returnval), `"`, ``))
+			returnval = []byte(strings.ReplaceAll(string(returnval), ` `, `_`))
+			fmt.Println("sending token package ", string(returnval)) // FIXME: use db
 
 			// box it up
 			boxout := make([]byte, len(returnval)+box.Overhead)
@@ -210,6 +212,7 @@ func (api apiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 				http.Error(w, err.Error(), 500)
 				return
 			}
+			time.Sleep(8 * time.Second)
 			w.Write(bytes)
 		}
 

@@ -35,7 +35,7 @@ and add it to the watcher with the name of "bill". There is a getter for that. w
 In the Heartbeat of a Contact we periodically (30 then 300 sec) construct a StatsWithTime
 and we Push it as a Send with option "stats".
 When the publish.go gets the stats message we do a GetBilling() (aka GetOption("bill"))
- and we have special case for that and we Add the stats to the BillingAccumulator
+ and we have special case for that and we BillingAccumulator.Add(stats)
 
 Later, in the heartbeat of lookup, we check if it's a billing topic and if we're 'over' our maximums.
 If over then we construct a send with the option "error" as the message. We send it *down* like a
@@ -43,6 +43,14 @@ normal publish. WriteDownstream(..)
 
 Then, in all the implementations of WriteDownstream check for error and make a disconnect packet if needed.
 See HasError()
+
+The subscribe packets, as they pass the contact going upwards, are all going to need to carry the alias
+of the jwtid from the token. See the Push(...) in Contacts.go. It will become watchedTopic.jwtidAlias in subscribe.go.
+
+Then, during the lookup-table Heartbeat (heartBeatCallBack) we periodically (30 then 300 sec) construct a
+StatsWithTime and Send it to the odd contact Looker.contactToAnyAide where it will meet the topic with the BillingAccumulator
+and that will get incremented as with the contacts. As with the contacts the looker will service the accumulator topic
+and send down our special error Send{}
 
 */
 
@@ -55,7 +63,7 @@ See HasError()
 
 const bucketSpanTime = 20 * 60 // 20 minutes
 
-// BillingAccumulator is
+// BillingAccumulator is terse
 type BillingAccumulator struct {
 	//
 	a [4]StatsWithTime
@@ -72,7 +80,7 @@ type StatsWithTime struct {
 	Start uint32 `json:"st"`
 }
 
-// Add is
+// Add accumulates the stats into the BillingAccumulator
 func (ba *BillingAccumulator) Add(stats *tokens.KnotFreeContactStats, now uint32) {
 
 	c := &ba.a[ba.i]
@@ -100,8 +108,8 @@ func (ba *BillingAccumulator) Add(stats *tokens.KnotFreeContactStats, now uint32
 		c.Start = now
 	}
 
-	//fmt.Println("added", stats.Connections)
-	//fmt.Println("connections now", ba.GetConnections(now), ba.name)
+	//fmt.Println("added", stats.Subscriptions)
+	//fmt.Println("Subscriptions now", ba.GetSubscriptions(now), ba.name)
 	//fmt.Println("doing an add")
 }
 
@@ -136,7 +144,7 @@ func (ba *BillingAccumulator) AreUnderMax(now uint32) (bool, string) {
 const lookback = 4
 
 // GetInput - we sum up some prevous buckets and divide.
-// do we need to sync with Add?
+// do we need to sync with Add? No, because all access to this goes through a q in lookup.
 func (ba *BillingAccumulator) GetInput(now uint32) float32 {
 	vals := float32(0)
 	times := float32(0)

@@ -163,19 +163,19 @@ func mqttConnection(tcpConn *net.TCPConn, ex *Executive) {
 		}
 		// how many bytes was that????
 
-		fmt.Println("mqtt packet", control)
+		//fmt.Println("mqtt packet", control)
 		// As much fun as it would be to make the following code into virtual methods
 		// of the types involved (and I tried it) it's more annoying and harder to read
 		// than just doing it all here.
 		switch mq := control.(type) {
 
 		case *mqttpackets.ConnectPacket:
-			fmt.Println("have mqttpackets.ConnectPacket")
+			//fmt.Println("have mqttpackets.ConnectPacket")
 			p := &packets.Connect{}
 			p.SetOption("token", mq.Password)
 			mqttName = mq.Username
 			// TODO: validate things.
-			err = Push(cc, p)
+			err = PushPacketUpFromBottom(cc, p)
 			if err != nil {
 				fmt.Println("mqtt push connect fail", err)
 			}
@@ -193,7 +193,7 @@ func mqttConnection(tcpConn *net.TCPConn, ex *Executive) {
 			p.Source = []byte(mqttName)
 			p.Payload = mq.Payload
 			p.SetOption("toself", []byte("y"))
-			_ = Push(cc, p)
+			_ = PushPacketUpFromBottom(cc, p)
 			// // TODO: do we need to ack?
 			// ack := mqttpackets.PubackPacket ... etc
 		case *mqttpackets.SubscribePacket:
@@ -202,7 +202,7 @@ func mqttConnection(tcpConn *net.TCPConn, ex *Executive) {
 
 				p := &packets.Subscribe{}
 				p.Address = []byte(topic)
-				_ = Push(cc, p)
+				_ = PushPacketUpFromBottom(cc, p)
 
 			}
 		case *mqttpackets.UnsubscribePacket:
@@ -210,7 +210,7 @@ func mqttConnection(tcpConn *net.TCPConn, ex *Executive) {
 
 				p := &packets.Unsubscribe{}
 				p.Address = []byte(topic)
-				_ = Push(cc, p)
+				_ = PushPacketUpFromBottom(cc, p)
 
 			}
 		case *mqttpackets.PingreqPacket:

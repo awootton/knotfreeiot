@@ -34,6 +34,8 @@ import (
 	dto "github.com/prometheus/client_model/go"
 )
 
+var globalClusterExec *iot.ClusterExecutive
+
 const starttime = uint32(1577840400) // Wednesday, January 1, 2020 1:00:00 AM
 //var currentTime = uint32(1577840400)
 
@@ -41,7 +43,7 @@ const starttime = uint32(1577840400) // Wednesday, January 1, 2020 1:00:00 AM
 type testContact struct {
 	iot.ContactStruct
 
-	downMessages chan packets.Interface
+	//downMessages chan packets.Interface
 
 	mostRecent []packets.Interface
 
@@ -50,49 +52,48 @@ type testContact struct {
 	index int
 }
 
-type testUpperContact struct {
-	iot.ContactStruct
-
-	guruBottomContact *testContact
-}
-
-func MakeTestContact(config *iot.ContactStructConfig, token string) iot.ContactInterface {
+func makeTestContact(config *iot.ContactStructConfig, token string) iot.ContactInterface {
 
 	acontact := testContact{}
-	acontact.downMessages = make(chan packets.Interface, 1000)
-	acontact.mostRecent = make([]packets.Interface, 0, 1000)
+	//acontact.downMessages = make(chan packets.Interface, 100)
+	acontact.mostRecent = make([]packets.Interface, 0, 100)
+
+	acontact.SetReader(&iot.DevNull{})
+	acontact.SetWriter(&iot.DevNull{})
 
 	if len(token) == 0 {
 		token = tokens.SampleSmallToken
 	}
 
-	go func(cc *testContact) {
-		for {
-			thing := <-cc.downMessages
+	// go func(cc *testContact) {
+	// 	for {
+	// 		thing := <-cc.downMessages
 
-			str := thing.String()
-			if strings.HasPrefix(str, "[P,contactTopic45") {
-				//fmt.Println("into mostRecent", thing, reflect.TypeOf(thing))
-			}
-			//fmt.Println("into mostRecent", thing, reflect.TypeOf(thing))
+	// 		str := thing.String()
+	// 		if strings.HasPrefix(str, "[P,contactTopic45") {
+	// 			//fmt.Println("into mostRecent", thing, reflect.TypeOf(thing))
+	// 		}
+	// 		fmt.Println("into mostRecent", thing, reflect.TypeOf(thing), cc.String())
 
-			if reflect.TypeOf(thing) == reflect.TypeOf(&packets.Disconnect{}) {
-				if cc.doNotReconnect == true {
-					e, _ := thing.GetOption("error")
-					cc.Close(errors.New(string(e)))
-					return // we're done forever.
-				}
-				// now we have to reconnect
-				//fmt.Println("contact reattaching", cc.index)
-				globalClusterExec.AttachContact(cc, AttachTestContact, token)
-				// we should also reiterate our connect and our subscription.
-				// FIXME: really, we should.
-			} else {
-				//fmt.Println("appending mostRecent", thing)
-				cc.mostRecent = append(cc.mostRecent, thing)
-			}
-		}
-	}(&acontact)
+	// 		if reflect.TypeOf(thing) == reflect.TypeOf(&packets.Disconnect{}) {
+	// 			if cc.doNotReconnect == true {
+	// 				e, _ := thing.GetOption("error")
+	// 				cc.Close(errors.New(string(e)))
+	// 				return // we're done forever.
+	// 			}
+	// 			// we pretend to reconnect by not closing
+	// 		} else {
+
+	// 			send, isSend := thing.(*packets.Send)
+	// 			if isSend {
+	// 				send.AddressAlias = []byte("")
+	// 			}
+	// 			//fmt.Println("appending mostRecent", thing)
+	// 			cc.mostRecent = append(cc.mostRecent, thing)
+	// 		}
+	// 	}
+	// }(&acontact)
+
 	iot.AddContactStruct(&acontact.ContactStruct, &acontact, config)
 
 	if len(token) == 0 {
@@ -100,85 +101,10 @@ func MakeTestContact(config *iot.ContactStructConfig, token string) iot.ContactI
 	}
 	connect := packets.Connect{}
 	connect.SetOption("token", []byte(token))
-	iot.Push(&acontact, &connect)
+	iot.PushPacketUpFromBottom(&acontact, &connect)
 
 	return &acontact
 }
-
-// the contact is already made but got closed or something and needs to
-// re-attach
-func AttachTestContact(cc iot.ContactInterface, config *iot.ContactStructConfig, token string) {
-	contact1 := cc.(*testContact)
-	//contact1.downMessages = make(chan packets.Interface, 1000)
-	iot.AddContactStruct(&contact1.ContactStruct, contact1, config)
-
-	if len(token) == 0 {
-		token = tokens.SampleSmallToken
-	}
-
-	connect := packets.Connect{}
-	connect.SetOption("token", []byte(token))
-	iot.Push(contact1, &connect)
-}
-
-// called by Lookup PushUp
-func (cc *testUpperContact) WriteUpstream(cmd packets.Interface) error {
-	// call the Push
-	err := iot.Push(cc.guruBottomContact, cmd)
-	return err
-}
-
-func testNameResolver(name string, config *iot.ContactStructConfig) (iot.ContactInterface, error) {
-	exec, ok := iot.GuruNameToConfigMap[name]
-
-	//fmt.Println(config.Name, " resolving conn to ", name, " found ", exec)
-
-	if ok && exec != nil { // todo: better names.
-		// IRL this is a tcp connect to the guru
-		// this is the contect that aide1 and aide2 will be using at their top
-		contactTop1 := testUpperContact{}
-		iot.InitUpperContactStruct(&contactTop1.ContactStruct, config)
-		// This is the one attaching to the bottom of guru0
-		// this work would be done after the socket accept by guru0
-		newLowerContact := testContact{}
-		newLowerContact.downMessages = make(chan packets.Interface, 1000)
-		iot.AddContactStruct(&newLowerContact.ContactStruct, &newLowerContact, exec.Config)
-
-		connect := packets.Connect{}
-		connect.SetOption("token", []byte(tokens.SampleSmallToken))
-		err := iot.Push(&newLowerContact, &connect)
-		if err != nil {
-			return &contactTop1, err
-		}
-		// wire them up
-		contactTop1.guruBottomContact = &newLowerContact
-		go func(contact *testUpperContact, lower *testContact) {
-			for { // add timeout?
-				packet := <-lower.downMessages
-				_, ok := packet.(*packets.Disconnect)
-				if ok {
-					// except when test is calling close.
-					//fmt.Println("guru no tsupposed to ever send disconnect", lower.GetConfig().Name)
-				}
-				//fmt.Println("top push down", packet)
-				iot.PushDown(contact, packet)
-			}
-		}(&contactTop1, &newLowerContact)
-		return &contactTop1, nil
-
-	} else {
-		return &testUpperContact{}, errors.New("unknown name " + name)
-	}
-}
-
-// func (cc *testContact) get() (packets.Interface, bool) {
-// 	select {
-// 	case msg := <-cc.downMessages:
-// 		return msg, true
-// 	case <-time.After(10 * time.Millisecond):
-// 		return nil, false
-// 	}
-// }
 
 func (cc *testContact) Close(err error) {
 	dis := packets.Disconnect{}
@@ -190,49 +116,45 @@ func (cc *testContact) Close(err error) {
 }
 
 func (cc *testContact) getResultAsString() string {
-	// gotmsg, ok := cc.get()
-	// got := ""
-	// if ok {
-	// 	got = gotmsg.String()
-	// } else {
-	// 	got = fmt.Sprint("no message received", gotmsg)
-	// }
 	if len(cc.mostRecent) == 0 {
 		return "no message received"
+	}
+	p := cc.mostRecent[0]
+	send, isSend := p.(*packets.Send)
+	if isSend {
+		send.AddressAlias = []byte("")
 	}
 	return cc.mostRecent[0].String()
 }
 
+// write from the bottom of a node going down through the contact.
+// and snce this is test it ends up in an array: mostRecent
 func (cc *testContact) WriteDownstream(packet packets.Interface) error {
 
 	if cc.GetClosed() {
 		return nil
 	}
-	_, ok := packet.(*packets.Disconnect)
-	if ok {
-		// Close(..) in this file will write Disconnect
-		// unless his token is bad, I guess.
-		//fmt.Println("guru not supposed to ever send disconnect", cc.GetConfig().Name)
+	send, isSend := packet.(*packets.Send)
+	if isSend {
+		send.AddressAlias = []byte("")
 	}
 	text := packet.String()
-	cc.ContactStruct.GetBilling().Input += float32(len(text))
+	cc.IncOutput(len(text))
 
-	_, ok = packet.(*packets.Send)
-	if ok {
-		//fmt.Println("have send", cc.GetConfig().Name)
-	}
+	//fmt.Println("appending to mostRecent", text)
 
-	cc.downMessages <- packet
+	cc.mostRecent = append(cc.mostRecent, packet)
 
-	if !cc.GetConfig().IsGuru() { // fixme: ignore them only if jwtid doesn't match.
+	if cc.GetClosed() == false && cc.GetConfig().IsGuru() == false { // fixme: ignore them only if jwtid doesn't match.
 		u := iot.HasError(packet)
 		if u != nil {
-			cc.downMessages <- u
+			cc.mostRecent = append(cc.mostRecent, u)
 		}
 	}
 	return nil
 }
 
+// TODO: i think we can get rid of WriteUpstream as a method of ContactInterface
 func (cc *testContact) WriteUpstream(cmd packets.Interface) error {
 	fmt.Println("FIXME received from below does this exist?", cmd, reflect.TypeOf(cmd))
 	return errors.New("Only upper contacts get WriteUpstream")
@@ -247,14 +169,16 @@ func readCounter(m prometheus.Counter) float64 {
 // SendText chops up the text and creates a packets.Interface packet.
 func SendText(cc iot.ContactInterface, text string) {
 
-	contact1 := cc.(*testContact)
-	contact1.ContactStruct.GetBilling().Input += float32(len(text))
+	// forbidden: contact1.ContactStruct.input += float32(len(text))
+	// this will do the same thing:
+	_, _ = cc.Read([]byte(text))
 
 	p, _ := iot.Text2Packet(text)
-	iot.Push(cc, p)
+	iot.PushPacketUpFromBottom(cc, p)
 
 }
 
+// socket util
 func readSocket(conn *net.TCPConn) packets.Interface {
 
 	err := conn.SetDeadline(time.Now().Add(10 * time.Millisecond))
@@ -274,6 +198,7 @@ func readSocket(conn *net.TCPConn) packets.Interface {
 	return p
 }
 
+// socket util
 func readLine(conn *net.TCPConn) string {
 
 	err := conn.SetDeadline(time.Now().Add(10 * time.Millisecond))
@@ -299,12 +224,6 @@ func readLine(conn *net.TCPConn) string {
 }
 
 func openConnectedSocket(name string, t *testing.T, token string) *net.TCPConn {
-
-	// tcpAddr, err := net.ResolveTCPAddr("tcp", name)
-	// if err != nil {
-	// 	println("ResolveTCPAddr failed:", err.Error())
-	// 	t.Fail()
-	// }
 
 	conn1, err := net.DialTimeout("tcp", name, time.Duration(10*time.Millisecond)) //net.DialTCP("tcp", nil, tcpAddr)
 	if err != nil {
@@ -337,11 +256,44 @@ func openPlainSocket(name string, t *testing.T) *net.TCPConn {
 }
 
 // WaitForActions is a utility for test that attempts to wait for all async activity to finish.
-// in test
+// in test..depricated. call ce.WaitForActions() instead
 func WaitForActions(ex *iot.Executive) {
 	ex.WaitForActions()
 	for i := 0; i < 10; i++ { // this is going to be a problem?
 		time.Sleep(time.Millisecond)
 		runtime.Gosched() // single this
 	}
+}
+
+// GetNewContactFromAide contacts the aide
+// fixme unwind and delete if possible. why public?
+// only for tests
+func getNewContactFromAide(aide *iot.Executive, token string) iot.ContactInterface {
+
+	if aide == nil {
+		return nil // fixme return error
+	}
+	cc := makeTestContact(aide.Config, token)
+	return cc
+}
+
+// GetNewContactFromSlackestAide add a contact to the least used of the aides
+// only for tests
+func getNewContactFromSlackestAide(ce *iot.ClusterExecutive, token string) iot.ContactInterface {
+	min := 1 << 30
+	var smallestAide *iot.Executive
+	for _, aide := range ce.Aides {
+		cons, fract := aide.Looker.GetAllSubsCount()
+		if cons < min {
+			min = cons
+			smallestAide = aide
+		}
+		_ = fract
+	}
+	if smallestAide == nil {
+		return nil // fixme return error
+	}
+	//fmt.Println("smallest aide is ", smallestAide.Name)
+	cc := makeTestContact(smallestAide.Config, token)
+	return cc
 }

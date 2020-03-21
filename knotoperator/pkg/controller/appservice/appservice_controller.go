@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"os"
 	"reflect"
 	"strings"
@@ -377,6 +378,26 @@ func (r *ReconcileAppService) Reconcile(request reconcile.Request) (reconcile.Re
 	wg.Wait()
 
 	// so now we have all the stats
+	{ // tell everyone
+		stats := make([]*iot.ExecutiveStats, 0, len(instance.Spec.Ce.Nodes))
+		for _, val := range instance.Spec.Ce.Nodes {
+			stats = append(stats, val)
+		}
+		var wg2 = sync.WaitGroup{}
+		for _, s := range stats {
+			wg2.Add(1)
+			go func(s *iot.ExecutiveStats) {
+				err := PostClusterStats(stats, s.Name, s.HTTPAddress)
+				if err != nil {
+					fmt.Println("posting cluster stats ", err)
+				}
+				wg2.Done()
+			}(s)
+		}
+		wg2.Wait()
+	}
+
+	// so now we have all the stats
 	aideList := make([]*iot.ExecutiveStats, 0)
 	guruList := make([]*iot.ExecutiveStats, 0)
 
@@ -434,11 +455,10 @@ func (r *ReconcileAppService) Reconcile(request reconcile.Request) (reconcile.Re
 			}
 		}
 		mux.Lock()
-
 		instance.Spec.Ce.GuruNames = instance.Spec.Ce.GuruNames[0 : len(instance.Spec.Ce.GuruNames)-1]
 		delete(instance.Spec.Ce.Nodes, name)
 		appchanged()
-		defer mux.Unlock()
+		mux.Unlock()
 	}
 
 	// items2 := &corev1.NodeList{} // forbidden on google gce
@@ -535,8 +555,11 @@ func (r *ReconcileAppService) Reconcile(request reconcile.Request) (reconcile.Re
 			for i, n := range guruNames {
 				g, ok := instance.Spec.Ce.Nodes[n]
 				if !ok {
-					PrintMe("TODO handlefatal problem")
-					return reconcile.Result{}, err
+					PrintMe("no stat for name", n, instance.Spec.Ce.Nodes)
+					rr := reconcile.Result{}
+					rr.RequeueAfter = 10 * time.Second
+					rr.Requeue = true
+					return rr, err
 				}
 				guruAddresses[i] = g.TCPAddress
 			}
@@ -606,6 +629,16 @@ func newPodForCR(cr *appv1alpha1.AppService) *corev1.Pod {
 						{Name: "POD_NAME", Value: podName},
 						{Name: "MY_POD_IP", ValueFrom: &corev1.EnvVarSource{FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"}}},
 					},
+					VolumeMounts: []corev1.VolumeMount{
+						{Name: "foo", MountPath: "/root/atw/", ReadOnly: true},
+					},
+				},
+			},
+			Volumes: []corev1.Volume{
+				{Name: "foo",
+					VolumeSource: corev1.VolumeSource{
+						Secret: &corev1.SecretVolumeSource{SecretName: "privatekeys4"},
+					},
 				},
 			},
 		},
@@ -618,15 +651,16 @@ func getRandomString() string {
 	return hex.EncodeToString(tmp[:])
 }
 
-// GetServerStats is(
+// GetServerStats is
 func GetServerStats(name string, address string) (*iot.ExecutiveStats, error) {
 
 	es := &iot.ExecutiveStats{}
 
 	if os.Getenv("KUBE_EDITOR") == "atom --wait" {
 		// running over kubectl when developing locally
-		cmd := `kubectl exec ` + name + ` -- curl -s localhost:8080/api1/getstats`
+		cmd := `kubectl exec ` + name + ` -- curl -s localhost:8080/api2/getstats`
 		kubectl.Quiet = true
+		kubectl.SuperQuiet = true
 		str, err := kubectl.K8s(cmd, "")
 		if err != nil {
 			return es, err
@@ -637,9 +671,46 @@ func GetServerStats(name string, address string) (*iot.ExecutiveStats, error) {
 
 	}
 	// when in cluster
-	es = iot.GetServerStats(address)
+	var err error
+	es, err = iot.GetServerStats(address)
 
-	return es, nil
+	return es, err
+
+}
+
+// PostClusterStats  post ClusterStats
+func PostClusterStats(array []*iot.ExecutiveStats, name string, addr string) error {
+
+	stats := &iot.ClusterStats{}
+	stats.When = uint32(time.Now().Unix())
+	stats.Stats = array
+
+	if os.Getenv("KUBE_EDITOR") == "atom --wait" {
+
+		jbytes, err := json.Marshal(stats)
+		if err != nil {
+			PrintMe("unreachable ?? bb")
+			return err
+		}
+
+		jstr := string(jbytes)
+
+		curlcmd := `curl -s --header "Content-Type: application/json" --request POST --data '` + jstr + `'  http://localhost:8080/api2/clusterstats`
+
+		cmd := `kubectl exec ` + name + ` -- ` + curlcmd
+		kubectl.Quiet = true
+		kubectl.SuperQuiet = true
+		str, err := kubectl.K8s(cmd, "")
+		_ = str
+		if err != nil {
+			return err
+		}
+		return nil
+
+	}
+	// when in cluster
+	err := iot.PostClusterStats(stats, addr)
+	return err
 
 }
 
@@ -660,10 +731,11 @@ func PostUpstreamNames(guruList []string, addressList []string, name string, add
 
 		jstr := string(jbytes)
 
-		curlcmd := `curl --header "Content-Type: application/json" --request POST --data '` + jstr + `'  http://localhost:8080/api2/set`
+		curlcmd := `curl -s --header "Content-Type: application/json" --request POST --data '` + jstr + `'  http://localhost:8080/api2/set`
 
 		cmd := `kubectl exec ` + name + ` -- ` + curlcmd
-
+		kubectl.Quiet = true
+		kubectl.SuperQuiet = true
 		str, err := kubectl.K8s(cmd, "")
 		_ = str
 		if err != nil {
@@ -673,7 +745,13 @@ func PostUpstreamNames(guruList []string, addressList []string, name string, add
 
 	}
 	// when in cluster
+
 	err := iot.PostUpstreamNames(guruList, addressList, addr)
+	if err != nil {
+		fmt.Println("PostUpstreamNames fail", addr, err)
+	} else {
+		fmt.Println("PostUpstreamNames to", addr, guruList)
+	}
 	return err
 
 }

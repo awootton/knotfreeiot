@@ -2,6 +2,7 @@ package tokens
 
 import (
 	"crypto/ed25519"
+	"crypto/rand"
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
@@ -12,6 +13,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/awootton/knotfreeiot/badjson"
 	"github.com/gbrlsnchs/jwt/v3"
@@ -36,8 +38,8 @@ type KnotFreeContactStats struct {
 	//
 	Input         float32 `json:"in"`  // bytes per sec
 	Output        float32 `json:"out"` // bytes per sec
-	Subscriptions float32 `json:"su"`  // hours per sec
-	Connections   float32 `json:"co"`  // hours per sec
+	Subscriptions float32 `json:"su"`  // seconds per sec
+	Connections   float32 `json:"co"`  // seconds per sec
 }
 
 // TokenRequest is created in javascript and sent as json.
@@ -223,18 +225,29 @@ func decodeKey(key string, destination []byte) (int, error) {
 // from the short name of first 4 b64 from pub key to the 128 byte private key in hex
 // ed25519 token signing private keys.
 var knownPrivateKeys = make(map[string]string)
+var kpkSync sync.Mutex
 
 // GetPrivateKey is
 func GetPrivateKey(first4 string) string {
+	kpkSync.Lock()
+	defer kpkSync.Unlock()
 	return knownPrivateKeys[first4]
 }
 
 // LoadPrivateKeys is
 func LoadPrivateKeys(fname string) error {
+
+	// what if fname is different?
+	if len(knownPrivateKeys) > 0 {
+		return nil
+	}
+	kpkSync.Lock()
+	defer kpkSync.Unlock()
 	home, _ := os.UserHomeDir()
 	fname = strings.Replace(fname, "~", home, 1)
 	data, err := ioutil.ReadFile(fname)
 	if err != nil {
+		fmt.Println("pk read file err", fname, err)
 		return err
 	}
 	datparts := strings.Split(string(data), "\n")
@@ -246,7 +259,7 @@ func LoadPrivateKeys(fname string) error {
 			continue
 		}
 		if len(bytes) != 64 {
-			fmt.Println("fail 64")
+			fmt.Println("fail 64", len(bytes))
 			continue
 		}
 
@@ -262,13 +275,6 @@ func LoadPrivateKeys(fname string) error {
 	}
 	return nil
 }
-
-// SampleSmallToken is a small token signed by "/9sh" (below)
-// p.Input = 20
-// p.Output = 20
-// p.Subscriptions = 2
-// p.Connections = 2
-var SampleSmallToken = `["My token expires: 2020-12-30",{"iss":"/9sh","in":32,"out":32,"su":4,"co":2,"url":"knotfree.net"},"eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiSldUIn0.eyJleHAiOjE2MDkzNzI4MDAsImlzcyI6Ii85c2giLCJqdGkiOiJyMWxkWnRsU3ljSVJlcFpRbWtPYVFIdGsiLCJpbiI6MzIsIm91dCI6MzIsInN1Ijo0LCJjbyI6MiwidXJsIjoia25vdGZyZWUubmV0In0.xkFa05XXUXphdBXwVTaZKLQlpsXzZtuVIET0dStobB1JhTcqEikw7snxUbR4YxLg7DlT_LpKeS1G2arYm3pgDw"]`
 
 // ZeroReader is too public
 type ZeroReader struct{}
@@ -369,6 +375,46 @@ func parseString(in []byte) (out, rest []byte, ok bool) {
 	return
 }
 
+// GetSampleBigToken is used for testing.
+func GetSampleBigToken(startTime uint32) *KnotFreeTokenPayload {
+	p := &KnotFreeTokenPayload{}
+	p.Issuer = "/9sh" // first 4 from public
+	p.ExpirationTime = startTime + 60*60*24*(365+1)
+	p.JWTID = getRandomB64String()
+	p.Input = 1e6
+	p.Output = 1e6
+	p.Subscriptions = 200000
+	p.Connections = 200000
+	p.URL = "knotfree.net"
+	return p
+}
+
+var giantToken string
+
+// GetImpromptuGiantToken is
+func GetImpromptuGiantToken() string {
+	if len(giantToken) != 0 {
+		return giantToken
+	}
+
+	LoadPrivateKeys("~/atw/privateKeys4.txt")
+
+	payload := GetSampleBigToken(uint32(time.Now().Unix()))
+	signingKey := GetPrivateKey("/9sh")
+	bbb, err := MakeToken(payload, []byte(signingKey))
+	if err != nil {
+		fmt.Println("GetImpromptuGiantToken", err)
+	}
+	giantToken = string(bbb)
+	return giantToken
+}
+
+func getRandomB64String() string {
+	var tmp [18]byte
+	rand.Read(tmp[:])
+	return base64.RawStdEncoding.EncodeToString(tmp[:])
+}
+
 // LoadPublicKeys adds the public keys below
 func LoadPublicKeys() {
 
@@ -388,72 +434,4 @@ func LoadPublicKeys() {
 		bytes, _ := base64.RawStdEncoding.DecodeString(s)
 		SavePublicKey(front, string(bytes))
 	}
-
 }
-
-var publicKeys string = `
-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
-`

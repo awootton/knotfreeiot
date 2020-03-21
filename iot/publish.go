@@ -22,7 +22,9 @@ import (
 
 func processPublish(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *publishMessage) {
 
-	watchedItem, ok := getWatchers(bucket, &pubmsg.h) //[pubmsg.h]
+	//fmt.Println("processPublish", string(pubmsg.p.Address), string(pubmsg.p.Payload), " in ", me.ex.Name)
+
+	watchedItem, ok := getWatcher(bucket, &pubmsg.h) //[pubmsg.h]
 	if ok == false {
 		// no publish possible !
 		// it's sad really when someone sends messages to nobody.
@@ -30,8 +32,9 @@ func processPublish(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *publ
 		// send upstream publish
 		err := bucket.looker.PushUp(pubmsg.p, pubmsg.h)
 		if err != nil {
-			// what? we're sad? todo: man up
+			// what? sad? todo: man up
 			// we should die and reconnect
+			fmt.Println("when a q push fails", string(pubmsg.p.Payload))
 		}
 	} else {
 
@@ -59,6 +62,8 @@ func processPublish(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *publ
 		} else {
 			watchedItem.expires = 20 * 60 * me.getTime()
 
+			//fmt.Println("pub down", string(pubmsg.p.Payload))
+
 			it := watchedItem.Iterator()
 			for it.Next() {
 
@@ -68,10 +73,7 @@ func processPublish(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *publ
 				_, selfReturn := pubmsg.p.GetOption("toself")
 				if selfReturn || key != pubmsg.ss.GetKey() {
 					if me.checkForBadContact(ci, watchedItem) == false {
-						//fmt.Println("pub down", string(pubmsg.p.Payload))
-						if string(pubmsg.p.Payload) == "a_test_message2_45" {
-							//fmt.Println("pub down", string(pubmsg.p.Payload))
-						}
+						//fmt.Println("pub to contact", string(pubmsg.p.Address), string(pubmsg.p.Payload), " in ", me.ex.Name)
 						ci.WriteDownstream(pubmsg.p)
 						sentMessages.Inc()
 					}
@@ -79,6 +81,8 @@ func processPublish(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *publ
 			}
 		}
 		pubmsg.p.DeleteOption("toself")
+
+		//fmt.Println("pub PushUp", string(pubmsg.p.Address), string(pubmsg.p.Payload), " in ", me.ex.Name)
 
 		err := bucket.looker.PushUp(pubmsg.p, pubmsg.h)
 		if err != nil {
@@ -93,7 +97,9 @@ func processPublish(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *publ
 
 func processPublishDown(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *publishMessageDown) {
 
-	watcheditem, ok := getWatchers(bucket, &pubmsg.h) //bucket.mySubscriptions[pubmsg.h]
+	//fmt.Println("top of processPublishDown", string(pubmsg.p.Address), string(pubmsg.p.Payload), " in ", me.ex.Name)
+
+	watcheditem, ok := getWatcher(bucket, &pubmsg.h) //bucket.mySubscriptions[pubmsg.h]
 	if ok == false {
 		// no publish possible !
 		// it's sad really when someone sends messages to nobody.
@@ -109,7 +115,7 @@ func processPublishDown(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *
 			key, item := it.KeyValue()
 			ci := item.ci
 
-			if key != pubmsg.ss.GetKey() {
+			if key != pubmsg.h.GetHalfHash() {
 				if me.checkForBadContact(ci, watcheditem) == false {
 					ci.WriteDownstream(pubmsg.p)
 					sentMessages.Inc()
@@ -117,5 +123,4 @@ func processPublishDown(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *
 			}
 		}
 	}
-
 }

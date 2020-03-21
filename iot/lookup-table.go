@@ -16,86 +16,67 @@
 package iot
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"reflect"
 	"sync"
-	"time"
 
 	"github.com/awootton/knotfreeiot/packets"
-	"github.com/dgryski/go-maglev"
 	"github.com/emirpasic/gods/trees/redblacktree"
 	"github.com/emirpasic/gods/utils"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-// LookupTableStruct is what we're up to
+// LookupTableStruct is good for message routing and address lookup.
 type LookupTableStruct struct {
 	//
 	allTheSubscriptions []subscribeBucket
 
 	key HashType // unique name for me.
 
-	myname string // like a pod name
+	myname string // like a pod name, for humans.
 
 	isGuru bool
 
-	upstreamRouter *UpstreamRouterStruct
-
-	NameResolver GuruNameResolver // pointer to function
+	upstreamRouter *upstreamRouterStruct
 
 	config *ContactStructConfig // all the contacts share this pointer
 
 	getTime func() uint32 // can't call time directly because of test
-}
 
-// GuruNameResolver will return an upper contact from a name
-// in prod it's a DNS lookup followed by a tcp connect
-// in unit test there's a global map that can be consulted.
-type GuruNameResolver func(name string, config *ContactStructConfig) (ContactInterface, error)
+	ex *Executive
 
-// UpstreamRouterStruct is maybe virtual in the future
-type UpstreamRouterStruct struct {
-	//
-	names    []string
-	contacts []ContactInterface
-
-	maglev         *maglev.Table
-	previousmaglev *maglev.Table
-
-	name2contact map[string]baseMessage
-	mux          sync.Mutex
+	// Becomes a 'thread' count. The count of the queues.
+	theBucketsSize     int // = uint(16)
+	theBucketsSizeLog2 int // = 4
 }
 
 // watchedTopic is what we'll be collecting a lot of.
-// what if *everyone* is watching this topic? and then the watchers is huge.
+// what if *everyone* is watching this topic? and then the watchers.thetree is huge.
 type watchedTopic struct {
+	//
 	name    HashType // not my real name
 	expires uint32
 	thetree *redblacktree.Tree // of uint64 to watcherItem
 
 	optionalKeyValues *redblacktree.Tree // might be nil if no options.
 
-	// billing?? can we NOT use the optionalKeyValues ?
+	// billing: can we NOT use the optionalKeyValues ?
+
+	nextBillingTime uint32
+	lastBillingTime uint32
+	jwtidAlias      string
 }
 
 type watcherItem struct {
-	// expires uint32 expire the contact instead
 	ci ContactInterface
 }
 
-// GetUpperContact returns which contact handles i
-func (router *UpstreamRouterStruct) GetUpperContact(h uint64) ContactInterface {
-	index := router.maglev.Lookup(h)
-	if index >= len(router.contacts) {
-		fmt.Println("oops")
-	}
-	return router.contacts[index]
-}
-
-// PushUp is to send msg up to guruness. may need q per contact
+// PushUp is to send msg up to guruness. has a q per contact.
 // this is called directly by the pub/sub/look commands.
+// getting an error here is kinda fatal.
 func (me *LookupTableStruct) PushUp(p packets.Interface, h HashType) error {
 
 	router := me.upstreamRouter
@@ -103,255 +84,72 @@ func (me *LookupTableStruct) PushUp(p packets.Interface, h HashType) error {
 		// some of us don't have superiors so no pushup
 		return nil
 	}
-	cc := router.GetUpperContact(h.GetUint64())
-	if cc != nil && cc.GetConfig() != nil {
-		err := cc.WriteUpstream(p)
-		if err != nil {
-			fmt.Println("upstream write fail needs to reattach", err)
-			cc.Close(err)
-		}
+	upc := router.getUpperChannel(h.GetUint64())
+	if upc != nil {
+		//fmt.Println("upc pushing up from ", me.ex.Name, " to ", upc.name, p)
+		upc.up <- p
+
 	} else {
 		fmt.Println("where is our socket?")
-		return errors.New("missing upper contact")
+		return errors.New("missing upper c")
 	}
 	return nil
-}
-
-// FlushMarkerAndWait puts a command into the head of *all* the q's
-// and waits for *all* of them to arrive. This way we can wait. for testing.
-func (me *LookupTableStruct) FlushMarkerAndWait() {
-
-	command := callBackCommand{}
-	command.callback = flushMarkerCallback
-	for _, bucket := range me.allTheSubscriptions {
-		command.wg.Add(1)
-		bucket.incoming <- &command
-	}
-	command.wg.Wait()
-}
-func flushMarkerCallback(me *LookupTableStruct, bucket *subscribeBucket, cmd *callBackCommand) {
-	cmd.wg.Done()
-}
-
-// SetGuruUpstreamNames because the guru needs to know also.
-// recalc the maglev. reveal all the subs and delete the ones we wouldn't have.
-func (me *LookupTableStruct) SetGuruUpstreamNames(names []string) {
-
-	router := me.upstreamRouter
-
-	router.previousmaglev = router.maglev
-	maglevsize := maglev.SmallM
-	if DEBUG {
-		maglevsize = 97
-	}
-	router.maglev = maglev.New(names, uint64(maglevsize))
-
-	myindex := -1
-	for i, n := range names {
-		if n == me.myname {
-			myindex = i
-		}
-	}
-
-	// iterate all subscriptions and delete the ones that don't map here anymore.
-	command := callBackCommand{}
-	command.callback = guruDeleteRemappedAndGoneTopics // inline?
-	command.index = myindex
-
-	for _, bucket := range me.allTheSubscriptions {
-		command.wg.Add(1)
-		bucket.incoming <- &command
-	}
-	command.wg.Wait()
-}
-
-type callBackCommand struct { // todo make interface
-	callback func(me *LookupTableStruct, bucket *subscribeBucket, cmd *callBackCommand)
-	index    int
-	wg       sync.WaitGroup
-	expires  uint32
-}
-
-func guruDeleteRemappedAndGoneTopics(me *LookupTableStruct, bucket *subscribeBucket, cmd *callBackCommand) {
-	//fmt.Println("bucket", len(bucket.incoming))
-	for _, s := range bucket.mySubscriptions {
-		for h, watchedTopic := range s {
-			index := me.upstreamRouter.maglev.Lookup(h.GetUint64())
-			// if the index is not me then delete the topic and tell upstream.
-			if index != cmd.index {
-				unsub := packets.Unsubscribe{}
-				unsub.AddressAlias = make([]byte, 24)
-				h.GetBytes(unsub.AddressAlias)
-				me.PushUp(&unsub, h)
-				delete(s, h)
-			}
-			_ = watchedTopic
-		}
-	}
-	cmd.wg.Done()
-}
-
-// SetUpstreamNames is. the resolver will try to get a tcp connection.
-func (me *LookupTableStruct) SetUpstreamNames(names []string, addresses []string) {
-
-	router := me.upstreamRouter
-
-	if reflect.DeepEqual(router.names, names) {
-		// nothing changed
-		return
-	}
-
-	if me.isGuru {
-		me.SetGuruUpstreamNames(names)
-		return
-	}
-
-	router.contacts = make([]ContactInterface, len(names))
-	router.names = make([]string, len(names))
-	copy(router.names, names)
-
-	var wg sync.WaitGroup
-
-	for i, name := range names {
-		address := addresses[i]
-		wg.Add(1)
-		go func(me *LookupTableStruct, i int, name string, address string) {
-			defer wg.Done()
-			me.upstreamRouter.mux.Lock()
-			defer me.upstreamRouter.mux.Unlock()
-			com, ok := me.upstreamRouter.name2contact[name]
-			var err error
-			var newContact ContactInterface
-			if ok {
-				newContact = com.ss
-				if newContact.GetConfig() == nil {
-					ok = false
-				}
-			}
-			if ok == false {
-				newContact, err = me.NameResolver(address, me.config)
-				counter := 0
-				for err != nil {
-					fmt.Println("we cna't have this fixme", address, err) // should never happen
-					// now what?
-					if counter > 5 {
-						break
-					}
-					counter++
-					time.Sleep(1 << counter * time.Millisecond)
-					newContact = nil // try again
-					newContact, err = me.NameResolver(address, me.config)
-				}
-				if newContact.GetConfig() == nil {
-					fmt.Println("break here ss")
-				}
-				com = baseMessage{HashType{}, newContact}
-				me.upstreamRouter.name2contact[name] = com
-			} else {
-				newContact = com.ss
-			}
-
-			if newContact.GetConfig() == nil {
-				fmt.Println("break here ss2")
-			}
-
-			me.upstreamRouter.contacts[i] = newContact
-
-		}(me, i, name, address)
-
-	}
-
-	// wait for the contacts to fill in
-	wg.Wait()
-
-	router.previousmaglev = router.maglev
-	maglevsize := maglev.SmallM
-	if DEBUG {
-		maglevsize = 97
-	}
-	router.maglev = maglev.New(names, uint64(maglevsize))
-	// order subscriptions to be forwarded to the new UpContact.
-
-	// iterate all the subscriptions and push up (again) the ones that have been remapped.
-	// iterate all subscriptions and delete the ones that don't map here anymore.
-	command := callBackCommand{}
-	command.callback = reSubscribeRemappedTopics
-
-	//var wg sync.WaitGroup
-	for _, bucket := range me.allTheSubscriptions {
-		bucket.incoming <- &command
-	}
-
-	//fmt.Println("")
-	for _, cc := range router.contacts {
-		if cc == nil {
-			fmt.Println("fixm 88")
-		}
-	}
-}
-
-func reSubscribeRemappedTopics(me *LookupTableStruct, bucket *subscribeBucket, cmd *callBackCommand) {
-	//fmt.Println("bucket", len(bucket.incoming))
-	for _, s := range bucket.mySubscriptions {
-		for h, watchedTopic := range s {
-			indexNew := me.upstreamRouter.maglev.Lookup(h.GetUint64())
-			indexOld := -1
-			if me.upstreamRouter.previousmaglev != nil {
-				indexOld = me.upstreamRouter.previousmaglev.Lookup(h.GetUint64())
-			}
-			// if the index has changed then push up a subscribe
-			if indexNew != indexOld {
-				unsub := packets.Subscribe{}
-				unsub.AddressAlias = make([]byte, 24)
-				h.GetBytes(unsub.AddressAlias)
-				me.PushUp(&unsub, h)
-			}
-			_ = watchedTopic
-		}
-	}
 }
 
 // NewLookupTable makes a LookupTableStruct, usually a singleton.
 // In the tests we call here and then use the result to init a server.
 // Starts 16 go routines that are hung on their 32 deep q's
 func NewLookupTable(projectedTopicCount int, aname string, isGuru bool, getTime func() uint32) *LookupTableStruct {
-	me := LookupTableStruct{}
+	me := &LookupTableStruct{}
 	me.myname = aname
 	me.isGuru = isGuru
 	me.getTime = getTime
 	me.key.Random()
-	portion := projectedTopicCount / int(theBucketsSize)
-	portion2 := projectedTopicCount >> theBucketsSizeLog2 // we can init the hash maps big
-	if portion != portion2 {
-		fmt.Println("EPIC FAIL theBucketsSizeLog2 != uint(math.Log2(float64(theBucketsSize)))")
+
+	// how many threads?
+	if projectedTopicCount < 1000 {
+		DEBUG = true
+		me.theBucketsSize = 4 // 4 threads
+		me.theBucketsSizeLog2 = 2
+	} else {
+		me.theBucketsSize = 64 // 64 threads in prod
+		me.theBucketsSizeLog2 = 6
 	}
-	me.allTheSubscriptions = make([]subscribeBucket, theBucketsSize)
-	for i := uint(0); i < theBucketsSize; i++ {
-		// mySubscriptions is an array of 64 maps
-		for j := 0; j < len(me.allTheSubscriptions[i].mySubscriptions); j++ {
-			me.allTheSubscriptions[i].mySubscriptions[j] = make(map[HashType]*watchedTopic, portion)
-		}
+
+	portion := projectedTopicCount / int(me.theBucketsSize)
+	portion2 := projectedTopicCount >> me.theBucketsSizeLog2 // we can init the hash maps big
+	if portion != portion2 {
+		fmt.Println("EPIC FAIL me.theBucketsSizeLog2 != uint(math.Log2(float64(me.theBucketsSize)))")
+	}
+	me.allTheSubscriptions = make([]subscribeBucket, me.theBucketsSize)
+	for i := 0; i < me.theBucketsSize; i++ {
+		// mySubscriptions is not an array of 64 maps
+		// for j := 0; j < len(me.allTheSubscriptions[i].mySubscriptions); j++ {
+		// 	me.allTheSubscriptions[i].mySubscriptions[j] = make(map[HashType]*watchedTopic, portion)
+		// }
+		me.allTheSubscriptions[i].mySubscriptions = make(map[HashType]*watchedTopic, projectedTopicCount/me.theBucketsSize)
 		tmp := make(chan interface{}, 32)
 		me.allTheSubscriptions[i].incoming = tmp
-		me.allTheSubscriptions[i].looker = &me
-		go me.allTheSubscriptions[i].processMessages(&me)
+		me.allTheSubscriptions[i].looker = me
+		go me.allTheSubscriptions[i].processMessages(me)
 	}
-	me.upstreamRouter = new(UpstreamRouterStruct)
-	me.upstreamRouter.name2contact = make(map[string]baseMessage)
+	me.upstreamRouter = new(upstreamRouterStruct)
+	me.upstreamRouter.name2channel = make(map[string]*upperChannel)
 	// default is no upstream gurus. SetUpstreamNames to change that
 	me.upstreamRouter.maglev = nil // maglev.New([]string{"none"}, maglev.SmallM)
 	me.upstreamRouter.previousmaglev = me.upstreamRouter.maglev
-	return &me
+
+	return me
 }
 
 // sendSubscriptionMessage will create a message object, copy pointers to it so it'll own them now, and queue the message.
 func (me *LookupTableStruct) sendSubscriptionMessage(ss ContactInterface, p *packets.Subscribe) {
 
-	msg := subscriptionMessage{}
+	msg := subscriptionMessage{} // TODO: use a pool.
 	msg.ss = ss
 	msg.p = p
 	msg.h.InitFromBytes(p.AddressAlias)
-	i := msg.h.GetFractionalBits(theBucketsSizeLog2) // is 4. The first 4 bits of the hash.
+	i := msg.h.GetFractionalBits(me.theBucketsSizeLog2) // is 4. The first 4 bits of the hash.
 	b := me.allTheSubscriptions[i]
 	b.incoming <- &msg
 }
@@ -363,7 +161,7 @@ func (me *LookupTableStruct) sendUnsubscribeMessage(ss ContactInterface, p *pack
 	msg.ss = ss
 	msg.p = p
 	msg.h.InitFromBytes(p.AddressAlias)
-	i := msg.h.GetFractionalBits(theBucketsSizeLog2)
+	i := msg.h.GetFractionalBits(me.theBucketsSizeLog2)
 	b := me.allTheSubscriptions[i]
 	b.incoming <- &msg
 }
@@ -375,55 +173,55 @@ func (me *LookupTableStruct) sendLookupMessage(ss ContactInterface, p *packets.L
 	msg.ss = ss
 	msg.p = p
 	msg.h.InitFromBytes(p.AddressAlias)
-	i := msg.h.GetFractionalBits(theBucketsSizeLog2)
+	i := msg.h.GetFractionalBits(me.theBucketsSizeLog2)
 	b := me.allTheSubscriptions[i]
 	b.incoming <- &msg
 }
 
 // SendPublishMessage will create a message object, copy pointers to it so it'll own them now, and queue the message.
-func (me *LookupTableStruct) sendPublishMessageDown(ss ContactInterface, p *packets.Send) {
+func (me *LookupTableStruct) sendPublishMessageDown(p *packets.Send) {
 
 	msg := publishMessageDown{}
-	msg.ss = ss
+	//msg.ss = ss
 	msg.p = p
 	msg.h.InitFromBytes(p.AddressAlias)
-	i := msg.h.GetFractionalBits(theBucketsSizeLog2)
+	i := msg.h.GetFractionalBits(me.theBucketsSizeLog2)
 	b := me.allTheSubscriptions[i]
 	b.incoming <- &msg
 }
 
 // sendSubscriptionMessage will create a message object, copy pointers to it so it'll own them now, and queue the message.
-func (me *LookupTableStruct) sendSubscriptionMessageDown(ss ContactInterface, p *packets.Subscribe) {
+func (me *LookupTableStruct) sendSubscriptionMessageDown(p *packets.Subscribe) {
 
 	msg := subscriptionMessageDown{}
-	msg.ss = ss
+	//msg.ss = ss
 	msg.p = p
 	msg.h.InitFromBytes(p.AddressAlias)
-	i := msg.h.GetFractionalBits(theBucketsSizeLog2)
+	i := msg.h.GetFractionalBits(me.theBucketsSizeLog2)
 	b := me.allTheSubscriptions[i]
 	b.incoming <- &msg
 }
 
 // SendUnsubscribeMessage will create a message object, copy pointers to it so it'll own them now, and queue the message.
-func (me *LookupTableStruct) sendUnsubscribeMessageDown(ss ContactInterface, p *packets.Unsubscribe) {
+func (me *LookupTableStruct) sendUnsubscribeMessageDown(p *packets.Unsubscribe) {
 
 	msg := unsubscribeMessageDown{}
-	msg.ss = ss
+	//msg.ss = ss
 	msg.p = p
 	msg.h.InitFromBytes(p.AddressAlias)
-	i := msg.h.GetFractionalBits(theBucketsSizeLog2)
+	i := msg.h.GetFractionalBits(me.theBucketsSizeLog2)
 	b := me.allTheSubscriptions[i]
 	b.incoming <- &msg
 }
 
 // SendUnsubscribeMessage will create a message object, copy pointers to it so it'll own them now, and queue the message.
-func (me *LookupTableStruct) sendLookupMessageDown(ss ContactInterface, p *packets.Lookup) {
+func (me *LookupTableStruct) sendLookupMessageDown(p *packets.Lookup) {
 
 	msg := lookupMessageDown{}
-	msg.ss = ss
+	//msg.ss = ss
 	msg.p = p
 	msg.h.InitFromBytes(p.AddressAlias)
-	i := msg.h.GetFractionalBits(theBucketsSizeLog2)
+	i := msg.h.GetFractionalBits(me.theBucketsSizeLog2)
 	b := me.allTheSubscriptions[i]
 	b.incoming <- &msg
 }
@@ -435,7 +233,7 @@ func (me *LookupTableStruct) sendPublishMessage(ss ContactInterface, p *packets.
 	msg.ss = ss
 	msg.p = p
 	msg.h.InitFromBytes(p.AddressAlias)
-	i := msg.h.GetFractionalBits(theBucketsSizeLog2)
+	i := msg.h.GetFractionalBits(me.theBucketsSizeLog2)
 	b := me.allTheSubscriptions[i]
 	b.incoming <- &msg
 }
@@ -447,9 +245,7 @@ func (me *LookupTableStruct) GetAllSubsCount() (int, float64) {
 	totalCapacity := 0
 	qdepth := 0
 	for _, bucket := range me.allTheSubscriptions {
-		for _, htable := range bucket.mySubscriptions {
-			count += len(htable)
-		}
+		count += len(bucket.mySubscriptions)
 		qdepth += len(bucket.incoming)
 		totalCapacity += cap(bucket.incoming)
 	}
@@ -463,27 +259,27 @@ func (bucket *subscribeBucket) processMessages(me *LookupTableStruct) {
 
 	for {
 		msg := <-bucket.incoming // wait right here
-		switch msg.(type) {
+		switch v := msg.(type) {
 
 		case *subscriptionMessage:
-			processSubscribe(me, bucket, msg.(*subscriptionMessage))
+			processSubscribe(me, bucket, v)
 		case *subscriptionMessageDown:
-			processSubscribeDown(me, bucket, msg.(*subscriptionMessage))
+			processSubscribeDown(me, bucket, v)
 
 		case *lookupMessage:
-			processLookup(me, bucket, msg.(*lookupMessage))
+			processLookup(me, bucket, v)
 		case *lookupMessageDown:
-			processLookupDown(me, bucket, msg.(*lookupMessage))
+			processLookupDown(me, bucket, v)
 
 		case *publishMessage:
-			processPublish(me, bucket, msg.(*publishMessage))
+			processPublish(me, bucket, v)
 		case *publishMessageDown:
-			processPublishDown(me, bucket, msg.(*publishMessageDown))
+			processPublishDown(me, bucket, v)
 
 		case *unsubscribeMessage:
-			processUnsubscribe(me, bucket, msg.(*unsubscribeMessage))
+			processUnsubscribe(me, bucket, v)
 		case *unsubscribeMessageDown:
-			processUnsubscribeDown(me, bucket, msg.(*unsubscribeMessageDown))
+			processUnsubscribeDown(me, bucket, v)
 
 		case *callBackCommand:
 			cbc := msg.(*callBackCommand)
@@ -526,35 +322,35 @@ type lookupMessage struct {
 }
 
 type subscriptionMessageDown struct {
-	baseMessage
+	h HashType //baseMessage
 	p *packets.Subscribe
 }
 
 // unsubscribeMessage for real
 type unsubscribeMessageDown struct {
-	baseMessage
+	h HashType // baseMessage
 	p *packets.Unsubscribe
 }
 
 // publishMessage used here
 type publishMessageDown struct {
-	baseMessage
+	h HashType // baseMessage
 	p *packets.Send
 }
 
 type lookupMessageDown struct {
-	baseMessage
+	h HashType // baseMessage
 	p *packets.Lookup
 }
 
-// theBucketsSize is 16 and there's 16 channels
+// me.theBucketsSize is 16 and there's 16 channels
 // it's just to keep the threads busy.
-const theBucketsSize = uint(16)
-const theBucketsSizeLog2 = 4
+//const me.theBucketsSize = uint(16)
+//const me.theBucketsSizeLog2 = 4
 
-// each bucket has 64 maps so 1024 maps total
+// One map per bucket ? yes.
 type subscribeBucket struct {
-	mySubscriptions [64]map[HashType]*watchedTopic
+	mySubscriptions map[HashType]*watchedTopic //[64]map[HashType]*watchedTopic
 	incoming        chan interface{}
 	looker          *LookupTableStruct
 }
@@ -573,22 +369,15 @@ func (me *LookupTableStruct) checkForBadContact(badsock ContactInterface, pubstr
 	return false
 }
 
-func getWatchers(bucket *subscribeBucket, h *HashType) (*watchedTopic, bool) {
-
-	// the first 4 bits were used to select the bucket
-	// the next 6 will select the hash table inside the bucket.
-	sixbits := h.GetFractionalBits(10) & 0x3F
-	hashtable := bucket.mySubscriptions[sixbits]
+func getWatcher(bucket *subscribeBucket, h *HashType) (*watchedTopic, bool) {
+	hashtable := bucket.mySubscriptions
 	watcheditem, ok := hashtable[*h]
 	return watcheditem, ok
 }
 
-func setWatchers(bucket *subscribeBucket, h *HashType, watcher *watchedTopic) {
+func setWatcher(bucket *subscribeBucket, h *HashType, watcher *watchedTopic) {
 
-	// the first 4 bits were used to select the bucket
-	// the next 6 will select the hash table inside the bucket.
-	sixbits := h.GetFractionalBits(10) & 0x3F
-	hashtable := bucket.mySubscriptions[sixbits]
+	hashtable := bucket.mySubscriptions
 	if watcher != nil {
 		hashtable[*h] = watcher
 	} else {
@@ -596,53 +385,78 @@ func setWatchers(bucket *subscribeBucket, h *HashType, watcher *watchedTopic) {
 	}
 }
 
-func guruDeleteExpiredTopics(me *LookupTableStruct, bucket *subscribeBucket, cmd *callBackCommand) {
+func heartBeatCallBack(me *LookupTableStruct, bucket *subscribeBucket, cmd *callBackCommand) {
 	defer cmd.wg.Done()
 	// we don't delete them here and now. We q up Unsubscribe packets.
 	// except the billing.
-	for _, s := range bucket.mySubscriptions {
-		for h, watchedItem := range s {
-			expireAll := watchedItem.expires < cmd.expires
-			it := watchedItem.Iterator()
-			for it.Next() {
-				key, item := it.KeyValue()
-				//if item.expires < cmd.expires || expireAll || item.ci.GetClosed() {
-				if expireAll || item.ci.GetClosed() {
+	s := bucket.mySubscriptions
+	for h, watchedItem := range s {
+		expireAll := watchedItem.expires < cmd.expires
+		// first, scan all the contact references and schedule the stale ones for deleteion.
+		it := watchedItem.Iterator()
+		for it.Next() {
+			key, item := it.KeyValue()
+			//if item.expires < cmd.expires || expireAll || item.ci.GetClosed() {
+			if expireAll || item.ci.GetClosed() {
 
-					p := new(packets.Unsubscribe)
-					p.AddressAlias = new([32]byte)[:]
-					watchedItem.name.GetBytes(p.AddressAlias)
-					me.sendUnsubscribeMessage(item.ci, p)
-				}
-				_ = key
+				p := new(packets.Unsubscribe)
+				p.AddressAlias = new([24]byte)[:]
+				watchedItem.name.GetBytes(p.AddressAlias)
+				me.sendUnsubscribeMessage(item.ci, p)
 			}
-			_ = h
-			// check if this is a billing topic
-			// if it's billing then those unsubscribes get rid of it
-			billingAccumulator, ok := watchedItem.GetBilling()
-			if ok {
-				if expireAll {
-					setWatchers(bucket, &h, nil) // kill it now
-				} else {
-					good, msg := billingAccumulator.AreUnderMax(me.getTime())
-					if !good {
-						p := &packets.Send{}
-						p.AddressAlias = new([24]byte)[:]
-						h.GetBytes(p.AddressAlias)
-						p.Payload = []byte(msg)
-						p.SetOption("error", p.Payload)
-						// just like a publish down.
-						it = watchedItem.Iterator()
-						for it.Next() {
-							key, item := it.KeyValue()
-							_ = key
-							ci := item.ci
-							if me.checkForBadContact(ci, watchedItem) == false {
-								ci.WriteDownstream(p)
-							}
+			_ = key
+		}
+		_ = h
+		// second, check if this is a billing topic
+		// if it's billing and it's over limits then write 'error Send' down.
+		billingAccumulator, ok := watchedItem.GetBilling()
+		if ok {
+			if expireAll {
+				setWatcher(bucket, &h, nil) // kill it now
+			} else {
+				good, msg := billingAccumulator.AreUnderMax(me.getTime())
+				if !good {
+					p := &packets.Send{}
+					p.AddressAlias = new([24]byte)[:]
+					h.GetBytes(p.AddressAlias)
+					p.Payload = []byte(msg)
+					p.SetOption("error", p.Payload)
+					// just like a publish down.
+					it = watchedItem.Iterator()
+					for it.Next() {
+						key, item := it.KeyValue()
+						_ = key
+						ci := item.ci
+						if me.checkForBadContact(ci, watchedItem) == false {
+							ci.WriteDownstream(p)
 						}
 					}
 				}
+			}
+		}
+		// third, we'll need to send out the topic usage-stats occasionally.
+		if len(watchedItem.jwtidAlias) == 32 {
+
+			if watchedItem.nextBillingTime < cmd.now {
+
+				deltaTime := cmd.now - watchedItem.lastBillingTime
+				watchedItem.lastBillingTime = cmd.now
+				watchedItem.nextBillingTime = cmd.now + 300 // 300 secs after first time
+
+				msg := &StatsWithTime{}
+				msg.Start = cmd.now
+
+				msg.Subscriptions = float32(deltaTime) // means one per sec, one per min ...
+				p := &packets.Send{}
+				p.AddressAlias = []byte(watchedItem.jwtidAlias)
+				str, err := json.Marshal(msg)
+				if err != nil {
+					fmt.Println(" break fast ")
+				}
+				p.SetOption("stats", str)
+				// send somewhere
+				// we need some kind of pipe to the cluster front.
+				me.ex.channelToAnyAide <- p
 			}
 		}
 	}
@@ -656,7 +470,8 @@ func (me *LookupTableStruct) Heartbeat(now uint32) {
 
 	// drop and ex
 	command := callBackCommand{}
-	command.callback = guruDeleteExpiredTopics // inline?
+	command.callback = heartBeatCallBack
+	command.now = now
 
 	for _, bucket := range me.allTheSubscriptions {
 		command.wg.Add(1)
@@ -780,4 +595,71 @@ func (wt *watchedTopic) SetOption(key string, val interface{}) {
 		wt.optionalKeyValues = redblacktree.NewWithStringComparator()
 	}
 	wt.optionalKeyValues.Put(key, val)
+}
+
+// FlushMarkerAndWait puts a command into the head of *all* the q's
+// and waits for *all* of them to arrive. This way we can wait. for testing.
+func (me *LookupTableStruct) FlushMarkerAndWait() {
+
+	command := callBackCommand{}
+	command.callback = flushMarkerCallback
+	for _, bucket := range me.allTheSubscriptions {
+		command.wg.Add(1)
+		bucket.incoming <- &command
+	}
+	command.wg.Wait()
+}
+func flushMarkerCallback(me *LookupTableStruct, bucket *subscribeBucket, cmd *callBackCommand) {
+	cmd.wg.Done()
+}
+
+type callBackCommand struct { // todo make interface
+	callback func(me *LookupTableStruct, bucket *subscribeBucket, cmd *callBackCommand)
+	index    int
+	wg       sync.WaitGroup
+	expires  uint32
+	now      uint32
+}
+
+func guruDeleteRemappedAndGoneTopics(me *LookupTableStruct, bucket *subscribeBucket, cmd *callBackCommand) {
+	//fmt.Println("bucket", len(bucket.incoming))
+	//for _, s := range bucket.mySubscriptions {
+	s := bucket.mySubscriptions
+	for h, watchedTopic := range s { //s {
+		index := me.upstreamRouter.maglev.Lookup(h.GetUint64())
+		// if the index is not me then delete the topic and tell upstream.
+		if index != cmd.index {
+			unsub := packets.Unsubscribe{}
+			unsub.AddressAlias = make([]byte, 24)
+			h.GetBytes(unsub.AddressAlias)
+			me.PushUp(&unsub, h)
+			delete(s, h)
+		}
+		_ = watchedTopic
+		//	}
+	}
+	cmd.wg.Done()
+}
+
+func reSubscribeRemappedTopics(me *LookupTableStruct, bucket *subscribeBucket, cmd *callBackCommand) {
+	//fmt.Println("bucket", len(bucket.incoming))
+	//for _, s := range bucket.mySubscriptions {
+	defer cmd.wg.Done()
+	s := bucket.mySubscriptions
+	for h, watchedTopic := range s {
+		indexNew := me.upstreamRouter.maglev.Lookup(h.GetUint64())
+		indexOld := -1
+		if me.upstreamRouter.previousmaglev != nil {
+			indexOld = me.upstreamRouter.previousmaglev.Lookup(h.GetUint64())
+		}
+		// if the index has changed then push up a subscribe
+		if indexNew != indexOld {
+			unsub := packets.Subscribe{}
+			unsub.AddressAlias = make([]byte, 24)
+			h.GetBytes(unsub.AddressAlias)
+			me.PushUp(&unsub, h)
+		}
+		_ = watchedTopic
+	}
+	//	}
 }
