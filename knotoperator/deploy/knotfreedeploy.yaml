@@ -23,7 +23,7 @@ spec:
         imagePullPolicy: Always
         image: gcr.io/fair-theater-238820/knotfreeserver 
         command: ["/go/bin/linux_386/knotfreeiot"] 
-        args: ["--server"] # ,"--nano"
+        #args: ["--nano"]
         ports:
         - containerPort: 8384
           name : iot
@@ -123,34 +123,3 @@ spec:
 
   selector:
     run: "knotfreeaide"
-
---- 
-
-
-apiVersion: monitoring.coreos.com/v1
-kind: ServiceMonitor
-metadata:
-  name: knotfreeaide
-  labels:
-    team: knotfree
-spec:
-  selector:
-    matchLabels:
-      app: knotfreeaide
-  endpoints:
-  - port: prom
-
---- 
-
-  # required
-apiVersion: monitoring.coreos.com/v1
-kind: Prometheus
-metadata:
-  name: prometheus
-spec:
-  serviceMonitorSelector:
-    matchLabels:
-      team: knotfree
-  resources:
-    requests:
-      memory: 200Mi

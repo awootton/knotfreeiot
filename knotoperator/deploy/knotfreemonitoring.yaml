@@ -1,0 +1,30 @@
+
+
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: knotfreeaide
+  labels:
+    team: knotfree
+spec:
+  selector:
+    matchLabels:
+      app: knotfreeaide
+  endpoints:
+  - port: prom
+
+--- 
+
+  # required
+apiVersion: monitoring.coreos.com/v1
+kind: Prometheus
+metadata:
+  name: prometheus
+spec:
+  serviceMonitorSelector:
+    matchLabels:
+      team: knotfree
+  resources:
+    requests:
+      memory: 200Mi
+

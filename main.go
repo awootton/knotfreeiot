@@ -46,14 +46,12 @@ func main() {
 
 	fmt.Println("Hello knotfreeserver")
 
-	client := flag.Int("client", 0, "start a client test with an int of clients.")
-	server := flag.Bool("server", false, "start a server.")
-	//isGuru := flag.Bool("isguru", false, "")
+	isGuru := flag.Bool("isguru", false, "")
 
-	// means that the limits are very small
+	// means that the limits are very small - for testing
 	nano := flag.Bool("nano", false, "")
 
-	token := flag.String("token", "", " an access token for our superiors")
+	token := flag.String("token", "", " an access token for our guru, if any")
 
 	flag.Parse()
 
@@ -79,23 +77,10 @@ func main() {
 		fmt.Println("nano limits")
 	}
 
-	if *server {
-
-		ce := iot.MakeTCPMain(name, limits, *token)
-		startPublicServer(ce)
-		for {
-			time.Sleep(1000 * time.Second)
-		}
-	} else if *client > 0 {
-
-		// FIXME: put the stress tests back in here.
-
-	} else {
-		ce := iot.MakeTCPMain(name, limits, *token)
-		startPublicServer(ce)
-		for {
-			time.Sleep(1000 * time.Second)
-		}
+	ce := iot.MakeTCPMain(name, limits, *token, *isGuru)
+	startPublicServer(ce)
+	for {
+		time.Sleep(10000 * time.Second)
 	}
 
 }

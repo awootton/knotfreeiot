@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"sync"
 	"time"
 
 	"github.com/awootton/knotfreeiot/packets"
@@ -103,9 +104,7 @@ func (upc *upperChannel) dialGuru() {
 			for p := range upc.up {
 
 				//fmt.Println("UPC pushing to guru ", p)
-
 				// needs to be cloned because it's still also in aide
-
 				buff := &bytes.Buffer{}
 				p.Write(buff)
 				buff2 := bytes.NewBuffer(buff.Bytes())
@@ -196,7 +195,7 @@ func (upc *upperChannel) readFromPipe(m *myPipe) {
 
 func (upc *upperChannel) dialGuruAndServe(address string) error {
 
-	fmt.Println("top of dialGuruAndServe ", address)
+	fmt.Println("top of dialGuruAndServe ", address, upc.name, " for ", upc.ex.Name)
 
 	// todo: tell prometheius we're dialing
 	conn, err := net.DialTimeout("tcp", address, time.Duration(uint64(2*time.Second)))
@@ -212,12 +211,15 @@ func (upc *upperChannel) dialGuruAndServe(address string) error {
 	conn.(*net.TCPConn).SetNoDelay(true)
 	conn.(*net.TCPConn).SetWriteBuffer(4096)
 
+	var founderr error
+
 	upc.down = nil // not used
 	go func() {
-		for {
+		for founderr == nil {
 			p, err := packets.ReadPacket(conn)
 			if err != nil {
 				fmt.Println("dialGuruAndServe readPacket err", p, err, address)
+				founderr = err
 				conn.Close()
 				return
 			}
@@ -225,27 +227,60 @@ func (upc *upperChannel) dialGuruAndServe(address string) error {
 			err = PushDownFromTop(upc.ex.Looker, p)
 			if err != nil {
 				fmt.Println(" g err PushDown ", err)
+				founderr = err
+				conn.Close()
+				return
 			}
 		}
 	}()
 
+	upc.down = nil // not used
+	var mux sync.Mutex // needed?
+
 	connect := &packets.Connect{}
 	connect.SetOption("token", []byte(tokens.GetImpromptuGiantToken()))
+	mux.Lock()
 	err = connect.Write(conn)
+	mux.Unlock()
 	if err != nil {
 		fmt.Println("write c fail", conn, err)
 		conn.Close()
+		founderr = err
 		return err
 	}
+
+	go func() {
+		for founderr == nil {
+			time.Sleep(time.Second)
+			p := &packets.Ping{}
+			upc.up <- p
+			// mux.Lock()
+			// err = p.Write(conn)
+			// mux.Unlock()
+			// if err != nil {
+			// 	fmt.Println("write ping fail", conn, err)
+			// 	conn.Close()
+			// 	founderr = err
+			// }
+		}
+	}()
+
 	for p := range upc.up {
+		mux.Lock()
 		err := p.Write(conn)
+		mux.Unlock()
 		//fmt.Println("L pushing to guru ", p)
-		if err != nil {
+		if err != nil || founderr != nil {
+			if err == nil {
+				err = founderr
+			}
+			if founderr == nil {
+				founderr = err
+			}
 			fmt.Println("err L pushing to guru ", err)
 			conn.Close()
 			return err
 		}
 	}
-
 	return nil
 }

@@ -642,9 +642,11 @@ func guruDeleteRemappedAndGoneTopics(me *LookupTableStruct, bucket *subscribeBuc
 }
 
 func reSubscribeRemappedTopics(me *LookupTableStruct, bucket *subscribeBucket, cmd *callBackCommand) {
-	//fmt.Println("bucket", len(bucket.incoming))
-	//for _, s := range bucket.mySubscriptions {
-	defer cmd.wg.Done()
+
+	defer func() {
+		cmd.wg.Done()
+		//fmt.Println("finished reSubscribeRemappedTopics")
+	}()
 	s := bucket.mySubscriptions
 	for h, watchedTopic := range s {
 		indexNew := me.upstreamRouter.maglev.Lookup(h.GetUint64())
@@ -661,5 +663,4 @@ func reSubscribeRemappedTopics(me *LookupTableStruct, bucket *subscribeBucket, c
 		}
 		_ = watchedTopic
 	}
-	//	}
 }

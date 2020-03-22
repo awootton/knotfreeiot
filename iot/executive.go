@@ -200,7 +200,7 @@ func MakeSimplestCluster(timegetter func() uint32, isTCP bool, aideCount int) *C
 }
 
 // MakeTCPMain is called by main(s) and it news a table and contacts list and starts tcp acceptors.
-func MakeTCPMain(name string, limits *ExecutiveLimits, token string) *ClusterExecutive {
+func MakeTCPMain(name string, limits *ExecutiveLimits, token string, isGuru bool) *ClusterExecutive {
 
 	isTCP := true
 	timegetter := func() uint32 {
@@ -219,7 +219,7 @@ func MakeTCPMain(name string, limits *ExecutiveLimits, token string) *ClusterExe
 
 	ce.limits = limits
 
-	aide1 := NewExecutive(1024*1024, name, timegetter, false, ce)
+	aide1 := NewExecutive(1024*1024, name, timegetter, isGuru, ce)
 	aide1.Limits = limits
 	aide1.Config.ce = ce
 	ce.Aides = append(ce.Aides, aide1)
@@ -263,8 +263,14 @@ func NewExecutive(sizeEstimate int, aname string, timegetter func() uint32, isGu
 	} else {
 		ex.channelToAnyAide = make(chan packets.Interface, 1024)
 	}
-
 	look.ex = ex
+
+	// start with some stats - just me.
+	ex.ClusterStats = &ClusterStats{}
+	ex.ClusterStats.When = ex.getTime()
+	ex.ClusterStats.Stats = append(ex.ClusterStats.Stats, ex.GetExecutiveStats())
+	ex.ClusterStats.Stats[0].HTTPAddress = "localhost:8080"
+	ex.ClusterStats.Stats[0].TCPAddress = "localhost:8384"
 
 	return ex
 }

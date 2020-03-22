@@ -252,7 +252,7 @@ func PushPacketUpFromBottom(ssi ContactInterface, p packets.Interface) error {
 		ssi.WriteDownstream(v)
 
 	default:
-		fmt.Printf("I don't know about type %T!\n", v)
+		fmt.Printf("I don't know about type up %T!\n", v)
 	}
 
 	_ = destination
@@ -293,9 +293,10 @@ func PushDownFromTop(looker *LookupTableStruct, p packets.Interface) error {
 			v.AddressAlias = HashNameToAlias(v.Address)
 		}
 		looker.sendPublishMessageDown(v)
-
+	case *packets.Ping:
+		// nothing
 	default:
-		fmt.Printf("I don't know about type %T!\n", v)
+		fmt.Printf("I don't know about type down %T!\n", v)
 	}
 	return nil
 }

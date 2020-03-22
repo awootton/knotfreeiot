@@ -20,6 +20,7 @@ import (
 	"math/rand"
 	"net"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/awootton/knotfreeiot/packets"
@@ -122,29 +123,62 @@ func (ex *Executive) dialAideAndServe(address string, ce *ClusterExecutive) erro
 	conn.(*net.TCPConn).SetNoDelay(true)
 	conn.(*net.TCPConn).SetWriteBuffer(4096)
 
+	var founderr error
+
+	go func() {
+		for founderr == nil {
+			p, err := packets.ReadPacket(conn)
+			if err != nil {
+				founderr = err
+				return
+			}
+			_ = p // drop it on the floor
+		}
+	}()
+
+	var mux sync.Mutex // needed
+
 	connect := &packets.Connect{}
 	connect.SetOption("token", []byte(tokens.GetImpromptuGiantToken()))
+	mux.Lock()
 	err = connect.Write(conn)
+	mux.Unlock()
 	if err != nil {
-		fmt.Println("write c fail", conn, err)
+		fmt.Println("a write c fail", conn, err)
 		conn.Close()
+		founderr = err
 		return err
 	}
+
 	go func() {
-		p, err := packets.ReadPacket(conn)
-		if err != nil {
-			return
+		for founderr == nil {
+			time.Sleep(time.Second)
+			p := &packets.Ping{}
+			ex.channelToAnyAide <- p
+			// mux.Lock()
+			// err = p.Write(conn)
+			// mux.Unlock()
+			// if err != nil {
+			// 	fmt.Println("a write ping fail", conn, err)
+			// 	conn.Close()
+			// 	founderr = err
+			//}
 		}
-		_ = p // drop it on the floor
 	}()
+
 	for p := range ex.channelToAnyAide {
 		err := p.Write(conn)
 		//fmt.Println("L pushing to aide ", p)
-		if err != nil {
+		if err != nil || founderr != nil {
+			if err == nil {
+				err = founderr
+			}
+			if founderr == nil {
+				founderr = err
+			}
 			fmt.Println("err L pushing to aide ", err)
 			conn.Close()
 		}
 	}
-
 	return nil
 }

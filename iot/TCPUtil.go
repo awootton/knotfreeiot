@@ -69,18 +69,19 @@ func (api apiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		decoder := json.NewDecoder(req.Body)
 		args := &UpstreamNamesArg{}
 		err := decoder.Decode(args)
-
 		if err != nil {
 			http.Error(w, "decode error", 500)
 			API1PostGurusFail.Inc()
 			return
 		}
+		fmt.Println("/api2/set len=", len(args.Names))
 		API1PostGurus.Inc()
 		if len(args.Names) > 0 && len(args.Names) == len(args.Addresses) {
 			api.ex.Looker.SetUpstreamNames(args.Names, args.Addresses)
 		} else {
 			fmt.Println("bad names sent", args.Names, args.Addresses, args)
 		}
+		fmt.Println("/api2/set done")
 
 	} else if req.RequestURI == "/api2/clusterstats" { // POST
 
@@ -315,7 +316,7 @@ func GetServerStats(addr string) (*ExecutiveStats, error) {
 			return stats, err
 		}
 	} else {
-		fmt.Println("GetServerStats failed ", addr, err, resp.StatusCode)
+		fmt.Println("GetServerStats failed ", addr, err)
 	}
 	return stats, err
 }
@@ -327,6 +328,7 @@ type UpstreamNamesArg struct {
 }
 
 // PostUpstreamNames does SetUpstreamNames the hard way
+// we are not going over the internet. Inside a ns should ba well under 1000 ms.
 func PostUpstreamNames(guruList []string, addressList []string, addr string) error {
 
 	arg := &UpstreamNamesArg{}
@@ -343,7 +345,8 @@ func PostUpstreamNames(guruList []string, addressList []string, addr string) err
 		return errors.New("upstreamNamesArg marshal fail")
 	}
 
-	resp, err := http.Post("http://"+addr+"/api2/set", "application/json", bytes.NewReader(jbytes))
+	client := http.Client{Timeout: 1 * time.Second}
+	resp, err := client.Post("http://"+addr+"/api2/set", "application/json", bytes.NewReader(jbytes))
 	if err != nil {
 		return err
 	}
@@ -364,7 +367,8 @@ func PostClusterStats(stats *ClusterStats, addr string) error {
 	}
 
 	addstr := "http://" + addr + "/api2/clusterstats"
-	resp, err := http.Post(addstr, "application/json", bytes.NewReader(jbytes))
+	client := http.Client{Timeout: 1 * time.Second}
+	resp, err := client.Post(addstr, "application/json", bytes.NewReader(jbytes))
 	if err != nil {
 		return err
 	}

@@ -29,6 +29,8 @@ type ClusterState struct {
 
 	// name to stats
 	Nodes map[string]*iot.ExecutiveStats // includes aides
+
+	GuruNamesPending uint32 // when we started last guru pod or zero if none
 }
 
 // NewClusterState is

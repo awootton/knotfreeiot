@@ -85,9 +85,10 @@ func (cc *mqttContact) WriteDownstream(p packets.Interface) error {
 			err = errors.New(string(v.Payload))
 		}
 		return err
-
+	case *packets.Ping:
+		// should not really happen here.
 	default:
-		fmt.Printf("I don't know about type %T!\n", v)
+		fmt.Printf("I don't know about type mqtt %T!\n", v)
 	}
 
 	return nil

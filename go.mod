@@ -11,7 +11,7 @@ replace github.com/awootton/knotfreeiot/iot => ./iot
 replace github.com/awootton/knotfreeiot/tokens => ./tokens
 
 require (
-	github.com/awootton/knotfreeiot/iot v0.0.0-00010101000000-000000000000
+	github.com/awootton/knotfreeiot/iot v0.0.0-20200321134716-0d0a9b663fb5
 	github.com/awootton/knotfreeiot/kubectl v0.0.0-20200313101551-e4bec42208fd // indirect
 	github.com/awootton/knotfreeiot/tokens v0.0.0-00010101000000-000000000000
 	github.com/blang/semver v3.5.1+incompatible // indirect

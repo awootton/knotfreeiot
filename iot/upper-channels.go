@@ -102,11 +102,14 @@ func (me *LookupTableStruct) SetUpstreamNames(names []string, addresses []string
 
 	// we're an aide.
 	oldContacts := router.channels
-	_ = oldContacts
+
 	router.channels = make([]*upperChannel, len(names))
 	theNamesThisTime := make(map[string]string, len(names))
 
 	// iterate the names passed in.
+	// constuct a new list. populate it with existing upc
+	// when possible
+
 	for i, name := range names {
 		address := addresses[i]
 		theNamesThisTime[name] = address
@@ -119,7 +122,7 @@ func (me *LookupTableStruct) SetUpstreamNames(names []string, addresses []string
 			upc = &upperChannel{}
 			upc.name = name
 			upc.address = address
-			upc.up = make(chan packets.Interface, 128) // TODO: what size?
+			upc.up = make(chan packets.Interface, 1280)
 			upc.down = make(chan packets.Interface, 128)
 			upc.ex = me.ex
 			router.channels[i] = upc
@@ -127,14 +130,14 @@ func (me *LookupTableStruct) SetUpstreamNames(names []string, addresses []string
 		}
 	}
 	// lose the stale ones
-	for k, upc := range router.name2channel {
-		_, found := theNamesThisTime[k]
+	for _, upc := range oldContacts {
+		_, found := theNamesThisTime[upc.name]
 		if found == false {
 			upc.running = false
 			fmt.Println("forgetting upper router ", upc.name)
 			close(upc.up)
 			close(upc.down)
-			delete(router.name2channel, k)
+			delete(router.name2channel, upc.name)
 		}
 	}
 
@@ -148,14 +151,20 @@ func (me *LookupTableStruct) SetUpstreamNames(names []string, addresses []string
 
 	// iterate all the subscriptions and push up (again) the ones that have been remapped.
 	// iterate all subscriptions and delete the ones that don't map here anymore.
-	command := callBackCommand{}
-	command.callback = reSubscribeRemappedTopics
+	// note that this will need to push up to the guru through the conn
+	// just defined and it can BLOCK until the conn completes.
+	// we must watch those buffers and not block here.
+	go func() {
+		command := callBackCommand{}
+		command.callback = reSubscribeRemappedTopics
 
-	for _, bucket := range me.allTheSubscriptions {
-		command.wg.Add(1)
-		bucket.incoming <- &command
-	}
-	command.wg.Wait()
+		for _, bucket := range me.allTheSubscriptions {
+			command.wg.Add(1)
+			bucket.incoming <- &command
+		}
+		command.wg.Wait()
+	}()
+
 }
 
 // setGuruUpstreamNames because the guru needs to know also.
@@ -181,13 +190,16 @@ func (me *LookupTableStruct) setGuruUpstreamNames(names []string) {
 	}
 
 	// iterate all subscriptions and delete the ones that don't map here anymore.
-	command := callBackCommand{}
-	command.callback = guruDeleteRemappedAndGoneTopics
-	command.index = myindex
 
-	for _, bucket := range me.allTheSubscriptions {
-		command.wg.Add(1)
-		bucket.incoming <- &command
-	}
-	command.wg.Wait()
+	go func() {
+		command := callBackCommand{}
+		command.callback = guruDeleteRemappedAndGoneTopics
+		command.index = myindex
+
+		for _, bucket := range me.allTheSubscriptions {
+			command.wg.Add(1)
+			bucket.incoming <- &command
+		}
+		command.wg.Wait()
+	}()
 }
