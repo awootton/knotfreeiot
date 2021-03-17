@@ -68,7 +68,7 @@ func startSockets8384(n int) {
 					//str = "S " + topic
 					//_, err = conn.Write([]byte(str + "\n"))
 					sub := &packets.Subscribe{}
-					sub.Address = []byte(topic)
+					sub.Address.FromString(topic)
 					sub.Write(conn)
 					if err != nil {
 						println("Write to server failed:", err.Error())
@@ -87,7 +87,7 @@ func startSockets8384(n int) {
 					str := fmt.Sprintf("your message here %v", count)
 
 					pub := &packets.Send{}
-					pub.Address = []byte(topic)
+					pub.Address.FromString(topic)
 					pub.Payload = []byte(str)
 					pub.Write(conn)
 

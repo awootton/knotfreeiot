@@ -13,19 +13,25 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+// Package packets comments. TODO: package comments for these packets.
 package packets
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"unicode/utf8"
 
 	"io"
 
 	"github.com/awootton/knotfreeiot/badjson"
+	//"github.com/awootton/knotfreeiot/iot"
+	//"github.com/awootton/knotfreeiot/iot"
 
 	"github.com/emirpasic/gods/trees/redblacktree"
 )
@@ -50,8 +56,174 @@ type Interface interface {
 	GetOption(key string) ([]byte, bool)
 }
 
-// StandardAlias is really a HashType in bytes or [20]byte or [32]byte. enforced elsewhere.
-type StandardAlias []byte
+// StandardAliasXX deleteme is really a HashType in bytes or [24]byte enforced elsewhere.
+type StandardAliasXX []byte
+
+// AddressType is a byte
+type AddressType byte
+
+const (
+	// BinaryAddress is whan an AddressUnion is 24 bytes of bits
+	BinaryAddress = AddressType(0)
+	// HexAddress is whan an AddressUnion is 48 bytes of hex bytes
+	HexAddress = AddressType('$')
+	// Base64Address is whan an AddressUnion is 32 bytes of base64 bytes
+	Base64Address = AddressType('=')
+	// Utf8Address is whan an AddressUnion is a utf-8 bytes
+	Utf8Address = AddressType(' ')
+)
+
+// AddressUnion is one byte followed by more bytes.
+// is either utf-8 of an address, or it is a coded version of HashTypeLen bytes
+// coding:
+// space followed by utf8
+// $ followed by 48 bytes of hex
+// = followed by 32 bytes of base64
+// ` followed by 24 bytes of binary
+type AddressUnion struct {
+	Type  AddressType // AddressType
+	Bytes []byte      // ' ' or '$' or '=' or 0
+}
+
+// NewAddressUnion is for constructing utf-8 AddressUnion
+func NewAddressUnion(str string) AddressUnion {
+	a := &AddressUnion{}
+	a.Type = Utf8Address
+	a.Bytes = []byte(str)
+	return *a
+}
+
+// NewAddressUnionBytes is a constructor
+// func NewAddressUnionBytes(atype AddressType, bytes []byte) AddressUnion {
+// 	a := &AddressUnion{}
+// 	a.Type = atype
+// 	a.Bytes = bytes
+// 	return *a
+// }
+
+// FromString will construct an AddressUnion from a string
+// we check the first byte for encoding type else assume it's a string
+func (address *AddressUnion) FromString(bytes string) {
+	address.FromBytes([]byte(bytes))
+}
+
+// FromBytes will construct an AddressUnion from a string
+// we check the first byte for encoding type else assume it's a string
+func (address *AddressUnion) FromBytes(bytes []byte) {
+	a := address
+	if len(bytes) == 0 {
+		a.Type = Utf8Address
+		a.Bytes = bytes
+		return
+	}
+	first := AddressType(bytes[0])
+	more := bytes[1:]
+	if first == BinaryAddress && len(more) == 24 {
+		a.Type = BinaryAddress
+		a.Bytes = more
+		return
+	}
+	if first == HexAddress && len(more) == 48 {
+		a.Type = HexAddress
+		a.Bytes = more
+		return
+	}
+	if first == Base64Address && len(more) == 32 {
+		a.Type = Base64Address
+		a.Bytes = more
+		return
+	}
+	if first == Utf8Address {
+		a.Type = Utf8Address
+		a.Bytes = more
+		return
+	}
+	a.Type = Utf8Address
+	a.Bytes = bytes // and not more
+	return
+}
+
+// ToString is for display purposes. It will need to convert the binary type to base64
+func (address *AddressUnion) String() string {
+	if (address.Type == BinaryAddress) && len(address.Bytes) == 24 {
+		//dest := make([]byte, 24)
+		str := base64.RawStdEncoding.EncodeToString(address.Bytes)
+		return "=" + str
+	}
+	var b strings.Builder
+	b.Grow(len(address.Bytes) + 1)
+	b.WriteByte(byte(address.Type))
+	b.Write(address.Bytes)
+	return b.String()
+}
+
+// ToBytes simply concates the Type and the Bytes
+// The utf-8 types will NOT end up with a space at the start
+// is it better to just alloc the bytes?
+func (address *AddressUnion) ToBytes() []byte {
+
+	// if (address.Type == BinaryAddress) && len(address.Bytes) == 24 {
+	// 	//dest := make([]byte, 24)
+	// 	str := base64.RawStdEncoding.EncodeToString(address.Bytes)
+	// 	return []byte("=" + str)
+	// }
+
+	var b bytes.Buffer
+	if address.Type == Utf8Address {
+		b.Grow(len(address.Bytes))
+		//b.WriteByte(byte(address.Type))
+		b.Write(address.Bytes)
+		return (b.Bytes())
+	}
+	b.Grow(len(address.Bytes) + 1)
+	b.WriteByte(byte(address.Type))
+	b.Write(address.Bytes)
+	return (b.Bytes())
+}
+
+// EnsureAddressIsBinary looks at the type and then
+// changes the address as necessary to be BinaryAddress
+// if the $ and = types are malformed then it all gets hashed
+// as if it were a string in the first place.
+// parsers should screen for bad cases
+func (address *AddressUnion) EnsureAddressIsBinary() {
+	// HashTypeLen is 24
+	if len(address.Bytes) == HashTypeLen && address.Type == BinaryAddress {
+		return
+	}
+	switch address.Type {
+	case '$':
+		if len(address.Bytes) != HashTypeLen*2 {
+			// fall through to utf case
+			break // return address, errors.New("requires 48 bytes of hex")
+		}
+		tmp := make([]byte, HashTypeLen)
+		n, _ := hex.Decode(tmp, address.Bytes)
+		_ = n
+		address.Type = BinaryAddress
+		address.Bytes = tmp
+		return //&result, err
+	case '=':
+		if len(address.Bytes) != HashTypeLen*8/6 {
+			break // return address, errors.New("requires 32 bytes of base64")
+		}
+		tmp := make([]byte, HashTypeLen)
+		base64.RawStdEncoding.Decode(tmp, address.Bytes)
+		address.Type = BinaryAddress
+		address.Bytes = tmp
+		return // &result, err
+	default:
+	}
+	// is utf8. Hash it.
+	// FIXME this is the same as in HashType but we're not using hashtype.
+	sh := sha256.New()
+	sh.Write(address.Bytes)
+	shabytes := sh.Sum(nil)
+	address.Type = BinaryAddress
+	address.Bytes = shabytes[0:24]
+	return // &result, nil
+
+}
 
 // PacketCommon is stuff the packets all have, like options.
 type PacketCommon struct {
@@ -85,8 +257,8 @@ type MessageCommon struct {
 	// the fields:
 	// address can be empty if sourceAlias is not. None should be null.
 	// aka destination address aka channel aka topic.
-	Address      []byte
-	AddressAlias StandardAlias
+	Address AddressUnion
+	//AddressAlias StandardAlias
 }
 
 // Subscribe is to declare that the Thing has an address.
@@ -106,8 +278,8 @@ type Unsubscribe struct {
 type Lookup struct {
 	MessageCommon
 	// a return address
-	Source      []byte
-	SourceAlias StandardAlias
+	Source AddressUnion
+	//SourceAlias StandardAlias
 }
 
 // Send aka 'publish' aka 'push' sends Payload (and the options) to destination aka Address.
@@ -115,11 +287,14 @@ type Send struct {
 	MessageCommon // address
 
 	// a return address. Required.
-	Source      []byte
-	SourceAlias StandardAlias
+	Source AddressUnion
+	//SourceAlias StandardAlias
 
 	Payload []byte
 }
+
+// HashTypeLen must be the same as iot.HashTypeLen
+const HashTypeLen int = 24
 
 /** Here is the protocol.
 
@@ -262,45 +437,51 @@ func (p *PacketCommon) packOptions(args [][]byte) [][]byte {
 // See ReadPacket
 func (p *Subscribe) Fill(str *Universal) error {
 
-	if len(str.Args) < 2 {
+	if len(str.Args) < 1 {
 		return errors.New("too few args for Subscribe")
 	}
-	p.Address = str.Args[0]
-	p.AddressAlias = str.Args[1]
+	p.Address.FromBytes(str.Args[0])
 
-	p.unpackOptions(str.Args[2:])
+	p.unpackOptions(str.Args[1:])
 	return nil
 }
 
 // Fill implements the 2nd part of an unmarshal.
 func (p *Unsubscribe) Fill(str *Universal) error {
 
-	if len(str.Args) < 2 {
+	if len(str.Args) < 1 {
 		return errors.New("too few args for Unsubscribe")
 	}
-	p.Address = str.Args[0]
-	p.AddressAlias = str.Args[1]
+	//p.Address = str.Args[0]
+	//p.AddressAlias = str.Args[1]
+	p.Address.FromBytes(str.Args[0])
 
-	p.unpackOptions(str.Args[2:])
+	p.unpackOptions(str.Args[1:])
 	return nil
 }
 
 // Fill implements the 2nd part of an unmarshal
 func (p *Send) Fill(str *Universal) error {
 
-	if len(str.Args) < 5 {
+	if len(str.Args) < 3 {
 		return errors.New("too few args for Send")
 	}
 
-	p.Address = str.Args[0]
-	p.AddressAlias = str.Args[1]
+	// p.Address = str.Args[0]
+	// p.AddressAlias = str.Args[1]
 
-	p.Source = str.Args[2]
-	p.SourceAlias = str.Args[3]
+	// p.Source = str.Args[2]
+	// p.SourceAlias = str.Args[3]
 
-	p.Payload = str.Args[4]
+	p.Address.FromBytes(str.Args[0])
+	//p.Address.Bytes = str.Args[0][1:]
 
-	p.unpackOptions(str.Args[5:])
+	p.Source.FromBytes(str.Args[1])
+	//p.Source.Bytes = str.Args[1][1:]
+
+	p.Payload = str.Args[2]
+
+	p.unpackOptions(str.Args[3:])
 	return nil
 }
 
@@ -328,23 +509,24 @@ func (p *Ping) Fill(str *Universal) error {
 // Fill implements the 2nd part of an unmarshal.
 func (p *Lookup) Fill(str *Universal) error {
 
-	if len(str.Args) < 4 {
+	if len(str.Args) < 2 {
 		return errors.New("too few args for Lookup")
 	}
 
-	p.Address = str.Args[0]
-	p.AddressAlias = str.Args[1]
+	p.Address.FromBytes(str.Args[0])
+	//p.AddressAlias = str.Args[1]
 
-	p.Source = str.Args[2]
-	p.SourceAlias = str.Args[3]
+	p.Source.FromBytes(str.Args[1])
+	//p.SourceAlias = str.Args[3]
 
-	p.unpackOptions(str.Args[4:])
+	p.unpackOptions(str.Args[2:])
 	return nil
 }
 
 // UniversalToJSON outputs an array of strings.
 // in a bad json like syntax. It's just for debugging.
 // It should be parseable by badjson.
+// some of the strings start with \0 and must be converted
 func UniversalToJSON(str *Universal) ([]byte, error) {
 
 	var bb bytes.Buffer
@@ -354,30 +536,39 @@ func UniversalToJSON(str *Universal) ([]byte, error) {
 
 	for i, bstr := range str.Args {
 		_ = i
-
-		isascii, hasdelimeters := badjson.IsASCII(bstr)
-		if isascii {
+		if len(bstr) == 0 {
 			bb.WriteByte(',')
-			if hasdelimeters {
-				bb.WriteByte('"')
-				bb.WriteString(badjson.MakeEscaped(string(bstr), 0))
-				bb.WriteByte('"')
-			} else {
-				bb.Write(bstr)
-			}
-		} else if utf8.Valid(bstr) {
-			bb.WriteByte(',')
-
-			bb.WriteByte('"')
-
-			bb.WriteString(badjson.MakeEscaped(string(bstr), 0))
-			bb.WriteByte('"')
-
-		} else {
+		} else if bstr[0] == 0 {
+			bstr = bstr[1:]
 			bb.WriteByte(',')
 			bb.WriteByte('=')
 			tmp := base64.RawStdEncoding.EncodeToString(bstr)
 			bb.WriteString(tmp)
+		} else {
+			isascii, hasdelimeters := badjson.IsASCII(bstr)
+			if isascii {
+				bb.WriteByte(',')
+				if hasdelimeters {
+					bb.WriteByte('"')
+					bb.WriteString(badjson.MakeEscaped(string(bstr), 0))
+					bb.WriteByte('"')
+				} else {
+					bb.Write(bstr)
+				}
+			} else if utf8.Valid(bstr) {
+				bb.WriteByte(',')
+
+				bb.WriteByte('"')
+
+				bb.WriteString(badjson.MakeEscaped(string(bstr), 0))
+				bb.WriteByte('"')
+
+			} else {
+				bb.WriteByte(',')
+				bb.WriteByte('=')
+				tmp := base64.RawStdEncoding.EncodeToString(bstr)
+				bb.WriteString(tmp)
+			}
 		}
 	}
 
@@ -492,9 +683,9 @@ func (p *Subscribe) Write(writer io.Writer) error {
 		str := new(Universal)
 		p.backingUniversal = str
 		str.Cmd = 'S' //
-		str.Args = make([][]byte, 0, 2+(p.OptionSize()*2))
-		str.Args = append(str.Args, p.Address)
-		str.Args = append(str.Args, p.AddressAlias)
+		str.Args = make([][]byte, 0, 1+(p.OptionSize()*2))
+		str.Args = append(str.Args, p.Address.ToBytes())
+		//str.Args = append(str.Args, p.AddressAlias)
 		str.Args = p.packOptions(str.Args)
 	}
 	err := p.backingUniversal.Write(writer)
@@ -507,9 +698,9 @@ func (p *Unsubscribe) Write(writer io.Writer) error {
 		str := new(Universal)
 		p.backingUniversal = str
 		str.Cmd = 'U' //
-		str.Args = make([][]byte, 0, 2+(p.OptionSize()*2))
-		str.Args = append(str.Args, p.Address)
-		str.Args = append(str.Args, p.AddressAlias)
+		str.Args = make([][]byte, 0, 1+(p.OptionSize()*2))
+		str.Args = append(str.Args, p.Address.ToBytes())
+		//str.Args = append(str.Args, p.AddressAlias)
 		str.Args = p.packOptions(str.Args)
 	}
 	err := p.backingUniversal.Write(writer)
@@ -522,15 +713,15 @@ func (p *Send) Write(writer io.Writer) error {
 		str := new(Universal)
 		p.backingUniversal = str
 		str.Cmd = 'P' // Publish
-		str.Args = make([][]byte, 0, 5+(p.OptionSize()*2))
-		str.Args = append(str.Args, p.Address)
-		str.Args = append(str.Args, p.AddressAlias)
-		str.Args = append(str.Args, p.Source)
-		str.Args = append(str.Args, p.SourceAlias)
+		str.Args = make([][]byte, 0, 3+(p.OptionSize()*2))
+		str.Args = append(str.Args, p.Address.ToBytes())
+		//str.Args = append(str.Args, p.AddressAlias)
+		str.Args = append(str.Args, p.Source.ToBytes())
+		//str.Args = append(str.Args, p.SourceAlias)
 		str.Args = append(str.Args, p.Payload)
 		str.Args = p.packOptions(str.Args)
 	}
-	err := p.backingUniversal.Write(writer)
+	err := p.backingUniversal.Write(writer) // can have nulls in the addresses
 	return err
 }
 
@@ -575,11 +766,11 @@ func (p *Lookup) Write(writer io.Writer) error {
 		str := new(Universal)
 		p.backingUniversal = str
 		str.Cmd = 'L'
-		str.Args = make([][]byte, 0, 4+(p.OptionSize()*2))
-		str.Args = append(str.Args, p.Address)
-		str.Args = append(str.Args, p.AddressAlias)
-		str.Args = append(str.Args, p.Source)
-		str.Args = append(str.Args, p.SourceAlias)
+		str.Args = make([][]byte, 0, 2+(p.OptionSize()*2))
+		str.Args = append(str.Args, p.Address.ToBytes())
+		//str.Args = append(str.Args, p.AddressAlias)
+		str.Args = append(str.Args, p.Source.ToBytes())
+		//str.Args = append(str.Args, p.SourceAlias)
 		str.Args = p.packOptions(str.Args)
 	}
 	err := p.backingUniversal.Write(writer)
@@ -682,7 +873,7 @@ func (str *Universal) Write(writer io.Writer) error {
 	}
 	err = WriteArrayOfByteArray(str.Args, writer)
 	_ = n
-	return err
+	return err // can haz binary data preceded by \0
 }
 
 // WriteArrayOfByteArray write count then lengths and then bytes
@@ -783,6 +974,21 @@ func (p *PacketCommon) GetOption(key string) ([]byte, bool) {
 		val = []byte("")
 	}
 	return val.([]byte), ok
+}
+
+// GetOptionKeys returns a slice of strings
+func (p *PacketCommon) GetOptionKeys() ([]string, [][]byte) {
+	keys := make([]string, 0)
+	values := make([][]byte, 0)
+	if p.optionalKeyValues == nil {
+		return keys, values
+	}
+	it := p.optionalKeyValues.Iterator()
+	for it.Next() {
+		keys = append(keys, it.Key().(string))
+		values = append(values, it.Value().([]byte))
+	}
+	return keys, values
 }
 
 // DeleteOption returns the value,true to go with the key or nil,false

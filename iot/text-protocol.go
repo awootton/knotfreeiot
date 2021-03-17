@@ -86,7 +86,8 @@ func (cc *textContact) WriteDownstream(packet packets.Interface) error {
 	// let's strip off the alias
 	s, ok := packet.(*packets.Send)
 	if ok {
-		s.AddressAlias = []byte("")
+		//s.AddressAlias = []byte("")
+		_ = s // ??
 	}
 
 	text := packet.String()

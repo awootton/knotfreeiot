@@ -68,7 +68,7 @@ func TestTwoLevel(t *testing.T) {
 
 	// subscribe
 	subs := packets.Subscribe{}
-	subs.Address = []byte("contact1 address")
+	subs.Address.FromString("contact1 address")
 	err = iot.PushPacketUpFromBottom(contact1, &subs)
 
 	WaitForActions(guru0)
@@ -92,8 +92,8 @@ func TestTwoLevel(t *testing.T) {
 		// todo fix these won't hold still. t.Errorf("got %v, want %v", got, want)
 	}
 	sendmessage := packets.Send{}
-	sendmessage.Address = []byte("contact1 address")
-	sendmessage.Source = []byte("contact2 address")
+	sendmessage.Address.FromString("contact1 address")
+	sendmessage.Source.FromString("contact2 address")
 	sendmessage.Payload = []byte("can you hear me now?")
 
 	iot.PushPacketUpFromBottom(contact2, &sendmessage)
@@ -104,14 +104,14 @@ func TestTwoLevel(t *testing.T) {
 	WaitForActions(guru0)
 
 	got = contact1.(*testContact).getResultAsString()
-	want = `[P,"contact1 address",,"contact2 address",,"can you hear me now?"]`
+	want = `[P,=ygRnE97Kfx0usxBqx5cygy4enA1eojeR,"contact2 address","can you hear me now?"]`
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
 	}
 
 	sendmessage2 := packets.Send{}
-	sendmessage2.Address = []byte("contact1 address")
-	sendmessage2.Source = []byte("contact2 address")
+	sendmessage2.Address.FromString("contact1 address")
+	sendmessage2.Source.FromString("contact2 address")
 	sendmessage2.Payload = []byte("how about now?")
 
 	iot.PushPacketUpFromBottom(contact2, &sendmessage2)
@@ -122,7 +122,7 @@ func TestTwoLevel(t *testing.T) {
 	WaitForActions(guru0)
 
 	got = contact1.(*testContact).getResultAsString()
-	want = `[P,"contact1 address",,"contact2 address",,"can you hear me now?"]`
+	want = `[P,=ygRnE97Kfx0usxBqx5cygy4enA1eojeR,"contact2 address","can you hear me now?"]`
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
 	}
@@ -168,10 +168,10 @@ func TestSend(t *testing.T) {
 
 	// subscribe
 	subs := packets.Subscribe{}
-	subs.Address = []byte("contact1_address")
+	subs.Address.FromString("contact1_address")
 	err = iot.PushPacketUpFromBottom(contact1, &subs)
 	subs = packets.Subscribe{}
-	subs.Address = []byte("contact2_address")
+	subs.Address.FromString("contact2_address")
 	err = iot.PushPacketUpFromBottom(contact2, &subs)
 
 	got = contact1.(*testContact).getResultAsString()
@@ -193,16 +193,18 @@ func TestSend(t *testing.T) {
 	}
 
 	sendmessage := packets.Send{}
-	sendmessage.Address = []byte("contact1_address")
-	sendmessage.Source = []byte("contact2_address")
+	sendmessage.Address.FromString("contact1_address")
+	sendmessage.Source.FromString("contact2_address")
 	sendmessage.Payload = []byte("hello, can you hear me")
 
 	iot.PushPacketUpFromBottom(contact2, &sendmessage)
 
 	WaitForActions(guru)
 
+	//"[P,=AMwu23hGtbsMhhqkKVsPgsWJ/PwPCFd24Q,contact2_address,"hello, ...+17 more"
+
 	got = contact1.(*testContact).getResultAsString()
-	want = `[P,contact1_address,,contact2_address,,"hello, can you hear me"]`
+	want = `[P,=zC7beEa1uwyGGqQpWw+CxYn8/A8IV3bh,contact2_address,"hello, can you hear me"]`
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
 	}

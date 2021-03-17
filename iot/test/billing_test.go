@@ -245,8 +245,14 @@ func TestConnectionsOver(t *testing.T) {
 	}
 	// note the packet in the q of c3 describes the error.
 	got = fmt.Sprint(c3.(*testContact).getResultAsString())
-	want = `[P,,,,,"1.1538461 connections > 1",error,"1.1538461 connections > 1"]`
-	if got != want {
+	//fmt.Println(got)
+	want = `[P,=/vbtSa9EBGTgCWQQnUlEJTqqmiOs/Cvj,"billingAccumulator empty source","1.1538461 connections > 1",error,"1.1538461 connections > 1"]`
+	//fmt.Println(want)
+	// for i := 40; i < 45; i++ {
+	// 	fmt.Println(got[i])
+	// 	fmt.Println(want[i])
+	// }
+	if got  != want  {
 		t.Errorf("got %v, want %v", got, want)
 	}
 

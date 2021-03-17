@@ -234,7 +234,7 @@ func (upc *upperChannel) dialGuruAndServe(address string) error {
 		}
 	}()
 
-	upc.down = nil // not used
+	upc.down = nil     // not used
 	var mux sync.Mutex // needed?
 
 	connect := &packets.Connect{}

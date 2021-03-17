@@ -16,6 +16,7 @@
 package iot_test
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -244,7 +245,7 @@ func TestGrowAides(t *testing.T) {
 			continue // the first one has no message
 		}
 		index := cc.index
-		command := fmt.Sprintf("P contactTopic%v ,,,, a_test_message_%v", index, index)
+		command := fmt.Sprintf("P contactTopic%v ,srcadd, a_test_message_%v", index, index)
 		SendText(c1, command) // publish to cc from c1
 	}
 
@@ -313,7 +314,7 @@ func TestGrowAides(t *testing.T) {
 			continue // the first one has no message
 		}
 		index := cc.index
-		command := fmt.Sprintf("P contactTopic%v x x x a_test_message2_%v", index, index)
+		command := fmt.Sprintf("P contactTopic%v srcaddr a_test_message2_%v", index, index)
 		SendText(c1, command) // publish to cc from c1
 	}
 
@@ -369,6 +370,26 @@ func TestGrowAides(t *testing.T) {
 
 	got = fmt.Sprint("total minions ", len(ce.Aides))
 	want = "total minions 1"
+	if got != want {
+		t.Errorf("got %v, want %v", got, want)
+	}
+
+}
+
+func TestHash(t *testing.T) {
+
+	// FIXME: same logic in packets but packets can't  include iot.
+
+	h := &iot.HashType{}
+
+	// the name for an address
+	str := "12345678901234567890123456789012"
+	h.HashBytes([]byte(str))
+	bytes := make([]byte, 24)
+	h.GetBytes(bytes)
+	got := base64.RawStdEncoding.EncodeToString(bytes)
+	want := "4bhbJ9a8sFhGwY5qSPEY6J8MBYcUDen7"
+
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
 	}

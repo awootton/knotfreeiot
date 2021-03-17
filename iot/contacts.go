@@ -13,6 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+// Package iot comments. TODO: package comments for this pub/sub system.
 package iot
 
 import (
@@ -29,7 +30,9 @@ import (
 	"github.com/awootton/knotfreeiot/tokens"
 )
 
-// ContactStruct is our idea of channel or socket to downstream from us.
+// A 'contact' is an incoming connection.
+
+// ContactStruct is our idea of channel or socket which is downstream from us.
 type ContactStruct struct {
 	//
 	ele *list.Element
@@ -222,31 +225,38 @@ func PushPacketUpFromBottom(ssi ContactInterface, p packets.Interface) error {
 		ssi.WriteDownstream(v)
 		ssi.Close(errors.New("closing on disconnect"))
 	case *packets.Subscribe:
-		if len(v.AddressAlias) != HashTypeLen {
-			v.AddressAlias = HashNameToAlias(v.Address)
-		}
+		// if len(v.AddressAlias) != HashTypeLen {
+		// 	v.AddressAlias = HashNameToAlias(v.Address)
+		// }
+		v.Address.EnsureAddressIsBinary()
+
 		_, found := v.GetOption("jwtidAlias") // ss.token.JWTID
 		if found == false {
-			t := ssi.GetToken().JWTID
-			v.SetOption("jwtidAlias", HashNameToAlias([]byte(t)))
+			// what was this for?
+			//t := ssi.GetToken().JWTID
+			// FIXME:
+			//v.SetOption("jwtidAlias", HashNameToAlias([]byte(t)))
 		}
 		//ssi.AddSubscription(v)
 		// send the token for reserving permanent ??
 		looker.sendSubscriptionMessage(ssi, v)
 	case *packets.Unsubscribe:
-		if len(v.AddressAlias) != HashTypeLen {
-			v.AddressAlias = HashNameToAlias(v.Address)
-		}
+		// if len(v.AddressAlias) != HashTypeLen {
+		// 	v.AddressAlias = HashNameToAlias(v.Address)
+		// }
+		v.Address.EnsureAddressIsBinary()
 		looker.sendUnsubscribeMessage(ssi, v)
 	case *packets.Lookup:
-		if len(v.AddressAlias) != HashTypeLen {
-			v.AddressAlias = HashNameToAlias(v.Address)
-		}
+		// if len(v.AddressAlias) != HashTypeLen {
+		// 	v.AddressAlias = HashNameToAlias(v.Address)
+		// }
+		v.Address.EnsureAddressIsBinary()
 		looker.sendLookupMessage(ssi, v)
 	case *packets.Send:
-		if len(v.AddressAlias) != HashTypeLen {
-			v.AddressAlias = HashNameToAlias(v.Address)
-		}
+		// if len(v.AddressAlias) != HashTypeLen {
+		// 	v.AddressAlias = HashNameToAlias(v.Address)
+		// }
+		v.Address.EnsureAddressIsBinary()
 		looker.sendPublishMessage(ssi, v)
 	case *packets.Ping:
 		ssi.WriteDownstream(v)
@@ -274,24 +284,28 @@ func PushDownFromTop(looker *LookupTableStruct, p packets.Interface) error {
 		fmt.Println("got disconnect from guru  ", v)
 		//ignore it. ssi.Close(errors.New("got disconnect from guru"))
 	case *packets.Subscribe:
-		if len(v.AddressAlias) != HashTypeLen {
-			v.AddressAlias = HashNameToAlias(v.Address)
-		}
+		// if len(v.AddressAlias) != HashTypeLen {
+		// 	v.AddressAlias = HashNameToAlias(v.Address)
+		// }
+		v.Address.EnsureAddressIsBinary()
 		looker.sendSubscriptionMessageDown(v)
 	case *packets.Unsubscribe:
-		if len(v.AddressAlias) != HashTypeLen {
-			v.AddressAlias = HashNameToAlias(v.Address)
-		}
+		// if len(v.AddressAlias) != HashTypeLen {
+		// 	v.AddressAlias = HashNameToAlias(v.Address)
+		// }
+		v.Address.EnsureAddressIsBinary()
 		looker.sendUnsubscribeMessageDown(v)
 	case *packets.Lookup:
-		if len(v.AddressAlias) != HashTypeLen {
-			v.AddressAlias = HashNameToAlias(v.Address)
-		}
+		// if len(v.AddressAlias) != HashTypeLen {
+		// 	v.AddressAlias = HashNameToAlias(v.Address)
+		// }
+		v.Address.EnsureAddressIsBinary()
 		looker.sendLookupMessageDown(v)
 	case *packets.Send:
-		if len(v.AddressAlias) != HashTypeLen {
-			v.AddressAlias = HashNameToAlias(v.Address)
-		}
+		// if len(v.AddressAlias) != HashTypeLen {
+		// 	v.AddressAlias = HashNameToAlias(v.Address)
+		// }
+		v.Address.EnsureAddressIsBinary()
 		looker.sendPublishMessageDown(v)
 	case *packets.Ping:
 		// nothing
@@ -426,6 +440,30 @@ func (ss *ContactStruct) Write(p []byte) (int, error) {
 	return n, err
 }
 
+// WriteByte implements BufferedWriter for libmqtt
+func (ss *ContactStruct) WriteByte(c byte) error {
+	if ss.realWriter == nil {
+		panic("ss.realWriter == nil")
+	}
+	var data [1]byte
+	data[0] = c
+	n, err := ss.Write(data[:])
+	_ = n
+	return err
+}
+
+// ReadByte implements BufferedReader for libmqtt
+func (ss *ContactStruct) ReadByte() (byte, error) {
+	if ss.realReader == nil {
+		panic("ss.realReader == nil")
+	}
+	var data [1]byte
+	n, err := ss.Read(data[:])
+	ss.output++
+	_ = n
+	return data[0], err
+}
+
 func expectToken(ssi ContactInterface, p packets.Interface) error {
 	if ssi.GetToken() == nil {
 		// we can't do anything if we're not 'checked in'
@@ -435,7 +473,7 @@ func expectToken(ssi ContactInterface, p packets.Interface) error {
 		}
 		b64Token, ok := connectPacket.GetOption("token")
 		if ok == false || b64Token == nil {
-			return makeErrorAndDisconnect(ssi, "expected Connect packet", nil)
+			return makeErrorAndDisconnect(ssi, "expected token", nil)
 		}
 		trimmedToken, issuer, err := tokens.GetKnotFreePayload(string(b64Token))
 		if err != nil {
@@ -457,7 +495,7 @@ func expectToken(ssi ContactInterface, p packets.Interface) error {
 				return makeErrorAndDisconnect(ssi, "", nil)
 			}
 			sub := packets.Subscribe{}
-			sub.Address = []byte(foundPayload.JWTID) // the billing channel real name JWTID
+			sub.Address.FromString(foundPayload.JWTID) // the billing channel real name JWTID
 			sub.SetOption("statsmax", billstr)
 			PushPacketUpFromBottom(ssi, &sub)
 		}
@@ -512,6 +550,7 @@ func (ss *ContactStruct) SetWriter(w io.Writer) {
 }
 
 // Heartbeat is periodic service ~= 10 sec
+// It's going forward stats to to the billing channel
 func (ss *ContactStruct) Heartbeat(now uint32) {
 
 	//fmt.Println("contact heartbeat ", ss.GetKey())
@@ -537,7 +576,8 @@ func (ss *ContactStruct) Heartbeat(now uint32) {
 		msg.Connections = float32(deltaTime) // means one per sec, one per min ...
 		// Subscriptions handled elsewhere.
 		p := &packets.Send{}
-		p.Address = []byte(ss.token.JWTID)
+		p.Address.FromString(ss.token.JWTID)
+		p.Source.FromString("heartbeat empty source address")
 		str, err := json.Marshal(msg)
 		if err != nil {
 			fmt.Println("3 impossible")

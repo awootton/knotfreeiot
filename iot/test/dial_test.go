@@ -62,7 +62,7 @@ func aTestDial1(t *testing.T, isTCP bool) {
 
 	time.Sleep(20 * time.Millisecond)
 
-	SendText(c1, "P contactTopic2,,,, hello_msg") // send/pub from c1 to c2
+	SendText(c1, "P contactTopic2,dummyreturn,hello_msg") // send/pub from c1 to c2
 
 	ce.WaitForActions()
 	for i := 0; i < 2; i++ {
@@ -73,7 +73,7 @@ func aTestDial1(t *testing.T, isTCP bool) {
 	time.Sleep(20 * time.Millisecond)
 
 	got = fmt.Sprint(c2.(*testContact).mostRecent)
-	want = `[[P,contactTopic2,,,,hello_msg]]`
+	want = `[[P,=LiNMB4JFOy7dUJJ9vMVyzhMzLz6ozRnQ,dummyreturn,hello_msg]]`
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
 	}

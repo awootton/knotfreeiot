@@ -27,14 +27,58 @@ import (
 	"github.com/awootton/knotfreeiot/packets"
 )
 
+func TestFromString(t *testing.T) {
+
+	a := &packets.AddressUnion{}
+	a.FromString("=4bhbJ9a8sFhGwY5qSPEY6J8MBYcUDen7")
+
+	got := a.String()
+	want := "=4bhbJ9a8sFhGwY5qSPEY6J8MBYcUDen7"
+	if got != want {
+		t.Errorf("got %v, want %v", got, want)
+	}
+
+	a = &packets.AddressUnion{}
+	a.FromString("$e1b85b27d6bcb05846c18e6a48f118e89f0c0587140de9fb")
+	a.EnsureAddressIsBinary()
+
+	got = a.String()
+	want = "=4bhbJ9a8sFhGwY5qSPEY6J8MBYcUDen7"
+	if got != want {
+		t.Errorf("got %v, want %v", got, want)
+	}
+
+	a = &packets.AddressUnion{}
+	a.FromString("12345678901234567890123456789012")
+	a.EnsureAddressIsBinary()
+
+	got = a.String()
+	want = "=4bhbJ9a8sFhGwY5qSPEY6J8MBYcUDen7"
+	if got != want {
+		t.Errorf("got %v, want %v", got, want)
+	}
+
+	a = &packets.AddressUnion{}
+	a.FromString(" 12345678901234567890123456789012")
+	a.EnsureAddressIsBinary()
+
+	got = a.String()
+	want = "=4bhbJ9a8sFhGwY5qSPEY6J8MBYcUDen7"
+	if got != want {
+		t.Errorf("got %v, want %v", got, want)
+	}
+
+}
+
 func TestSend(t *testing.T) {
 
 	got := ""
 	want := ""
 
 	cmd := packets.Send{}
-	cmd.Source = []byte(`source`)
-	cmd.Address = []byte("dest")
+	cmd.Source = packets.AddressUnion{' ', []byte("source")} // []byte(`source`)
+	cmd.Source = packets.NewAddressUnion("source")
+	cmd.Address = packets.NewAddressUnion("dest")
 	cmd.Payload = []byte("some_data")
 
 	var bb bytes.Buffer
@@ -42,7 +86,7 @@ func TestSend(t *testing.T) {
 	_ = err
 
 	got = hex.EncodeToString(bb.Bytes())
-	want = `5005040006000964657374736f75726365736f6d655f64617461` // P followed by 5 strings, two are zero len.
+	want = "500304060964657374736f75726365736f6d655f64617461" // P followed by 3 strings
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
 	}
@@ -51,7 +95,7 @@ func TestSend(t *testing.T) {
 
 	bytes, err := packets.UniversalToJSON(uni)
 	got = string(bytes)
-	want = `[P,dest,,source,,some_data]`
+	want = `[P,dest,source,some_data]`
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
 	}
@@ -68,7 +112,7 @@ func TestSend(t *testing.T) {
 	pack, err := packets.ReadPacket(&bb)
 	bytes, err = pack.ToJSON()
 	got = string(bytes)
-	want = `[P,dest,,source,,some_data]`
+	want = `[P,dest,source,some_data]`
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
 	}
@@ -81,13 +125,13 @@ func TestSub(t *testing.T) {
 	want := "b"
 
 	cmd := packets.Subscribe{}
-	cmd.Address = []byte("destination address")
+	cmd.Address = packets.NewAddressUnion("destination address")
 
 	var bb bytes.Buffer
 	err := (&cmd).Write(&bb)
 	_ = err
 	got = hex.EncodeToString(bb.Bytes())
-	want = `5302130064657374696e6174696f6e2061646472657373`
+	want = `53011364657374696e6174696f6e2061646472657373`
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
 	}
@@ -96,7 +140,7 @@ func TestSub(t *testing.T) {
 
 	bytes, err := packets.UniversalToJSON(uni)
 	got = string(bytes)
-	want = `[S,"destination address",]`
+	want = `[S,"destination address"]`
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
 	}
@@ -112,7 +156,7 @@ func TestSub(t *testing.T) {
 	pack, err := packets.ReadPacket(&bb)
 	bytes, err = pack.ToJSON()
 	got = string(bytes)
-	want = `[S,"destination address",]`
+	want = `[S,"destination address"]`
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
 	}
@@ -125,13 +169,13 @@ func TestUnSub(t *testing.T) {
 	want := "b"
 
 	cmd := packets.Unsubscribe{}
-	cmd.Address = []byte("destination address")
+	cmd.Address = packets.NewAddressUnion("destination address")
 
 	var bb bytes.Buffer
 	err := (&cmd).Write(&bb)
 	_ = err
 	got = hex.EncodeToString(bb.Bytes())
-	want = `5502130064657374696e6174696f6e2061646472657373`
+	want = `55011364657374696e6174696f6e2061646472657373`
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
 	}
@@ -140,7 +184,7 @@ func TestUnSub(t *testing.T) {
 
 	bytes, err := packets.UniversalToJSON(uni) // ([]byte, error)
 	got = string(bytes)
-	want = `[U,"destination address",]`
+	want = `[U,"destination address"]`
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
 	}
@@ -156,7 +200,7 @@ func TestUnSub(t *testing.T) {
 	pack, err := packets.ReadPacket(&bb)
 	bytes, err = pack.ToJSON()
 	got = string(bytes)
-	want = `[U,"destination address",]`
+	want = `[U,"destination address"]`
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
 	}
@@ -250,20 +294,20 @@ func TestDis(t *testing.T) {
 	}
 }
 
-func TestLookup(t *testing.T) {
+func TestPing(t *testing.T) {
 
 	got := "a"
 	want := "b"
 
-	cmd := packets.Lookup{}
-	cmd.Address = []byte("look me up")
-	cmd.Source = []byte("reply to me")
+	cmd := packets.Ping{}
+	cmd.SetOption("key1", []byte("value1"))
+	cmd.SetOption("key2", []byte("value2"))
 
 	var bb bytes.Buffer
 	err := (&cmd).Write(&bb)
 	_ = err
 	got = hex.EncodeToString(bb.Bytes())
-	want = `4c040a000b006c6f6f6b206d652075707265706c7920746f206d65` //
+	want = `4804040604066b65793176616c7565316b65793276616c756532` //
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
 	}
@@ -272,7 +316,7 @@ func TestLookup(t *testing.T) {
 
 	bytes, err := packets.UniversalToJSON(uni) // ([]byte, error)
 	got = string(bytes)
-	want = `[L,"look me up",,"reply to me",]`
+	want = `[H,key1,value1,key2,value2]`
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
 	}
@@ -288,7 +332,51 @@ func TestLookup(t *testing.T) {
 	pack, err := packets.ReadPacket(&bb)
 	bytes, err = pack.ToJSON()
 	got = string(bytes)
-	want = `[L,"look me up",,"reply to me",]`
+	want = `[H,key1,value1,key2,value2]`
+	if got != want {
+		t.Errorf("got %v, want %v", got, want)
+	}
+}
+
+func TestLookup(t *testing.T) {
+
+	got := "a"
+	want := "b"
+
+	cmd := packets.Lookup{}
+	cmd.Address = packets.NewAddressUnion("look me up")
+	cmd.Source = packets.NewAddressUnion("reply to me")
+
+	var bb bytes.Buffer
+	err := (&cmd).Write(&bb)
+	_ = err
+	got = hex.EncodeToString(bb.Bytes())
+	want = `4c020a0b6c6f6f6b206d652075707265706c7920746f206d65` //
+	if got != want {
+		t.Errorf("got %v, want %v", got, want)
+	}
+
+	uni, err := packets.ReadUniversal(&bb)
+
+	bytes, err := packets.UniversalToJSON(uni) // ([]byte, error)
+	got = string(bytes)
+	want = `[L,"look me up","reply to me"]`
+	if got != want {
+		t.Errorf("got %v, want %v", got, want)
+	}
+	got = cmd.String()
+	if got != want {
+		t.Errorf("got %v, want %v", got, want)
+	}
+
+	bb.Reset()
+	err = (&cmd).Write(&bb)
+	_ = err
+
+	pack, err := packets.ReadPacket(&bb)
+	bytes, err = pack.ToJSON()
+	got = string(bytes)
+	want = `[L,"look me up","reply to me"]`
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
 	}
@@ -351,8 +439,8 @@ type ToJSON int
 // ExampleToJSON is a test as well as an example.
 func ExampleToJSON() {
 	cmd := packets.Send{}
-	cmd.Source = []byte("sourceaddr")
-	cmd.Address = []byte("destaddr")
+	cmd.Source = packets.NewAddressUnion("sourceaddr")
+	cmd.Address = packets.NewAddressUnion("destaddr")
 	cmd.Payload = []byte("some data")
 	cmd.SetOption("option1", []byte("test"))
 
@@ -377,7 +465,7 @@ func ExampleToJSON() {
 	//  GetIPV6Option
 	fmt.Println(cmd.GetIPV6Option())
 
-	// Output: [P,destaddr,,sourceaddr,,"some data",IPv6,=IAENuIWjAAAAAIouA3BzNA,option1,test,option2,"На берегу пустынных волн",z,=//8AAAAAAAAAq83v]
+	// Output: [P,destaddr,sourceaddr,"some data",IPv6,=IAENuIWjAAAAAIouA3BzNA,option1,test,option2,"На берегу пустынных волн",z,=//8AAAAAAAAAq83v]
 	// [32 1 13 184 133 163 0 0 0 0 138 46 3 112 115 52]
 
 }
@@ -388,11 +476,11 @@ func Test1(t *testing.T) {
 	want := "b"
 
 	cmd := packets.Send{}
-	cmd.Source = []byte(`source address "with" quotes`)
-	cmd.SourceAlias = StandardAliasHash(cmd.Source)
-	cmd.Address = []byte("$ the dest addr")
-	cmd.AddressAlias = StandardAliasHash(cmd.Address)
-	cmd.Address = []byte("")
+	cmd.Source = packets.NewAddressUnion(`source address "with" quotes`)
+	//cmd.SourceAlias = StandardAliasHash(cmd.Source)
+	cmd.Address = packets.NewAddressUnion("% the dest addr")
+	//cmd.AddressAlias = StandardAliasHash(cmd.Address)
+	//cmd.Address = []byte("")
 	cmd.Payload = []byte("some_data")
 
 	jdata, err := (&cmd).ToJSON()
@@ -400,7 +488,8 @@ func Test1(t *testing.T) {
 	_ = err
 
 	got = string(jdata)
-	want = `[P,,=/+7JC9UZPjNIsTRSthIW0CsYb6Hsx+mAv8rkKyddhcI,"source address \"with\" quotes",=Rf8QTqVX7vNRYxBqCWOXqKnAiDLa9unhyKQ6rTZLnG0,some_data]`
+	//want = `[P,=/+7JC9UZPjNIsTRSthIW0CsYb6Hsx+mAv8rkKyddhcI,"source address \"with\" quotes",=Rf8QTqVX7vNRYxBqCWOXqKnAiDLa9unhyKQ6rTZLnG0,some_data]`
+	want = `[P,"% the dest addr","source address \"with\" quotes",some_data]`
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
 	}
@@ -569,8 +658,8 @@ func TestForZombies2(t *testing.T) {
 	}
 
 	cmd := packets.Send{}
-	cmd.Source = []byte(`source`)
-	cmd.Address = []byte("dest")
+	cmd.Source = packets.NewAddressUnion(`source`)
+	cmd.Address = packets.NewAddressUnion("dest")
 	cmd.Payload = []byte("some_data")
 	for i := 0; i < 65; i++ {
 		val := "SomeTextSomeTextSomeTextSomeText"
@@ -588,8 +677,8 @@ func TestForZombies2(t *testing.T) {
 	}
 
 	cmd = packets.Send{}
-	cmd.Source = []byte(`source`)
-	cmd.Address = []byte("dest")
+	cmd.Source = packets.NewAddressUnion(`source`)
+	cmd.Address = packets.NewAddressUnion("dest")
 	cmd.Payload = []byte("some_data")
 	for i := 0; i < 60; i++ {
 		val := "SomeTextSomeTextSomeTextSomeText"
@@ -611,78 +700,94 @@ func TestForZombies2(t *testing.T) {
 
 }
 
-//type TestPubSub1 int
+// TestAddressMisc to cover the cases of FromString and EnsureAddressIsBinary
+func TestAddressMisc(t *testing.T) {
 
-// Just operate the pubsub without real tcp sockets.
-// func ExampleTestPubSub1() {
+	a := packets.NewAddressUnion("12345678901234567890123456789012")
 
-// 	subscribeMgr := iot.NewPubsubManager(100)
-// 	config := iot.NewSockStructConfig(subscribeMgr)
+	s := a.String()
 
-// 	config.SetCallback(func(ss *iot.SockStruct) {
-// 		fmt.Println("not using sockets in this test")
-// 	})
+	//fmt.Println(s)
+	want := " 12345678901234567890123456789012"
+	if s != want {
+		t.Errorf("got %v, want %v", s, want)
+	}
 
-// 	config.SetClosecb(func(ss *iot.SockStruct, err error) {
-// 		fmt.Println("not closing sockets in this test")
-// 	})
+	bytes := a.ToBytes()
 
-// 	queue := make(chan *Send, 100)
+	got := string(bytes)
+	want = "12345678901234567890123456789012"
+	if got != want {
+		t.Errorf("got %v, want %v", got, want)
+	}
+	//bina, _ :=
+	a.EnsureAddressIsBinary()
+	bina := a
 
-// 	// the writer just stuffs the q and we'll check that later.
-// 	config.SetWriter(func(ss *iot.SockStruct, topic []byte, topicAlias *iot.HashType, returnAddress []byte, returnAlias *iot.HashType, payload []byte) error {
+	got = bina.String()
+	// this is the first 24 bits of an sha256
+	// of 12345678901234567890123456789012
+	want = "=4bhbJ9a8sFhGwY5qSPEY6J8MBYcUDen7"
+	if got != want {
+		t.Errorf("got %v, want %v", got, want)
+	}
+	//fmt.Println(bina.String())
+	a = packets.NewAddressUnion("xx")
+	a.FromString("=4bhbJ9a8sFhGwY5qSPEY6J8MBYcUDen7")
+	//dest := make([]byte, 127)
+	// hlen := hex.Encode(dest, a.Bytes)
+	// dest = dest[0:hlen]
+	// a.Type = packets.HexAddress
+	// a.Bytes = dest
 
-// 		fmt.Println("have publish", string(topic))
-// 		cmd := new(Send)
-// 		cmd.Source = returnAddress
-// 		cmd.Address = topic
-// 		cmd.Payload = payload
-// 		queue <- cmd
+	a.EnsureAddressIsBinary()
+	bina = a
+	got = bina.String()
+	want = "=4bhbJ9a8sFhGwY5qSPEY6J8MBYcUDen7"
+	if got != want {
+		t.Errorf("got %v, want %v", got, want)
+	}
 
-// 		return nil
-// 	})
+	a = packets.NewAddressUnion("xx")
+	a.FromString("=4bhbJ9a8sFhGwY5qSPEY6J8MBYcUDen7")
+	a.EnsureAddressIsBinary()
+	tmp := a
+	dest := make([]byte, 127)
+	hlen := hex.Encode(dest, tmp.Bytes)
+	dest = dest[0:hlen]
+	hexStr := string(dest)
+	// is e1b85b27d6bcb05846c18e6a48f118e89f0c0587140de9fb
 
-// 	conn1 := new(iotfakes.FakeConn)
-// 	conn2 := new(iotfakes.FakeConn)
+	a = packets.NewAddressUnion("zx")
+	a.Bytes = []byte(hexStr)
+	a.Type = packets.HexAddress
 
-// 	//
-// 	fauxSock := iot.NewSockStruct(net.Conn(conn1), config)
-// 	fauxSock2 := iot.NewSockStruct(net.Conn(conn2), config)
+	// now a is a hex type with the correct value
+	a.EnsureAddressIsBinary()
+	bina = a
+	got = bina.String()
+	want = "=4bhbJ9a8sFhGwY5qSPEY6J8MBYcUDen7"
+	if got != want {
+		t.Errorf("got %v, want %v", got, want)
+	}
 
-// 	subscribeMgr.SendSubscriptionMessage(fauxSock, []byte("Topic1"))
-// 	subscribeMgr.SendSubscriptionMessage(fauxSock2, []byte("Topic2"))
+	binaryAddress := bina
+	someBytes := binaryAddress.ToBytes()
 
-// 	subscribeMgr.SendPublishMessage(fauxSock2, []byte("Topic1"), []byte("message from 2 to 1"), []byte("Topic2"))
+	bina2 := &packets.AddressUnion{}
+	bina2.FromBytes(someBytes)
+	got = bina2.String()
+	want = "=4bhbJ9a8sFhGwY5qSPEY6J8MBYcUDen7"
+	if got != want {
+		t.Errorf("got %v, want %v", got, want)
+	}
 
-// 	mmm := <-queue
-// 	fmt.Println(mmm)
+	bina2.EnsureAddressIsBinary()
+	bina = *bina2
+	got = bina.String()
+	want = "=4bhbJ9a8sFhGwY5qSPEY6J8MBYcUDen7"
+	if got != want {
+		t.Errorf("got %v, want %v", got, want)
+	}
 
-// 	fauxSock.SetSelfAddress([]byte("Topic1"))
-// 	fauxSock2.SetSelfAddress([]byte("Topic2"))
-
-// 	subscribeMgr.SendPublishMessage(fauxSock2, []byte("Topic1"), []byte("message from 2 to 1 again"), []byte("Topic2xx"))
-// 	mmm = <-queue
-// 	fmt.Println(mmm)
-
-// 	time.Sleep(time.Millisecond * 100)
-// 	fmt.Println("done")
-
-// 	// Output: have publish Topic1
-// 	// {"args":[{"ascii":"Topic1"},{"ascii":""},{"ascii":"Topic2"},{"ascii":""},{"ascii":"message from 2 to 1"}],"cmd":"P"}
-// 	// have publish Topic1
-// 	// {"args":[{"ascii":"Topic1"},{"ascii":""},{"ascii":"Topic2xx"},{"ascii":""},{"ascii":"message from 2 to 1 again"}],"cmd":"P"}
-// 	// done
-
-// }
-
-// var subscribeMgr iot.PubsubIntf
-// var subscribeMgrMutex sync.Mutex
-
-// func getSubscribeMgr() iot.PubsubIntf {
-// 	subscribeMgrMutex.Lock()
-// 	if subscribeMgr == nil {
-// 		subscribeMgr = iot.NewPubsubManager(1000)
-// 	}
-// 	subscribeMgrMutex.Unlock()
-// 	return subscribeMgr
-// }
+}

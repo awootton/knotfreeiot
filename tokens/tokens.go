@@ -1,3 +1,19 @@
+// Copyright 2019,2020 Alan Tracey Wootton
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+// Package tokens comments. TODO: package comments for these crypto utils. ed25519 jwt.
 package tokens
 
 import (
@@ -102,7 +118,7 @@ func GetKnotFreePayload(token string) (string, string, error) {
 		tokenStartIndex = index
 		tokenEndIndex = index + len(firstPart)
 		if index < 0 {
-			s := "expected eyJhbG..."
+			s := "expected eyJhbG... got " + token
 			return token, issuer, errors.New(s)
 		}
 	}
@@ -111,7 +127,7 @@ func GetKnotFreePayload(token string) (string, string, error) {
 		t := token[tokenEndIndex:]
 		index := strings.Index(t, ".")
 		if index < 0 {
-			s := "expected ."
+			s := "expected . got " + token
 			return token, issuer, errors.New(s)
 		}
 		part2 := token[tokenEndIndex : tokenEndIndex+index]

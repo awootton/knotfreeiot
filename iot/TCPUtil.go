@@ -139,7 +139,9 @@ func (cc *tcpContact) Close(err error) {
 		dis := packets.Disconnect{}
 		dis.SetOption("error", []byte(err.Error()))
 		cc.WriteDownstream(&dis)
-		cc.netDotTCPConn.Close()
+		if cc.netDotTCPConn != nil {
+			cc.netDotTCPConn.Close()
+		}
 	}
 }
 
@@ -402,3 +404,4 @@ func (bcw *ByteCountingWriter) Write(p []byte) (int, error) {
 	bcw.count += n
 	return n, err
 }
+

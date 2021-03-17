@@ -23,6 +23,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -33,6 +34,7 @@ import (
 
 	"github.com/awootton/knotfreeiot/iot"
 	"github.com/awootton/knotfreeiot/tokens"
+	"github.com/gorilla/websocket"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"golang.org/x/crypto/nacl/box"
 )
@@ -121,7 +123,7 @@ func (api apiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		tokenRequest := &tokens.TokenRequest{}
 		err = json.Unmarshal(buf, tokenRequest)
 		if err != nil {
-			badTokenRequests.Inc()
+			iot.BadTokenRequests.Inc()
 			fmt.Println("TokenRequest err", err.Error())
 			http.Error(w, err.Error(), 500)
 		} else {
@@ -130,7 +132,7 @@ func (api apiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 			clientPublicKey := tokenRequest.Pkey
 			if len(clientPublicKey) != 64 {
-				badTokenRequests.Inc()
+				iot.BadTokenRequests.Inc()
 				http.Error(w, "bad client key", 500)
 			}
 
@@ -150,7 +152,7 @@ func (api apiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 			tokenString, err := tokens.MakeToken(payload, []byte(signingKey))
 			if err != nil {
-				badTokenRequests.Inc()
+				iot.BadTokenRequests.Inc()
 				http.Error(w, err.Error(), 500)
 				return
 			}
@@ -180,7 +182,7 @@ func (api apiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			var clipub [32]byte
 			n, err := hex.Decode(clipub[:], []byte(clientPublicKey))
 			if n != 32 {
-				badTokenRequests.Inc()
+				iot.BadTokenRequests.Inc()
 				http.Error(w, "bad size2", 500)
 				return
 			}
@@ -193,7 +195,7 @@ func (api apiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			reply.Payload = hex.EncodeToString(sealed)
 			bytes, err := json.Marshal(reply)
 			if err != nil {
-				badTokenRequests.Inc()
+				iot.BadTokenRequests.Inc()
 				http.Error(w, err.Error(), 500)
 				return
 			}
@@ -204,7 +206,7 @@ func (api apiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	} else {
 		http.NotFound(w, req)
 		//fmt.Fprintf(w, "expected known path "+req.RequestURI)
-		httpServe404.Inc()
+		iot.HTTPServe404.Inc()
 	}
 }
 
@@ -217,7 +219,7 @@ func getRandomB64String() string {
 func startPublicServer(ce *iot.ClusterExecutive) {
 	// an http server and reverse proxy.
 
-	go startPublicServer3000(ce)
+	go startPublicServer3100(ce)
 	go startPublicServer9090(ce)
 	go startPublicServer8000(ce)
 
@@ -231,7 +233,10 @@ func startPublicServer(ce *iot.ClusterExecutive) {
 	}()
 
 	mux := http.NewServeMux()
+
 	mux.Handle("/api1/", apiHandler{ce})
+
+	mux.Handle("/mqtt", wsAPIHandler{ce})
 
 	fs := http.FileServer(http.Dir("./docs/_site"))
 	mux.Handle("/", fs)
@@ -259,27 +264,27 @@ func startPublicServer9102(ce *iot.ClusterExecutive) {
 	fmt.Println("http service 9102 FAIL")
 }
 
-func startPublicServer3000(ce *iot.ClusterExecutive) {
+func startPublicServer3100(ce *iot.ClusterExecutive) {
 	// an http server and reverse proxy.
 
 	mux := http.NewServeMux()
 
 	if true {
-		origin, _ := url.Parse("http://grafana.monitoring:3000/")
+		origin, _ := url.Parse("http://grafana.monitoring:3100/")
 		director := func(req *http.Request) {
 			req.Header.Add("X-Forwarded-Host", req.Host)
 			req.Header.Add("X-Origin-Host", origin.Host)
 			req.URL.Scheme = "http"
 			req.URL.Host = origin.Host
 			//fmt.Println("fwd graf:", req.URL.Host, req.URL.Port(), req.URL.Path)
-			forwardsCount3000.Inc()
+			iot.ForwardsCount3100.Inc()
 		}
 		proxy := &httputil.ReverseProxy{Director: director}
 		mux.Handle("/", proxy)
 	}
 
 	s := &http.Server{
-		Addr:           ":3000",
+		Addr:           ":3100",
 		Handler:        mux,
 		ReadTimeout:    10 * time.Second,
 		WriteTimeout:   10 * time.Second,
@@ -289,7 +294,7 @@ func startPublicServer3000(ce *iot.ClusterExecutive) {
 		fmt.Println("http service " + s.Addr)
 		err := s.ListenAndServe()
 		_ = err
-		fmt.Println("ListenAndServe 3000 returned !!!!!  arrrrg", err)
+		fmt.Println("ListenAndServe 3100 returned !!!!!  arrrrg", err)
 	}(s)
 
 }
@@ -307,7 +312,7 @@ func startPublicServer9090(ce *iot.ClusterExecutive) {
 			req.URL.Scheme = "http"
 			req.URL.Host = origin.Host
 			//fmt.Println("fwd prom:", req.URL.Host, req.URL.Port(), req.URL.Path)
-			forwardsCount9090.Inc()
+			iot.ForwardsCount9090.Inc()
 		}
 		proxy := &httputil.ReverseProxy{Director: director}
 		mux.Handle("/", proxy)
@@ -329,41 +334,6 @@ func startPublicServer9090(ce *iot.ClusterExecutive) {
 
 }
 
-func xxxstartPublicServer8000(ce *iot.ClusterExecutive) {
-	// an http server and reverse proxy.
-
-	mux := http.NewServeMux()
-
-	if true {
-		origin, _ := url.Parse("http://libra.libra:8000/")
-		director := func(req *http.Request) {
-			req.Header.Add("X-Forwarded-Host", req.Host)
-			req.Header.Add("X-Origin-Host", origin.Host)
-			req.URL.Scheme = "http"
-			req.URL.Host = origin.Host
-			//fmt.Println("fwd prom:", req.URL.Host, req.URL.Port(), req.URL.Path)
-			forwardsCount8000.Inc()
-		}
-		proxy := &httputil.ReverseProxy{Director: director}
-		mux.Handle("/", proxy)
-	}
-
-	s := &http.Server{
-		Addr:           ":8000",
-		Handler:        mux,
-		ReadTimeout:    10 * time.Second,
-		WriteTimeout:   10 * time.Second,
-		MaxHeaderBytes: 1 << 13,
-	}
-	go func(s *http.Server) {
-		fmt.Println("http service " + s.Addr)
-		err := s.ListenAndServe()
-		_ = err
-		fmt.Println("ListenAndServe 8000 returned !!!!!  arrrrg", err)
-	}(s)
-
-}
-
 func startPublicServer8000(ce *iot.ClusterExecutive) {
 	fmt.Println("tcp service 8000")
 	ln, err := net.Listen("tcp", ":8000")
@@ -376,7 +346,7 @@ func startPublicServer8000(ce *iot.ClusterExecutive) {
 		conn, err := ln.Accept()
 		if err != nil {
 			//panic(err)
-			forwardsAcceptl8000.Inc()
+			iot.ForwardsAcceptl8000.Inc()
 			break
 		}
 		go handleRequest(conn)
@@ -389,11 +359,11 @@ func handleRequest(conn net.Conn) {
 	if err != nil {
 		//panic(err)
 		//fmt.Println("startPublicServer8000 FAIL to dial", err)
-		forwardsDialFail8000.Inc()
+		iot.ForwardsDialFail8000.Inc()
 		return
 	}
 	//fmt.Println("proxy 8000 connected")
-	forwardsConnectedl8000.Inc()
+	iot.ForwardsConnectedl8000.Inc()
 	go copyIO(conn, proxy)
 	go copyIO(proxy, conn)
 }
@@ -402,4 +372,45 @@ func copyIO(src, dest net.Conn) {
 	defer src.Close()
 	defer dest.Close()
 	io.Copy(src, dest)
+}
+
+var upgrader = websocket.Upgrader{}
+
+type wsAPIHandler struct {
+	ce *iot.ClusterExecutive
+}
+
+func (api wsAPIHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+
+	fmt.Println("ws ServeHTTP", r.RequestURI)
+
+	allowAll := func(r *http.Request) bool {
+		return true
+	}
+	upgrader.WriteBufferSize = 4096
+	upgrader.ReadBufferSize = 4096
+	upgrader.CheckOrigin = allowAll
+	upgrader.Subprotocols = []string{"mqtt", "mqttv5", "mqttv3.1"}
+
+	wsConn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		log.Print("upgrade:", err)
+		return
+	}
+
+	iot.WebSocketLoop(wsConn, api.ce.Aides[0].Config)
+	// for {
+	// 	mt, message, err := wsConn.ReadMessage()
+	// 	if err != nil {
+	// 		log.Println("read:", err)
+	// 		break
+	// 	}
+
+	// 	log.Printf("recv: %s", message)
+	// 	err = wsConn.WriteMessage(mt, message)
+	// 	if err != nil {
+	// 		log.Println("write:", err)
+	// 		break
+	// 	}
+	// }
 }

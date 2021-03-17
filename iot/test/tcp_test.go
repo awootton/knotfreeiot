@@ -68,12 +68,12 @@ func TestTwoTierTcp(t *testing.T) {
 
 	ce.WaitForActions() // blech sock2 has to finish before sock1 sends
 
-	sock1.Write([]byte("P sock2channel :::: some_test_hello1\n"))
+	sock1.Write([]byte("P sock2channel :retadd: some_test_hello1\n"))
 
 	ce.WaitForActions()
 
 	got = readLine(sock2)
-	want = `[P,sock2channel,,,,some_test_hello1]`
+	want = `[P,=1CHKeHF6q1WLMSylXwB0gRs+VVKJvEiH,retadd,some_test_hello1]`
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
 	}
@@ -140,12 +140,12 @@ func TestSimpleText(t *testing.T) {
 
 	WaitForActions(guru)
 
-	sock1.Write([]byte("P sock2channel :::: some_test_hello2\n"))
+	sock1.Write([]byte("P sock2channel :ra: some_test_hello2\n"))
 
 	WaitForActions(guru)
 
 	got = readLine(sock2)
-	want = `[P,sock2channel,,,,some_test_hello2]`
+	want = `[P,=1CHKeHF6q1WLMSylXwB0gRs+VVKJvEiH,ra,some_test_hello2]`
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
 	}
@@ -196,14 +196,14 @@ func TestSimpleExecutive(t *testing.T) {
 
 	WaitForActions(guru)
 
-	p, _ = iot.Text2Packet("P sock2channel::::some_test_hello3")
+	p, _ = iot.Text2Packet("P sock2channel:bbcc:some_test_hello3")
 	p.Write(sock1)
 
 	WaitForActions(guru)
 
 	p = readSocket(sock2)
 	got = fmt.Sprint(p)
-	want = `[P,sock2channel,=1CHKeHF6q1WLMSylXwB0gRs+VVKJvEiH,,,some_test_hello3]`
+	want = `[P,=1CHKeHF6q1WLMSylXwB0gRs+VVKJvEiH,bbcc,some_test_hello3]`
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
 	}

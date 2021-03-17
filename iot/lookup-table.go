@@ -148,7 +148,8 @@ func (me *LookupTableStruct) sendSubscriptionMessage(ss ContactInterface, p *pac
 	msg := subscriptionMessage{} // TODO: use a pool.
 	msg.ss = ss
 	msg.p = p
-	msg.h.InitFromBytes(p.AddressAlias)
+	p.Address.EnsureAddressIsBinary()
+	msg.h.InitFromBytes(p.Address.Bytes)
 	i := msg.h.GetFractionalBits(me.theBucketsSizeLog2) // is 4. The first 4 bits of the hash.
 	b := me.allTheSubscriptions[i]
 	b.incoming <- &msg
@@ -160,7 +161,8 @@ func (me *LookupTableStruct) sendUnsubscribeMessage(ss ContactInterface, p *pack
 	msg := unsubscribeMessage{}
 	msg.ss = ss
 	msg.p = p
-	msg.h.InitFromBytes(p.AddressAlias)
+	p.Address.EnsureAddressIsBinary()
+	msg.h.InitFromBytes(p.Address.Bytes)
 	i := msg.h.GetFractionalBits(me.theBucketsSizeLog2)
 	b := me.allTheSubscriptions[i]
 	b.incoming <- &msg
@@ -172,7 +174,8 @@ func (me *LookupTableStruct) sendLookupMessage(ss ContactInterface, p *packets.L
 	msg := lookupMessage{}
 	msg.ss = ss
 	msg.p = p
-	msg.h.InitFromBytes(p.AddressAlias)
+	p.Address.EnsureAddressIsBinary()
+	msg.h.InitFromBytes(p.Address.Bytes)
 	i := msg.h.GetFractionalBits(me.theBucketsSizeLog2)
 	b := me.allTheSubscriptions[i]
 	b.incoming <- &msg
@@ -184,7 +187,8 @@ func (me *LookupTableStruct) sendPublishMessageDown(p *packets.Send) {
 	msg := publishMessageDown{}
 	//msg.ss = ss
 	msg.p = p
-	msg.h.InitFromBytes(p.AddressAlias)
+	p.Address.EnsureAddressIsBinary()
+	msg.h.InitFromBytes(p.Address.Bytes)
 	i := msg.h.GetFractionalBits(me.theBucketsSizeLog2)
 	b := me.allTheSubscriptions[i]
 	b.incoming <- &msg
@@ -196,7 +200,8 @@ func (me *LookupTableStruct) sendSubscriptionMessageDown(p *packets.Subscribe) {
 	msg := subscriptionMessageDown{}
 	//msg.ss = ss
 	msg.p = p
-	msg.h.InitFromBytes(p.AddressAlias)
+	p.Address.EnsureAddressIsBinary()
+	msg.h.InitFromBytes(p.Address.Bytes)
 	i := msg.h.GetFractionalBits(me.theBucketsSizeLog2)
 	b := me.allTheSubscriptions[i]
 	b.incoming <- &msg
@@ -208,7 +213,8 @@ func (me *LookupTableStruct) sendUnsubscribeMessageDown(p *packets.Unsubscribe) 
 	msg := unsubscribeMessageDown{}
 	//msg.ss = ss
 	msg.p = p
-	msg.h.InitFromBytes(p.AddressAlias)
+	p.Address.EnsureAddressIsBinary()
+	msg.h.InitFromBytes(p.Address.Bytes)
 	i := msg.h.GetFractionalBits(me.theBucketsSizeLog2)
 	b := me.allTheSubscriptions[i]
 	b.incoming <- &msg
@@ -220,7 +226,8 @@ func (me *LookupTableStruct) sendLookupMessageDown(p *packets.Lookup) {
 	msg := lookupMessageDown{}
 	//msg.ss = ss
 	msg.p = p
-	msg.h.InitFromBytes(p.AddressAlias)
+	p.Address.EnsureAddressIsBinary()
+	msg.h.InitFromBytes(p.Address.Bytes)
 	i := msg.h.GetFractionalBits(me.theBucketsSizeLog2)
 	b := me.allTheSubscriptions[i]
 	b.incoming <- &msg
@@ -232,7 +239,8 @@ func (me *LookupTableStruct) sendPublishMessage(ss ContactInterface, p *packets.
 	msg := publishMessage{}
 	msg.ss = ss
 	msg.p = p
-	msg.h.InitFromBytes(p.AddressAlias)
+	p.Address.EnsureAddressIsBinary()
+	msg.h.InitFromBytes(p.Address.Bytes)
 	i := msg.h.GetFractionalBits(me.theBucketsSizeLog2)
 	b := me.allTheSubscriptions[i]
 	b.incoming <- &msg
@@ -400,8 +408,11 @@ func heartBeatCallBack(me *LookupTableStruct, bucket *subscribeBucket, cmd *call
 			if expireAll || item.ci.GetClosed() {
 
 				p := new(packets.Unsubscribe)
-				p.AddressAlias = new([24]byte)[:]
-				watchedItem.name.GetBytes(p.AddressAlias)
+				//p.AddressAlias = new([24]byte)[:]
+				//watchedItem.name.GetBytes(p.AddressAlias)
+				p.Address.Type = packets.BinaryAddress
+				p.Address.Bytes = new([24]byte)[:]
+				watchedItem.name.GetBytes(p.Address.Bytes)
 				me.sendUnsubscribeMessage(item.ci, p)
 			}
 			_ = key
@@ -417,8 +428,10 @@ func heartBeatCallBack(me *LookupTableStruct, bucket *subscribeBucket, cmd *call
 				good, msg := billingAccumulator.AreUnderMax(me.getTime())
 				if !good {
 					p := &packets.Send{}
-					p.AddressAlias = new([24]byte)[:]
-					h.GetBytes(p.AddressAlias)
+					p.Address.Bytes = new([24]byte)[:]
+					p.Address.Type = packets.BinaryAddress
+					h.GetBytes(p.Address.Bytes)
+					p.Source.FromString("billingAccumulator empty source")
 					p.Payload = []byte(msg)
 					p.SetOption("error", p.Payload)
 					// just like a publish down.
@@ -448,7 +461,10 @@ func heartBeatCallBack(me *LookupTableStruct, bucket *subscribeBucket, cmd *call
 
 				msg.Subscriptions = float32(deltaTime) // means one per sec, one per min ...
 				p := &packets.Send{}
-				p.AddressAlias = []byte(watchedItem.jwtidAlias)
+				p.Address.Type = packets.BinaryAddress
+				p.Address.Bytes = ([]byte(watchedItem.jwtidAlias))[0:HashTypeLen]
+				//p.AddressAlias = []byte(watchedItem.jwtidAlias)
+				p.Source.FromString("billing time empty source")
 				str, err := json.Marshal(msg)
 				if err != nil {
 					fmt.Println(" break fast ")
@@ -630,8 +646,9 @@ func guruDeleteRemappedAndGoneTopics(me *LookupTableStruct, bucket *subscribeBuc
 		// if the index is not me then delete the topic and tell upstream.
 		if index != cmd.index {
 			unsub := packets.Unsubscribe{}
-			unsub.AddressAlias = make([]byte, 24)
-			h.GetBytes(unsub.AddressAlias)
+			unsub.Address.Type = packets.BinaryAddress
+			unsub.Address.Bytes = make([]byte, 24)
+			h.GetBytes(unsub.Address.Bytes)
 			me.PushUp(&unsub, h)
 			delete(s, h)
 		}
@@ -657,8 +674,9 @@ func reSubscribeRemappedTopics(me *LookupTableStruct, bucket *subscribeBucket, c
 		// if the index has changed then push up a subscribe
 		if indexNew != indexOld {
 			unsub := packets.Subscribe{}
-			unsub.AddressAlias = make([]byte, 24)
-			h.GetBytes(unsub.AddressAlias)
+			unsub.Address.Type = packets.BinaryAddress
+			unsub.Address.Bytes = make([]byte, 24)
+			h.GetBytes(unsub.Address.Bytes)
 			me.PushUp(&unsub, h)
 		}
 		_ = watchedTopic

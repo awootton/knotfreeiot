@@ -19,13 +19,14 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"math/rand"
 	"strconv"
 )
 
 // HashType will be the key
-// I'm increasing it to 20 2/2020 atw or 24
+// I'm increasing it to 20 2/2020 atw or 24 2/2021
 type notHashType struct {
 	bytes [24]byte
 }
@@ -51,12 +52,33 @@ func (h *HashType) HashString(s string) {
 	h.HashBytes([]byte(s))
 }
 
-// HashNameToAlias returns the 'standard alias' of the name.
-func HashNameToAlias(name []byte) []byte {
-	sh := sha256.New()
-	sh.Write(name)
-	shabytes := sh.Sum(nil)
-	return shabytes[0:HashTypeLen]
+// HashNameToAliasXXX checks for the name being utf8 or hex of a hash or base64 of a hash or binary.
+// in the case of binary do nothing.
+func HashNameToAliasXXX(name []byte) ([]byte, error) {
+	if name[0] == '`' && len(name) == (HashTypeLen+1) {
+		return name, nil
+	}
+	switch name[0] {
+	case '$':
+		if len(name) != HashTypeLen*2+1 {
+			return name, errors.New("requires 48 bytes of hex")
+		}
+
+		return name, nil
+	case '=':
+		return name, nil
+	default:
+		// is utf8. Hash it.
+		sh := sha256.New()
+		sh.Write(name)
+		shabytes := sh.Sum(nil)
+		// move everything up by one
+		for i := 0; i < HashTypeLen; i++ {
+			shabytes[HashTypeLen-i+1] = shabytes[HashTypeLen-i]
+		}
+		shabytes[0] = '`'
+		return shabytes[0 : HashTypeLen+1], nil
+	}
 }
 
 // HashBytes will initialize an existing hash from a string.

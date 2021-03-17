@@ -12,7 +12,7 @@ ENV PORT 7465
 ENV PORT 8080
 ENV PORT 8085
 ENV PORT 9090
-ENV PORT 3000
+ENV PORT 3100
 
 # We can use the 32 bit version to save pointer space?
 ENV GOARCH=386

@@ -17,6 +17,7 @@
 // It is assumed that kubectl in your envrionment, typically a workstation, is setup
 // and configured to access a running k8s cluster.
 
+// Package kubectl comments. TODO: package comments for this shim to bash.
 package kubectl
 
 import (

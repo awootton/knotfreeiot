@@ -50,6 +50,8 @@ type testContact struct {
 	doNotReconnect bool
 
 	index int
+
+	// map from hashedaddress to string address?
 }
 
 func makeTestContact(config *iot.ContactStructConfig, token string) iot.ContactInterface {
@@ -122,7 +124,8 @@ func (cc *testContact) getResultAsString() string {
 	p := cc.mostRecent[0]
 	send, isSend := p.(*packets.Send)
 	if isSend {
-		send.AddressAlias = []byte("")
+		//send.AddressAlias = []byte("")
+		_ = send // ??
 	}
 	return cc.mostRecent[0].String()
 }
@@ -136,7 +139,8 @@ func (cc *testContact) WriteDownstream(packet packets.Interface) error {
 	}
 	send, isSend := packet.(*packets.Send)
 	if isSend {
-		send.AddressAlias = []byte("")
+		//send.AddressAlias = []byte("")
+		_ = send //??
 	}
 	text := packet.String()
 	cc.IncOutput(len(text))
@@ -212,7 +216,7 @@ func readLine(conn *net.TCPConn) string {
 	if err != nil {
 		str := err.Error() // "read tcp 127.0.0.1:50053->127.0.0.1:1234: i/o timeout"
 		if !(strings.HasPrefix(str, "read tcp ") && strings.HasSuffix(str, ": i/o timeout")) {
-			fmt.Println("read err her", err)
+			fmt.Println("read err here", err) // FIXME: return err?
 		}
 		return "" // normal for timeout
 	}

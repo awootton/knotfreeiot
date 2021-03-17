@@ -11,5 +11,5 @@ drawing onto canvas.
 
 <script type="text/javascript" src="/iotvis.js"></script>
 
-<div id="commento"></div>
-<script src="https://cdn.commento.io/js/commento.js"></script>
+<!-- <div id="commento"></div>
+<script src="https://cdn.commento.io/js/commento.js"></script> -->

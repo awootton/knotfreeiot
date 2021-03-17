@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-package main
+package iot
 
 import (
 	"github.com/prometheus/client_golang/prometheus"
@@ -21,55 +21,57 @@ import (
 )
 
 var (
-	httpServe404 = promauto.NewCounter(
+	// HTTPServe404 is
+	HTTPServe404 = promauto.NewCounter(
 		prometheus.CounterOpts{
 			Name: "main_http_404",
 			Help: "Number of 404 main.ServeHTTP.",
 		},
 	)
-
-	forwardsCount3000 = promauto.NewCounter(
+	// ForwardsCount3100 is
+	ForwardsCount3100 = promauto.NewCounter(
 		prometheus.CounterOpts{
-			Name: "main_3000_forwards",
-			Help: "Number forwards main.startPublicServer3000.",
+			Name: "main_3100_forwards",
+			Help: "Number forwards main.startPublicServer3100.",
 		},
 	)
-
-	forwardsCount9090 = promauto.NewCounter(
+	// ForwardsCount9090 is for main.go
+	ForwardsCount9090 = promauto.NewCounter(
 		prometheus.CounterOpts{
 			Name: "main_9090_forwards",
 			Help: "http forwards main.startPublicServer9090.",
 		},
 	)
-
-	forwardsCount8000 = promauto.NewCounter(
+	// ForwardsCount8000 is
+	ForwardsCount8000 = promauto.NewCounter(
 		prometheus.CounterOpts{
 			Name: "main_8000_forwards",
 			Help: "tcp count main.startPublicServer9090.",
 		},
 	)
-	forwardsDialFail8000 = promauto.NewCounter(
+	// ForwardsDialFail8000 is
+	ForwardsDialFail8000 = promauto.NewCounter(
 		prometheus.CounterOpts{
 			Name: "main_8000_dialfail",
 			Help: "tcp dialfail main.startPublicServer9090.",
 		},
 	)
-
-	forwardsConnectedl8000 = promauto.NewCounter(
+	// ForwardsConnectedl8000 is
+	ForwardsConnectedl8000 = promauto.NewCounter(
 		prometheus.CounterOpts{
 			Name: "main_8000_connected",
 			Help: "tcp conected main.startPublicServer9090.",
 		},
 	)
-
-	forwardsAcceptl8000 = promauto.NewCounter(
+	// ForwardsAcceptl8000 is
+	ForwardsAcceptl8000 = promauto.NewCounter(
 		prometheus.CounterOpts{
 			Name: "main_8000_accepted",
 			Help: "tcp accepted main.startPublicServer9090.",
 		},
 	)
-
-	badTokenRequests = promauto.NewCounter(
+	// BadTokenRequests is
+	BadTokenRequests = promauto.NewCounter(
 		prometheus.CounterOpts{
 			Name: "main_bad_token_requests",
 			Help: "Token requests with flaws.",

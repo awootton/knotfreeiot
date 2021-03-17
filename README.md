@@ -15,3 +15,9 @@ This repository is for the code. [The IoT blog is in another repository](https:/
 * There is a live demonstration running. A 'simple MQTT' service is at knotfree.net:1883 To use it you need a 'password' [and you can get one here](http://knotfree.net/). 
 
 See the mqtt example [here](https://github.com/awootton/knotfreeiot/blob/master/clients/mqttclient.py).
+
+## Running the code
+
+run main.go
+
+The k8s deploy is in knotoperator/deploy/knotfreedeploy.yaml  which is normally deployed with knotoperator/deploy/apply_namespace.go
