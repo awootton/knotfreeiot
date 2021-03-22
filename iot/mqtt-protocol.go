@@ -213,6 +213,15 @@ func MQTTHandlePacket(cc *mqttContact, control libmqtt.Packet) {
 				fmt.Println("mqtt sub fail", err) // needs prom counter
 			}
 		}
+		// write an ack
+		suback := &libmqtt.SubAckPacket{}
+		suback.Codes = []byte{0}
+		suback.PacketID = mq.PacketID
+		err = cc.writeLibPacket(suback, cc)
+		if err != nil {
+			fmt.Println("mqtt conn fail", err) // needs prom counter
+		}
+
 	case *libmqtt.UnsubPacket:
 		for _, topic := range mq.TopicNames {
 
@@ -374,6 +383,8 @@ func WebSocketLoop(wsConn *websocket.Conn, config *ContactStructConfig) {
 
 		mq.SetVersion(cc.protoVersion)
 
+		//fmt.Println("writeLibPacket has version %n ", cc.protoVersion)
+
 		cc.writebuff.Reset()
 		err := mq.WriteTo(cc)
 		if err != nil {
@@ -383,6 +394,7 @@ func WebSocketLoop(wsConn *websocket.Conn, config *ContactStructConfig) {
 		data := cc.writebuff.Bytes()
 		if len(data) > 0 {
 			mt := websocket.BinaryMessage
+			//fmt.Println("collecting data len = %n ", len(data))
 			err = cc.wsConn.WriteMessage(mt, data)
 			if err != nil {
 				cc.Close(err)
@@ -404,7 +416,7 @@ func WebSocketLoop(wsConn *websocket.Conn, config *ContactStructConfig) {
 		//fmt.Println("waiting for mqtt ws packet")
 		mt, message, err := wsConn.ReadMessage()
 		if err != nil {
-			fmt.Println("mqtt ws read err", err)
+			fmt.Println("mqtt ws read err", err) // eg. websocket: close 1000 (normal)
 			break
 		}
 		_ = mt
@@ -413,6 +425,7 @@ func WebSocketLoop(wsConn *websocket.Conn, config *ContactStructConfig) {
 		// Or, we should hijack the tcp and wire it up directly.
 
 		currentBytes := wsBuffer.Bytes()
+		//fmt.Println("new currentBytes len = %n ", len(cc.writebuff.Bytes()))
 		ok, plen := IsWholeMqttPacket(currentBytes)
 		if !ok {
 			goto top
@@ -435,14 +448,15 @@ func WebSocketLoop(wsConn *websocket.Conn, config *ContactStructConfig) {
 				fmt.Println("libmqtt.Decode err", control, err)
 			}
 			cc.Close(err)
-			return
+			break // return
 		}
 
 		MQTTHandlePacket(&cc.mqttContact, control)
 	}
+	//fmt.Println("returned from loop ") 
 }
 
-// IsWholeMqttPacket returns true if the data is an mqtt packet and returns the length.
+// IsWholeMqttPacket returns true if the data is an mqtt packet and returns the length used.
 func IsWholeMqttPacket(data []byte) (bool, int) {
 
 	i := 0
@@ -452,7 +466,7 @@ func IsWholeMqttPacket(data []byte) (bool, int) {
 	i++ // pass the command
 	length := 0
 	shift := 0
-	for {
+	for { // get a variable size lenght
 		tmp := data[i]
 		i++
 		if i >= len(data) {
@@ -464,6 +478,7 @@ func IsWholeMqttPacket(data []byte) (bool, int) {
 			break
 		}
 	}
+	// do we have all the data?
 	i += length
 	if len(data) < i {
 		return false, 0

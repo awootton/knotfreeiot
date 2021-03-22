@@ -5,12 +5,12 @@
 
 ## A 'simple MQTT' service is at knotfree.net:1883 To use it you need a 'password' [and you can get one here](http://knotfree.net/). 
 
-Welcome to the pro bono science project Massively Scalable Distributed Open Source Non Profit IoT Backend with JWT to Control Access and Monetize..
+Welcome to the pro bono science project Massively Scalable Distributed Open Source Non Profit Routing Network with JWT to Control Access..
 
 This repository is for the code. [The IoT blog is in another repository](https://thei4t.github.io/).
 
 ## Note to Developers
-* knotfree is a prototype of how a common iot backend could function.
+* knotfree is a prototype of how a common distributed routing network could function. Think IP and DNS only better and cheaper.
 * Some API's may change in the future except for MQTT. 
 * There is a live demonstration running. A 'simple MQTT' service is at knotfree.net:1883 To use it you need a 'password' [and you can get one here](http://knotfree.net/). 
 

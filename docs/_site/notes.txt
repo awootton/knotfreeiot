@@ -11,7 +11,7 @@ gem install --user-install bundler jekyll
 
 /Users/awootton/.gem/ruby/2.6.0/bin
 
-cd /Users/awootton/Documents/workspace/TheI4T.github.io
+cd /Users/awootton/Documents/workspace/knotfreeiot/docs
 jekyll serve --watch
 
 bundle init
