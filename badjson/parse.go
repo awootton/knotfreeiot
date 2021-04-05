@@ -314,7 +314,7 @@ func NewBase64Bytes(data string, previous Segment) Segment {
 
 // GetBytes try to parse
 func (b *Base64Bytes) GetBytes() []byte {
-	decoded, err := base64.RawStdEncoding.DecodeString(b.input)
+	decoded, err := base64.RawURLEncoding.DecodeString(b.input)
 	if err != nil {
 		return []byte("")
 	}
@@ -323,14 +323,14 @@ func (b *Base64Bytes) GetBytes() []byte {
 
 func (b *Base64Bytes) String() string {
 	bytes := b.GetBytes()
-	str := base64.RawStdEncoding.EncodeToString(bytes)
+	str := base64.RawURLEncoding.EncodeToString(bytes)
 	return `"=` + str + `"`
 }
 
 // Raw is
 func (b *Base64Bytes) Raw() string {
 	bytes := b.GetBytes()
-	str := base64.RawStdEncoding.EncodeToString(bytes)
+	str := base64.RawURLEncoding.EncodeToString(bytes)
 	return `=` + str + ``
 }
 

@@ -1,6 +1,6 @@
 # howto:
-# docker build -t gcr.io/fair-theater-238820/knotfreeserver .	
-# docker push gcr.io/fair-theater-238820/knotfreeserver
+# docker build -t gcr.  io/fair-theater-238820/knotfreeserver .	
+# docker push gcr.   io/fair-theater-238820/knotfreeserver
 
 FROM golang:1.14.0-stretch
 #FROM golang:1.12-alpine 
@@ -19,6 +19,8 @@ ENV GOARCH=386
 
 WORKDIR /knotfreeiot/
 
+##RUN export GO111MODULE=on; go get -u github.com/thei4t/libmqtt@v0.9.9
+
 COPY go.mod .
 COPY go.sum .
 
@@ -34,9 +36,11 @@ COPY tokens/go.sum tokens/
 COPY badjson/go.mod badjson/
 COPY badjson/go.sum badjson/
 
+
 RUN go mod download
 
 # and then add the code
 ADD . /knotfreeiot
-# RUN ls -lah /go/bin/linux_386/knotfreeiot # see knotfreedeploy.yaml
-RUN export GO111MODULE=auto; go install 
+
+# later we: RUN ls -lah /go/bin/linux_386/knotfreeiot # see knotfreedeploy.yaml
+RUN export GO111MODULE=on; go install 

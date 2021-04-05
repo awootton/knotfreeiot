@@ -1,4 +1,4 @@
-// Copyright 2019,2020 Alan Tracey Wootton
+// Copyright 2019,2020,2021 Alan Tracey Wootton
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -23,9 +23,9 @@ import (
 	"github.com/awootton/knotfreeiot/tokens"
 )
 
-var sampleToken1 = `["My new token expires: 2020-12-30",{"iss":"/9sh","in":32,"out":32,"su":4,"co":1,"url":"knotfree.net"},"eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiSldUIn0.eyJleHAiOjE2MDkzNzI4MDAsImlzcyI6Ii85c2giLCJqdGkiOiI5aTZVWlBWc0pYL0p0WkNpTnlIcEhWUTIiLCJpbiI6MzIsIm91dCI6MzIsInN1Ijo0LCJjbyI6MSwidXJsIjoia25vdGZyZWUubmV0In0.3XvGPt4tsJvXAxFAEzDE3Zc0izM7stnlS7CCWMBsI1tWpjxI1waLJaB_j6SYD2AWJDDfbTx7yRBl0AwKalXsBg"]`
+var sampleToken1 = `["My new token expires: 2020-12-30",{"iss":"_9sh","in":32,"out":32,"su":4,"co":1,"url":"knotfree.net"},"eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiSldUIn0.eyJleHAiOjE2MDkzNzI4MDAsImlzcyI6Ii85c2giLCJqdGkiOiI5aTZVWlBWc0pYL0p0WkNpTnlIcEhWUTIiLCJpbiI6MzIsIm91dCI6MzIsInN1Ijo0LCJjbyI6MSwidXJsIjoia25vdGZyZWUubmV0In0.3XvGPt4tsJvXAxFAEzDE3Zc0izM7stnlS7CCWMBsI1tWpjxI1waLJaB_j6SYD2AWJDDfbTx7yRBl0AwKalXsBg"]`
 
-func xxTestSubscriptionOverrun(t *testing.T) {
+func TestSubscriptionOverrun(t *testing.T) {
 
 	tokens.LoadPublicKeys()
 
@@ -44,7 +44,7 @@ func xxTestSubscriptionOverrun(t *testing.T) {
 
 	// make cluster with 1 guru and 2 aides.
 	// don't call operate or it will lose an aide.
-	ce := iot.MakeSimplestCluster(getTime, false, 1)
+	ce := iot.MakeSimplestCluster(getTime, false, 1, "")
 	globalClusterExec = ce
 	aide1 := ce.Aides[0]
 
@@ -95,7 +95,7 @@ func TestContactTimeout(t *testing.T) {
 
 	// make cluster with 1 guru and 2 aides.
 	// don't call operate or it will lose an aide.
-	ce := iot.MakeSimplestCluster(getTime, false, 1)
+	ce := iot.MakeSimplestCluster(getTime, false, 1, "")
 	globalClusterExec = ce
 	aide1 := ce.Aides[0]
 
@@ -182,7 +182,7 @@ func TestConnectionsOver(t *testing.T) {
 
 	// mnake cluster with 1 guru and 2 aides.
 	// don't call operate or it will lose an aide.
-	ce := iot.MakeSimplestCluster(getTime, false, 2)
+	ce := iot.MakeSimplestCluster(getTime, false, 2, "")
 	globalClusterExec = ce
 	aide1 := ce.Aides[0]
 	aide2 := ce.Aides[1]
@@ -252,7 +252,7 @@ func TestConnectionsOver(t *testing.T) {
 	// 	fmt.Println(got[i])
 	// 	fmt.Println(want[i])
 	// }
-	if got  != want  {
+	if got != want {
 		t.Errorf("got %v, want %v", got, want)
 	}
 

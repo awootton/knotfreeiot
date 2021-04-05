@@ -15,21 +15,21 @@ import (
 // See deploy.sh which is how I used to do it. todo: make better
 // using the go client is more professional.
 
-// ## Start kind THIS WAY from the knotoperator dir : kind create cluster --config kind-example-config.yaml
+// ## Start kind THIS WAY from the knotoperator dir: kind create cluster --config kind-example-config.yaml
 
 // pre-req:
 // kind create cluster --config kind-example-config.yaml
 // kubectl config use-context "kind-kind"
 // kubectl create ns knotspace
 // kubectl config set-context --current --namespace=knotspace
-// Be SURE that kubectl is pointing at the right ns.
+// Be SURE that kubectl is pointing at the right ns. !!!!
 
 // TODO: have config and args
 // it's much faster when we don't build the docker every time.
 var needtobuild = true
 var startTheOperator = true
 
-var alsoDoLibra = false         // might be deprecating libra due to excessive disk usage.
+var alsoDoLibra = false         // are deprecating libra due to excessive disk usage.
 var alsoStartMonitoring = false // once is enough
 
 func main() {
@@ -86,8 +86,11 @@ func main() {
 	_ = err
 
 	hh, _ := os.UserHomeDir()
-	path := hh + "/atw/privateKeys4.txt"
-	kubectl.K("kubectl create secret generic privatekeys4 --from-file=" + path)
+	//path2 := hh + "/atw/fair-theater-238820-firebase-adminsdk-uyr4z-63b4da8ff3.json"
+	//path1 := hh + "/atw/privateKeys4.txt"
+	dir := hh + "/atw"
+	kubectl.K("kubectl create secret generic privatekeys4 --from-file=" + dir)
+	//kubectl.K("kubectl create secret generic privatekeys4 --from-file=" + path1 + " --from-file=" + path2)
 
 	//kubectl.K("kubectl apply -f knotfreedeploy.yaml")
 	data, _ := ioutil.ReadFile("knotfreedeploy.yaml")
@@ -139,10 +142,10 @@ func buildTheKnotFreeMain(registry string) {
 	digest, _ := kubectl.K8s("docker inspect --format='{{.RepoDigests}}' "+registry+"/knotfreeserver", "")
 	fmt.Println("digest of knotfreeserver 1", digest)
 	kubectl.K("cd ../..;docker build -t " + registry + "/knotfreeserver .")
-	digest, _ := kubectl.K8s("docker inspect --format='{{.RepoDigests}}' "+registry+"/knotfreeserver", "")
+	digest, _ = kubectl.K8s("docker inspect --format='{{.RepoDigests}}' "+registry+"/knotfreeserver", "")
 	fmt.Println("digest of knotoperator 2", digest)
 	kubectl.K("docker push " + registry + "/knotfreeserver")
-	digest, _ := kubectl.K8s("docker inspect --format='{{.RepoDigests}}' "+registry+"/knotfreeserver", "")
+	digest, _ = kubectl.K8s("docker inspect --format='{{.RepoDigests}}' "+registry+"/knotfreeserver", "")
 	fmt.Println("digest of knotfreeserver 3", digest)
 }
 

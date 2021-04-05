@@ -1,4 +1,4 @@
-// Copyright 2019,2020 Alan Tracey Wootton
+// Copyright 2019,2020,2021 Alan Tracey Wootton
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -48,7 +48,7 @@ func aTestDial1(t *testing.T, isTCP bool) {
 		return localtime
 	}
 
-	ce := iot.MakeSimplestCluster(getTime, isTCP, 2)
+	ce := iot.MakeSimplestCluster(getTime, isTCP, 2, "")
 	globalClusterExec = ce
 
 	ce.WaitForActions()

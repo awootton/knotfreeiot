@@ -3,7 +3,7 @@
 // import { nacl } from './nacl.js'; :-(
 
 function KnotFreeTokenPayload() {
-  this.exp = 1609372800;
+  this.exp = 1641023999; //	Fri Dec 31 2021 23:59:59 GMT-0800 (Pacific Standard Time) // 1609372800;
   this.iss = "none";
   this.jti = "none";
   this.in = 32.0; // bytes per sec
@@ -18,7 +18,7 @@ function TokenRequest() {
   this.pkey = toHexString(new Uint8Array(pair.publicKey))
   this.payload = new KnotFreeTokenPayload()
   var d = new Date()
-  this.comment = "My token"// + d.getFullYear()+"-"+ (1+d.getMonth()) + "-" + d.getDate()
+  this.comment = "Free token"// + d.getFullYear()+"-"+ (1+d.getMonth()) + "-" + d.getDate()
 }
 
 

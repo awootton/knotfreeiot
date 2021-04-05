@@ -1,4 +1,4 @@
-// Copyright 2019,2020 Alan Tracey Wootton
+// Copyright 2019,2020,2021 Alan Tracey Wootton
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -24,7 +24,7 @@ import (
 
 func processSubscribe(me *LookupTableStruct, bucket *subscribeBucket, submsg *subscriptionMessage) {
 
-	//fmt.Println("top of processSubscribe", string(submsg.p.Address), " in ", me.ex.Name, submsg.h)
+	//fmt.Println("top of processSubscribe", string(submsg.p.Address.String()), " in ", me.ex.Name)
 
 	watchedItem, ok := getWatcher(bucket, &submsg.h)
 	if !ok {

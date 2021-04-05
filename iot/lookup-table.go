@@ -1,4 +1,4 @@
-// Copyright 2019,2020 Alan Tracey Wootton
+// Copyright 2019,2020,2021 Alan Tracey Wootton
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -80,8 +80,19 @@ type watcherItem struct {
 func (me *LookupTableStruct) PushUp(p packets.Interface, h HashType) error {
 
 	router := me.upstreamRouter
-	if me.isGuru || router.maglev == nil {
+	//if me.isGuru || router.maglev == nil {
+	if me.isGuru {
+		// what if there is no up?
+		router = me.upstreamRouter // for debug
+	}
+	if router.maglev == nil {
 		// some of us don't have superiors so no pushup
+		// unless we have a superior cluster in which case there's
+		// just the one upper channel trying to go up.
+		return nil
+	}
+	if len(router.channels) == 0 {
+		// can't pushup to no channels
 		return nil
 	}
 	upc := router.getUpperChannel(h.GetUint64())

@@ -86,10 +86,10 @@ func binaryTests() {
 	fmt.Println("ghi", hex.EncodeToString([]byte("ghi")))
 	fmt.Println("jkl", hex.EncodeToString([]byte("jkl")))
 
-	fmt.Println("abc", base64.RawStdEncoding.EncodeToString([]byte("abc")))
-	fmt.Println("def", base64.RawStdEncoding.EncodeToString([]byte("def")))
-	fmt.Println("ghi", base64.RawStdEncoding.EncodeToString([]byte("ghi")))
-	fmt.Println("jkl", base64.RawStdEncoding.EncodeToString([]byte("jkl")))
+	fmt.Println("abc", base64.RawURLEncoding.EncodeToString([]byte("abc")))
+	fmt.Println("def", base64.RawURLEncoding.EncodeToString([]byte("def")))
+	fmt.Println("ghi", base64.RawURLEncoding.EncodeToString([]byte("ghi")))
+	fmt.Println("jkl", base64.RawURLEncoding.EncodeToString([]byte("jkl")))
 
 }
 

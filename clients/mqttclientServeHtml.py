@@ -2,6 +2,7 @@
 
 # pip3 install paho-mqtt
 
+import os
 import time
 import datetime
 import paho.mqtt.client as paho
@@ -32,13 +33,26 @@ def on_message(client, userdata, message):
     global lastTime
     print(str(datetime.datetime.now())+"received message =", str(message.payload.decode("utf-8")))
     print("topic is " + str(message.topic))
+    print("reply addr is " + str(message.properties.ResponseTopic))
     # what is this? is None print(str(userdata))
     user_properties=message.properties.UserProperty
-    print("user properties received= ",user_properties)
+    #print("user properties received= ",user_properties)
     now = time.time() * 1000
     delta = now - lastTime
     print("latency= ",int(delta))
 
+    topic = str(message.properties.ResponseTopic)
+    parts = str(message.payload.decode("utf-8")).split(" ")
+    path = parts[1]
+    path = path[1:] # strip off "/"
+
+    if os.path.exists(path) :
+        f = open(path, "rb")
+    else:
+        f = open("atwIndex1.html", "r")
+
+    body = f.read()
+    client.publish(topic, body)
 
 def on_connect(client, userdata, flags, rc):
     if rc==0:
@@ -54,7 +68,7 @@ def on_connect(client, userdata, flags, rc):
 def on_connectV5(client, userdata, flags, rc, properties):
     if rc==0:
         print("connected OK Returned code=",rc)
-        topic = "atw/xsgournklogc/house/bulb1/client-001" 
+        topic = "dummy" 
         print("subscribing " + topic)
         client.subscribe(topic)
         #client.subscribe(topic,no_local=True)
@@ -93,7 +107,7 @@ time.sleep(12)
 print("publishing ")
 for x in range(9999):
     print(x)
-    topic = "atw/xsgournklogc/house/bulb1/client-001"
+    topic = "dummy"
     message = "msg#"+clientid+"_"+str(x)
     #props = paho.Properties( packet_type = paho.PUBLISH )# paho.PacketTypes.PUBLISH)
     #props.user_property= ('sfilename', 'test.txt')  # [('sfilename', 'test.txt'),('dfilename', 'test.txt')])
@@ -102,8 +116,10 @@ for x in range(9999):
     #, user_property = props
     
     lastTime = time.time() * 1000
-    client.publish(topic, message)
-    time.sleep(10)
+    # not here 
+    # client.publish(topic, message)
+    client.publish("notopic", "keep alive")
+    time.sleep(60)
      
 client.disconnect()  # disconnect
 client.loop_stop()  # stop loop

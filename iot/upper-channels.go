@@ -1,4 +1,4 @@
-// Copyright 2019,2020 Alan Tracey Wootton
+// Copyright 2019,2020,2021 Alan Tracey Wootton
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -37,8 +37,20 @@ func (null *DevNull) Write(b []byte) (int, error) {
 	return len(b), nil
 }
 
+type ByteChan struct {
+	TheChan chan []byte
+}
+
+// this is a packet in bytes
+func (bc *ByteChan) Write(b []byte) (int, error) {
+	bc.TheChan <- b
+	// fmt.Println(" ByteChan has ", string(b))
+	return len(b), nil
+}
+
 // upperChannel represents the 'upper' version of a contact.
 // Unlike their numerous lower bretheren they have buffers.
+
 type upperChannel struct {
 	name    string
 	address string // as in tcp ip:port
@@ -67,10 +79,11 @@ func (router *upstreamRouterStruct) getUpperChannel(h uint64) *upperChannel {
 	if index >= len(router.channels) {
 		fmt.Println("oops oops oops oops oops oops ")
 	}
-	return router.channels[index]
+	c := router.channels[index]
+	return c
 }
 
-// SetUpstreamNames is called by a cluster exec of some kind when chamnging the guru count.
+// SetUpstreamNames is called by a cluster exec of some kind when changing the guru count.
 // We will update upstreamRouterStruct
 // names are like:  guru-0f3bca46d414d506ecce3de9762df6c3
 // addresses are like: 10.244.0.149:8384

@@ -1,4 +1,4 @@
-// Copyright 2019,2020 Alan Tracey Wootton
+// Copyright 2019,2020,2021 Alan Tracey Wootton
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -41,7 +41,7 @@ func fixmeTestGrowGurus(t *testing.T) {
 	}
 	subsStressSize := 100
 
-	ce := iot.MakeSimplestCluster(getTime, false, 1)
+	ce := iot.MakeSimplestCluster(getTime, false, 1, "")
 	globalClusterExec = ce
 
 	ce.WaitForActions()
@@ -165,7 +165,7 @@ func TestGrowAides(t *testing.T) {
 
 	allContacts := make([]*testContact, 0)
 
-	ce := iot.MakeSimplestCluster(getTime, isTCP, 1)
+	ce := iot.MakeSimplestCluster(getTime, isTCP, 1, "")
 	globalClusterExec = ce
 
 	ce.WaitForActions()
@@ -387,7 +387,7 @@ func TestHash(t *testing.T) {
 	h.HashBytes([]byte(str))
 	bytes := make([]byte, 24)
 	h.GetBytes(bytes)
-	got := base64.RawStdEncoding.EncodeToString(bytes)
+	got := base64.RawURLEncoding.EncodeToString(bytes)
 	want := "4bhbJ9a8sFhGwY5qSPEY6J8MBYcUDen7"
 
 	if got != want {

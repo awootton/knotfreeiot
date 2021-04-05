@@ -1,4 +1,4 @@
-// Copyright 2019,2020 Alan Tracey Wootton
+// Copyright 2019,2020,2021 Alan Tracey Wootton
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -22,12 +22,12 @@ import (
 
 func processPublish(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *publishMessage) {
 
-	//fmt.Println("processPublish", string(pubmsg.p.Address), string(pubmsg.p.Payload), " in ", me.ex.Name)
+	//fmt.Println("processPublish a=", pubmsg.p.Address.String(), " p=", string(pubmsg.p.Payload), " in ", me.ex.Name)
 
 	watchedItem, ok := getWatcher(bucket, &pubmsg.h) //[pubmsg.h]
 	if ok == false {
-		// no publish possible !
-		// it's sad really when someone sends messages to nobody.
+		// nobody local is subscribing to this.
+		// push it up to the next level
 		missedPushes.Inc()
 		// send upstream publish
 		err := bucket.looker.PushUp(pubmsg.p, pubmsg.h)
@@ -73,7 +73,7 @@ func processPublish(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *publ
 				_, selfReturn := pubmsg.p.GetOption("toself")
 				if selfReturn || key != pubmsg.ss.GetKey() {
 					if me.checkForBadContact(ci, watchedItem) == false {
-						//fmt.Println("pub to contact", string(pubmsg.p.Address), string(pubmsg.p.Payload), " in ", me.ex.Name)
+						//fmt.Println("pub to contact", string(pubmsg.p.Address.String()), string(pubmsg.p.Payload), " in ", me.ex.Name)
 						ci.WriteDownstream(pubmsg.p)
 						sentMessages.Inc()
 					}
@@ -97,7 +97,7 @@ func processPublish(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *publ
 
 func processPublishDown(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *publishMessageDown) {
 
-	//fmt.Println("top of processPublishDown", string(pubmsg.p.Address), string(pubmsg.p.Payload), " in ", me.ex.Name)
+	//fmt.Println("top of processPublishDown", pubmsg.p.Address.String(), string(pubmsg.p.Payload), " in ", me.ex.Name)
 
 	watcheditem, ok := getWatcher(bucket, &pubmsg.h) //bucket.mySubscriptions[pubmsg.h]
 	if ok == false {

@@ -147,7 +147,7 @@ func (address *AddressUnion) FromBytes(bytes []byte) {
 func (address *AddressUnion) String() string {
 	if (address.Type == BinaryAddress) && len(address.Bytes) == 24 {
 		//dest := make([]byte, 24)
-		str := base64.RawStdEncoding.EncodeToString(address.Bytes)
+		str := base64.RawURLEncoding.EncodeToString(address.Bytes)
 		return "=" + str
 	}
 	var b strings.Builder
@@ -164,7 +164,7 @@ func (address *AddressUnion) ToBytes() []byte {
 
 	// if (address.Type == BinaryAddress) && len(address.Bytes) == 24 {
 	// 	//dest := make([]byte, 24)
-	// 	str := base64.RawStdEncoding.EncodeToString(address.Bytes)
+	// 	str := base64.RawURLEncoding.EncodeToString(address.Bytes)
 	// 	return []byte("=" + str)
 	// }
 
@@ -208,7 +208,7 @@ func (address *AddressUnion) EnsureAddressIsBinary() {
 			break // return address, errors.New("requires 32 bytes of base64")
 		}
 		tmp := make([]byte, HashTypeLen)
-		base64.RawStdEncoding.Decode(tmp, address.Bytes)
+		base64.RawURLEncoding.Decode(tmp, address.Bytes)
 		address.Type = BinaryAddress
 		address.Bytes = tmp
 		return // &result, err
@@ -542,7 +542,7 @@ func UniversalToJSON(str *Universal) ([]byte, error) {
 			bstr = bstr[1:]
 			bb.WriteByte(',')
 			bb.WriteByte('=')
-			tmp := base64.RawStdEncoding.EncodeToString(bstr)
+			tmp := base64.RawURLEncoding.EncodeToString(bstr)
 			bb.WriteString(tmp)
 		} else {
 			isascii, hasdelimeters := badjson.IsASCII(bstr)
@@ -566,7 +566,7 @@ func UniversalToJSON(str *Universal) ([]byte, error) {
 			} else {
 				bb.WriteByte(',')
 				bb.WriteByte('=')
-				tmp := base64.RawStdEncoding.EncodeToString(bstr)
+				tmp := base64.RawURLEncoding.EncodeToString(bstr)
 				bb.WriteString(tmp)
 			}
 		}
@@ -835,7 +835,7 @@ func ReadArrayOfByteArray(reader io.Reader) ([][]byte, error) {
 		lengths[i] = aval
 		total += aval
 	}
-	if total > 1024*16 {
+	if total > (65536 - 256) { // was 1024*16 but now 65536 - 256 atw 3/2021
 		return nil, errors.New("Packet too long for this reality")
 	}
 	// now we can read the rest all at once

@@ -45,7 +45,7 @@ spec:
           name : prom
         resources:
           limits:
-            cpu: 250m  #INSERT_CPU_NEEDED_HERE
+            cpu: 500m  #INSERT_CPU_NEEDED_HERE
             memory: 800Mi #INSERT_MEM_NEEDED_HERE
           #requests:
             #cpu: 250m  #INSERT_CPU_NEEDED_HERE
@@ -116,10 +116,10 @@ spec:
     targetPort: 3000
     protocol: TCP 
 
-  - name: libra
-    port: 8000
-    targetPort: 8000
-    protocol: TCP 
+  # - name: libra
+  #   port: 8000
+  #   targetPort: 8000
+  #   protocol: TCP 
 
   selector:
     run: "knotfreeaide"

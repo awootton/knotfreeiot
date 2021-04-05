@@ -1,4 +1,4 @@
-// Copyright 2019,2020 Alan Tracey Wootton
+// Copyright 2019,2020,2021 Alan Tracey Wootton
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -108,7 +108,7 @@ func (api apiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-// MakeHTTPExecutive sets up a http server
+// MakeHTTPExecutive sets up a http server for serving api1 and api2
 func MakeHTTPExecutive(ex *Executive, serverName string) *Executive {
 
 	mux := http.NewServeMux()
@@ -404,4 +404,3 @@ func (bcw *ByteCountingWriter) Write(p []byte) (int, error) {
 	bcw.count += n
 	return n, err
 }
-

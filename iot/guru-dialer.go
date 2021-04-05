@@ -1,4 +1,4 @@
-// Copyright 2019,2020 Alan Tracey Wootton
+// Copyright 2019,2020,2021 Alan Tracey Wootton
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -27,8 +27,118 @@ import (
 
 	"github.com/awootton/knotfreeiot/packets"
 	"github.com/awootton/knotfreeiot/tokens"
+	"github.com/dgryski/go-maglev"
 )
 
+// ConnectGuruToSuperAide for testing a cluster with a supercluster
+// we need channels from guru to aide.
+func ConnectGuruToSuperAide(guru *Executive, aide *Executive) {
+
+	me := *guru.Looker // *LookupTableStruct
+
+	names := []string{aide.Name}
+	addresses := []string{"noaddr"}
+
+	GuruNameToConfigMap[aide.Name] = aide // for lookup later
+
+	//guru.Looker.SetUpstreamNames(names, addresses)
+
+	// don't block on anything.
+	router := me.upstreamRouter
+	router.mux.Lock()
+	defer router.mux.Unlock()
+
+	if len(names) != len(addresses) {
+		fmt.Println("error len(names) != len(addresses) panic")
+		return
+	}
+
+	if len(names) == len(router.channels) {
+		for i, c := range router.channels {
+			if names[i] != c.name {
+				return // no changes
+			}
+		}
+	}
+	// maybe some more verifications?
+
+	// if me.isGuru {
+	// 	me.setGuruUpstreamNames(names)
+	// 	return
+	// }
+
+	// we're a guru.
+	oldContacts := router.channels
+
+	router.channels = make([]*upperChannel, len(names))
+	theNamesThisTime := make(map[string]string, len(names))
+
+	// iterate the names passed in.
+	// constuct a new list. populate it with existing upc
+	// when possible
+
+	for i, name := range names {
+		address := addresses[i]
+		theNamesThisTime[name] = address
+
+		upc, found := router.name2channel[name]
+		if found && upc.running {
+			router.channels[i] = upc
+		} else {
+			fmt.Println("starting upper router from ", me.ex.Name, " to ", name)
+			upc = &upperChannel{}
+			upc.name = name
+			upc.address = address
+			upc.up = make(chan packets.Interface, 1280)
+			upc.down = make(chan packets.Interface, 128)
+			upc.ex = me.ex
+			router.channels[i] = upc
+			go upc.dialGuru()
+		}
+	}
+	// lose the stale ones
+	for _, upc := range oldContacts {
+		_, found := theNamesThisTime[upc.name]
+		if found == false {
+			upc.running = false
+			fmt.Println("forgetting upper router ", upc.name)
+			close(upc.up)
+			close(upc.down)
+			delete(router.name2channel, upc.name)
+		}
+	}
+
+	router.previousmaglev = router.maglev
+	maglevsize := maglev.SmallM
+	if DEBUG {
+		maglevsize = 97
+	}
+	router.maglev = maglev.New(names, uint64(maglevsize))
+	// order subscriptions to be forwarded to the new UpContact.
+
+	// iterate all the subscriptions and push up (again) the ones that have been remapped.
+	// iterate all subscriptions and delete the ones that don't map here anymore.
+	// note that this will need to push up to the g u r u through the conn
+	// just defined and it can BLOCK until the conn completes.
+	// we must watch those buffers and not block here.
+	go func() {
+		command := callBackCommand{}
+		command.callback = reSubscribeRemappedTopics
+
+		for _, bucket := range me.allTheSubscriptions {
+			command.wg.Add(1)
+			bucket.incoming <- &command
+		}
+		command.wg.Wait()
+	}()
+
+}
+
+// dialGuru is used to connect an aide to a guru.
+// if it's tcp then we open sockets and connect them to the channel
+// if not then we simply make a contact in the guru and wire it to the channel
+// note that the channel has a hidden arg for which guru to target
+// we need a version of this to connect a guru to an aide in a super cluster.
 func (upc *upperChannel) dialGuru() {
 
 	defer fmt.Println("** aren't we supposed to never quit this? **")
@@ -76,7 +186,6 @@ func (upc *upperChannel) dialGuru() {
 
 			// when the guru writes we want to get that
 			// and put it in upc.down
-			//pr, pw := io.Pipe()
 			myPipe := newMyPipe()
 			myPipe.name = upc.ex.Name
 			contact.realWriter = myPipe
@@ -92,7 +201,7 @@ func (upc *upperChannel) dialGuru() {
 						fmt.Println(" UPC err PushDown ", err)
 					}
 				}
-				fmt.Println("don't wuit this ")
+				fmt.Println("don't to be here. the upc.down channel should never close  ")
 			}()
 
 			connect := packets.Connect{}

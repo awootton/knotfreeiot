@@ -1,16 +1,21 @@
 package tokens
 
-// SampleSmallToken is a small token signed by "/9sh" (below)
+// SampleSmallToken is a small token signed by "_9sh" (below)
 // p.Input = 20
 // p.Output = 20
 // p.Subscriptions = 2
 // p.Connections = 2
-var SampleSmallToken = `["My token expires: 2020-12-30",{"iss":"/9sh","in":32,"out":32,"su":4,"co":2,"url":"knotfree.net"},"eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiSldUIn0.eyJleHAiOjE2MDkzNzI4MDAsImlzcyI6Ii85c2giLCJqdGkiOiJyMWxkWnRsU3ljSVJlcFpRbWtPYVFIdGsiLCJpbiI6MzIsIm91dCI6MzIsInN1Ijo0LCJjbyI6MiwidXJsIjoia25vdGZyZWUubmV0In0.xkFa05XXUXphdBXwVTaZKLQlpsXzZtuVIET0dStobB1JhTcqEikw7snxUbR4YxLg7DlT_LpKeS1G2arYm3pgDw"]`
+var SampleSmallToken = `[My_token_expires:_2021-12-31,{exp:1641023999,iss:_9sh,jti:amXYKIuS4uykvPem9Fml371o,in:32,out:32,su:4,co:2,url:knotfree.net},eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiSldUIn0.eyJleHAiOjE2NDEwMjM5OTksImlzcyI6Il85c2giLCJqdGkiOiJhbVhZS0l1UzR1eWt2UGVtOUZtbDM3MW8iLCJpbiI6MzIsIm91dCI6MzIsInN1Ijo0LCJjbyI6MiwidXJsIjoia25vdGZyZWUubmV0In0.7ElPyX1Vju8Q5uDOEfgAblwvE2gxT78Jl68JPlqLRcFeMJ7if39Ppl2_Jr_JTky371bIXAn6S-pghtWSqTBwAQ]`
 
 // no point loading them all the time.
 // ed25519
-var publicKeys string = `
-/9sh+kvk3Nd/oN7nq56ydRaFON0YxQ+qCoBL0H91fV4
+// one per line.
+// _9sh is being used to sign tokens
+// 8ZNP is unused
+// yRst is used as cluster public key
+// the others are unused so far and the private part unloaded.
+var PublicKeys string = `
+_9sh+kvk3Nd/oN7nq56ydRaFON0YxQ+qCoBL0H91fV4
 8ZNPzzn2EEnlFCAH6Z//KNHoIyhnIWDGRcy0Ub6F/mc
 yRst5ig1Zf1iYVvI0q0LltjU8gmT+9ZZBKWijosq2Vg
 JvaLqA2oYU9mZHcYYtCWJ7occcW5BiNpbdR2gSVHCFY

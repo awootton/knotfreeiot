@@ -20,7 +20,7 @@ import (
 	"golang.org/x/crypto/nacl/box"
 )
 
-const starttime = uint32(1577840400) // Wednesday, January 1, 2020 1:00:00 AM
+//const starttime = uint32(1577840400) // Wednesday, January 1, 2020 1:00:00 AM
 
 // TODO: add more keys to this test.
 func TestFind(t *testing.T) {
@@ -40,20 +40,26 @@ func TestFind(t *testing.T) {
 	// 	t.Errorf("got %v, want %v", got, want)
 	// }
 
-	dat, err := ioutil.ReadFile("./publicKeys.txt")
-	if err != nil {
-		fmt.Println("fail 1")
-	}
-	datparts := strings.Split(string(dat), "\n")
-	if len(datparts) < 64 {
-		t.Errorf("got %v, want %v", len(datparts), 64)
-	}
+	// dat, err := ioutil.ReadFile("./publicKeys_xxx.txt")
+	// if err != nil {
+	// 	fmt.Println("fail 1")
+	// }
+	// datparts := strings.Split(string(dat), "\n")
+	// if len(datparts) < 64 {
+	// 	t.Errorf("got %v, want %v", len(datparts), 64)
+	// }
+	tmp := strings.Trim(tokens.PublicKeys, " \n")
+	datparts := strings.Split(tmp, "\n")
 	for i, part := range datparts {
+
+		part = strings.ReplaceAll(part, "/", "_") // std to url encoding
+		part = strings.ReplaceAll(part, "+", "-") // std to url encoding
+
 		if i >= 64 {
 			break
 		}
 		prefix := part[0:4]
-		bytes, err := base64.RawStdEncoding.DecodeString(part)
+		bytes, err := base64.RawURLEncoding.DecodeString(part)
 		if err != nil {
 			fmt.Println("fail 2")
 		}
@@ -64,11 +70,14 @@ func TestFind(t *testing.T) {
 		if i >= 64 {
 			break
 		}
+		part = strings.ReplaceAll(part, "/", "_") // std to url encoding
+		part = strings.ReplaceAll(part, "+", "-") // std to url encoding
+
 		prefix := part[0:4]
-		bytes, err := base64.RawStdEncoding.DecodeString(part)
+		bytes, err := base64.RawURLEncoding.DecodeString(part)
 		want = string(bytes)
 		if err != nil {
-			fmt.Println("fail 3")
+			fmt.Println("corrupt input error fail 3")
 		}
 		got = tokens.FindPublicKey(prefix)
 		if got != want {
@@ -126,16 +135,17 @@ func TestKnotEncode(t *testing.T) {
 	// p.Subscriptions = 2
 	// p.Connections = 2
 
-	if os.Getenv("KUBE_EDITOR") == "atom --wait" {
-		p.Issuer = "/9sh"
-		bytes, err := tokens.MakeToken(p, []byte(getRemotePublic("/9sh")))
+	if os.Getenv("KUBE_EDITOR") == "atom --wait" { // ie this is my workstation
+		p.Issuer = "_9sh"
+		bytes, err := tokens.MakeToken(p, []byte(getRemotePublic("_9sh")))
 		if err != nil {
 			got = err.Error()
 		}
 		got = string(bytes)
 		//the old one `eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiSldUIn0.eyJleHAiOjE2MDk0NjI4MDAsImlzcyI6IjFpVnQiLCJqdGkiOiIxMjM0NTYiLCJpbiI6NzAwMDAsIm91dCI6NzAwMDAsInN1IjoyLCJjbyI6MiwidXJsIjoia25vdGZyZWUubmV0In0.T7SrbbXq7V7otfX0eo9eFabWguxwuPsG4Zn9XArGwMc2Q4ifMBm9aSOgvBIBn1Q0Or7pvIsA8u_UL9FnOW-aDg`
-		// this is the sample token used in the tests. It's a /9sh small token.
-		want = `eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiSldUIn0.eyJleHAiOjE2MDk0NjI4MDAsImlzcyI6Ii85c2giLCJqdGkiOiIxMjM0NTYiLCJpbiI6MjAsIm91dCI6MjAsInN1IjoyLCJjbyI6MiwidXJsIjoia25vdGZyZWUubmV0In0.YmKO8U_jKYyZsJo4m4lj0wjP8NJhciY4y3QXt_xlxvnHYznfWI455JJnnPh4HZluGaUcvrNdKAENGh4CfG4tBg`
+		// this is the sample token used in the tests. It's a _9sh small token.
+		// why? want = `eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiSldUIn0.eyJleHAiOjE2MDk0NjI4MDAsImlzcyI6Ii85c2giLCJqdGkiOiIxMjM0NTYiLCJpbiI6MjAsIm91dCI6MjAsInN1IjoyLCJjbyI6MiwidXJsIjoia25vdGZyZWUubmV0In0.YmKO8U_jKYyZsJo4m4lj0wjP8NJhciY4y3QXt_xlxvnHYznfWI455JJnnPh4HZluGaUcvrNdKAENGh4CfG4tBg`
+		want = `eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiSldUIn0.eyJleHAiOjE2MDk0NjI4MDAsImlzcyI6Il85c2giLCJqdGkiOiIxMjM0NTYiLCJpbiI6MjAsIm91dCI6MjAsInN1IjoyLCJjbyI6MiwidXJsIjoia25vdGZyZWUubmV0In0.nMq6Rrb7-GoTyidPh-FWPoCwtQIrDdJkFQMvov0CsA0PbnYLa6260qBu0aaGpKfRgxyHYv1ZA-Ddz6FQcsCLDg`
 		if got != want {
 			t.Errorf("got %v, want %v", got, want)
 		}
@@ -147,7 +157,7 @@ func getRemotePublic(key string) string {
 	usr, _ := user.Current()
 	dir := usr.HomeDir
 
-	dat, err := ioutil.ReadFile(dir + "/atw/privateKeys.txt")
+	dat, err := ioutil.ReadFile(dir + "/atwaux/privateKeys.txt")
 	if err != nil {
 		fmt.Println("fail 4")
 	}
@@ -157,7 +167,10 @@ func getRemotePublic(key string) string {
 	}
 	for _, part := range datparts {
 
-		bytes, err := base64.RawStdEncoding.DecodeString(part)
+		part = strings.ReplaceAll(part, "/", "_") // std to url encoding
+		part = strings.ReplaceAll(part, "+", "-") // std to url encoding
+
+		bytes, err := base64.RawURLEncoding.DecodeString(part)
 		if err != nil {
 			fmt.Println("fail 5")
 		}
@@ -165,7 +178,7 @@ func getRemotePublic(key string) string {
 		privateKey := ed25519.PrivateKey(bytes)
 		publicKey := privateKey.Public()
 		epublic := bytes[32:] // publicKey.([]byte) or get bytes or something
-		public64 := base64.RawStdEncoding.EncodeToString([]byte(epublic))
+		public64 := base64.RawURLEncoding.EncodeToString([]byte(epublic))
 		//fmt.Println(public64)
 		first4 := public64[0:4]
 		if first4 == key {
@@ -314,7 +327,8 @@ func ExampleZeroReader() {
 
 }
 
-func Test1(t *testing.T) {
+// we used this once. It's not a test.
+func xxxxTest1(t *testing.T) {
 	ExampleZeroReader()
 
 	public, private, _ := ed25519.GenerateKey(rand.Reader)
@@ -323,14 +337,14 @@ func Test1(t *testing.T) {
 	fmt.Println(base64.StdEncoding.WithPadding(base64.NoPadding).EncodeToString(private))
 
 	if os.Getenv("KNOT_KUNG_FOO") == "xxxxxatw" {
-		_, err := os.Stat("./publicKeys.txt")
+		_, err := os.Stat("./publicKeys_xxx.txt")
 		if os.IsNotExist(err) {
-			puf, err := os.Create("./publicKeys.txt")
+			puf, err := os.Create("./publicKeys_xxx.txt")
 			if err != nil {
 				fmt.Println("fail 6")
 			}
 			defer puf.Close()
-			prf, err := os.Create("privateKeys.txt")
+			prf, err := os.Create("privateKeys_xxx.txt")
 			if err != nil {
 				fmt.Println("fail 7")
 			}
@@ -338,8 +352,8 @@ func Test1(t *testing.T) {
 
 			for i := 0; i < 64; i++ {
 				public, private, _ := ed25519.GenerateKey(rand.Reader)
-				pu := base64.RawStdEncoding.EncodeToString(public)
-				pr := base64.RawStdEncoding.EncodeToString(private)
+				pu := base64.RawURLEncoding.EncodeToString(public)
+				pr := base64.RawURLEncoding.EncodeToString(private)
 				puf.WriteString(pu + "\n")
 				prf.WriteString(pr + "\n")
 
@@ -349,84 +363,84 @@ func Test1(t *testing.T) {
 
 }
 
-func Test2(t *testing.T) {
-	fmt.Println("hello2")
-	ExampleZeroReader()
+// func Test2(t *testing.T) {
+// 	fmt.Println("hello2")
+// 	ExampleZeroReader()
 
-	tmp, err := ioutil.ReadFile("ccced25519_2.pub")
-	str := string(tmp)
-	str = strings.Split(str, " ")[1]
-	str = strings.ReplaceAll(str, " ", "")
-	str = strings.ReplaceAll(str, "\n", "")
+// 	tmp, err := ioutil.ReadFile("ccced25519_2.pub")
+// 	str := string(tmp)
+// 	str = strings.Split(str, " ")[1]
+// 	str = strings.ReplaceAll(str, " ", "")
+// 	str = strings.ReplaceAll(str, "\n", "")
 
-	public, err := base64.RawStdEncoding.DecodeString(str)
+// 	public, err := base64.RawURLEncoding.DecodeString(str)
 
-	public = tokens.ParseOpenSSHPublicKey(public)
+// 	public = tokens.ParseOpenSSHPublicKey(public)
 
-	if err != nil || len(public) < 32 {
-		t.Error()
-		return
-	}
-	fmt.Println(base64.RawStdEncoding.EncodeToString(public))
+// 	if err != nil || len(public) < 32 {
+// 		t.Error()
+// 		return
+// 	}
+// 	fmt.Println(base64.RawURLEncoding.EncodeToString(public))
 
-	if len(public) != ed25519.PublicKeySize { // 32
-		t.Error()
-		return
-	}
+// 	if len(public) != ed25519.PublicKeySize { // 32
+// 		t.Error()
+// 		return
+// 	}
 
-	tmp, err = ioutil.ReadFile("ccced25519_2")
-	str = string(tmp)
-	str = strings.Split(str, "-----")[2]
-	str = strings.ReplaceAll(str, " ", "")
-	str = strings.ReplaceAll(str, "\n", "")
-	private, err := base64.RawStdEncoding.DecodeString(str)
+// 	tmp, err = ioutil.ReadFile("ccced25519_2")
+// 	str = string(tmp)
+// 	str = strings.Split(str, "-----")[2]
+// 	str = strings.ReplaceAll(str, " ", "")
+// 	str = strings.ReplaceAll(str, "\n", "")
+// 	private, err := base64.RawURLEncoding.DecodeString(str)
 
-	fmt.Println(base64.RawStdEncoding.EncodeToString(private))
+// 	fmt.Println(base64.RawURLEncoding.EncodeToString(private))
 
-	private = tokens.ParseOpenSSHPrivateKey(private)
+// 	private = tokens.ParseOpenSSHPrivateKey(private)
 
-	if err != nil || len(private) < 64 {
-		t.Error()
-		return
-	}
+// 	if err != nil || len(private) < 64 {
+// 		t.Error()
+// 		return
+// 	}
 
-	fmt.Println(base64.RawStdEncoding.EncodeToString(private))
+// 	fmt.Println(base64.RawURLEncoding.EncodeToString(private))
 
-	if len(private) != ed25519.PrivateKeySize { // 64
-		t.Error()
-		return
-	}
+// 	if len(private) != ed25519.PrivateKeySize { // 64
+// 		t.Error()
+// 		return
+// 	}
 
-	message := ([]byte("test message test message test message"))[0:32]
-	sig := ed25519.Sign(private, message)
-	if !ed25519.Verify(public, message, sig) {
-		fmt.Println("valid signature rejected")
-	} else {
-		fmt.Println("good")
-	}
+// 	message := ([]byte("test message test message test message"))[0:32]
+// 	sig := ed25519.Sign(private, message)
+// 	if !ed25519.Verify(public, message, sig) {
+// 		fmt.Println("valid signature rejected")
+// 	} else {
+// 		fmt.Println("good")
+// 	}
 
-	// the reverse ??
-	// see https://blog.filippo.io/using-ed25519-keys-for-encryption/
-	// message2 := "Top of the morning to you sir. a"
-	// ed25519.
+// 	// the reverse ??
+// 	// see https://blog.filippo.io/using-ed25519-keys-for-encryption/
+// 	// message2 := "Top of the morning to you sir. a"
+// 	// ed25519.
 
-	_ = err
+// 	_ = err
 
-}
+// }
 
 // never use these
-var samplePublic = "1iVt3d1E9TaxD/N0rC8c70pD5GryNlu49JC+iWD6UJc"
-var samplePrivate = "u36xbHik/s/5uG6RCPT6MfAYHKJzk/nCZPHzZYZi2czWJW3d3UT1NrEP83SsLxzvSkPkavI2W7j0kL6JYPpQlw"
+var samplePublic = "1iVt3d1E9TaxD_N0rC8c70pD5GryNlu49JC-iWD6UJc"
+var samplePrivate = "u36xbHik_s_5uG6RCPT6MfAYHKJzk_nCZPHzZYZi2czWJW3d3UT1NrEP83SsLxzvSkPkavI2W7j0kL6JYPpQlw"
 
 // GetSamplePublic is
 func GetSamplePublic() []byte {
-	bytes, _ := base64.RawStdEncoding.DecodeString(samplePublic)
+	bytes, _ := base64.RawURLEncoding.DecodeString(samplePublic)
 	return bytes
 }
 
 // GetSamplePrivate is
 func GetSamplePrivate() []byte {
-	bytes, _ := base64.RawStdEncoding.DecodeString(samplePrivate)
+	bytes, _ := base64.RawURLEncoding.DecodeString(samplePrivate)
 	return bytes
 }
 
@@ -485,15 +499,15 @@ func TestMakeTok2(t *testing.T) {
 	tokens.LoadPublicKeys()
 
 	tokens.LoadPrivateKeys("~/atw/privateKeys4.txt")
-	signingKey := tokens.GetPrivateKey("/9sh")
+	signingKey := tokens.GetPrivateKey("_9sh")
 
 	payload := GetSampleTokenPayload(starttime)
-	payload.Issuer = "/9sh"
+	payload.Issuer = "_9sh"
 
 	tok, err := tokens.MakeToken(payload, []byte(signingKey))
 	fmt.Println("tok is ", tok, err)
 
-	_, ok := tokens.VerifyToken(tok, []byte(tokens.FindPublicKey("/9sh")))
+	_, ok := tokens.VerifyToken(tok, []byte(tokens.FindPublicKey("_9sh")))
 
 	fmt.Println("OK", ok)
 
@@ -514,10 +528,10 @@ func TestBox(t *testing.T) {
 	tokens.LoadPublicKeys()
 
 	tokens.LoadPrivateKeys("~/atw/privateKeys4.txt")
-	signingKey := tokens.GetPrivateKey("/9sh")
+	signingKey := tokens.GetPrivateKey("_9sh")
 
 	payload := GetSampleTokenPayload(starttime)
-	payload.Issuer = "/9sh"
+	payload.Issuer = "_9sh"
 	payload.JWTID = getRandomB64String() // has len = 24
 
 	tok, err := tokens.MakeToken(payload, []byte(signingKey))
@@ -550,7 +564,7 @@ func TestBox(t *testing.T) {
 		fmt.Println("OK 1 not ok ", ok)
 	}
 
-	_, ok = tokens.VerifyToken(opened, []byte(tokens.FindPublicKey("/9sh")))
+	_, ok = tokens.VerifyToken(opened, []byte(tokens.FindPublicKey("_9sh")))
 
 	fmt.Println("OK", ok)
 
@@ -559,5 +573,5 @@ func TestBox(t *testing.T) {
 func getRandomB64String() string {
 	var tmp [18]byte
 	rand.Read(tmp[:])
-	return base64.RawStdEncoding.EncodeToString(tmp[:])
+	return base64.RawURLEncoding.EncodeToString(tmp[:])
 }

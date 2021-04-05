@@ -1,4 +1,4 @@
-// Copyright 2019,2020 Alan Tracey Wootton
+// Copyright 2019,2020,2021 Alan Tracey Wootton
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -453,7 +453,7 @@ func WebSocketLoop(wsConn *websocket.Conn, config *ContactStructConfig) {
 
 		MQTTHandlePacket(&cc.mqttContact, control)
 	}
-	//fmt.Println("returned from loop ") 
+	//fmt.Println("returned from loop ")
 }
 
 // IsWholeMqttPacket returns true if the data is an mqtt packet and returns the length used.

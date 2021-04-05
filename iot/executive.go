@@ -1,4 +1,4 @@
-// Copyright 2019,2020 Alan Tracey Wootton
+// Copyright 2019,2020,2021 Alan Tracey Wootton
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -35,6 +35,7 @@ import (
 
 // Executive is one instance of iot service.
 // TODO: FYI: Executive and LookupTableStruct and ContactStructConfig and upstreamRouterStruct are really just one thing.
+
 type Executive struct {
 	Looker *LookupTableStruct
 	Config *ContactStructConfig
@@ -115,7 +116,7 @@ func init() {
 }
 
 // MakeSimplestCluster is just for testing as k8s doesn't work like this.
-func MakeSimplestCluster(timegetter func() uint32, isTCP bool, aideCount int) *ClusterExecutive {
+func MakeSimplestCluster(timegetter func() uint32, isTCP bool, aideCount int, suffix string) *ClusterExecutive {
 
 	GuruNameToConfigMap = make(map[string]*Executive)
 
@@ -134,8 +135,8 @@ func MakeSimplestCluster(timegetter func() uint32, isTCP bool, aideCount int) *C
 	ce.limits = &TestLimits
 
 	// set up
-	guru0 := NewExecutive(100, "guru0", timegetter, true, ce)
-	GuruNameToConfigMap["guru0"] = guru0
+	guru0 := NewExecutive(100, "guru0"+suffix, timegetter, true, ce)
+	GuruNameToConfigMap["guru0"+suffix] = guru0
 	guru0.Config.ce = ce
 	ce.Gurus = append(ce.Gurus, guru0)
 
@@ -148,11 +149,11 @@ func MakeSimplestCluster(timegetter func() uint32, isTCP bool, aideCount int) *C
 		MakeTCPExecutive(guru0, guru0.tcpAddress)
 		MakeHTTPExecutive(guru0, guru0.httpAddress)
 	}
-	ce.currentGuruList = []string{"guru0"}
+	ce.currentGuruList = []string{"guru0" + suffix}
 	ce.currentAddressList = []string{guru0.tcpAddress}
 
 	for i := int64(0); i < int64(aideCount); i++ {
-		aide1 := NewExecutive(100, "aide"+strconv.FormatInt(i, 10), timegetter, false, ce)
+		aide1 := NewExecutive(100, "aide"+strconv.FormatInt(i, 10)+suffix, timegetter, false, ce)
 		aide1.Config.ce = ce
 		ce.Aides = append(ce.Aides, aide1)
 		GuruNameToConfigMap[aide1.Name] = aide1
