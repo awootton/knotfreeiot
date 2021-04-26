@@ -19,12 +19,8 @@
             "mode": "debug",
             "program": "${workspaceFolder}/main.go",
             "args": [
-             
                "--nano",
-
-             //   "-mqtt",
-             //   "-str"
-            ] // "-client=10","-server","-aa","-str","-mqtt
+            ]
         }
     ]
 }

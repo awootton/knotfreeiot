@@ -1,4 +1,4 @@
-// Copyright 2019,2020 Alan Tracey Wootton
+// Copyright 2019,2020,2021 Alan Tracey Wootton
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -18,6 +18,7 @@ package main
 import (
 	"bytes"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -32,6 +33,7 @@ import (
 	"net/url"
 	"os"
 	"reflect"
+	"strconv"
 	"strings"
 	"time"
 
@@ -51,6 +53,12 @@ func main() {
 	tokens.LoadPrivateKeys("~/atw/privateKeys4.txt")
 
 	fmt.Println("Hello knotfreeserver")
+
+	h := sha256.New()
+	h.Write([]byte("anonymousanonymous"))
+	hashBytes := h.Sum(nil)
+
+	fmt.Println(" sha256 of anonymousanonymous is " + base64.RawURLEncoding.EncodeToString(hashBytes))
 
 	isGuru := flag.Bool("isguru", false, "")
 
@@ -88,18 +96,15 @@ func main() {
 	for {
 		time.Sleep(10000 * time.Second)
 	}
-
 }
 
-type apiHandler struct {
+type ApiHandler struct {
 	ce *iot.ClusterExecutive
 }
 
-func (api apiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+func (api ApiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
-	fmt.Println("ServeHTTP", req.RequestURI, req.Host)
-
-	ctx := req.Context()
+	fmt.Println("ApiHandler ServeHTTP", req.RequestURI, req.Host)
 
 	if req.RequestURI == "/api1/getallstats" {
 
@@ -118,115 +123,20 @@ func (api apiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	} else if req.RequestURI == "/api1/getToken" {
 
-		remoteAddr := req.RemoteAddr
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		api.ServeMakeToken(w, req)
 
-		// what is IP or id of sender?
-		fmt.Println("token req RemoteAddr", remoteAddr) // F I X M E: use db see below
-
-		var buff1024 [1024]byte
-		n, err := req.Body.Read(buff1024[:])
-		buf := buff1024[:n]
-		//fmt.Println("read body", string(buf), n)
-
-		tokenRequest := &tokens.TokenRequest{}
-		err = json.Unmarshal(buf, tokenRequest)
-		if err != nil {
-			iot.BadTokenRequests.Inc()
-			fmt.Println("TokenRequest err", err.Error())
-			http.Error(w, err.Error(), 500)
-		} else {
-			// todo: calc cost of this token and have limit.
-			// move this phat routine somewhere else TODO:
-
-			clientPublicKey := tokenRequest.Pkey
-			if len(clientPublicKey) != 64 {
-				iot.BadTokenRequests.Inc()
-				http.Error(w, "bad client key", 500)
-			}
-
-			signingKey := tokens.GetPrivateKey("_9sh")
-
-			payload := tokenRequest.Payload
-			payload.Issuer = "_9sh"
-			payload.JWTID = tokens.GetRandomB64String()
-			nonce := payload.JWTID
-
-			exp := payload.ExpirationTime
-			if exp > uint32(time.Now().Unix()+60*60*24*365) {
-				// more than a year in the future not allowed now.
-				exp = uint32(time.Now().Unix() + 60*60*24*365)
-				fmt.Println("had long token ", string(payload.JWTID)) // TODO: store in db
-			}
-
-			cost := tokens.CalcTokenPrice(tokenRequest.Payload)
-			fmt.Println("token cost is " + fmt.Sprintf("%f", cost))
-
-			if cost > 0.001 {
-				http.Error(w, "token too expensive at "+fmt.Sprintf("%f", cost), 500)
-			}
-
-			tokenString, err := tokens.MakeToken(payload, []byte(signingKey))
-			if err != nil {
-				iot.BadTokenRequests.Inc()
-				http.Error(w, err.Error(), 500)
-				return
-			}
-
-			when := time.Unix(int64(exp), 0)
-			year, month, day := when.Date()
-
-			// payload.JWTID = ""
-			//payload.ExpirationTime = 0
-
-			comments := make([]interface{}, 3)
-			tmp := fmt.Sprintf(" expires: %v-%v-%v", year, int(month), day)
-			comments[0] = tokenRequest.Comment + tmp
-			comments[1] = payload
-			comments[2] = string(tokenString)
-			returnval, err := json.Marshal(comments)
-			returnval = []byte(strings.ReplaceAll(string(returnval), `"`, ``))
-			returnval = []byte(strings.ReplaceAll(string(returnval), ` `, `_`))
-			//fmt.Println("sending token package ", string(returnval)) // FIXME: use db
-
-			err = tokens.LogNewToken(ctx, payload, remoteAddr)
-			if err != nil {
-				iot.BadTokenRequests.Inc()
-				http.Error(w, err.Error(), 500)
-				return
-			}
-
-			// box it up
-			boxout := make([]byte, len(returnval)+box.Overhead)
-			boxout = boxout[:0]
-			var jwtid [24]byte
-			copy(jwtid[:], []byte(nonce))
-
-			var clipub [32]byte
-			n, err := hex.Decode(clipub[:], []byte(clientPublicKey))
-			if n != 32 {
-				iot.BadTokenRequests.Inc()
-				http.Error(w, "bad size2", 500)
-				return
-			}
-
-			sealed := box.Seal(boxout, returnval, &jwtid, &clipub, api.ce.PrivateKeyTemp)
-
-			reply := tokens.TokenReply{}
-			reply.Nonce = nonce
-			reply.Pkey = hex.EncodeToString(api.ce.PublicKeyTemp[:])
-			reply.Payload = hex.EncodeToString(sealed)
-			bytes, err := json.Marshal(reply)
-			if err != nil {
-				iot.BadTokenRequests.Inc()
-				http.Error(w, err.Error(), 500)
-				return
-			}
-			time.Sleep(8 * time.Second)
-			w.Write(bytes)
-		}
 	} else if req.RequestURI == "/api1/getPublicKey" {
 
 		sss := base64.RawURLEncoding.EncodeToString([]byte(tokens.FindPublicKey("yRst")))
+		fmt.Println("serve /api1/getPublicKey ", sss)
+
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Write([]byte(sss))
+
+	} else if req.RequestURI == "/api1/getGiantPassword" {
+
+		sss := tokens.MakeRandomPhrase(14)
 
 		w.Write([]byte(sss))
 
@@ -248,35 +158,17 @@ type SuperMux struct {
 	super, sub *http.ServeMux
 }
 
-func parsePayload(httpBytes string) (string, map[string]string, string) {
-	headerMap := make(map[string]string)
-	pos := strings.Index(httpBytes, "\r\n\r\n")
-	if pos <= 0 {
-		fmt.Println("isWhat? no header end!!! this is bad ", httpBytes)
-		return "", headerMap, ""
-	}
-	payload := httpBytes[pos+4:]
-	headers := httpBytes[0:pos]
-	headerParts := strings.Split(headers, "\r\n")
-
-	firstLine := headerParts[0]
-	headerParts = headerParts[1:]
-	for _, head := range headerParts {
-		pos = strings.Index(head, ":")
-		if pos > 0 && len(head) > 3 {
-			key := strings.Trim(head[0:pos], " ")
-			val := strings.Trim(head[pos+1:], " ")
-			headerMap[key] = val
-		} else {
-			fmt.Println("weird header found " + head)
-		}
-	}
-	return firstLine, headerMap, payload
-}
-
 func (superMux *SuperMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
+	//fmt.Println("giant token ", tokens.GetImpromptuGiantToken())
+
 	domainParts := strings.Split(r.Host, ".")
+	// eg [dummy localhost:8085]
+	// eg [knotfree net]
+	// eg [subdomain knotfree net]
+	// eg [subdomain knotfreeiot net]
+	// eg [subdomain go2here io]
+	fmt.Println("serving domainParts ", domainParts)
 
 	// supermux.sub.Handle("/api1/", apiHandler{ce})
 	// supermux.sub.Handle("/mqtt", wsAPIHandler{ce})
@@ -285,7 +177,7 @@ func (superMux *SuperMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	isGetToken := len(r.RequestURI) >= 9 && r.RequestURI[:9] == "/api1/get"
 	//isGetToken = isGetToken || r.RequestURI == "/mqtt"
 
-	if len(domainParts) > 1 && isGetToken == false {
+	if len(domainParts) > 2 && isGetToken == false {
 		// we have a subdomain
 		subDomain := domainParts[0]
 		fmt.Println("serving subdomain ", subDomain, "  with "+r.URL.String())
@@ -324,16 +216,20 @@ func (superMux *SuperMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				buf.WriteString(tmp)
 			}
 		}
-		buf.WriteString("Accept-Encoding: identity\n") // no gzip
 		buf.WriteString("\n")
-
-		fmt.Println("about to write body to publish packet ", buf.String())
-
 		n, err := buf.Write(theBody)
 		if err != nil || (n != len(theBody)) {
 			http.Error(w, "http theBody write ", 500)
 		}
+		// now the whole original request packet is in buf
 		//fmt.Println("http is ", buf.String())
+
+		type pinfo struct {
+			buff []byte
+		}
+
+		pastWritesIndex := 0
+		packetList := make([]*pinfo, 0)
 
 		// we need to make a contact
 		// make a reply address
@@ -356,16 +252,9 @@ func (superMux *SuperMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), 500)
 			return
 		}
-		// define a reader and a writer
-		//gotDataChan := make(chan byte)
-
-		gotDataChan := new(iot.ByteChan)
-		gotDataChan.TheChan = make(chan []byte, 1)
-		contact.SetWriter(gotDataChan)
-		// we don't need for the contact to read. We'll push directly
-
 		// subscribe
 		myRandomAddress := GetRandomB64String()
+		// fmt.Println("will be using myRandomAddress ", myRandomAddress)
 		// just for test: myRandomAddress = "atwdummytest9999999"
 		subs := packets.Subscribe{}
 		subs.Address.FromString(myRandomAddress)
@@ -373,65 +262,143 @@ func (superMux *SuperMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		//fmt.Println(" our return addr will be ", subs.Address.String())
 		err = iot.PushPacketUpFromBottom(contact, &subs)
 
-		pub := packets.Send{}
-		pub.Address.FromString(subDomain) // !!!!!
-		pub.Source = subs.Address
-		//fmt.Println(" our send addr is ", pub.Address.String())
-		pub.Address.EnsureAddressIsBinary()
-		//fmt.Println(" our send addr is ", pub.Address.String())
-		//fmt.Println(" our return addr is ", pub.Source.String())
-		//pub.Payload = []byte("GET " + r.URL.String() + " HTTP/1.1\n\n")
-		pub.Payload = buf.Bytes()
+		// define a reader and a writer
+		gotDataChan := new(iot.ByteChan)
+		gotDataChan.TheChan = make(chan []byte, 1)
+		contact.SetWriter(gotDataChan)
+		// we don't need for the contact to read. We'll push directly
 
-		//fmt.Println("payload ius ", string(pub.Payload))
+		if buf.Len() > 60*1024 {
+			// stream it
+			fmt.Println("ERROR fixme: implement this streaming thing")
+		} else {
+			// just send it all at once in one Send
+			pub := packets.Send{}
+			pub.Address.FromString(subDomain) // !!!!!
+			pub.Source = subs.Address
+			//fmt.Println(" our send addr is ", pub.Address.String())
+			pub.Address.EnsureAddressIsBinary()
+			//fmt.Println(" our send addr is ", pub.Address.String())
+			//fmt.Println(" our return addr is ", pub.Source.String())
+			//pub.Payload = []byte("GET " + r.URL.String() + " HTTP/1.1\n\n")
+			pub.Payload = buf.Bytes()
+			//fmt.Println("payload ius ", string(pub.Payload))
+			err = iot.PushPacketUpFromBottom(contact, &pub)
+		}
 
-		err = iot.PushPacketUpFromBottom(contact, &pub)
+		hj, ok := w.(http.Hijacker)
+		if !ok {
+			http.Error(w, "webserver doesn't support hijacking", http.StatusInternalServerError)
+			return
+		}
+		conn, responseBuffer, err := hj.Hijack()
+		if err != nil {
+			fmt.Println("hijack error  ", err)
+		}
+		defer func() {
+			fmt.Println("closing hijack socket with " + r.URL.String())
+			conn.Close()
+		}()
 
-		//go
-		//func()
-		{
+		{ // The Receive-a-packet loop
 			running := true
+			//hadHeader := false
 			for running { // data := range gotDataChan {
 				select {
 				case somedata := <-gotDataChan.TheChan:
 					if somedata == nil {
 						running = false
 					}
-					// var cmd packets.Interface
+					fmt.Println("packet on gotDataChan.TheChan  ")
+					// var cmd packets.Interface.
 					cmd, err := packets.ReadPacket(bytes.NewReader(somedata))
 					if err != nil {
 						fmt.Println("packet parse problem with gotDataChan  ", err)
 						http.Error(w, err.Error(), 500)
 						return
 					}
-					switch cmd.(type) {
+					keys, values := cmd.GetOptionKeys()
+					//fmt.Println("packet user keys ", keys, values)
+					_ = keys
+					_ = values
 
+					switch cmd.(type) {
 					case *packets.Send:
 						snd := cmd.(*packets.Send)
-						fmt.Println("got a reply payload packet:", string(snd.Payload))
-						firstLine, headerParts, theHtmlPart := parsePayload(string(snd.Payload))
-						_ = firstLine
-						for k, v := range headerParts { // copy the headers over
-							w.Header().Add(k, v)
+						end := 32
+						if end > len(snd.Payload) {
+							end = len(snd.Payload)
 						}
-						fmt.Println("writing theHtmlPart:", theHtmlPart)
-						w.Write([]byte(theHtmlPart))
+						packetCountStr, ok := snd.GetOption("of")
+						if ok == true {
+							fmt.Println("packet count total= ", packetCountStr)
+							// we have the last packet.
+							running = false
+							break
+						}
+						packetCountStr, ok = snd.GetOption("indx")
+						if !ok {
+							packetCountStr = []byte("0")
+						}
+						if packetCountStr[0] == '[' { // some idiot wrapped it in []
+							packetCountStr = packetCountStr[1:]
+						}
+						if packetCountStr[len(packetCountStr)-1] == ']' {
+							packetCountStr = packetCountStr[0 : len(packetCountStr)-1]
+						}
+						packetIncomingIndex, _ := strconv.Atoi(string(packetCountStr))
+						//fmt.Println("packet count is ", packetCount)
+						//if packetCount != packetsReceived {
+						//	fmt.Println("we seem to have lost a PACKET:", packetCount, packetsReceived)
+						//} pastWritesIndex
+						for packetIncomingIndex >= len(packetList) {
+							pi := &pinfo{}
+							packetList = append(packetList, pi)
+						}
+						newPacket := packetList[packetIncomingIndex]
+						newPacket.buff = snd.Payload
+
+						for true { // loop over packetlist stuff we can write
+							if pastWritesIndex >= len(packetList) {
+								break // at the end
+							}
+							nextPi := packetList[pastWritesIndex]
+
+							end := 32
+							if len(nextPi.buff) < end {
+								end = len(nextPi.buff)
+							}
+
+							//fmt.Println("got a reply payload packet index ", pastWritesIndex, "d=", string(nextPi.buff[0:end]))
+							n, err := responseBuffer.Write(nextPi.buff)
+							pastWritesIndex += 1
+							if err != nil {
+								fmt.Println("got a reply write err:", err)
+								running = false
+								break
+							}
+							if n != len(nextPi.buff) {
+								fmt.Println("writing len wanted, needed:", len(nextPi.buff), n)
+							}
+							responseBuffer.Flush()
+						}
+
 					default:
-						// no match. do nothing. apnic?
+						// no match. do nothing. panic?
 						fmt.Println("got weird packet instead of publish ", reflect.TypeOf(cmd))
 						w.Write([]byte("error got weird packet"))
 					}
-
-					running = false
-				case <-time.After(16 * time.Second):
-					errMsg := "timed out waiting for html reply"
+				// is this the only way to know that we're done??
+				case <-time.After(12 * time.Second):
+					errMsg := "timed out waiting for html reply " + firstLine
 					fmt.Println(errMsg)
-					http.Error(w, errMsg, 500)
+					// http.Error(w, errMsg, 500)
 					running = false
 				}
 			}
 
-			fmt.Println("closing html write ")
+			//fmt.Println("closing html write ")
+			responseBuffer.Flush()
 			// un sub
 			// close the contact
 			unsub := packets.Unsubscribe{}
@@ -440,10 +407,6 @@ func (superMux *SuperMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			_ = err
 			contact.Close(errors.New("normal close"))
 		}
-
-		//aContact := superMux.ce.Aides[0]
-		//pub := &iot.PushPacketUpFromBottom()
-
 	} else {
 		superMux.sub.ServeHTTP(w, r)
 	}
@@ -473,7 +436,7 @@ func startPublicServer(ce *iot.ClusterExecutive) {
 	supermux.ce = ce
 
 	supermux.sub = http.NewServeMux()
-	supermux.sub.Handle("/api1/", apiHandler{ce})
+	supermux.sub.Handle("/api1/", ApiHandler{ce})
 	supermux.sub.Handle("/mqtt", wsAPIHandler{ce})
 	fs := http.FileServer(http.Dir("./docs/_site"))
 	supermux.sub.Handle("/", fs)
@@ -650,4 +613,185 @@ func (api wsAPIHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// 		break
 	// 	}
 	// }
+}
+
+func ParsePayload(httpBytes string) (string, map[string]string, string) {
+	headerMap := make(map[string]string)
+	pos := strings.Index(httpBytes, "\r\n\r\n")
+	if pos <= 0 {
+		fmt.Println("isWhat? no header end!!! this is bad ", httpBytes)
+		return "", headerMap, ""
+	}
+	payload := httpBytes[pos+4:]
+	headers := httpBytes[0:pos]
+	headerParts := strings.Split(headers, "\r\n")
+
+	firstLine := headerParts[0]
+	headerParts = headerParts[1:]
+	for _, head := range headerParts {
+		pos = strings.Index(head, ":")
+		if pos > 0 && len(head) > 3 {
+			key := strings.Trim(head[0:pos], " ")
+			val := strings.Trim(head[pos+1:], " ")
+			headerMap[key] = val
+		} else {
+			fmt.Println("weird header found " + head)
+		}
+	}
+	return firstLine, headerMap, payload
+}
+
+var bootTimeSec int64 = 0
+var tokensServed int64 = 0
+
+func (api ApiHandler) ServeMakeToken(w http.ResponseWriter, req *http.Request) {
+
+	if bootTimeSec == 0 {
+		bootTimeSec = time.Now().Unix()
+	}
+
+	remoteAddr := req.RemoteAddr
+	parts := strings.Split(remoteAddr, ":") // eg [::1]:49326
+	// lose the port
+	parts = parts[0 : len(parts)-1]
+	remoteAddr = strings.Join(parts, ":")
+	// remoteAddr += req.Header.Get("HTTP_X_FORWARDED_FOR")
+
+	ctx := req.Context()
+
+	// what is IP or id of sender?
+	fmt.Println("token req RemoteAddr", remoteAddr) // F I X M E: use db see below
+
+	now := time.Now().Unix()
+	numberOfMinutesPassed := (now - bootTimeSec) / 60
+	if tokensServed > numberOfMinutesPassed {
+		iot.BadTokenRequests.Inc()
+		http.Error(w, "Token dispenser is too busy now. Try in a minute, or, you could buy $5 worth and pass them to all your friends", 500)
+		return
+	}
+	if numberOfMinutesPassed > 60 {
+		// reset the allocator every hour
+		bootTimeSec = now
+		tokensServed = 0
+	}
+
+	var buff1024 [1024]byte
+	n, err := req.Body.Read(buff1024[:])
+	buf := buff1024[:n]
+	fmt.Println("tpoken request read body", string(buf), n)
+	_ = buf
+
+	tokenRequest := &tokens.TokenRequest{}
+	err = json.Unmarshal(buf, tokenRequest)
+	if err != nil {
+		iot.BadTokenRequests.Inc()
+		fmt.Println("TokenRequest err", err.Error())
+		http.Error(w, err.Error(), 500)
+		return
+	} else {
+		// todo: calc cost of this token and have limit.
+		// move this phat routine somewhere else TODO:
+
+		clientPublicKey := tokenRequest.Pkey
+		if len(clientPublicKey) != 64 {
+			iot.BadTokenRequests.Inc()
+			http.Error(w, "bad client key", 500)
+			return
+		}
+
+		//payload := tokenRequest.Payload // can we not use the request payload?
+		// we only need variable sizes when collcecting money
+		payload := tokens.KnotFreeTokenPayload{}
+		payload.Connections = 2
+		// 90 days
+		payload.ExpirationTime = uint32(time.Now().Unix() + 60*60*24*90)
+		payload.Input = 32
+
+		payload.Issuer = "_9sh"
+		payload.JWTID = tokens.GetRandomB64String()
+		nonce := payload.JWTID
+		targetSite := "knotfree.net" // which is mapped to localhost by /etc/hosts
+		if os.Getenv("KNOT_KUNG_FOO") == "atw" {
+			targetSite = "knotfree0.com"
+		}
+
+		payload.Output = 32
+		payload.Subscriptions = 20
+
+		payload.URL = targetSite
+
+		exp := payload.ExpirationTime
+		if exp > uint32(time.Now().Unix()+60*60*24*365) {
+			// more than a year in the future not allowed now.
+			exp = uint32(time.Now().Unix() + 60*60*24*365)
+			fmt.Println("had long token ", string(payload.JWTID)) // TODO: store in db
+		}
+
+		cost := tokens.CalcTokenPrice(&payload, uint32(time.Now().Unix()))
+		fmt.Println("token cost is " + fmt.Sprintf("%f", cost))
+
+		if cost > 0.012 {
+			http.Error(w, "token too expensive at "+fmt.Sprintf("%f", cost), 500)
+			return
+		}
+
+		signingKey := tokens.GetPrivateKey("_9sh")
+		tokenString, err := tokens.MakeToken(&payload, []byte(signingKey))
+		if err != nil {
+			iot.BadTokenRequests.Inc()
+			http.Error(w, err.Error(), 500)
+			return
+		}
+		signingKey = "unused now"
+
+		when := time.Unix(int64(exp), 0)
+		year, month, day := when.Date()
+
+		comments := make([]interface{}, 3)
+		tmp := fmt.Sprintf(" expires: %v-%v-%v", year, int(month), day)
+		comments[0] = tokenRequest.Comment + tmp
+		comments[1] = payload
+		comments[2] = string(tokenString)
+		returnval, err := json.Marshal(comments)
+		returnval = []byte(strings.ReplaceAll(string(returnval), `"`, ``))
+		returnval = []byte(strings.ReplaceAll(string(returnval), ` `, `_`))
+		//fmt.Println("sending token package ", string(returnval)) // FIXME: use db
+
+		err = tokens.LogNewToken(ctx, &payload, remoteAddr)
+		if err != nil {
+			iot.BadTokenRequests.Inc()
+			http.Error(w, err.Error(), 500)
+			return
+		}
+		// box it up
+		boxout := make([]byte, len(returnval)+box.Overhead)
+		boxout = boxout[:0]
+		var jwtid [24]byte
+		copy(jwtid[:], []byte(nonce))
+
+		var clipub [32]byte
+		n, err := hex.Decode(clipub[:], []byte(clientPublicKey))
+		if n != 32 {
+			iot.BadTokenRequests.Inc()
+			http.Error(w, "bad size2", 500)
+			return
+		}
+		sealed := box.Seal(boxout, returnval, &jwtid, &clipub, api.ce.PrivateKeyTemp)
+
+		reply := tokens.TokenReply{}
+		reply.Nonce = nonce
+		reply.Pkey = hex.EncodeToString(api.ce.PublicKeyTemp[:])
+		reply.Payload = hex.EncodeToString(sealed)
+		bytes, err := json.Marshal(reply)
+		if err != nil {
+			iot.BadTokenRequests.Inc()
+			http.Error(w, err.Error(), 500)
+			return
+		}
+		//time.Sleep(8 * time.Second)
+		time.Sleep(1 * time.Second)
+		w.Write(bytes)
+		tokensServed++
+		fmt.Println("done sending free token")
+	}
 }

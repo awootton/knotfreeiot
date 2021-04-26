@@ -20,6 +20,66 @@ import (
 	"golang.org/x/crypto/nacl/box"
 )
 
+func TestMakeRandomPhrase(t *testing.T) {
+
+	// 12 words is about 120 bits of random
+	// 14 words is about 140 bits of random
+
+	str := tokens.MakeRandomPhrase(14)
+	if len(str) < 30 {
+		t.Error("TestMakeRandomPhrase fail too short")
+	}
+	fmt.Println(" TestMakeRandomPhrase = ", str)
+
+}
+func xxxTestMassageWordList(t *testing.T) {
+
+	path, err := os.Getwd()
+	if err != nil {
+		fmt.Println(err)
+	}
+	fmt.Println(path)
+
+	// we're in 'tests/'
+	dat, err := ioutil.ReadFile("../words-table-before.txt")
+	if err != nil {
+		fmt.Println("problem reading file")
+	}
+	strdata := string(dat)
+	for i := 0; i < 10; i++ {
+		strdata = strings.ReplaceAll(strdata, "  ", " ")
+		_ = i
+	}
+	lines := strings.Split(strdata, "\n")
+	f, err := os.Create("../wordlist-after.txt")
+	if err != nil {
+		fmt.Println("problem reading file")
+	}
+	defer f.Close()
+
+	for _, line := range lines {
+		parts := strings.Split(line, " ")
+		for _, part := range parts {
+			word := part
+			word = strings.Trim(word, " ")
+			word = strings.Trim(word, "\t")
+			if len(word) <= 1 {
+				continue
+			}
+			if strings.Contains(word, "1") || strings.Contains(word, "2") || strings.Contains(word, "3") {
+				continue
+			}
+			if strings.Contains(word, "4") || strings.Contains(word, "5") || strings.Contains(word, "6") {
+				continue
+			}
+			if strings.Contains(word, "7") || strings.Contains(word, "8") || strings.Contains(word, "9") {
+				continue
+			}
+			f.Write([]byte(word + "\n"))
+		}
+	}
+}
+
 //const starttime = uint32(1577840400) // Wednesday, January 1, 2020 1:00:00 AM
 
 // TODO: add more keys to this test.
@@ -177,7 +237,7 @@ func getRemotePublic(key string) string {
 
 		privateKey := ed25519.PrivateKey(bytes)
 		publicKey := privateKey.Public()
-		epublic := bytes[32:] // publicKey.([]byte) or get bytes or something
+		epublic := publicKey.(ed25519.PublicKey)
 		public64 := base64.RawURLEncoding.EncodeToString([]byte(epublic))
 		//fmt.Println(public64)
 		first4 := public64[0:4]
@@ -304,14 +364,34 @@ func TestMakeTicket000(t *testing.T) {
 }
 
 type AtwEd int
+type MakeKeypair int
+
+func TestMakeKeypair(t *testing.T) {
+
+	public, private, _ := ed25519.GenerateKey(rand.Reader)
+
+	fmt.Println(base64.RawURLEncoding.EncodeToString(public))
+	fmt.Println(base64.RawURLEncoding.EncodeToString(private))
+
+	pub2 := private.Public()
+	retypeed, ok := pub2.(ed25519.PublicKey)
+	fmt.Println("pub2", base64.RawURLEncoding.EncodeToString(retypeed), ok)
+
+	got := base64.RawURLEncoding.EncodeToString(retypeed)
+	want := base64.RawURLEncoding.EncodeToString(public)
+	if got != want {
+		t.Errorf("got %v, want %v", got, want)
+	}
+
+}
 
 func ExampleZeroReader() {
 
 	var zero tokens.ZeroReader
 	public, private, _ := ed25519.GenerateKey(zero)
 
-	fmt.Println(base64.StdEncoding.WithPadding(base64.NoPadding).EncodeToString(public))
-	fmt.Println(base64.StdEncoding.WithPadding(base64.NoPadding).EncodeToString(private))
+	fmt.Println(base64.RawURLEncoding.WithPadding(base64.NoPadding).EncodeToString(public))
+	fmt.Println(base64.RawURLEncoding.WithPadding(base64.NoPadding).EncodeToString(private))
 
 	message := []byte("test message")
 	sig := ed25519.Sign(private, message)
@@ -336,6 +416,7 @@ func xxxxTest1(t *testing.T) {
 	fmt.Println(base64.StdEncoding.WithPadding(base64.NoPadding).EncodeToString(public))
 	fmt.Println(base64.StdEncoding.WithPadding(base64.NoPadding).EncodeToString(private))
 
+	// on my develpoer maching KNOT_KUNG_FOO is awt so I can tell I'm local
 	if os.Getenv("KNOT_KUNG_FOO") == "xxxxxatw" {
 		_, err := os.Stat("./publicKeys_xxx.txt")
 		if os.IsNotExist(err) {
@@ -448,7 +529,7 @@ func GetSamplePrivate() []byte {
 func GetSampleTokenPayload(startTime uint32) *tokens.KnotFreeTokenPayload {
 	p := &tokens.KnotFreeTokenPayload{}
 	p.Issuer = "1iVt" // first 4 from public
-	p.ExpirationTime = startTime + 60*60*24*(365+1)
+	p.ExpirationTime = startTime + 60*60*24*(365)
 	p.JWTID = "123456"
 	p.Input = 20
 	p.Output = 20
@@ -505,7 +586,7 @@ func TestMakeTok2(t *testing.T) {
 	payload.Issuer = "_9sh"
 
 	tok, err := tokens.MakeToken(payload, []byte(signingKey))
-	fmt.Println("tok is ", tok, err)
+	fmt.Println("TestMakeTok2 is ", base64.RawURLEncoding.EncodeToString(tok), err)
 
 	_, ok := tokens.VerifyToken(tok, []byte(tokens.FindPublicKey("_9sh")))
 
@@ -535,7 +616,7 @@ func TestBox(t *testing.T) {
 	payload.JWTID = getRandomB64String() // has len = 24
 
 	tok, err := tokens.MakeToken(payload, []byte(signingKey))
-	fmt.Println("tok is ", tok, err)
+	fmt.Println("TestBox tok is ", base64.RawURLEncoding.EncodeToString(tok), err)
 
 	// box it up
 	boxout := make([]byte, len(tok)+box.Overhead+99)

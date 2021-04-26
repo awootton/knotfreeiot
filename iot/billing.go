@@ -123,19 +123,19 @@ func (ba *BillingAccumulator) AreUnderMax(now uint32) (bool, string) {
 
 	if current.Connections > (ba.max.Connections + .1) {
 		weGood = false
-		why += fmt.Sprintf("%v connections > %v", current.Connections, ba.max.Connections)
+		why += fmt.Sprintf("BILLING ERROR %v connections > %v", current.Connections, ba.max.Connections)
 	}
 	if current.Input > (ba.max.Input + .1) {
 		weGood = false
-		why += fmt.Sprintf("%v bytes in > %v/s", current.Input, ba.max.Input)
+		why += fmt.Sprintf("BILLING ERROR %v bytes in > %v/s", current.Input, ba.max.Input)
 	}
 	if current.Output > (ba.max.Output + .1) {
 		weGood = false
-		why += fmt.Sprintf("%v bytes out > %v/s", current.Output, ba.max.Output)
+		why += fmt.Sprintf("BILLING ERROR %v bytes out > %v/s", current.Output, ba.max.Output)
 	}
 	if current.Subscriptions > (ba.max.Subscriptions + .1) {
 		weGood = false
-		why += fmt.Sprintf("%v subscriptions > %v", current.Subscriptions, ba.max.Subscriptions)
+		why += fmt.Sprintf("BILLING ERROR %v subscriptions > %v", current.Subscriptions, ba.max.Subscriptions)
 	}
 
 	return weGood, why

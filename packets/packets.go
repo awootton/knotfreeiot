@@ -1,4 +1,4 @@
-// Copyright 2019,2020 Alan Tracey Wootton
+// Copyright 2019,2020,2021 Alan Tracey Wootton
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -54,6 +54,8 @@ type Interface interface {
 	String() string
 
 	GetOption(key string) ([]byte, bool)
+
+	GetOptionKeys() ([]string, [][]byte)
 }
 
 // StandardAliasXX deleteme is really a HashType in bytes or [24]byte enforced elsewhere.

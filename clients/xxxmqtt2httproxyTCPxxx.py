@@ -8,12 +8,8 @@ import time
 import datetime
 import paho.mqtt.client as paho
 
-from http.server import BaseHTTPRequestHandler
+import socket
 
-# from http_parser.http import HttpStream
-# from http_parser.reader import SocketReader
-
-import requests
 
 # Brokers tested: see http://moxd.io/2015/10/17/public-mqtt-brokers/ which is from 2015
 
@@ -34,27 +30,7 @@ password = '[My_token_expires:_2021-12-31,{exp:1641023999,iss:_9sh,jti:amXYKIuS4
 #password = ''
 
 targetPort = 4000
-
-def parseHttp( httppacket ):
-    lines = []
-    content = ""
-    result = 200
-
-    prev = 0
-    i = 0
-    theLen = len(httppacket)
-    for i in range(theLen):
-        c = httppacket[i]
-        if c == 10: # line feed
-            theline = httppacket[prev:i]
-            if theline == "":
-                break
-            lines.append(theline)
-            prev = i + 1
-
-    content = httppacket[i+1:]
-
-    return lines,content,result
+#targetPort = 3000
 
 # define callbacks
 
@@ -69,61 +45,86 @@ def on_message(client, userdata, message):
     user_properties=message.properties.UserProperty
     #print("user properties received= ",user_properties)
 
-    # this is horrible: I'll do it myself
-    # request = HTTPRequest(message.payload) #  parse it
+    responseTopic = str(message.properties.ResponseTopic)
 
-    # print( "request err code ", request.error_code    )
-    # print( "request method ", request.command  ) # GET
-    # print( "request path ", request.path  ) # /
-    # print( "request protocol_version ", request.protocol_version  ) # HTTP/1.0
-    # print( "request raw_requestline ", request.raw_requestline  ) # b'GET / HTTP/1.1\n'
-    # print( "request headers ", request.headers    )
-    # print( "request content ", request.get_payload()    ) # what is this?? 
+    host = "localhost"
+    port = targetPort                   # The same port as used by the server
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.connect((host, port))
+    #print("sending host,port, msg",host,port,message.payload)
+    s.sendall(message.payload)
 
-    lines,content,resultCode = parseHttp(message.payload)
-    if len(lines) <= 1:
-        return 
+    # loop here until we get it all, i mean forever
+    #contentLen = -1
+    #headerSize = 0
+    #neededSize = 99999999
 
-    parts = str(lines[0]).split(" ")
-    print( "the parts are 3 ", parts) # ["b'GET", '/', "HTTP/1.1'"]
+    dest = bytearray()
+    done = False
+    startTime = time.time()
+    headerendBytes = bytearray(b'\r\n\r\n')
+    contentLenBytes = bytearray(b'Content-Length:')
 
-    method = str(parts[0])[2:] # skip the b'
+    while  True :
+        now = time.time()
+        if now - startTime > 10:
+            # timed  out after 10 sec
+            break
+        data = s.recv(4096)
+        #print(" recieved len = " , len(data))
+        dest.extend(data)
+        #print("dest len is now ", len(dest))
+        if headerSize == 0 or contentLen == -1:
+            # try to parse the header enought to know packet len
+            headerEnd = dest.find(headerendBytes,0) + len(headerendBytes)
+            if headerEnd > 0:
+                headerSize = headerEnd
+                # we must find the con
+                pos = dest.find(contentLenBytes,0)
+                if pos >= 0:
+                    pos2 = dest.find(b'\r\n',pos)
+                    clenstr = (dest[pos + len(contentLenBytes):pos2]).decode()
+                    clenstr = clenstr.strip()
+                    print ( "clen str is ", clenstr)
+                    clen = int(clenstr)
+                    contentLen = clen
+                else :
+                    pos = dest.find(b'Transfer-Encoding:',0)
+                    if pos > 0:
+                        # i'm not sure this actually works
+                        pos2 = dest.find(b'chunked',pos)
+                        if pos2 > 0:
+                            needMore = True
+                            pos1 = headerSize
+                            pos2 = 0
+                            while needMore:
+                                #print("current data ", dest[pos1-4:])
+                                pos2 = dest.find(b'\r\n',pos1)
+                                if pos2 < 0:
+                                    break
+                                lenbytes = dest[pos1:pos2]
+                                lenstr = lenbytes.decode()
+                                if len(lenstr) == 0:
+                                    #we're done
+                                    contentLen = (pos2+2) - headerSize
+                                    break
+                                chunkLen = int(lenstr, 16)
+                                newPos = pos2 + chunkLen + 2
+                                if newPos >= len(dest) :
+                                    break
+                                pos1 = newPos
+                        else:
+                            contentLen = 0
+                    else:    
+                        contentLen = 0
+                neededSize = headerSize + contentLen
 
-    # api-endpoint
-    URL = "http://localhost:4000" + parts[1]
-    
-    # location given here
-    location = "my location here"
-    
-    # defining a params dict for the parameters to be sent to the API
-    PARAMS = {'address':location}
-    PARAMS = {}
-    
-    # sending get request and saving the response as response object
-    #r = requests.get(url = URL, params = PARAMS, headers=request.headers )
 
-    r = None
 
-    if method == "GET":
-        r = requests.get( url = URL, headers=request.headers )
-    elif method == "POST":
-        r = requests.post( url = URL, headers=request.headers , data = content )
-    elif method == "PUT":
-        r = requests.put( url = URL, headers=request.headers , data = content )
-    else:
-        print(" do we have to do option and delete")
+    s.close()
+    print('Received len ', len(dest))
 
-    if r.status_code != 200 :
-        return # make no publish/reply
-    # extracting data in json format
-    httpData = r.content
-    print( "http request returned ", data )
-
-    topic = str(message.properties.ResponseTopic)
-
-    # we need to make it back to a string
-
-    client.publish(topic, httpData)
+    client.publish(responseTopic, dest)
 
 
     # topic = str(message.properties.ResponseTopic)

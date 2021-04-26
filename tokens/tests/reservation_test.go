@@ -13,6 +13,16 @@ import (
 
 const starttime = uint32(1577840400) // Wednesday, January 1, 2020 1:00:00 AM
 
+func TestCalcTokenPrice(t *testing.T) {
+
+	payload := GetSampleTokenPayload(starttime)
+
+	price := tokens.CalcTokenPrice(payload, starttime)
+
+	fmt.Println("cost is ", price)
+
+}
+
 func TestMakeReservation(t *testing.T) {
 
 	tokens.LoadPublicKeys()
@@ -33,7 +43,7 @@ func TestMakeReservation(t *testing.T) {
 	fmt.Println("foundPayload is ", foundPayload)
 
 	payload := &tokens.SubscriptionNameReservationPayload{}
-	payload.ExpirationTime = starttime + 99999
+	payload.ExpirationTime = starttime + 60*60*24*(365)
 	payload.Issuer = "yRst"
 	payload.JWTID = "thePublicKeyOfTheOwner"
 	payload.Name = "dummy2"

@@ -43,7 +43,7 @@ def on_message(client, userdata, message):
 def on_connect(client, userdata, flags, rc):
     if rc==0:
         print("connected OK Returned code=",rc)
-        topic = "atw/xsgournklogc/house/bulb1/client-001" 
+        topic = "dummy" 
         print("subscribing " + topic)
         client.subscribe(topic)
         #client.subscribe(topic,no_local=True)
@@ -54,7 +54,7 @@ def on_connect(client, userdata, flags, rc):
 def on_connectV5(client, userdata, flags, rc, properties):
     if rc==0:
         print("connected OK Returned code=",rc)
-        topic = "atw/xsgournklogc/house/bulb1/client-001" 
+        topic = "dummy" # "atw/xsgournklogc/house/bulb1/client-001" 
         print("subscribing " + topic)
         client.subscribe(topic)
         #client.subscribe(topic,no_local=True)
@@ -93,7 +93,7 @@ time.sleep(12)
 print("publishing ")
 for x in range(9999):
     print(x)
-    topic = "atw/xsgournklogc/house/bulb1/client-001"
+    topic = "dummy" # "atw/xsgournklogc/house/bulb1/client-001"
     message = "msg#"+clientid+"_"+str(x)
     #props = paho.Properties( packet_type = paho.PUBLISH )# paho.PacketTypes.PUBLISH)
     #props.user_property= ('sfilename', 'test.txt')  # [('sfilename', 'test.txt'),('dfilename', 'test.txt')])

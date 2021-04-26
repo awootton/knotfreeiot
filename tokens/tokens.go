@@ -1,4 +1,4 @@
-// Copyright 2019,2020 Alan Tracey Wootton
+// Copyright 2019,2020,2021 Alan Tracey Wootton
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -18,13 +18,14 @@ package tokens
 
 import (
 	"crypto/ed25519"
-	"crypto/rand"
+	rand "crypto/rand"
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
+	mathrand "math/rand"
 	"os"
 	"sort"
 	"strings"
@@ -44,7 +45,7 @@ type KnotFreeTokenPayload struct {
 
 	KnotFreeContactStats // limits on what we're allowed to do.
 
-	URL string `json:"url"` // address of the service eg. "knotfree.net"
+	URL string `json:"url"` // address of the service eg. "knotfree.net" or knotfree0.com for localhost
 }
 
 // KnotFreeContactStats is the numeric part of the token claims
@@ -445,16 +446,16 @@ func parseString(in []byte) (out, rest []byte, ok bool) {
 }
 
 // GetSampleBigToken is used for testing.
-func GetSampleBigToken(startTime uint32) *KnotFreeTokenPayload {
+func GetSampleBigToken(startTime uint32, serviceUrl string) *KnotFreeTokenPayload {
 	p := &KnotFreeTokenPayload{}
 	p.Issuer = "_9sh" // first 4 from public
-	p.ExpirationTime = startTime + 60*60*24*(365+1)
+	p.ExpirationTime = startTime + 60*60*24*(365)
 	p.JWTID = GetRandomB64String()
 	p.Input = 1e6
 	p.Output = 1e6
 	p.Subscriptions = 200000
 	p.Connections = 200000
-	p.URL = "knotfree.net"
+	p.URL = serviceUrl
 	return p
 }
 
@@ -468,7 +469,7 @@ func GetImpromptuGiantToken() string {
 
 	LoadPrivateKeys("~/atw/privateKeys4.txt")
 
-	payload := GetSampleBigToken(uint32(time.Now().Unix()))
+	payload := GetSampleBigToken(uint32(time.Now().Unix()), "knotfree.net")
 	signingKey := GetPrivateKey("_9sh")
 	bbb, err := MakeToken(payload, []byte(signingKey))
 	if err != nil {
@@ -508,4 +509,51 @@ func LoadPublicKeys() {
 		bytes, _ := base64.RawURLEncoding.DecodeString(s)
 		SavePublicKey(front, string(bytes))
 	}
+}
+
+var StrangerSecretPhrase string = "dummy-dummy-dummy-dummy-dummy-dummy-dummy-dummy-dummy-dummy-dummy"
+
+//var StrangerPrivateKey string = "cc0Obtu-3pBttENYZ2TqIMmbHH0Iv10U8SA8HXzEi0CNxD1gkawsQ-F4P4-eLl1TF_RzpZp2y64K42MigbKh0g"
+
+// name alice_vociferous_mcgrath
+var AliceSecretPhrase string = "join_red_this_string_plain_does_quart_simple_buy_line_fun_look_original_deal"
+
+//var AlicePrivateKey string = "adnwz7Psriz6gjWog2zpkeqCrblavaDgWwQohp-av973sio8TWFb7mUinD3v_AbflX48eiqBbxq25PDUQvnDOA"
+
+// building_bob_bottomline_boldness
+var BobSecretPhrase string = "tail_wait_king_particular_track_third_arrive_agree_plural_charge_rise_grew_continent_fact"
+
+//var BobPrivateKey string = "Lxy9zqiUPVYQ1HXJ1JFIRyTxFCeg-duJhN5ja4pQGlK8e--VbYj674lgchUPLBg1wgq4MkmezVIm3skQqDCyDw"
+
+var CharlieSecretPhrase string = "sense_trouble_lost_final_crowd_child_fear_buy_card_apple_such_it_as_note"
+
+//var CharliePrivateKey string = "J0KCPMT8QCW6l8Et3VX4Cn7BZ-VM3DbRQ1CC_nGxiD7e0YGd9XrRBv5o0C2PqB79slHHmD7Hn98Ebs3RX2ejSw"
+
+var e_words []string
+
+func MakeRandomPhrase(amount int) string {
+
+	var tmp [8]byte
+	rand.Read(tmp[:])
+	rand64 := int64(0)
+	for i := 0; i < len(tmp); i++ {
+		rand64 = rand64<<8 + int64(tmp[i])
+	}
+	mathrand.Seed(rand64)
+
+	if len(e_words) == 0 {
+		str := English_words
+		e_words = strings.Split(str, "\n")
+	}
+	result := ""
+	for i := 0; i < amount; i++ {
+		if i > 0 {
+			result += "_"
+		}
+		max := len(e_words)
+		index := mathrand.Intn(max)
+		word := e_words[index]
+		result += word
+	}
+	return result
 }

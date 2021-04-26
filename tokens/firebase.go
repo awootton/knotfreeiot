@@ -33,9 +33,53 @@ func GetFirebaseApp(ctx context.Context) (*firebase.App, error) {
 	return app, nil
 }
 
-//CalcTokenPrice figures out how much we would need to pay to get this token.
-func CalcTokenPrice(token *KnotFreeTokenPayload) float64 {
-	price := 0.0
+// CalcTokenPrice figures out how much we would need to pay to get this token.
+// move out of firebase
+func CalcTokenPrice(token *KnotFreeTokenPayload, unixIssueTime uint32) float32 {
+	price := float32(0.0)
+	// at DigitalOcean 4/2021:
+	// $5
+	// 0.5 cpu
+	// 1 Gb so 500k subs
+	// 1 tb io
+	// say 10k connections
+	// $0.01/GB. when over
+
+	// so, divide by 5000
+	// tinyCost := float32(5) / float32(5000) // 100 m$
+	// tinyConnectAmt := float32(10*1000) / float32(5000)
+	// tinyIO := float32(1000 * 1000 * 1000 * 1000 / 5000) // per month
+
+	// fmt.Println("tinyCost ", tinyCost)               // 0.001 or 1 m$ or 1000 u$
+	// fmt.Println("tinyConnectAmt ", tinyConnectAmt)   // 2
+	// fmt.Println("tinyIO/sec ", tinyIO/secsInMonth) // 77 bytes/sec
+
+	greaterPrice := float32(-1.0)
+
+	secsInMonth := float32(60 * 60 * 24 * 30)
+
+	connectionPrice := token.Connections * float32(5) / float32(10*1000)
+	subscriptionPrice := token.Subscriptions * float32(5) / float32(500*1000)
+	subscriptionPrice *= 2                                                             // because it's on two layers
+	ioPrice1 := token.Input * secsInMonth * float32(5) / float32(1000*1000*1000*1000)  // per month
+	ioPrice2 := token.Output * secsInMonth * float32(5) / float32(1000*1000*1000*1000) // per month
+
+	greaterPrice = connectionPrice
+	if subscriptionPrice > greaterPrice {
+		greaterPrice = subscriptionPrice
+	}
+	if ioPrice1 > greaterPrice {
+		greaterPrice = ioPrice1
+	}
+	if ioPrice2 > greaterPrice {
+		greaterPrice = ioPrice2
+	}
+
+	nowSeconds := unixIssueTime //uint32(time.Now().Unix())
+	deltaTime := float32(uint32(token.ExpirationTime - nowSeconds))
+	deltaTime = deltaTime / secsInMonth // now in months
+
+	price = greaterPrice * deltaTime
 
 	return price
 }
@@ -78,9 +122,13 @@ func LogNewToken(ctx context.Context, token *KnotFreeTokenPayload, remoteAddr st
 	dbpath := "tokens/requests/" + str + "/"
 	dbref := client.NewRef(dbpath)
 
+	log.Println(" starting fire push : ")
+
 	_, seterr := dbref.Push(ctx, tokenLogStruct)
 	if seterr != nil {
-		log.Fatalf("app.Firestore: set %v", seterr)
+		fmt.Println("about to die from app.Firestore error ", seterr)
+		//log.Fatalf("app.Firestore: set %v", seterr)
+		log.Println(" ERROR app.Firestore: ", seterr)
 	}
 
 	return nil
