@@ -164,8 +164,6 @@ func AddContactStruct(ss *ContactStruct, ssi ContactInterface, config *ContactSt
 
 	ss.config = config
 
-	//ss.topicToName = make(map[HalfHash][]byte) deprecate this feature
-
 	config.AccessContactsList(func(config *ContactStructConfig, listOfCi *list.List) {
 		if ss.key == 0 {
 			seq := config.sequence
@@ -225,37 +223,25 @@ func PushPacketUpFromBottom(ssi ContactInterface, p packets.Interface) error {
 		ssi.WriteDownstream(v)
 		ssi.Close(errors.New("closing on disconnect"))
 	case *packets.Subscribe:
-		// if len(v.AddressAlias) != HashTypeLen {
-		// 	v.AddressAlias = HashNameToAlias(v.Address)
-		// }
 		v.Address.EnsureAddressIsBinary()
 
-		_, found := v.GetOption("jwtidAlias") // ss.token.JWTID
-		if found == false {
-			// what was this for?
-			//t := ssi.GetToken().JWTID
-			// FIXME:
-			//v.SetOption("jwtidAlias", HashNameToAlias([]byte(t)))
-		}
+		// _, found := v.GetOption("jwtidAlias") // ss.token.JWTID
+		// if found == false {
+		// 	// what was this for?
+		// 	//t := ssi.GetToken().JWTID
+		// 	// FIXME:
+		// 	//v.SetOption("jwtidAlias", HashNameToAlias([]byte(t)))
+		// }
 		//ssi.AddSubscription(v)
 		// send the token for reserving permanent ??
 		looker.sendSubscriptionMessage(ssi, v)
 	case *packets.Unsubscribe:
-		// if len(v.AddressAlias) != HashTypeLen {
-		// 	v.AddressAlias = HashNameToAlias(v.Address)
-		// }
 		v.Address.EnsureAddressIsBinary()
 		looker.sendUnsubscribeMessage(ssi, v)
 	case *packets.Lookup:
-		// if len(v.AddressAlias) != HashTypeLen {
-		// 	v.AddressAlias = HashNameToAlias(v.Address)
-		// }
 		v.Address.EnsureAddressIsBinary()
 		looker.sendLookupMessage(ssi, v)
 	case *packets.Send:
-		// if len(v.AddressAlias) != HashTypeLen {
-		// 	v.AddressAlias = HashNameToAlias(v.Address)
-		// }
 		v.Address.EnsureAddressIsBinary()
 		looker.sendPublishMessage(ssi, v)
 	case *packets.Ping:
@@ -284,27 +270,15 @@ func PushDownFromTop(looker *LookupTableStruct, p packets.Interface) error {
 		fmt.Println("got disconnect from guru  ", v)
 		//ignore it. ssi.Close(errors.New("got disconnect from guru"))
 	case *packets.Subscribe:
-		// if len(v.AddressAlias) != HashTypeLen {
-		// 	v.AddressAlias = HashNameToAlias(v.Address)
-		// }
 		v.Address.EnsureAddressIsBinary()
 		looker.sendSubscriptionMessageDown(v)
-	case *packets.Unsubscribe:
-		// if len(v.AddressAlias) != HashTypeLen {
-		// 	v.AddressAlias = HashNameToAlias(v.Address)
-		// }
-		v.Address.EnsureAddressIsBinary()
-		looker.sendUnsubscribeMessageDown(v)
-	case *packets.Lookup:
-		// if len(v.AddressAlias) != HashTypeLen {
-		// 	v.AddressAlias = HashNameToAlias(v.Address)
-		// }
-		v.Address.EnsureAddressIsBinary()
-		looker.sendLookupMessageDown(v)
+	// case *packets.Unsubscribe:
+	// 	v.Address.EnsureAddressIsBinary()
+	// 	looker.sendUnsubscribeMessageDown(v)
+	// case *packets.Lookup:
+	// 	v.Address.EnsureAddressIsBinary()
+	// 	looker.sendLookupMessageDown(v)
 	case *packets.Send:
-		// if len(v.AddressAlias) != HashTypeLen {
-		// 	v.AddressAlias = HashNameToAlias(v.Address)
-		// }
 		v.Address.EnsureAddressIsBinary()
 		looker.sendPublishMessageDown(v)
 	case *packets.Ping:

@@ -43,6 +43,12 @@ It may seem like we're duplicating data and making a mess but the structs
 are full of slices backed by the same data. Readability counts.
 */
 
+/** Packet wire format: They all have the same format: a byte followed by an array of strings.
+The strings are written by first writing a byte of the count of them, aka the length of the array.
+Then we write the lengths of the strings (in variable size int format).
+Then we write the strings. See func ReadUniversal
+*/
+
 // Interface is virtual functions for all packets.
 // Basically odd versions of marshal and unmarshal.
 type Interface interface {
@@ -58,9 +64,6 @@ type Interface interface {
 	GetOptionKeys() ([]string, [][]byte)
 }
 
-// StandardAliasXX deleteme is really a HashType in bytes or [24]byte enforced elsewhere.
-type StandardAliasXX []byte
-
 // AddressType is a byte
 type AddressType byte
 
@@ -71,7 +74,7 @@ const (
 	HexAddress = AddressType('$')
 	// Base64Address is whan an AddressUnion is 32 bytes of base64 bytes
 	Base64Address = AddressType('=')
-	// Utf8Address is whan an AddressUnion is a utf-8 bytes
+	// Utf8Address is whan an AddressUnion is a utf-8 bytes. The default
 	Utf8Address = AddressType(' ')
 )
 
@@ -94,14 +97,6 @@ func NewAddressUnion(str string) AddressUnion {
 	a.Bytes = []byte(str)
 	return *a
 }
-
-// NewAddressUnionBytes is a constructor
-// func NewAddressUnionBytes(atype AddressType, bytes []byte) AddressUnion {
-// 	a := &AddressUnion{}
-// 	a.Type = atype
-// 	a.Bytes = bytes
-// 	return *a
-// }
 
 // FromString will construct an AddressUnion from a string
 // we check the first byte for encoding type else assume it's a string
@@ -164,12 +159,6 @@ func (address *AddressUnion) String() string {
 // is it better to just alloc the bytes?
 func (address *AddressUnion) ToBytes() []byte {
 
-	// if (address.Type == BinaryAddress) && len(address.Bytes) == 24 {
-	// 	//dest := make([]byte, 24)
-	// 	str := base64.RawURLEncoding.EncodeToString(address.Bytes)
-	// 	return []byte("=" + str)
-	// }
-
 	var b bytes.Buffer
 	if address.Type == Utf8Address {
 		b.Grow(len(address.Bytes))
@@ -217,13 +206,13 @@ func (address *AddressUnion) EnsureAddressIsBinary() {
 	default:
 	}
 	// is utf8. Hash it.
-	// FIXME this is the same as in HashType but we're not using hashtype.
+	// FIXME this is the same as in HashType but we can't use hashtype in packets.
 	sh := sha256.New()
 	sh.Write(address.Bytes)
 	shabytes := sh.Sum(nil)
 	address.Type = BinaryAddress
-	address.Bytes = shabytes[0:24]
-	return // &result, nil
+	address.Bytes = shabytes[0:24] // same as in HashType = just keep 192 bits
+	return                         // &result, nil
 
 }
 
@@ -256,11 +245,8 @@ type Ping struct {
 // MessageCommon is
 type MessageCommon struct {
 	PacketCommon
-	// the fields:
-	// address can be empty if sourceAlias is not. None should be null.
 	// aka destination address aka channel aka topic.
 	Address AddressUnion
-	//AddressAlias StandardAlias
 }
 
 // Subscribe is to declare that the Thing has an address.
@@ -281,7 +267,6 @@ type Lookup struct {
 	MessageCommon
 	// a return address
 	Source AddressUnion
-	//SourceAlias StandardAlias
 }
 
 // Send aka 'publish' aka 'push' sends Payload (and the options) to destination aka Address.
@@ -290,7 +275,6 @@ type Send struct {
 
 	// a return address. Required.
 	Source AddressUnion
-	//SourceAlias StandardAlias
 
 	Payload []byte
 }
@@ -300,7 +284,7 @@ const HashTypeLen int = 24
 
 /** Here is the protocol.
 
-There is a type rune "P" or "S" or whatever.
+There is a type rune "P" or "S" etc. (see func FillPacket below)
 
 Then there is an arg count: unsigned byte,
 	so, we're up to two bytes now and we could have 256 args.
@@ -311,8 +295,12 @@ Finally, all the bytes of the args
 
 So, in chars, the command "P topic msg" becomes:
 P 2 5 3 t o p i c m s g
-where 2 is the number of args 5 is the len of "topic" and 3 is the len of "msg"
+where 2 is the number of strings 5 is the len of "topic" and 3 is the len of "msg"
 followed by the bytes "topicmsg"
+
+The ints are all variable length unsigned with a max int of 128^4.
+There is a max of 255 strings total per packet.
+
 */
 
 // CommandType is usually ascii
@@ -386,7 +374,7 @@ func FillPacket(uni *Universal) (Interface, error) {
 		}
 		p.backingUniversal = nil
 		return p, nil
-	case 'H': // Ping aka Heartbeat
+	case 'H': // Ping aka Heartbeat, used?
 		p := &Ping{}
 		err := p.Fill(uni)
 		if err != nil {
@@ -454,10 +442,8 @@ func (p *Unsubscribe) Fill(str *Universal) error {
 	if len(str.Args) < 1 {
 		return errors.New("too few args for Unsubscribe")
 	}
-	//p.Address = str.Args[0]
-	//p.AddressAlias = str.Args[1]
-	p.Address.FromBytes(str.Args[0])
 
+	p.Address.FromBytes(str.Args[0])
 	p.unpackOptions(str.Args[1:])
 	return nil
 }
@@ -468,21 +454,9 @@ func (p *Send) Fill(str *Universal) error {
 	if len(str.Args) < 3 {
 		return errors.New("too few args for Send")
 	}
-
-	// p.Address = str.Args[0]
-	// p.AddressAlias = str.Args[1]
-
-	// p.Source = str.Args[2]
-	// p.SourceAlias = str.Args[3]
-
 	p.Address.FromBytes(str.Args[0])
-	//p.Address.Bytes = str.Args[0][1:]
-
 	p.Source.FromBytes(str.Args[1])
-	//p.Source.Bytes = str.Args[1][1:]
-
 	p.Payload = str.Args[2]
-
 	p.unpackOptions(str.Args[3:])
 	return nil
 }
@@ -514,13 +488,8 @@ func (p *Lookup) Fill(str *Universal) error {
 	if len(str.Args) < 2 {
 		return errors.New("too few args for Lookup")
 	}
-
 	p.Address.FromBytes(str.Args[0])
-	//p.AddressAlias = str.Args[1]
-
 	p.Source.FromBytes(str.Args[1])
-	//p.SourceAlias = str.Args[3]
-
 	p.unpackOptions(str.Args[2:])
 	return nil
 }
@@ -687,7 +656,6 @@ func (p *Subscribe) Write(writer io.Writer) error {
 		str.Cmd = 'S' //
 		str.Args = make([][]byte, 0, 1+(p.OptionSize()*2))
 		str.Args = append(str.Args, p.Address.ToBytes())
-		//str.Args = append(str.Args, p.AddressAlias)
 		str.Args = p.packOptions(str.Args)
 	}
 	err := p.backingUniversal.Write(writer)
@@ -702,7 +670,6 @@ func (p *Unsubscribe) Write(writer io.Writer) error {
 		str.Cmd = 'U' //
 		str.Args = make([][]byte, 0, 1+(p.OptionSize()*2))
 		str.Args = append(str.Args, p.Address.ToBytes())
-		//str.Args = append(str.Args, p.AddressAlias)
 		str.Args = p.packOptions(str.Args)
 	}
 	err := p.backingUniversal.Write(writer)
@@ -717,9 +684,7 @@ func (p *Send) Write(writer io.Writer) error {
 		str.Cmd = 'P' // Publish
 		str.Args = make([][]byte, 0, 3+(p.OptionSize()*2))
 		str.Args = append(str.Args, p.Address.ToBytes())
-		//str.Args = append(str.Args, p.AddressAlias)
 		str.Args = append(str.Args, p.Source.ToBytes())
-		//str.Args = append(str.Args, p.SourceAlias)
 		str.Args = append(str.Args, p.Payload)
 		str.Args = p.packOptions(str.Args)
 	}
@@ -770,9 +735,7 @@ func (p *Lookup) Write(writer io.Writer) error {
 		str.Cmd = 'L'
 		str.Args = make([][]byte, 0, 2+(p.OptionSize()*2))
 		str.Args = append(str.Args, p.Address.ToBytes())
-		//str.Args = append(str.Args, p.AddressAlias)
 		str.Args = append(str.Args, p.Source.ToBytes())
-		//str.Args = append(str.Args, p.SourceAlias)
 		str.Args = p.packOptions(str.Args)
 	}
 	err := p.backingUniversal.Write(writer)
@@ -837,9 +800,14 @@ func ReadArrayOfByteArray(reader io.Reader) ([][]byte, error) {
 		lengths[i] = aval
 		total += aval
 	}
-	if total > (65536 - 256) { // was 1024*16 but now 65536 - 256 atw 3/2021
+	// if total > (65536 - 256) { // was 1024*16 but now 65536 - 256 atw 3/2021
+	// 	return nil, errors.New("Packet too long for this reality")
+	// }
+
+	if total >= 8000000 { // atw 4/2021
 		return nil, errors.New("Packet too long for this reality")
 	}
+
 	// now we can read the rest all at once
 	bytes := make([]uint8, total) // alloc the base array
 	//n, err = reader.Read(bytes)   // read it. timeout?

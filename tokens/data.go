@@ -12,7 +12,7 @@ var SampleSmallToken = `[My_token_expires:_2021-12-31,{exp:1641023999,iss:_9sh,j
 // one per line.
 // _9sh is being used to sign tokens
 // 8ZNP is unused
-// yRst is used as cluster public key
+// yRst is used as seed to cluster box keypair
 // the others are unused so far and the private part unloaded.
 var PublicKeys string = `
 _9sh+kvk3Nd/oN7nq56ydRaFON0YxQ+qCoBL0H91fV4

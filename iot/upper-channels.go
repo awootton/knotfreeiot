@@ -143,6 +143,10 @@ func (me *LookupTableStruct) SetUpstreamNames(names []string, addresses []string
 		}
 	}
 	// lose the stale ones
+	if len(oldContacts) != 0 {
+		fmt.Println("forgetting old channels ", oldContacts, " vs ", theNamesThisTime)
+	}
+
 	for _, upc := range oldContacts {
 		_, found := theNamesThisTime[upc.name]
 		if found == false {

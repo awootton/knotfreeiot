@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"net"
 	"reflect"
+	"sync"
 
 	"time"
 
@@ -37,8 +38,9 @@ type mqttContact struct {
 
 type mqttWsContact struct {
 	mqttContact
-	wsConn    *websocket.Conn
-	writebuff bytes.Buffer
+	wsConn           *websocket.Conn
+	writebuff        bytes.Buffer
+	writeAccessMutex sync.Mutex
 }
 
 func (cc *mqttWsContact) Close(err error) {
@@ -194,12 +196,27 @@ func MQTTHandlePacket(cc *mqttContact, control libmqtt.Packet) {
 				p.SetOption(k, []byte(fmt.Sprint(v)))
 			}
 		}
-		p.SetOption("toself", []byte("y"))
+		//p.SetOption("toself", []byte("y"))
 		p.SetOption("atwtestn", []byte("4321"))
+		bytes, ok := p.GetOption("lookup")
+		if ok && string(bytes) == "lookup" {
+			// we need to chanage this to a lookup
+			pp := &packets.Lookup{}
+			pp.Address.FromString(mq.TopicName)
+			if mq.Props != nil {
+				pp.Source.FromString(mq.Props.RespTopic)
+				for k, v := range mq.Props.UserProps {
+					p.SetOption(k, []byte(fmt.Sprint(v)))
+				}
+			}
+			_ = PushPacketUpFromBottom(cc, pp)
+		} else {
+			_ = PushPacketUpFromBottom(cc, p)
+			// // TODO: do we need to ack?
+			// ack := mqttpackets.PubackPacket ... etc
 
-		_ = PushPacketUpFromBottom(cc, p)
-		// // TODO: do we need to ack?
-		// ack := mqttpackets.PubackPacket ... etc
+		}
+
 	case *libmqtt.SubscribePacket:
 
 		for _, topic := range mq.Topics {
@@ -276,6 +293,34 @@ func (cc *mqttContact) WriteDownstream(p packets.Interface) error {
 		fmt.Println("cant happen4")
 
 	case *packets.Lookup:
+		// what form does a lookup take in mqtt ?
+		mq := &libmqtt.PublishPacket{}
+		mq.Payload = []byte("had lookup") //v.??
+		mq.TopicName = v.Address.String()
+		if len(mq.TopicName) == 0 {
+			mq.TopicName = "fixme_need_topic always" // fixme:
+		}
+		if cc.protoVersion == 5 {
+			mq.Props = &libmqtt.PublishProps{}
+
+			mq.Props.UserProps = make(map[string][]string)
+			// if v.SourceAlias != nil { // fixme: must always be something.
+			// 	mq.Props.RespTopic = string(v.SourceAlias)
+			// } else {
+			// 	mq.Props.RespTopic = "xxTEST/TIMEefghijk"
+			// }
+			mq.Props.RespTopic = v.Source.String()
+
+			keys, values := v.GetOptionKeys()
+			for i, key := range keys {
+				mq.Props.UserProps.Add(key, string(values[i]))
+			}
+			mq.Props.UserProps.Add("atw", "test1")
+			mq.Props.UserProps.Add("lookup", "lookup")
+		}
+
+		err := cc.writeLibPacket(mq, cc)
+		return err
 
 	case *packets.Send:
 
@@ -395,7 +440,11 @@ func WebSocketLoop(wsConn *websocket.Conn, config *ContactStructConfig) {
 		if len(data) > 0 {
 			mt := websocket.BinaryMessage
 			//fmt.Println("collecting data len = %n ", len(data))
+			// we need to get a lock here, it's rare but sometimes
+			// we get a panic
+			cc.writeAccessMutex.Lock()
 			err = cc.wsConn.WriteMessage(mt, data)
+			cc.writeAccessMutex.Unlock()
 			if err != nil {
 				cc.Close(err)
 				return err
@@ -485,20 +534,3 @@ func IsWholeMqttPacket(data []byte) (bool, int) {
 	}
 	return true, i
 }
-
-// func getRemainLength(r io.ByteReader) (length int, byteCount int) {
-// 	var m uint32
-// 	for m < 27 {
-// 		b, err := r.ReadByte()
-// 		if err != nil {
-// 			return 0, 0
-// 		}
-// 		length |= int(b&127) << m
-// 		if (b & 128) == 0 {
-// 			break
-// 		}
-// 		m += 7
-// 	}
-
-// 	return int(length), int(m/7 + 1)
-// }

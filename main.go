@@ -128,7 +128,10 @@ func (api ApiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	} else if req.RequestURI == "/api1/getPublicKey" {
 
-		sss := base64.RawURLEncoding.EncodeToString([]byte(tokens.FindPublicKey("yRst")))
+		//sss := base64.RawURLEncoding.EncodeToString([]byte(tokens.FindPublicKey("yRst")))
+
+		sss := base64.RawURLEncoding.EncodeToString(api.ce.PublicKeyTemp[:])
+
 		fmt.Println("serve /api1/getPublicKey ", sss)
 
 		w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -175,9 +178,9 @@ func (superMux *SuperMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// fs := http.FileServer(http.Dir("./docs/_site"))
 	// supermux.sub.Handle("/", fs)
 	isGetToken := len(r.RequestURI) >= 9 && r.RequestURI[:9] == "/api1/get"
-	//isGetToken = isGetToken || r.RequestURI == "/mqtt"
+	isGetToken = isGetToken || r.RequestURI == "/mqtt"
 
-	if len(domainParts) > 2 && isGetToken == false {
+	if len(domainParts) > 2 && !isGetToken {
 		// we have a subdomain
 		subDomain := domainParts[0]
 		fmt.Println("serving subdomain ", subDomain, "  with "+r.URL.String())
@@ -203,8 +206,9 @@ func (superMux *SuperMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		//fmt.Println("http header ", r.Header) // it's a map with Cookie
 		// r.RequtURI is "/"
 		// r.URL is "/"
+		// write the header to a buffer
 		firstLine := r.Method + " " + r.URL.String() + " " + r.Proto + "\n"
-		//fmt.Println("first line", firstLine)
+		fmt.Println("first line", firstLine)
 		buf := new(bytes.Buffer)
 		buf.WriteString(firstLine)
 		for key, val := range r.Header {
@@ -217,19 +221,30 @@ func (superMux *SuperMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		buf.WriteString("\n")
+		// write the body to a buffer
 		n, err := buf.Write(theBody)
 		if err != nil || (n != len(theBody)) {
 			http.Error(w, "http theBody write ", 500)
 		}
 		// now the whole original request packet is in buf
-		//fmt.Println("http is ", buf.String())
+
+		fmt.Println("http is request ", firstLine[0:len(firstLine)-2])
 
 		type pinfo struct {
+			// these are the reply buffers
 			buff []byte
+		}
+		type RequestReplyStruct struct {
+			originalRequest []byte
+			firstLine       string
+			replyParts      []pinfo
 		}
 
 		pastWritesIndex := 0
-		packetList := make([]*pinfo, 0)
+		packetStruct := &RequestReplyStruct{}
+
+		packetStruct.originalRequest = buf.Bytes()
+		packetStruct.firstLine = firstLine[0 : len(firstLine)-2]
 
 		// we need to make a contact
 		// make a reply address
@@ -303,13 +318,15 @@ func (superMux *SuperMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		{ // The Receive-a-packet loop
 			running := true
 			//hadHeader := false
+			theLengthWeNeed := 0
+			theAmountWeGot := 0
 			for running { // data := range gotDataChan {
 				select {
 				case somedata := <-gotDataChan.TheChan:
 					if somedata == nil {
 						running = false
 					}
-					fmt.Println("packet on gotDataChan.TheChan  ")
+					fmt.Println("packet on gotDataChan.TheChan theLengthWeNeed= ", theLengthWeNeed)
 					// var cmd packets.Interface.
 					cmd, err := packets.ReadPacket(bytes.NewReader(somedata))
 					if err != nil {
@@ -351,27 +368,56 @@ func (superMux *SuperMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 						//if packetCount != packetsReceived {
 						//	fmt.Println("we seem to have lost a PACKET:", packetCount, packetsReceived)
 						//} pastWritesIndex
-						for packetIncomingIndex >= len(packetList) {
+						// pad out the buffer
+						for packetIncomingIndex >= len(packetStruct.replyParts) {
 							pi := &pinfo{}
-							packetList = append(packetList, pi)
+							packetStruct.replyParts = append(packetStruct.replyParts, *pi)
 						}
-						newPacket := packetList[packetIncomingIndex]
-						newPacket.buff = snd.Payload
+						packetStruct.replyParts[packetIncomingIndex].buff = snd.Payload
+
+						fmt.Println("have http reply packet #", packetIncomingIndex, "for ", firstLine)
+						if packetIncomingIndex == 0 {
+							headerEndBytes := []byte("\r\n\r\n")
+							headerPos := bytes.Index(snd.Payload, headerEndBytes)
+							if headerPos <= 0 {
+								fmt.Println("no header was found in first packet")
+							} else {
+								// parse the header
+								header := snd.Payload[0:headerPos]
+								clStr := "Content-Length:"
+								clPos := bytes.Index(header, []byte(clStr))
+								if clPos <= 0 {
+									fmt.Println("no Content-Length was found in first packet")
+								}
+								hpart := header[clPos+len(clStr):]
+								lineEndBytes := []byte("\r\n")
+								endPos := bytes.Index(hpart, lineEndBytes)
+								//fmt.Println("is this a number? ", hpart[0:endPos])
+								cldigits := string(hpart[0:endPos])
+								i, err := strconv.Atoi(strings.Trim(cldigits, " "))
+								if err != nil {
+									fmt.Println("ERROR finding Content-Length", hpart[0:endPos])
+								}
+								fmt.Println("theLengthWeNeed is ", i)
+								theLengthWeNeed = i + len(header) + 4
+							}
+						}
 
 						for true { // loop over packetlist stuff we can write
-							if pastWritesIndex >= len(packetList) {
+							if pastWritesIndex >= len(packetStruct.replyParts) {
 								break // at the end
 							}
-							nextPi := packetList[pastWritesIndex]
+							nextPi := packetStruct.replyParts[pastWritesIndex]
 
-							end := 32
-							if len(nextPi.buff) < end {
-								end = len(nextPi.buff)
-							}
+							// end := 32
+							// if len(nextPi.buff) < end {
+							// 	end = len(nextPi.buff)
+							// }
 
 							//fmt.Println("got a reply payload packet index ", pastWritesIndex, "d=", string(nextPi.buff[0:end]))
 							n, err := responseBuffer.Write(nextPi.buff)
 							pastWritesIndex += 1
+							theAmountWeGot += len(nextPi.buff)
 							if err != nil {
 								fmt.Println("got a reply write err:", err)
 								running = false
@@ -380,7 +426,15 @@ func (superMux *SuperMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 							if n != len(nextPi.buff) {
 								fmt.Println("writing len wanted, needed:", len(nextPi.buff), n)
 							}
-							responseBuffer.Flush()
+							fmt.Println("So far we have got", theAmountWeGot, " of ", theLengthWeNeed, "for", packetStruct.firstLine)
+							if theAmountWeGot >= theLengthWeNeed {
+								fmt.Println("looks like we made it ! :")
+								responseBuffer.Flush()
+								running = false
+								// push a close packet or something
+								// close the connection -- below
+							}
+							//responseBuffer.Flush()
 						}
 
 					default:
@@ -389,7 +443,7 @@ func (superMux *SuperMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 						w.Write([]byte("error got weird packet"))
 					}
 				// is this the only way to know that we're done??
-				case <-time.After(12 * time.Second):
+				case <-time.After(22 * time.Second):
 					errMsg := "timed out waiting for html reply " + firstLine
 					fmt.Println(errMsg)
 					// http.Error(w, errMsg, 500)
@@ -705,18 +759,30 @@ func (api ApiHandler) ServeMakeToken(w http.ResponseWriter, req *http.Request) {
 		payload.Connections = 2
 		// 90 days
 		payload.ExpirationTime = uint32(time.Now().Unix() + 60*60*24*90)
-		payload.Input = 32
+
+		payload.Input = 32 * 4
+		payload.Output = 32 * 4
 
 		payload.Issuer = "_9sh"
 		payload.JWTID = tokens.GetRandomB64String()
 		nonce := payload.JWTID
-		targetSite := "knotfree.net" // which is mapped to localhost by /etc/hosts
-		if os.Getenv("KNOT_KUNG_FOO") == "atw" {
-			targetSite = "knotfree0.com"
-		}
 
-		payload.Output = 32
+		// targetSite := "knotfree.net" // which is mapped to localhost by /etc/hosts
+		// if os.Getenv("KNOT_KUNG_FOO") == "atw" {
+		// 	targetSite = "knotfree0.com"
+		// }
+
 		payload.Subscriptions = 20
+
+		//  Host:"building_bob_bottomline_boldness.knotfree2.com:8085"
+
+		parts := strings.Split(req.Host, ".")
+		partslen := len(parts)
+		if partslen < 2 {
+			http.Error(w, "expected at least 2 parts in Host "+req.Host, 500)
+			return
+		}
+		targetSite := parts[partslen-2] + "." + parts[partslen-1]
 
 		payload.URL = targetSite
 

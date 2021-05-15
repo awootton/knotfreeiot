@@ -18,7 +18,7 @@ import paho.mqtt.client as paho
 
 
 broker = "knotfree.net" # 192.168.86.159" 
-broker = "localhost" # 192.168.86.159" 
+#broker = "knotfree2.com" #  aka localhost
 
 clientid = "clientId-ws131u1ewt"
 password = '[My_token_expires:_2021-12-31,{exp:1641023999,iss:_9sh,jti:amXYKIuS4uykvPem9Fml371o,in:32,out:32,su:4,co:2,url:knotfree.net},eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiSldUIn0.eyJleHAiOjE2NDEwMjM5OTksImlzcyI6Il85c2giLCJqdGkiOiJhbVhZS0l1UzR1eWt2UGVtOUZtbDM3MW8iLCJpbiI6MzIsIm91dCI6MzIsInN1Ijo0LCJjbyI6MiwidXJsIjoia25vdGZyZWUubmV0In0.7ElPyX1Vju8Q5uDOEfgAblwvE2gxT78Jl68JPlqLRcFeMJ7if39Ppl2_Jr_JTky371bIXAn6S-pghtWSqTBwAQ]'
@@ -30,7 +30,7 @@ lastTime = time.time() * 1000
 
 def on_message(client, userdata, message):
     global lastTime
-    print(str(datetime.datetime.now())+"received message =", str(message.payload.decode("utf-8")))
+    print(str(datetime.datetime.now())+"on_message received message =", str(message.payload.decode("utf-8")))
     print("topic is " + str(message.topic))
     # what is this? is None print(str(userdata))
     user_properties=message.properties.UserProperty
@@ -53,7 +53,7 @@ def on_connect(client, userdata, flags, rc):
 # self._userdata,flags_dict, reason, properties
 def on_connectV5(client, userdata, flags, rc, properties):
     if rc==0:
-        print("connected OK Returned code=",rc)
+        print("v5 connected OK Returned code=",rc)
         topic = "dummy" # "atw/xsgournklogc/house/bulb1/client-001" 
         print("subscribing " + topic)
         client.subscribe(topic)

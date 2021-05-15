@@ -88,7 +88,7 @@ func makeTestContact(config *iot.ContactStructConfig, token string) iot.ContactI
 
 	// 			send, isSend := thing.(*packets.Send)
 	// 			if isSend {
-	// 				send.AddressAlias = []byte("")
+	// 				send.Address Alias = []byte("")
 	// 			}
 	// 			//fmt.Println("appending mostRecent", thing)
 	// 			cc.mostRecent = append(cc.mostRecent, thing)
@@ -117,21 +117,27 @@ func (cc *testContact) Close(err error) {
 	ss.Close(err)
 }
 
-func (cc *testContact) getResultAsString() string {
+func (cc *testContact) getResultsCount() int {
+	return len(cc.mostRecent)
+}
+
+func (cc *testContact) getResultAsString() (string, bool) {
 	if len(cc.mostRecent) == 0 {
-		return "no message received"
+		return "no message received", false
 	}
-	p := cc.mostRecent[0]
-	send, isSend := p.(*packets.Send)
-	if isSend {
-		//send.AddressAlias = []byte("")
-		_ = send // ??
+	return cc.mostRecent[0].String(), true
+}
+
+func (cc *testContact) popResultAsString() (string, bool) {
+	val, ok := cc.getResultAsString()
+	if ok {
+		cc.mostRecent = cc.mostRecent[1:]
 	}
-	return cc.mostRecent[0].String()
+	return val, ok
 }
 
 // write from the bottom of a node going down through the contact.
-// and snce this is test it ends up in an array: mostRecent
+// and since this is test it ends up in an array: mostRecent
 func (cc *testContact) WriteDownstream(packet packets.Interface) error {
 
 	if cc.GetClosed() {
@@ -139,13 +145,12 @@ func (cc *testContact) WriteDownstream(packet packets.Interface) error {
 	}
 	send, isSend := packet.(*packets.Send)
 	if isSend {
-		//send.AddressAlias = []byte("")
 		_ = send //??
 	}
 	text := packet.String()
 	cc.IncOutput(len(text))
 
-	//fmt.Println("appending to mostRecent", text)
+	//fmt.Println("APPENDING to mostRecent", text)
 
 	cc.mostRecent = append(cc.mostRecent, packet)
 

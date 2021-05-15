@@ -76,7 +76,7 @@ func TestTwoLevel(t *testing.T) {
 	WaitForActions(aide2)
 	WaitForActions(guru0)
 
-	got = contact1.(*testContact).getResultAsString()
+	got,_ = contact1.(*testContact).getResultAsString()
 	want = "no message received"
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
@@ -103,7 +103,7 @@ func TestTwoLevel(t *testing.T) {
 	WaitForActions(aide2)
 	WaitForActions(guru0)
 
-	got = contact1.(*testContact).getResultAsString()
+	got,_ = contact1.(*testContact).getResultAsString()
 	want = `[P,=ygRnE97Kfx0usxBqx5cygy4enA1eojeR,"contact2 address","can you hear me now?"]`
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
@@ -121,7 +121,7 @@ func TestTwoLevel(t *testing.T) {
 	WaitForActions(aide2)
 	WaitForActions(guru0)
 
-	got = contact1.(*testContact).getResultAsString()
+	got,_ = contact1.(*testContact).getResultAsString()
 	want = `[P,=ygRnE97Kfx0usxBqx5cygy4enA1eojeR,"contact2 address","can you hear me now?"]`
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
@@ -174,7 +174,7 @@ func TestSend(t *testing.T) {
 	subs.Address.FromString("contact2_address")
 	err = iot.PushPacketUpFromBottom(contact2, &subs)
 
-	got = contact1.(*testContact).getResultAsString()
+	got,_ = contact1.(*testContact).getResultAsString()
 	want = "no message received"
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
@@ -203,7 +203,7 @@ func TestSend(t *testing.T) {
 
 	//"[P,=AMwu23hGtbsMhhqkKVsPgsWJ/PwPCFd24Q,contact2_address,"hello, ...+17 more"
 
-	got = contact1.(*testContact).getResultAsString()
+	got,_ = contact1.(*testContact).getResultAsString()
 	want = `[P,=zC7beEa1uwyGGqQpWw+CxYn8/A8IV3bh,contact2_address,"hello, can you hear me"]`
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)

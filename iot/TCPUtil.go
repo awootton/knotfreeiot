@@ -74,14 +74,14 @@ func (api apiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			API1PostGurusFail.Inc()
 			return
 		}
-		fmt.Println("/api2/set len=", len(args.Names))
+		fmt.Println("/api2/set SetUpstreamNames len=", len(args.Names))
 		API1PostGurus.Inc()
 		if len(args.Names) > 0 && len(args.Names) == len(args.Addresses) {
 			api.ex.Looker.SetUpstreamNames(args.Names, args.Addresses)
 		} else {
 			fmt.Println("bad names sent", args.Names, args.Addresses, args)
 		}
-		fmt.Println("/api2/set done")
+		//fmt.Println("/api2/set done")
 
 	} else if req.RequestURI == "/api2/clusterstats" { // POST
 
@@ -98,7 +98,11 @@ func (api apiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			API1PostGurusFail.Inc()
 			return
 		}
-		//fmt.Println("have new clusterstats", stats)
+		statsstr, error := json.Marshal(stats)
+		fmt.Println("have new clusterstats ")
+		_ = statsstr
+		//fmt.Println("have new clusterstats", string(statsstr))
+		_ = error
 		api.ex.ClusterStats = stats
 		api.ex.ClusterStatsString = string(data)
 

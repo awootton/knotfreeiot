@@ -134,7 +134,7 @@ func VerifyNameToken(ticket []byte, publicKey []byte) (*SubscriptionNameReservat
 	}
 	_ = hd
 	// TODO: compare all the fields with limits.
-	// FIXME:
+
 	return &payload, true
 }
 
@@ -470,6 +470,20 @@ func GetImpromptuGiantToken() string {
 	LoadPrivateKeys("~/atw/privateKeys4.txt")
 
 	payload := GetSampleBigToken(uint32(time.Now().Unix()), "knotfree.net")
+	signingKey := GetPrivateKey("_9sh")
+	bbb, err := MakeToken(payload, []byte(signingKey))
+	if err != nil {
+		fmt.Println("GetImpromptuGiantToken", err)
+	}
+	giantToken = string(bbb)
+	return giantToken
+}
+
+func GetImpromptuGiantTokenLocal() string {
+
+	LoadPrivateKeys("~/atw/privateKeys4.txt")
+
+	payload := GetSampleBigToken(uint32(time.Now().Unix()), "knotfree2.com:8085") // is localhost in my /etc/hosts
 	signingKey := GetPrivateKey("_9sh")
 	bbb, err := MakeToken(payload, []byte(signingKey))
 	if err != nil {

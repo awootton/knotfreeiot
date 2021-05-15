@@ -59,9 +59,9 @@ func fixmeTestGrowGurus(t *testing.T) {
 	ce.WaitForActions()
 
 	c1test := c1.(*testContact)
-	got = c1test.getResultAsString()
+	got,_ = c1test.getResultAsString()
 	c2test := c2.(*testContact)
-	got = c2test.getResultAsString()
+	got,_ = c2test.getResultAsString()
 
 	c1test.SetExpires(2000000000)
 	c2test.SetExpires(2000000000)
@@ -102,7 +102,7 @@ func fixmeTestGrowGurus(t *testing.T) {
 		SendText(c2, command) // publish to c1 from c2
 	}
 	WaitForActions(ce.Aides[0])
-	got = c1test.getResultAsString()
+	got,_ = c1test.getResultAsString()
 	for i := 0; i < subsStressSize; i++ {
 
 		got = "none"

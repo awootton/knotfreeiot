@@ -45,8 +45,8 @@ spec:
           name : prom
         resources:
           limits:
-            cpu: 500m  #INSERT_CPU_NEEDED_HERE
-            memory: 800Mi #INSERT_MEM_NEEDED_HERE
+            cpu: 750m  #INSERT_CPU_NEEDED_HERE was 500m
+            memory: 800Mi #INSERT_MEM_NEEDED_HERE was 800Mi
           #requests:
             #cpu: 250m  #INSERT_CPU_NEEDED_HERE
             #memory: 800Mi #INSERT_MEM_NEEDED_HERE

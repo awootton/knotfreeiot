@@ -124,7 +124,7 @@ func (r *ReconcileAppService) Reconcile(request reconcile.Request) (reconcile.Re
 
 	//LastClusterState = s.instance.Spec.Ce
 
-	//PrintMe("guru ", "names", instance.Spec.Ce.GuruNames)
+	PrintMe("guru ", "names", s.instance.Spec.Ce.GuruNames)
 	//namespace := request.Namespace
 
 	items := &corev1.PodList{}
@@ -159,11 +159,13 @@ func (r *ReconcileAppService) Reconcile(request reconcile.Request) (reconcile.Re
 
 	resize := iot.CalcExpansionDesired(aideList, guruList)
 
+	PrintMe("len(guruList) len(s.gurusPending) ", len(guruList), " ", len(s.gurusPending))
 	if len(guruList) > 7 || len(s.gurusPending) != 0 { //FIXME: remove this
 		if resize.ChangeGurus == 1 {
 			resize.ChangeGurus = 0 //FIXME: remove this
 		}
 	}
+	PrintMe("resize.ChangeGurus ", resize.ChangeGurus)
 
 	if s.instance.Spec.Ce.GuruNamesPending != 0 && s.instance.Spec.Ce.GuruNamesPending+10 < uint32(time.Now().Unix()) {
 		s.instance.Spec.Ce.GuruNamesPending = 0

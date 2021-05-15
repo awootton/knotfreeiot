@@ -62,7 +62,7 @@ func (s *status) rebalanceGurus() error {
 
 	if len(s.instance.Spec.Ce.GuruNames) == 0 {
 		// why are we here? The aides reject zero len upgrades.
-		//PrintMe("zero len GuruNames")
+		s.PrintMe("zero len GuruNames")
 		return nil // errors.New("zero len GuruNames")
 	}
 
@@ -76,6 +76,8 @@ func (s *status) rebalanceGurus() error {
 		}
 		guruAddresses[i] = g.TCPAddress
 	}
+	// sho me guruAddresses
+	fmt.Println("guruAddresses", guruAddresses)
 
 	errs := make([]error, 0)
 
@@ -458,7 +460,7 @@ func postClusterStats(array []*iot.ExecutiveStats, name string, addr string) err
 	stats.When = uint32(time.Now().Unix())
 	stats.Stats = array
 
-	// fmt.Println("starting PostClusterStats with ")
+	fmt.Println("starting PostClusterStats with ")
 	// start := time.Now()
 	// defer func() {
 	// 	end := time.Now()
@@ -481,6 +483,9 @@ func postClusterStats(array []*iot.ExecutiveStats, name string, addr string) err
 		cmd := `kubectl exec ` + name + ` -- ` + curlcmd
 		kubectl.Quiet = true
 		kubectl.SuperQuiet = true
+
+		fmt.Println("why the curl method : ", cmd)
+
 		str, err := kubectl.K8s(cmd, "")
 		_ = str
 		if err != nil {
@@ -490,6 +495,8 @@ func postClusterStats(array []*iot.ExecutiveStats, name string, addr string) err
 
 	}
 	// when in cluster
+
+	fmt.Println("why the curl method ? when in cluster ")
 
 	err := iot.PostClusterStats(stats, addr)
 

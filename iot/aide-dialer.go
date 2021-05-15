@@ -61,9 +61,9 @@ func (ex *Executive) DialContactToAnyAide(isTCP bool, ce *ClusterExecutive) {
 					}
 				}
 			}
-			time.Sleep(100 * time.Millisecond)
+			time.Sleep(1000 * time.Millisecond)
 			count++
-			if (count % 100) == 10 {
+			if (count % 100) == 0 {
 				fmt.Println("ex.Looker.contactToAnyAide is having problems")
 			}
 		} // for

@@ -66,7 +66,7 @@ func TestSubscriptionOverrun(t *testing.T) {
 	}
 
 	fmt.Println("subscriptions. aide1", aide1.GetExecutiveStats().Subscriptions*float32(aide1.GetExecutiveStats().Limits.Subscriptions))
-	got = c1.(*testContact).getResultAsString()
+	got, _ = c1.(*testContact).getResultAsString()
 	want = `[P,,,,,"4.151899 subscriptions > 4",error,"4.151899 subscriptions > 4"]`
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)

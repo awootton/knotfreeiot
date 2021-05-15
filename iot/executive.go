@@ -16,8 +16,8 @@
 package iot
 
 import (
+	"bytes"
 	"container/list"
-	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -125,9 +125,12 @@ func MakeSimplestCluster(timegetter func() uint32, isTCP bool, aideCount int, su
 	if isTCP {
 		ce.currentPort = 9000
 	}
-	a, b, c := box.GenerateKey(rand.Reader) //was ed25519.GenerateKey(rand.Reader)
-	ce.PublicKeyTemp = a
-	ce.PrivateKeyTemp = b
+
+	secret := tokens.GetPrivateKey("_9sh") // it's actually binary
+	r := bytes.NewReader([]byte(secret))
+	pub, priv, c := box.GenerateKey(r) // rand.Reader) //was ed25519.GenerateKey(rand.Reader)
+	ce.PublicKeyTemp = pub
+	ce.PrivateKeyTemp = priv
 	_ = c
 
 	defer ce.WaitForActions()
@@ -211,7 +214,10 @@ func MakeTCPMain(name string, limits *ExecutiveLimits, token string, isGuru bool
 	ce := &ClusterExecutive{}
 	ce.isTCP = isTCP
 
-	a, b, c := box.GenerateKey(rand.Reader) //was ed25519.GenerateKey(rand.Reader)
+	// we should derive this from the current priv jwt ed25519 secret
+	secret := tokens.GetPrivateKey("_9sh") // it's actually binary
+	r := bytes.NewReader([]byte(secret))
+	a, b, c := box.GenerateKey(r) // rand.Reader) //was ed25519.GenerateKey(rand.Reader)
 	ce.PublicKeyTemp = a
 	ce.PrivateKeyTemp = b
 	_ = c
@@ -759,5 +765,12 @@ func (ex *Executive) WaitForActions() {
 		ex.Looker.FlushMarkerAndWait()
 		// can we flush the lower and upper contacts too ?
 		// TODO:
+	}
+}
+
+func SpecialPrint(p *packets.PacketCommon, fn func()) {
+	val, ok := p.GetOption("debg")
+	if ok && string(val) == "12345678" {
+		fn()
 	}
 }

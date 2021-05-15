@@ -20,6 +20,11 @@ import (
 	"golang.org/x/crypto/nacl/box"
 )
 
+func TestGetGiantTokens(t *testing.T) {
+	fmt.Println("giant token ", tokens.GetImpromptuGiantToken())
+	fmt.Println("giant local ", tokens.GetImpromptuGiantTokenLocal())
+}
+
 func TestMakeRandomPhrase(t *testing.T) {
 
 	// 12 words is about 120 bits of random
@@ -407,7 +412,7 @@ func ExampleZeroReader() {
 
 }
 
-// we used this once. It's not a test.
+// we used this ONCE. It's NOT a test.
 func xxxxTest1(t *testing.T) {
 	ExampleZeroReader()
 
@@ -416,7 +421,7 @@ func xxxxTest1(t *testing.T) {
 	fmt.Println(base64.StdEncoding.WithPadding(base64.NoPadding).EncodeToString(public))
 	fmt.Println(base64.StdEncoding.WithPadding(base64.NoPadding).EncodeToString(private))
 
-	// on my develpoer maching KNOT_KUNG_FOO is awt so I can tell I'm local
+	// on my developer machine KNOT_KUNG_FOO is awt so I can tell I'm local
 	if os.Getenv("KNOT_KUNG_FOO") == "xxxxxatw" {
 		_, err := os.Stat("./publicKeys_xxx.txt")
 		if os.IsNotExist(err) {

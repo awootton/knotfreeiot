@@ -45,7 +45,7 @@ func StartClusterOfClusters(timeGetter func() uint32) [][]*iot.ClusterExecutive 
 		}
 		var arow []*iot.ClusterExecutive
 		for w := 0; w < width; w++ {
-			suffix := "_" + strconv.Itoa(w) + "_" + strconv.Itoa(h)
+			suffix := "_" + strconv.Itoa(h) + "_" + strconv.Itoa(w)
 			isTCP := false
 			ce := iot.MakeSimplestCluster(timeGetter, isTCP, aidesCount, suffix)
 			arow = append(arow, ce)
@@ -123,7 +123,7 @@ func getAnAide(clusters [][]*iot.ClusterExecutive, index int) *iot.Executive {
 
 //eg. 	IterateAndWait(t, func() bool { return true }, "test")
 
-//eg.	
+//eg.
 //	got := ""
 // 	IterateAndWait(t, func() bool {
 // 		got = contact9.(*testContact).getResultAsString()
@@ -131,11 +131,11 @@ func getAnAide(clusters [][]*iot.ClusterExecutive, index int) *iot.Executive {
 // 	}, "timed out waiting for can you hear me now")
 
 func IterateAndWait(t *testing.T, fn func() bool, message string) {
-	for i := 0; i < 1000; i++ {
+	for i := 0; i < 100; i++ {
 		if fn() {
 			return
 		}
-		time.Sleep(1 * time.Second)
+		time.Sleep(100 * time.Millisecond)
 	}
 	t.Error(message)
 }

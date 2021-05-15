@@ -16,7 +16,6 @@
 package iot
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -55,23 +54,34 @@ type LookupTableStruct struct {
 
 // watchedTopic is what we'll be collecting a lot of.
 // what if *everyone* is watching this topic? and then the watchers.thetree is huge.
-type watchedTopic struct {
+// these normally time out. See the heartbeat
+type WatchedTopic struct {
 	//
-	name    HashType // not my real name
+	name HashType // not my real name
+
 	expires uint32
+
 	thetree *redblacktree.Tree // of uint64 to watcherItem
 
-	optionalKeyValues *redblacktree.Tree // might be nil if no options.
+	optionalKeyValues *redblacktree.Tree // might be nil if no options. used by billing
 
 	// billing: can we NOT use the optionalKeyValues ?
 
 	nextBillingTime uint32
 	lastBillingTime uint32
 	jwtidAlias      string
+
+	permanent bool // keep it around always
+	single    bool // just the one subscriber
+	owned     bool // only one client allowed to post to this channel
 }
 
 type watcherItem struct {
-	ci ContactInterface
+	contactInterface ContactInterface
+	// When someone publishes to a topic they are also subscribed to, do they get a copy back?
+	// We're setting it so the first subscription in a chain is pub2self:true and that
+	// sub will get a copy back but doing that afterwards will cause duplicates.
+	pub2self bool // if true then publish back to caller if subscribed. The default is false everywhere else.
 }
 
 // PushUp is to send msg up to guruness. has a q per contact.
@@ -89,6 +99,7 @@ func (me *LookupTableStruct) PushUp(p packets.Interface, h HashType) error {
 		// some of us don't have superiors so no pushup
 		// unless we have a superior cluster in which case there's
 		// just the one upper channel trying to go up.
+		// FIXME: FATAL
 		return nil
 	}
 	if len(router.channels) == 0 {
@@ -138,7 +149,7 @@ func NewLookupTable(projectedTopicCount int, aname string, isGuru bool, getTime 
 		// for j := 0; j < len(me.allTheSubscriptions[i].mySubscriptions); j++ {
 		// 	me.allTheSubscriptions[i].mySubscriptions[j] = make(map[HashType]*watchedTopic, portion)
 		// }
-		me.allTheSubscriptions[i].mySubscriptions = make(map[HashType]*watchedTopic, projectedTopicCount/me.theBucketsSize)
+		me.allTheSubscriptions[i].mySubscriptions = make(map[HashType]*WatchedTopic, projectedTopicCount/me.theBucketsSize)
 		tmp := make(chan interface{}, 32)
 		me.allTheSubscriptions[i].incoming = tmp
 		me.allTheSubscriptions[i].looker = me
@@ -160,8 +171,8 @@ func (me *LookupTableStruct) sendSubscriptionMessage(ss ContactInterface, p *pac
 	msg.ss = ss
 	msg.p = p
 	p.Address.EnsureAddressIsBinary()
-	msg.h.InitFromBytes(p.Address.Bytes)
-	i := msg.h.GetFractionalBits(me.theBucketsSizeLog2) // is 4. The first 4 bits of the hash.
+	msg.topicHash.InitFromBytes(p.Address.Bytes)
+	i := msg.topicHash.GetFractionalBits(me.theBucketsSizeLog2) // is 4. The first 4 bits of the hash.
 	b := me.allTheSubscriptions[i]
 	b.incoming <- &msg
 }
@@ -173,8 +184,8 @@ func (me *LookupTableStruct) sendUnsubscribeMessage(ss ContactInterface, p *pack
 	msg.ss = ss
 	msg.p = p
 	p.Address.EnsureAddressIsBinary()
-	msg.h.InitFromBytes(p.Address.Bytes)
-	i := msg.h.GetFractionalBits(me.theBucketsSizeLog2)
+	msg.topicHash.InitFromBytes(p.Address.Bytes)
+	i := msg.topicHash.GetFractionalBits(me.theBucketsSizeLog2)
 	b := me.allTheSubscriptions[i]
 	b.incoming <- &msg
 }
@@ -186,8 +197,8 @@ func (me *LookupTableStruct) sendLookupMessage(ss ContactInterface, p *packets.L
 	msg.ss = ss
 	msg.p = p
 	p.Address.EnsureAddressIsBinary()
-	msg.h.InitFromBytes(p.Address.Bytes)
-	i := msg.h.GetFractionalBits(me.theBucketsSizeLog2)
+	msg.topicHash.InitFromBytes(p.Address.Bytes)
+	i := msg.topicHash.GetFractionalBits(me.theBucketsSizeLog2)
 	b := me.allTheSubscriptions[i]
 	b.incoming <- &msg
 }
@@ -219,30 +230,30 @@ func (me *LookupTableStruct) sendSubscriptionMessageDown(p *packets.Subscribe) {
 }
 
 // SendUnsubscribeMessage will create a message object, copy pointers to it so it'll own them now, and queue the message.
-func (me *LookupTableStruct) sendUnsubscribeMessageDown(p *packets.Unsubscribe) {
+// func (me *LookupTableStruct) sendUnsubscribeMessageDown(p *packets.Unsubscribe) {
 
-	msg := unsubscribeMessageDown{}
-	//msg.ss = ss
-	msg.p = p
-	p.Address.EnsureAddressIsBinary()
-	msg.h.InitFromBytes(p.Address.Bytes)
-	i := msg.h.GetFractionalBits(me.theBucketsSizeLog2)
-	b := me.allTheSubscriptions[i]
-	b.incoming <- &msg
-}
+// 	msg := unsubscribeMessageDown{}
+// 	//msg.ss = ss
+// 	msg.p = p
+// 	p.Address.EnsureAddressIsBinary()
+// 	msg.h.InitFromBytes(p.Address.Bytes)
+// 	i := msg.h.GetFractionalBits(me.theBucketsSizeLog2)
+// 	b := me.allTheSubscriptions[i]
+// 	b.incoming <- &msg
+// }
 
 // SendUnsubscribeMessage will create a message object, copy pointers to it so it'll own them now, and queue the message.
-func (me *LookupTableStruct) sendLookupMessageDown(p *packets.Lookup) {
+// func (me *LookupTableStruct) sendLookupMessageDown(p *packets.Lookup) {
 
-	msg := lookupMessageDown{}
-	//msg.ss = ss
-	msg.p = p
-	p.Address.EnsureAddressIsBinary()
-	msg.h.InitFromBytes(p.Address.Bytes)
-	i := msg.h.GetFractionalBits(me.theBucketsSizeLog2)
-	b := me.allTheSubscriptions[i]
-	b.incoming <- &msg
-}
+// 	msg := lookupMessageDown{}
+// 	//msg.ss = ss
+// 	msg.p = p
+// 	p.Address.EnsureAddressIsBinary()
+// 	msg.h.InitFromBytes(p.Address.Bytes)
+// 	i := msg.h.GetFractionalBits(me.theBucketsSizeLog2)
+// 	b := me.allTheSubscriptions[i]
+// 	b.incoming <- &msg
+// }
 
 // SendPublishMessage will create a message object, copy pointers to it so it'll own them now, and queue the message.
 func (me *LookupTableStruct) sendPublishMessage(ss ContactInterface, p *packets.Send) {
@@ -251,8 +262,8 @@ func (me *LookupTableStruct) sendPublishMessage(ss ContactInterface, p *packets.
 	msg.ss = ss
 	msg.p = p
 	p.Address.EnsureAddressIsBinary()
-	msg.h.InitFromBytes(p.Address.Bytes)
-	i := msg.h.GetFractionalBits(me.theBucketsSizeLog2)
+	msg.topicHash.InitFromBytes(p.Address.Bytes)
+	i := msg.topicHash.GetFractionalBits(me.theBucketsSizeLog2)
 	b := me.allTheSubscriptions[i]
 	b.incoming <- &msg
 }
@@ -282,14 +293,12 @@ func (bucket *subscribeBucket) processMessages(me *LookupTableStruct) {
 
 		case *subscriptionMessage:
 			processSubscribe(me, bucket, v)
-		case *subscriptionMessageDown:
-			processSubscribeDown(me, bucket, v)
-
+		// case *subscriptionMessageDown:
+		// 	processSubscribeDown(me, bucket, v)
 		case *lookupMessage:
 			processLookup(me, bucket, v)
-		case *lookupMessageDown:
-			processLookupDown(me, bucket, v)
-
+		// case *lookupMessageDown:
+		// 	processLookupDown(me, bucket, v)
 		case *publishMessage:
 			processPublish(me, bucket, v)
 		case *publishMessageDown:
@@ -297,24 +306,23 @@ func (bucket *subscribeBucket) processMessages(me *LookupTableStruct) {
 
 		case *unsubscribeMessage:
 			processUnsubscribe(me, bucket, v)
-		case *unsubscribeMessageDown:
-			processUnsubscribeDown(me, bucket, v)
-
+		// case *unsubscribeMessageDown:
+		// 	processUnsubscribeDown(me, bucket, v)
 		case *callBackCommand:
 			cbc := msg.(*callBackCommand)
 			cbc.callback(me, bucket, cbc)
 
 		default:
-			// no match. do nothing. apnic?
-			fmt.Println("FIXME missing case for ", reflect.TypeOf(msg))
+			// no match. do nothing. panic?
+			fmt.Println("ERROR processMessages missing case for ", reflect.TypeOf(msg))
 			fatalMessups.Inc()
 		}
 	}
 }
 
 type baseMessage struct {
-	h  HashType // 3*8 bytes
-	ss ContactInterface
+	topicHash HashType // 3*8 bytes  // the first 24 bytes of the sha256 of the topic
+	ss        ContactInterface
 	// lookup has a time getter timestamp uint32   // timestamp
 }
 
@@ -346,20 +354,15 @@ type subscriptionMessageDown struct {
 }
 
 // unsubscribeMessage for real
-type unsubscribeMessageDown struct {
-	h HashType // baseMessage
-	p *packets.Unsubscribe
-}
+// type unsubscribeMessageDown struct {
+// 	h HashType // baseMessage
+// 	p *packets.Unsubscribe
+// }
 
 // publishMessage used here
 type publishMessageDown struct {
 	h HashType // baseMessage
 	p *packets.Send
-}
-
-type lookupMessageDown struct {
-	h HashType // baseMessage
-	p *packets.Lookup
 }
 
 // me.theBucketsSize is 16 and there's 16 channels
@@ -369,7 +372,7 @@ type lookupMessageDown struct {
 
 // One map per bucket ? yes.
 type subscribeBucket struct {
-	mySubscriptions map[HashType]*watchedTopic //[64]map[HashType]*watchedTopic
+	mySubscriptions map[HashType]*WatchedTopic //[64]map[HashType]*watchedTopic
 	incoming        chan interface{}
 	looker          *LookupTableStruct
 }
@@ -380,7 +383,7 @@ func NewWithInt64Comparator() *redblacktree.Tree {
 }
 
 // A grab bag of paranoid ideas about bad states.
-func (me *LookupTableStruct) checkForBadContact(badsock ContactInterface, pubstruct *watchedTopic) bool {
+func (me *LookupTableStruct) checkForBadContact(badsock ContactInterface, pubstruct *WatchedTopic) bool {
 
 	if badsock.GetConfig() == nil {
 		return true
@@ -388,13 +391,13 @@ func (me *LookupTableStruct) checkForBadContact(badsock ContactInterface, pubstr
 	return false
 }
 
-func getWatcher(bucket *subscribeBucket, h *HashType) (*watchedTopic, bool) {
+func getWatcher(bucket *subscribeBucket, h *HashType) (*WatchedTopic, bool) {
 	hashtable := bucket.mySubscriptions
 	watcheditem, ok := hashtable[*h]
 	return watcheditem, ok
 }
 
-func setWatcher(bucket *subscribeBucket, h *HashType, watcher *watchedTopic) {
+func setWatcher(bucket *subscribeBucket, h *HashType, watcher *WatchedTopic) {
 
 	hashtable := bucket.mySubscriptions
 	if watcher != nil {
@@ -404,90 +407,87 @@ func setWatcher(bucket *subscribeBucket, h *HashType, watcher *watchedTopic) {
 	}
 }
 
-func heartBeatCallBack(me *LookupTableStruct, bucket *subscribeBucket, cmd *callBackCommand) {
-	defer cmd.wg.Done()
-	// we don't delete them here and now. We q up Unsubscribe packets.
-	// except the billing.
-	s := bucket.mySubscriptions
-	for h, watchedItem := range s {
-		expireAll := watchedItem.expires < cmd.expires
-		// first, scan all the contact references and schedule the stale ones for deleteion.
-		it := watchedItem.Iterator()
-		for it.Next() {
-			key, item := it.KeyValue()
-			//if item.expires < cmd.expires || expireAll || item.ci.GetClosed() {
-			if expireAll || item.ci.GetClosed() {
+// func heartBeatCallBack(me *LookupTableStruct, bucket *subscribeBucket, cmd *callBackCommand) {
+// 	defer cmd.wg.Done()
+// 	// we don't delete them here and now. We q up Unsubscribe packets.
+// 	// except the billing.
+// 	s := bucket.mySubscriptions
+// 	for h, watchedItem := range s {
+// 		expireAll := watchedItem.expires < cmd.expires
+// 		// first, scan all the contact references and schedule the stale ones for deleteion.
+// 		it := watchedItem.Iterator()
+// 		for it.Next() {
+// 			key, item := it.KeyValue()
+// 			//if item.expires < cmd.expires || expireAll || item.ci.GetClosed() {
+// 			if expireAll || item.contactInterface.GetClosed() {
 
-				p := new(packets.Unsubscribe)
-				//p.AddressAlias = new([24]byte)[:]
-				//watchedItem.name.GetBytes(p.AddressAlias)
-				p.Address.Type = packets.BinaryAddress
-				p.Address.Bytes = new([24]byte)[:]
-				watchedItem.name.GetBytes(p.Address.Bytes)
-				me.sendUnsubscribeMessage(item.ci, p)
-			}
-			_ = key
-		}
-		_ = h
-		// second, check if this is a billing topic
-		// if it's billing and it's over limits then write 'error Send' down.
-		billingAccumulator, ok := watchedItem.GetBilling()
-		if ok {
-			if expireAll {
-				setWatcher(bucket, &h, nil) // kill it now
-			} else {
-				good, msg := billingAccumulator.AreUnderMax(me.getTime())
-				if !good {
-					p := &packets.Send{}
-					p.Address.Bytes = new([24]byte)[:]
-					p.Address.Type = packets.BinaryAddress
-					h.GetBytes(p.Address.Bytes)
-					p.Source.FromString("billingAccumulator empty source")
-					p.Payload = []byte(msg)
-					p.SetOption("error", p.Payload)
-					// just like a publish down.
-					it = watchedItem.Iterator()
-					for it.Next() {
-						key, item := it.KeyValue()
-						_ = key
-						ci := item.ci
-						if me.checkForBadContact(ci, watchedItem) == false {
-							ci.WriteDownstream(p)
-						}
-					}
-				}
-			}
-		}
-		// third, we'll need to send out the topic usage-stats occasionally.
-		if len(watchedItem.jwtidAlias) == 32 {
+// 				p := new(packets.Unsubscribe)
+// 				p.Address.Type = packets.BinaryAddress
+// 				p.Address.Bytes = new([24]byte)[:]
+// 				watchedItem.name.GetBytes(p.Address.Bytes)
+// 				me.sendUnsubscribeMessage(item.contactInterface, p)
+// 			}
+// 			_ = key
+// 		}
+// 		_ = h
+// 		// second, check if this is a billing topic
+// 		// if it's billing and it's over limits then write 'error Send' down.
+// 		billingAccumulator, ok := watchedItem.IsBilling()
+// 		if ok {
+// 			if expireAll {
+// 				setWatcher(bucket, &h, nil) // kill it now
+// 			} else {
+// 				good, msg := billingAccumulator.AreUnderMax(me.getTime())
+// 				if !good {
+// 					p := &packets.Send{}
+// 					p.Address.Bytes = new([24]byte)[:]
+// 					p.Address.Type = packets.BinaryAddress
+// 					h.GetBytes(p.Address.Bytes)
+// 					p.Source.FromString("billingAccumulator empty source")
+// 					p.Payload = []byte(msg)
+// 					p.SetOption("error", p.Payload)
+// 					// just like a publish down.
+// 					it = watchedItem.Iterator()
+// 					for it.Next() {
+// 						key, item := it.KeyValue()
+// 						_ = key
+// 						ci := item.contactInterface
+// 						if me.checkForBadContact(ci, watchedItem) == false {
+// 							ci.WriteDownstream(p)
+// 						}
+// 					}
+// 				}
+// 			}
+// 		}
+// 		// third, we'll need to send out the topic usage-stats occasionally.
+// 		if len(watchedItem.jwtidAlias) == 32 {
 
-			if watchedItem.nextBillingTime < cmd.now {
+// 			if watchedItem.nextBillingTime < cmd.now {
 
-				deltaTime := cmd.now - watchedItem.lastBillingTime
-				watchedItem.lastBillingTime = cmd.now
-				watchedItem.nextBillingTime = cmd.now + 300 // 300 secs after first time
+// 				deltaTime := cmd.now - watchedItem.lastBillingTime
+// 				watchedItem.lastBillingTime = cmd.now
+// 				watchedItem.nextBillingTime = cmd.now + 300 // 300 secs after first time
 
-				msg := &StatsWithTime{}
-				msg.Start = cmd.now
+// 				msg := &StatsWithTime{}
+// 				msg.Start = cmd.now
 
-				msg.Subscriptions = float32(deltaTime) // means one per sec, one per min ...
-				p := &packets.Send{}
-				p.Address.Type = packets.BinaryAddress
-				p.Address.Bytes = ([]byte(watchedItem.jwtidAlias))[0:HashTypeLen]
-				//p.AddressAlias = []byte(watchedItem.jwtidAlias)
-				p.Source.FromString("billing time empty source")
-				str, err := json.Marshal(msg)
-				if err != nil {
-					fmt.Println(" break fast ")
-				}
-				p.SetOption("stats", str)
-				// send somewhere
-				// we need some kind of pipe to the cluster front.
-				me.ex.channelToAnyAide <- p
-			}
-		}
-	}
-}
+// 				msg.Subscriptions = float32(deltaTime) // means one per sec, one per min ...
+// 				p := &packets.Send{}
+// 				p.Address.Type = packets.BinaryAddress
+// 				p.Address.Bytes = ([]byte(watchedItem.jwtidAlias))[0:HashTypeLen]
+// 				p.Source.FromString("billing time empty source")
+// 				str, err := json.Marshal(msg)
+// 				if err != nil {
+// 					fmt.Println(" break fast ")
+// 				}
+// 				p.SetOption("stats", str)
+// 				// send somewhere
+// 				// we need some kind of pipe to the cluster front.
+// 				me.ex.channelToAnyAide <- p
+// 			}
+// 		}
+// 	}
+// }
 
 // Heartbeat is every 10 sec. now is unix seconds.
 func (me *LookupTableStruct) Heartbeat(now uint32) {
@@ -517,20 +517,34 @@ func init() {
 	}
 }
 
-// utility routines for watchedTopic put, get etc.
+// utility routines for WatchedTopic put, get etc.
 
-func (wt *watchedTopic) put(key HalfHash, ci ContactInterface) {
-	item := new(watcherItem)
-	item.ci = ci
+func (wt *WatchedTopic) get(key HalfHash) (*watcherItem, bool) {
+	item, ok := wt.thetree.Get(uint64(key))
+	if ok {
+		item2, ok2 := item.(*watcherItem)
+		return item2, ok2
+	} else {
+		return nil, false
+	}
+}
+
+func (wt *WatchedTopic) put(key HalfHash, item *watcherItem) {
+	//item := new(watcherItem)
+	//item.contactInterface = ci
 	//item.expires = 20 * 60 * ci.GetConfig().GetLookup().getTime()
 	wt.thetree.Put(uint64(key), item)
 }
 
-func (wt *watchedTopic) remove(key HalfHash) {
+func (wt *WatchedTopic) remove(key HalfHash) {
 	wt.thetree.Remove(uint64(key))
 }
 
-func (wt *watchedTopic) getSize() int {
+func (wt *WatchedTopic) removeAll() {
+	wt.thetree.Clear()
+}
+
+func (wt *WatchedTopic) getSize() int {
 	return wt.thetree.Size()
 }
 
@@ -538,7 +552,7 @@ type subIterator struct {
 	rbi *redblacktree.Iterator
 }
 
-func (wt *watchedTopic) Iterator() *subIterator {
+func (wt *WatchedTopic) Iterator() *subIterator {
 	si := new(subIterator)
 	rbi := wt.thetree.Iterator()
 	si.rbi = &rbi
@@ -566,7 +580,7 @@ func (it *subIterator) KeyValue() (HalfHash, *watcherItem) {
 
 // utility routines for watchedTopic options
 // OptionSize returns key count which is same as value count
-func (wt *watchedTopic) OptionSize() int {
+func (wt *WatchedTopic) OptionSize() int {
 	if wt.optionalKeyValues == nil {
 		return 0
 	}
@@ -574,7 +588,7 @@ func (wt *watchedTopic) OptionSize() int {
 }
 
 // GetOption returns the value,true to go with the key or nil,false
-func (wt *watchedTopic) GetOption(key string) ([]byte, bool) {
+func (wt *WatchedTopic) GetOption(key string) ([]byte, bool) {
 	if wt.optionalKeyValues == nil {
 		return nil, false
 	}
@@ -592,11 +606,11 @@ func (wt *watchedTopic) GetOption(key string) ([]byte, bool) {
 }
 
 // GetOption returns the value,true to go with the key or nil,false
-func (wt *watchedTopic) GetBilling() (*BillingAccumulator, bool) {
+func (wt *WatchedTopic) IsBilling() (*BillingAccumulator, bool) {
 	if wt.optionalKeyValues == nil {
 		return nil, false
 	}
-	val, ok := wt.optionalKeyValues.Get("bill")
+	val, ok := wt.optionalKeyValues.Get("bill") // can we do this another way? TODO:
 	if !ok {
 		return nil, ok
 	}
@@ -608,7 +622,7 @@ func (wt *watchedTopic) GetBilling() (*BillingAccumulator, bool) {
 }
 
 // DeleteOption returns the value,true to go with the key or nil,false
-func (wt *watchedTopic) DeleteOption(key string) {
+func (wt *WatchedTopic) DeleteOption(key string) {
 	if wt.optionalKeyValues == nil {
 		return
 	}
@@ -617,7 +631,7 @@ func (wt *watchedTopic) DeleteOption(key string) {
 }
 
 // SetOption adds the key,value
-func (wt *watchedTopic) SetOption(key string, val interface{}) {
+func (wt *WatchedTopic) SetOption(key string, val interface{}) {
 	if wt.optionalKeyValues == nil {
 		wt.optionalKeyValues = redblacktree.NewWithStringComparator()
 	}
@@ -652,7 +666,7 @@ func guruDeleteRemappedAndGoneTopics(me *LookupTableStruct, bucket *subscribeBuc
 	//fmt.Println("bucket", len(bucket.incoming))
 	//for _, s := range bucket.mySubscriptions {
 	s := bucket.mySubscriptions
-	for h, watchedTopic := range s { //s {
+	for h, WatchedTopic := range s { //s {
 		index := me.upstreamRouter.maglev.Lookup(h.GetUint64())
 		// if the index is not me then delete the topic and tell upstream.
 		if index != cmd.index {
@@ -663,7 +677,7 @@ func guruDeleteRemappedAndGoneTopics(me *LookupTableStruct, bucket *subscribeBuc
 			me.PushUp(&unsub, h)
 			delete(s, h)
 		}
-		_ = watchedTopic
+		_ = WatchedTopic
 		//	}
 	}
 	cmd.wg.Done()

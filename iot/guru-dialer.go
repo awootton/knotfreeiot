@@ -151,6 +151,7 @@ func (upc *upperChannel) dialGuru() {
 	upc.running = true
 	if isTCP {
 		// in prod:
+		fmt.Println("dialGuru dialGuruAndServe started with", upc.address)
 		for upc.running {
 
 			err := upc.dialGuruAndServe(upc.address)
@@ -160,7 +161,7 @@ func (upc *upperChannel) dialGuru() {
 				// there's always an error or else we'd still be in dialAideAndServe
 				fmt.Println("dialGuru dialGuruAndServe noerr", upc.address, err)
 			}
-			time.Sleep(time.Second)
+			time.Sleep(time.Second * 5)
 		}
 
 	} else {
@@ -309,7 +310,7 @@ func (upc *upperChannel) dialGuruAndServe(address string) error {
 	// todo: tell prometheius we're dialing
 	conn, err := net.DialTimeout("tcp", address, time.Duration(uint64(2*time.Second)))
 	if err != nil {
-		fmt.Println("dial g fail", address, err)
+		fmt.Println("dial dialGuruAndServe fail", address, " with ", err)
 		TCPNameResolverFail2.Inc()
 		return nil
 	}
@@ -319,6 +320,8 @@ func (upc *upperChannel) dialGuruAndServe(address string) error {
 
 	conn.(*net.TCPConn).SetNoDelay(true)
 	conn.(*net.TCPConn).SetWriteBuffer(4096)
+
+	fmt.Println("dialGuruAndServe ready to ReadPacket from ", address)
 
 	var founderr error
 
@@ -335,7 +338,7 @@ func (upc *upperChannel) dialGuruAndServe(address string) error {
 			//fmt.Println("not upc.down ", p)
 			err = PushDownFromTop(upc.ex.Looker, p)
 			if err != nil {
-				fmt.Println(" g err PushDown ", err)
+				fmt.Println("dialGuruAndServe PushDownFromTop error ", err)
 				founderr = err
 				conn.Close()
 				return
@@ -363,14 +366,6 @@ func (upc *upperChannel) dialGuruAndServe(address string) error {
 			time.Sleep(time.Second)
 			p := &packets.Ping{}
 			upc.up <- p
-			// mux.Lock()
-			// err = p.Write(conn)
-			// mux.Unlock()
-			// if err != nil {
-			// 	fmt.Println("write ping fail", conn, err)
-			// 	conn.Close()
-			// 	founderr = err
-			// }
 		}
 	}()
 

@@ -498,7 +498,7 @@ func Test1(t *testing.T) {
 func StandardAliasHash(longName []byte) []byte {
 	h := sha256.New()
 	h.Write(longName)
-	return h.Sum(nil)
+	return h.Sum(nil)[0:24]
 }
 
 func TestForZombies(t *testing.T) {

@@ -85,12 +85,22 @@ func main() {
 	previousPodNames, err := kubectl.K8s("kubectl get po | grep "+deploymentName, "")
 	_ = err
 
+	deploymentName2 := "guru-"
+	previousPodNames2, err := kubectl.K8s("kubectl get po | grep "+deploymentName2, "")
+	_ = err
+
+	deploymentName3 := "knotoperator-"
+	previousPodNames3, err := kubectl.K8s("kubectl get po | grep "+deploymentName3, "")
+	_ = err
+
+	// previousPodNames += previousPodNames2
+	// previousPodNames += previousPodNames3
+
 	hh, _ := os.UserHomeDir()
 	//path2 := hh + "/atw/fair-theater-238820-firebase-adminsdk-uyr4z-63b4da8ff3.json"
 	//path1 := hh + "/atw/privateKeys4.txt"
 	dir := hh + "/atw"
 	kubectl.K("kubectl create secret generic privatekeys4 --from-file=" + dir)
-	//kubectl.K("kubectl create secret generic privatekeys4 --from-file=" + path1 + " --from-file=" + path2)
 
 	//kubectl.K("kubectl apply -f knotfreedeploy.yaml")
 	data, _ := ioutil.ReadFile("knotfreedeploy.yaml")
@@ -113,17 +123,45 @@ func main() {
 		kubectl.K("kubectl apply -f knotfreemonitoring.yaml")
 	}
 	if needtobuild && strings.Contains(previousPodNames, "No resources found") == false {
-		// delete the aides
-		lines := strings.Split(previousPodNames, "\n")
-		for _, line := range lines {
-			if len(line) < len(deploymentName) {
-				continue
+		// delete the aides, and others
+		{
+			lines := strings.Split(previousPodNames, "\n")
+			for _, line := range lines {
+				if len(line) < len(deploymentName) {
+					continue
+				}
+				i := strings.Index(line, " ")
+				podname := line[0:i]
+				podname = strings.Trim(podname, " ")
+				// eg aide-7428876776-54rws
+				kubectl.K("kubectl delete po " + podname)
 			}
-			i := strings.Index(line, " ")
-			podname := line[0:i]
-			podname = strings.Trim(podname, " ")
-			// eg aide-7428876776-54rws
-			kubectl.K("kubectl delete po " + podname)
+		}
+		{
+			lines := strings.Split(previousPodNames2, "\n")
+			for _, line := range lines {
+				if len(line) < len(deploymentName) {
+					continue
+				}
+				i := strings.Index(line, " ")
+				podname := line[0:i]
+				podname = strings.Trim(podname, " ")
+				// eg aide-7428876776-54rws
+				kubectl.K("kubectl delete po " + podname)
+			}
+		}
+		{
+			lines := strings.Split(previousPodNames3, "\n")
+			for _, line := range lines {
+				if len(line) < len(deploymentName) {
+					continue
+				}
+				i := strings.Index(line, " ")
+				podname := line[0:i]
+				podname = strings.Trim(podname, " ")
+				// eg aide-7428876776-54rws
+				kubectl.K("kubectl delete po " + podname)
+			}
 		}
 	}
 
@@ -133,7 +171,9 @@ func main() {
 	}
 	kubectl.K("kubectl config set-context --current --namespace=knotspace")
 
+	fmt.Println("apply_namespace finished apply_namespace finished apply_namespace finished apply_namespace finished ")
 	fmt.Println(time.Now())
+	fmt.Println("apply_namespace finished apply_namespace finished apply_namespace finished apply_namespace finished ")
 
 }
 
