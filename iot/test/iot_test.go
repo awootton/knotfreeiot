@@ -76,7 +76,7 @@ func TestTwoLevel(t *testing.T) {
 	WaitForActions(aide2)
 	WaitForActions(guru0)
 
-	got,_ = contact1.(*testContact).getResultAsString()
+	got, _ = contact1.(*testContact).getResultAsString()
 	want = "no message received"
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
@@ -103,7 +103,7 @@ func TestTwoLevel(t *testing.T) {
 	WaitForActions(aide2)
 	WaitForActions(guru0)
 
-	got,_ = contact1.(*testContact).getResultAsString()
+	got, _ = contact1.(*testContact).getResultAsString()
 	want = `[P,=ygRnE97Kfx0usxBqx5cygy4enA1eojeR,"contact2 address","can you hear me now?"]`
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
@@ -116,12 +116,12 @@ func TestTwoLevel(t *testing.T) {
 
 	iot.PushPacketUpFromBottom(contact2, &sendmessage2)
 
-	WaitForActions(guru0)
+	WaitForActions(guru0) // FIXME: use IterateAndWait
 	WaitForActions(aide1)
 	WaitForActions(aide2)
 	WaitForActions(guru0)
 
-	got,_ = contact1.(*testContact).getResultAsString()
+	got, _ = contact1.(*testContact).getResultAsString()
 	want = `[P,=ygRnE97Kfx0usxBqx5cygy4enA1eojeR,"contact2 address","can you hear me now?"]`
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
@@ -174,13 +174,18 @@ func TestSend(t *testing.T) {
 	subs.Address.FromString("contact2_address")
 	err = iot.PushPacketUpFromBottom(contact2, &subs)
 
-	got,_ = contact1.(*testContact).getResultAsString()
+	got, _ = contact1.(*testContact).getResultAsString()
 	want = "no message received"
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
 	}
 
-	WaitForActions(guru)
+	//WaitForActions(guru)
+	IterateAndWait(t, func() bool {
+		WaitForActions(guru)
+		cval := readCounter(iot.TopicsAdded)
+		return cval > 2
+	}, "timed out waiting for topics collected to be 3")
 
 	val := readCounter(iot.TopicsAdded)
 	got = fmt.Sprint("topics collected ", val)
@@ -203,8 +208,8 @@ func TestSend(t *testing.T) {
 
 	//"[P,=AMwu23hGtbsMhhqkKVsPgsWJ/PwPCFd24Q,contact2_address,"hello, ...+17 more"
 
-	got,_ = contact1.(*testContact).getResultAsString()
-	want = `[P,=zC7beEa1uwyGGqQpWw+CxYn8/A8IV3bh,contact2_address,"hello, can you hear me"]`
+	got, _ = contact1.(*testContact).getResultAsString()
+	want = `[P,=zC7beEa1uwyGGqQpWw-CxYn8_A8IV3bh,contact2_address,"hello, can you hear me"]`
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
 	}

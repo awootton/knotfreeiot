@@ -770,7 +770,10 @@ func (ex *Executive) WaitForActions() {
 
 func SpecialPrint(p *packets.PacketCommon, fn func()) {
 	val, ok := p.GetOption("debg")
-	if ok && string(val) == "12345678" {
+	if len(string(val)) > 0 {
+		fmt.Println("SpecialPrint ", string(val))
+	}
+	if ok && (string(val) == "[12345678]" || string(val) == "12345678") {
 		fn()
 	}
 }

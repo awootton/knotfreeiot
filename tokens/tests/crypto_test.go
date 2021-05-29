@@ -599,6 +599,28 @@ func TestMakeTok2(t *testing.T) {
 
 }
 
+func TestMakeToken1connection(t *testing.T) {
+
+	tokens.LoadPublicKeys()
+
+	tokens.LoadPrivateKeys("~/atw/privateKeys4.txt")
+	signingKey := tokens.GetPrivateKey("_9sh")
+
+	payload := GetSampleTokenPayload(starttime)
+	payload.Connections = 1
+	payload.Subscriptions = 1
+	payload.Issuer = "_9sh"
+
+	tok, err := tokens.MakeToken(payload, []byte(signingKey))
+	fmt.Println("TestMakeToken1connection token is", string(tok))
+	//fmt.Println("TestMakeToken1connection is ", base64.RawURLEncoding.EncodeToString(tok), err)
+	_ = err
+	_, ok := tokens.VerifyToken(tok, []byte(tokens.FindPublicKey("_9sh")))
+
+	fmt.Println("OK", ok)
+
+}
+
 func TestBox(t *testing.T) {
 
 	counter := &tokens.CountReader{}

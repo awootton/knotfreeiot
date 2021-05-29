@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <script src="/mqtt.js"></script>
+    <script src="/mqtt5boxed.js"></script>
+    <script>
+        window.addEventListener("load", function (evt) {
+
+            console.log("loaded");
+
+            var output = document.getElementById("output");
+            var input = document.getElementById("input");
+            var ws;
+
+            var client;
+
+            var print = function (message) {
+                var d = document.createElement("div");
+                d.textContent = message;
+                output.appendChild(d);
+                console.log(message);
+            };
+
+            function log() {
+                var args = Array.prototype.slice.call(arguments);
+                console.log.apply(console, args);
+                document.getElementById('output').innerText += args.join(' ') + '\n';
+            };
+
+            document.getElementById("open").onclick = function (evt) {
+                print("clicked open");
+                token = "eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiSldUIn0.eyJleHAiOjE2MDkzNzI4MDAsImlzcyI6Ii85c2giLCJqdGkiOiIwZ2dBNFJIRjV0czdxOWNxTC9NK2czemMiLCJpbiI6MzIsIm91dCI6MzIsInN1Ijo0LCJjbyI6MiwidXJsIjoia25vdGZyZWUubmV0In0.43JcJsNNeCvElP8ZF9IT6G5vkhgPN85wsE8o2_6h7SKvTSsEWR0ldP5H9bP-NPymrCOYork2OeXRJKjfl9j0DQ";
+
+                client = mqtt.connect('ws://localhost:8085/mqtt', {
+                    clientId: 'aaaaaaaa',
+                    username: 'bbbbbbbb',
+                    password: token,
+                    protocolVersion: 5,
+                    clean: true,
+                    reconnectPeriod: 10000,
+                });
+                log('mqtt client created, connecting...');
+
+                client.on('connect', () => {
+                    log('connected, subscribing to "test" topic...');
+
+                    client.subscribe('test', { qos: 1 }, (err) => {
+                        if (err) {
+                            log('failed to subscribe to topic "test":', err);
+                            return;
+                        }
+                        log('subscribed to "test" topic, nnoottpublishing message...');
+                    });
+                });
+
+                client.on('message', (topic, msg) => {
+                    log('received message in topic "' + topic + '": "' + msg.toString('utf8') + '"');
+                });
+
+                client.on('close', () => {
+                    log('close-disconnected');
+                })
+
+                client.on('error', (err) => {
+                    log('mqtt client error:', err);
+                    client.end(true) // force disconnect
+                });
+                console.log("done open")
+                return false;
+            };
+
+            document.getElementById("send").onclick = function (evt) {
+                if (!client) {
+                    return false;
+                }
+                print("SEND: " + input.value);
+                client.publish('test', input.value, { qos: 0 });
+
+                return false;
+            };
+
+            document.getElementById("show").onclick = function (evt) {
+                 
+                document.getElementById('output').innerText +=    document.getElementById('user').value+ '\n';
+                document.getElementById('output').innerText +=    document.getElementById('password').value+ '\n';
+
+                return false;
+            };
+
+            document.getElementById("close").onclick = function (evt) {
+                if (!client) {
+                    return false;
+                }
+                client.end();
+                return false;
+            };
+        });
+    </script>
+</head>
+
+<body>
+    <form>
+        <input id="user" type="text" value="--------">
+        <input id="password" type="password" value="------">
+    </form>
+
+    <table>
+        <tr>
+            <td valign="top" width="50%">
+                <p>Click "Open" to create a connection to the server,
+                    "Send" to send a message to the server and "Close" to close the connection.
+                    You can change the message and send multiple times.
+                    <p>
+                        <form>
+                            <button id="open">Open</button>
+                            <button id="close">Close</button>
+                            <p><input id="input" type="text" value="Hello world!">
+                                <button id="send">Send</button>
+                            <p>
+                                <button id="show">Show</button>
+                        </form>
+            </td>
+            <td valign="top" width="50%">
+                <div id="output"></div>
+            </td>
+        </tr>
+    </table>
+</body>
+
+</html>

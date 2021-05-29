@@ -22,11 +22,12 @@ import (
 
 func processPublish(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *publishMessage) {
 
-	var logs []string
+	var logs []string // collect them up and write them all at once.
 	wereSpecial := false
 	SpecialPrint(&pubmsg.p.PacketCommon, func() {
 		wereSpecial = true
 	})
+
 	if wereSpecial {
 		log := fmt.Sprintln("processPublish ", pubmsg.p.Address.String(), " p=", string(pubmsg.p.Payload), " in ", me.ex.Name, " from:", pubmsg.ss.GetKey())
 		logs = append(logs, log)

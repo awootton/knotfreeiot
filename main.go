@@ -55,10 +55,16 @@ func main() {
 	fmt.Println("Hello knotfreeserver")
 
 	h := sha256.New()
-	h.Write([]byte("anonymousanonymous"))
+	h.Write([]byte("AnonymousAnonymous"))
 	hashBytes := h.Sum(nil)
+	fmt.Println(" sha256 of AnonymousAnonymous is " + base64.RawURLEncoding.EncodeToString(hashBytes))
 
-	fmt.Println(" sha256 of anonymousanonymous is " + base64.RawURLEncoding.EncodeToString(hashBytes))
+	var htmp iot.HashType
+	hptr := &htmp
+	hptr.HashBytes([]byte("alice_vociferous_mcgrath"))
+	var tmpbuf [24]byte
+	hptr.GetBytes(tmpbuf[:])
+	fmt.Println("standard hash of alice_vociferous_mcgrath is " + base64.RawURLEncoding.EncodeToString(tmpbuf[:]))
 
 	isGuru := flag.Bool("isguru", false, "")
 
@@ -171,7 +177,7 @@ func (superMux *SuperMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// eg [subdomain knotfree net]
 	// eg [subdomain knotfreeiot net]
 	// eg [subdomain go2here io]
-	fmt.Println("serving domainParts ", domainParts)
+	// fmt.Println("serving domainParts ", domainParts)
 
 	// supermux.sub.Handle("/api1/", apiHandler{ce})
 	// supermux.sub.Handle("/mqtt", wsAPIHandler{ce})
@@ -180,7 +186,7 @@ func (superMux *SuperMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	isGetToken := len(r.RequestURI) >= 9 && r.RequestURI[:9] == "/api1/get"
 	isGetToken = isGetToken || r.RequestURI == "/mqtt"
 
-	if len(domainParts) > 2 && !isGetToken {
+	if len(domainParts) > 2 && !isGetToken && domainParts[0] != "www" {
 		// we have a subdomain
 		subDomain := domainParts[0]
 		fmt.Println("serving subdomain ", subDomain, "  with "+r.URL.String())
@@ -492,8 +498,15 @@ func startPublicServer(ce *iot.ClusterExecutive) {
 	supermux.sub = http.NewServeMux()
 	supermux.sub.Handle("/api1/", ApiHandler{ce})
 	supermux.sub.Handle("/mqtt", wsAPIHandler{ce})
-	fs := http.FileServer(http.Dir("./docs/_site"))
-	supermux.sub.Handle("/", fs)
+
+	staticStuffHandler := webHandler{ce,
+		http.FileServer(http.Dir("./docs/_site")),
+		http.FileServer(http.Dir("./docs/_site2"))} // FIXME: point to gotohere static assets (a react build)
+
+	supermux.sub.Handle("/", staticStuffHandler)
+	// moved to webHandler:
+	// fs := http.FileServer(http.Dir("./docs/_site"))
+	// supermux.sub.Handle("/", fs)
 
 	s := &http.Server{
 		Addr:           ":8085",
@@ -860,4 +873,33 @@ func (api ApiHandler) ServeMakeToken(w http.ResponseWriter, req *http.Request) {
 		tokensServed++
 		fmt.Println("done sending free token")
 	}
+}
+
+type webHandler struct {
+	ce *iot.ClusterExecutive
+
+	fs1 http.Handler
+	fs2 http.Handler
+
+	//fs := http.FileServer(http.Dir("./docs/_site"))
+	// supermux.sub.Handle("/", fs)
+
+}
+
+// serves /
+func (api webHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+
+	fmt.Println("webHandler ServeHTTP", r.RequestURI)
+
+	isGotohere := false
+	domainParts := strings.Split(r.Host, ".")
+	if len(domainParts) >= 2 && domainParts[len(domainParts)-2] == "gotohere" {
+		isGotohere = true
+	}
+	if isGotohere {
+		api.fs2.ServeHTTP(w, r)
+	} else {
+		api.fs1.ServeHTTP(w, r)
+	}
+
 }

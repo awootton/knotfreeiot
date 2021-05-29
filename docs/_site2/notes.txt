@@ -1,0 +1,24 @@
+
+
+bundle exec jekyll serve --watch
+
+bundle exec jekyll serve --watch
+
+bundle exec jekyll serve --watch
+
+
+gem install --user-install bundler jekyll
+
+/Users/awootton/.gem/ruby/2.6.0/bin
+
+cd /Users/awootton/Documents/workspace/knotfreeiot/docs
+jekyll serve --watch
+
+bundle init
+The jekyll-theme-tactile theme could not be found.
+
+bundle exec jekyll serve --watch
+
+
+python3 -m http.server 3333
+

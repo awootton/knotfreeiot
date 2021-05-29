@@ -73,7 +73,7 @@ func TestTwoTierTcp(t *testing.T) {
 	ce.WaitForActions()
 
 	got = readLine(sock2)
-	want = `[P,=1CHKeHF6q1WLMSylXwB0gRs+VVKJvEiH,retadd,some_test_hello1]`
+	want = `[P,=1CHKeHF6q1WLMSylXwB0gRs-VVKJvEiH,retadd,some_test_hello1]`
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
 	}
@@ -145,7 +145,7 @@ func TestSimpleText(t *testing.T) {
 	WaitForActions(guru)
 
 	got = readLine(sock2)
-	want = `[P,=1CHKeHF6q1WLMSylXwB0gRs+VVKJvEiH,ra,some_test_hello2]`
+	want = `[P,=1CHKeHF6q1WLMSylXwB0gRs-VVKJvEiH,ra,some_test_hello2]`
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
 	}
@@ -203,7 +203,7 @@ func TestSimpleExecutive(t *testing.T) {
 
 	p = readSocket(sock2)
 	got = fmt.Sprint(p)
-	want = `[P,=1CHKeHF6q1WLMSylXwB0gRs+VVKJvEiH,bbcc,some_test_hello3]`
+	want = `[P,=1CHKeHF6q1WLMSylXwB0gRs-VVKJvEiH,bbcc,some_test_hello3]`
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
 	}

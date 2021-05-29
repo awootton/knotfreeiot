@@ -5,6 +5,8 @@
 import time
 import datetime
 import paho.mqtt.client as paho
+from paho.mqtt.properties import Properties
+from paho.mqtt.packettypes import PacketTypes
 
 # Brokers tested: see http://moxd.io/2015/10/17/public-mqtt-brokers/ which is from 2015
 
@@ -18,11 +20,10 @@ import paho.mqtt.client as paho
 
 
 broker = "knotfree.net" # 192.168.86.159" 
-#broker = "knotfree2.com" #  aka localhost
+broker = "knotfree2.com" #  aka localhost
 
 clientid = "clientId-ws131u1ewt"
-password = '[My_token_expires:_2021-12-31,{exp:1641023999,iss:_9sh,jti:amXYKIuS4uykvPem9Fml371o,in:32,out:32,su:4,co:2,url:knotfree.net},eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiSldUIn0.eyJleHAiOjE2NDEwMjM5OTksImlzcyI6Il85c2giLCJqdGkiOiJhbVhZS0l1UzR1eWt2UGVtOUZtbDM3MW8iLCJpbiI6MzIsIm91dCI6MzIsInN1Ijo0LCJjbyI6MiwidXJsIjoia25vdGZyZWUubmV0In0.7ElPyX1Vju8Q5uDOEfgAblwvE2gxT78Jl68JPlqLRcFeMJ7if39Ppl2_Jr_JTky371bIXAn6S-pghtWSqTBwAQ]'
-#password = ''
+password = '[Free_token_expires:_2021-12-31,{exp:1641023999,iss:_9sh,jti:HpifIJkhgnTOGc3EDmOJaV0A,in:32,out:32,su:4,co:2,url:knotfree.net},eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiSldUIn0.eyJleHAiOjE2NDEwMjM5OTksImlzcyI6Il85c2giLCJqdGkiOiJIcGlmSUpraGduVE9HYzNFRG1PSmFWMEEiLCJpbiI6MzIsIm91dCI6MzIsInN1Ijo0LCJjbyI6MiwidXJsIjoia25vdGZyZWUubmV0In0.YSo2Ur7lbkwTPZfQymyvy4N1mWQaUn_cziwK36kTKlASgqOReHQ4FAocVvgq7ogbPWB1hD4hNoJtCg2WWq-BCg]'
 
 lastTime = time.time() * 1000
 
@@ -43,7 +44,7 @@ def on_message(client, userdata, message):
 def on_connect(client, userdata, flags, rc):
     if rc==0:
         print("connected OK Returned code=",rc)
-        topic = "dummy" 
+        topic = "alice_vociferous_mcgrath" 
         print("subscribing " + topic)
         client.subscribe(topic)
         #client.subscribe(topic,no_local=True)
@@ -54,7 +55,10 @@ def on_connect(client, userdata, flags, rc):
 def on_connectV5(client, userdata, flags, rc, properties):
     if rc==0:
         print("v5 connected OK Returned code=",rc)
-        topic = "dummy" # "atw/xsgournklogc/house/bulb1/client-001" 
+        topic = "alice_vociferous_mcgrath" # "atw/xsgournklogc/house/bulb1/client-001" 
+        print("subscribing " + topic)
+        client.subscribe(topic)
+        topic = "dummy" 
         print("subscribing " + topic)
         client.subscribe(topic)
         #client.subscribe(topic,no_local=True)
@@ -89,22 +93,19 @@ print("connecting to broker ", broker)
 client.connect(broker)  # connect
 
 client.loop_start()  
-time.sleep(12)
+time.sleep(2)
 print("publishing ")
 for x in range(9999):
     print(x)
-    topic = "dummy" # "atw/xsgournklogc/house/bulb1/client-001"
+    topic = "alice_vociferous_mcgrath" 
     message = "msg#"+clientid+"_"+str(x)
-    #props = paho.Properties( packet_type = paho.PUBLISH )# paho.PacketTypes.PUBLISH)
-    #props.user_property= ('sfilename', 'test.txt')  # [('sfilename', 'test.txt'),('dfilename', 'test.txt')])
-    
-    props =[('sfilename', 'test.txt'),('dfilename', 'test.txt')]
-    #, user_property = props
+
+    properties= Properties(PacketTypes.PUBLISH)
+    properties.UserProperty=[("debg","xx12345678")]
     
     lastTime = time.time() * 1000
-    client.publish(topic, message)
+    client.publish(topic, message, qos=0, retain=False, properties=properties)
     time.sleep(10)
      
 client.disconnect()  # disconnect
 client.loop_stop()  # stop loop
-

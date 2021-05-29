@@ -125,19 +125,6 @@ func main() {
 	if needtobuild && strings.Contains(previousPodNames, "No resources found") == false {
 		// delete the aides, and others
 		{
-			lines := strings.Split(previousPodNames, "\n")
-			for _, line := range lines {
-				if len(line) < len(deploymentName) {
-					continue
-				}
-				i := strings.Index(line, " ")
-				podname := line[0:i]
-				podname = strings.Trim(podname, " ")
-				// eg aide-7428876776-54rws
-				kubectl.K("kubectl delete po " + podname)
-			}
-		}
-		{
 			lines := strings.Split(previousPodNames2, "\n")
 			for _, line := range lines {
 				if len(line) < len(deploymentName) {
@@ -163,6 +150,23 @@ func main() {
 				kubectl.K("kubectl delete po " + podname)
 			}
 		}
+		time.Sleep(time.Second * 20)
+		{ // these are the aides. do them last
+			// so it's less likeely it will beroken.
+			lines := strings.Split(previousPodNames, "\n")
+			for _, line := range lines {
+				if len(line) < len(deploymentName) {
+					continue
+				}
+				i := strings.Index(line, " ")
+				podname := line[0:i]
+				podname = strings.Trim(podname, " ")
+				// eg aide-7428876776-54rws
+				kubectl.K("kubectl delete po " + podname)
+			}
+		}
+		// sometimes the aides thrash and can't contact the guru.
+		// TODO: check for that and fix it.
 	}
 
 	if alsoDoLibra {
@@ -174,7 +178,6 @@ func main() {
 	fmt.Println("apply_namespace finished apply_namespace finished apply_namespace finished apply_namespace finished ")
 	fmt.Println(time.Now())
 	fmt.Println("apply_namespace finished apply_namespace finished apply_namespace finished apply_namespace finished ")
-
 }
 
 func buildTheKnotFreeMain(registry string) {

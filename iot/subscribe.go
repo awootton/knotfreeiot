@@ -66,7 +66,7 @@ func processSubscribe(me *LookupTableStruct, bucket *subscribeBucket, submsg *su
 		// this is the first stop in the sub process - straight from a client.
 		// we assume he wants publish to come back to him if he also is a sub
 		submsg.p.SetOption("pub2self", []byte("0"))
-		wi.pub2self = false
+		wi.pub2self = true // default is true
 	}
 
 	// check some options

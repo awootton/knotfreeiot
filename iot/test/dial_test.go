@@ -64,13 +64,22 @@ func aTestDial1(t *testing.T, isTCP bool) {
 
 	SendText(c1, "P contactTopic2,dummyreturn,hello_msg") // send/pub from c1 to c2
 
-	ce.WaitForActions()
-	for i := 0; i < 2; i++ {
-		//	localtime += 60
-		//	ce.Heartbeat(localtime)
+	IterateAndWait(t, func() bool {
 		ce.WaitForActions()
-	}
-	time.Sleep(20 * time.Millisecond)
+		got = fmt.Sprint(c2.(*testContact).mostRecent)
+		return got != "[]"
+	}, "timed out waiting aTestDial1")
+
+	// ce.WaitForActions() // FIXME: use iterate and wait
+	// for i := 0; i < 20; i++ {
+	// 	//	localtime += 60
+	// 	//	ce.Heartbeat(localtime)
+	// 	ce.WaitForActions()
+	// }
+	// time.Sleep(20 * time.Millisecond)
+	// time.Sleep(20 * time.Millisecond)
+	// time.Sleep(20 * time.Millisecond)
+	// time.Sleep(20 * time.Millisecond)
 
 	got = fmt.Sprint(c2.(*testContact).mostRecent)
 	want = `[[P,=LiNMB4JFOy7dUJJ9vMVyzhMzLz6ozRnQ,dummyreturn,hello_msg]]`

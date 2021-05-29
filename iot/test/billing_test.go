@@ -23,7 +23,8 @@ import (
 	"github.com/awootton/knotfreeiot/tokens"
 )
 
-var sampleToken1 = `["My new token expires: 2020-12-30",{"iss":"_9sh","in":32,"out":32,"su":4,"co":1,"url":"knotfree.net"},"eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiSldUIn0.eyJleHAiOjE2MDkzNzI4MDAsImlzcyI6Ii85c2giLCJqdGkiOiI5aTZVWlBWc0pYL0p0WkNpTnlIcEhWUTIiLCJpbiI6MzIsIm91dCI6MzIsInN1Ijo0LCJjbyI6MSwidXJsIjoia25vdGZyZWUubmV0In0.3XvGPt4tsJvXAxFAEzDE3Zc0izM7stnlS7CCWMBsI1tWpjxI1waLJaB_j6SYD2AWJDDfbTx7yRBl0AwKalXsBg"]`
+// this token comes from topkens.TestMakeToken1connection
+var sampleToken1 = `eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiSldUIn0.eyJleHAiOjE2MDkzNzY0MDAsImlzcyI6Il85c2giLCJqdGkiOiIxMjM0NTYiLCJpbiI6MjAsIm91dCI6MjAsInN1IjoxLCJjbyI6MSwidXJsIjoia25vdGZyZWUubmV0In0.i5-h6Yup6vYVD6HZhzIz_jP0y1FYkqfiM4D56eJi_-L8DWyDB9_6gSozpdF3eNgRHKBexiLVyhAAqLHUHLMZBw`
 
 func TestSubscriptionOverrun(t *testing.T) {
 
@@ -50,22 +51,38 @@ func TestSubscriptionOverrun(t *testing.T) {
 
 	c1 := getNewContactFromAide(aide1, sampleToken1)
 	allContacts = append(allContacts, c1.(*testContact))
-	SendText(c1, "S "+c1.String()) // subscribe to my name
+
+	c2 := getNewContactFromAide(aide1, sampleToken1)
+	allContacts = append(allContacts, c2.(*testContact))
+
+	SendText(c1, "S "+c1.String()+" debg 12345678") // subscribe to my name
+
+	SendText(c2, "S "+c1.String()+" debg 12345678") // subscribe to c1's name
 
 	c1.(*testContact).doNotReconnect = true
+	c2.(*testContact).doNotReconnect = true
 
 	ce.WaitForActions()
 
 	for minutes := 0; minutes < 25; minutes++ {
 		localtime += 60
 		ce.Heartbeat(localtime)
-		if minutes%5 > 99 {
-			SendText(c1, "S "+c1.String()+fmt.Sprint(localtime)) // subscribe to my name, again
-		}
+		ce.WaitForActions()
+	}
+	for minutes := 0; minutes < 25; minutes++ {
+		localtime += 60
+		ce.Heartbeat(localtime)
 		ce.WaitForActions()
 	}
 
+	IterateAndWait(t, func() bool {
+		got, ok := c1.(*testContact).getResultAsString()
+		fmt.Println(got)
+		return ok
+	}, "timed out waiting for TestSubscriptionOverrun result")
+
 	fmt.Println("subscriptions. aide1", aide1.GetExecutiveStats().Subscriptions*float32(aide1.GetExecutiveStats().Limits.Subscriptions))
+
 	got, _ = c1.(*testContact).getResultAsString()
 	want = `[P,,,,,"4.151899 subscriptions > 4",error,"4.151899 subscriptions > 4"]`
 	if got != want {

@@ -249,7 +249,7 @@ func SavePublicKey(key string, publicKey string) {
 // FindPublicKey is
 func FindPublicKey(thekey string) string {
 
-	if thekey == "1iVt" { // TODO: better black list
+	if thekey == "1iVt" { // TODO: make better blacklist
 		return ""
 	}
 
@@ -483,7 +483,7 @@ func GetImpromptuGiantTokenLocal() string {
 
 	LoadPrivateKeys("~/atw/privateKeys4.txt")
 
-	payload := GetSampleBigToken(uint32(time.Now().Unix()), "knotfree2.com:8085") // is localhost in my /etc/hosts
+	payload := GetSampleBigToken(uint32(time.Now().Unix()), "knotfree.dog:8085") // is localhost in my /etc/hosts
 	signingKey := GetPrivateKey("_9sh")
 	bbb, err := MakeToken(payload, []byte(signingKey))
 	if err != nil {

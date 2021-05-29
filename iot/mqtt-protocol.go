@@ -51,9 +51,7 @@ func (cc *mqttWsContact) Close(err error) {
 		dis := packets.Disconnect{}
 		dis.SetOption("error", []byte(err.Error()))
 		cc.WriteDownstream(&dis)
-		// if cc.netDotTCPConn != nil {
-		// 	cc.netDotTCPConn.Close()
-		// }
+		// we don't close the  cc.netDotTCPConn
 	}
 }
 
@@ -185,8 +183,6 @@ func MQTTHandlePacket(cc *mqttContact, control libmqtt.Packet) {
 
 	case *libmqtt.PublishPacket: // handle upstream publish
 
-		//fmt.Println("mqtt client publish to", mq.TopicName)
-
 		p := &packets.Send{}
 		p.Address.FromString(mq.TopicName)
 		p.Payload = mq.Payload
@@ -197,8 +193,27 @@ func MQTTHandlePacket(cc *mqttContact, control libmqtt.Packet) {
 			}
 		}
 		//p.SetOption("toself", []byte("y"))
-		p.SetOption("atwtestn", []byte("4321"))
-		bytes, ok := p.GetOption("lookup")
+		//p.SetOption("atwtestn", []byte("4321"))
+		//fmt.Println("mqtt client publish ", p)
+
+		bytes, ok := p.GetOption("api1")
+		//fmt.Println("api1 is ", string(bytes))
+		if ok && string(bytes) == "[ping]" { // special case for gotohere api1 protocol
+			// special case for gotohere api1 protocol
+			if mq.TopicName == "anonymous" {
+				respAddres := mq.Props.RespTopic
+				p.Address.FromString(respAddres) // change the address
+				// leave the payload. Anon doesn't have a pubk so leave it
+				replyApiNumber, ok := p.GetOption("nonc")
+				if ok {
+					p.SetOption("api1", replyApiNumber)
+					_ = PushPacketUpFromBottom(cc, p)
+					return
+				}
+			}
+		}
+
+		bytes, ok = p.GetOption("lookup")
 		if ok && string(bytes) == "lookup" {
 			// we need to chanage this to a lookup
 			pp := &packets.Lookup{}
@@ -214,14 +229,13 @@ func MQTTHandlePacket(cc *mqttContact, control libmqtt.Packet) {
 			_ = PushPacketUpFromBottom(cc, p)
 			// // TODO: do we need to ack?
 			// ack := mqttpackets.PubackPacket ... etc
-
 		}
 
 	case *libmqtt.SubscribePacket:
 
 		for _, topic := range mq.Topics {
 
-			fmt.Println("mqtt client subscribes to", topic)
+			//fmt.Println("mqtt client subscribes to", topic)
 
 			p := &packets.Subscribe{}
 			p.Address.FromString(topic.Name)
@@ -242,6 +256,8 @@ func MQTTHandlePacket(cc *mqttContact, control libmqtt.Packet) {
 	case *libmqtt.UnsubPacket:
 		for _, topic := range mq.TopicNames {
 
+			fmt.Println("mqtt client unsubscribes to", topic)
+
 			p := &packets.Unsubscribe{}
 			p.Address.FromString(topic)
 			_ = PushPacketUpFromBottom(cc, p)
@@ -249,6 +265,7 @@ func MQTTHandlePacket(cc *mqttContact, control libmqtt.Packet) {
 	default:
 		if mq.Type() == libmqtt.PingReqPacket.Type() {
 			cc.writeLibPacket(libmqtt.PingRespPacket, cc)
+			fmt.Println("mqtt ping")
 		} else {
 			// client sent us junk somehow
 			str := "bad mqtt type=" + reflect.TypeOf(control).String()
@@ -462,12 +479,19 @@ func WebSocketLoop(wsConn *websocket.Conn, config *ContactStructConfig) {
 	defer wsConn.Close()
 	for {
 	top:
+		t := time.Now().Add(time.Second * 300)
+		wsConn.SetReadDeadline(t)
+		wsConn.SetWriteDeadline(t)
+
 		//fmt.Println("waiting for mqtt ws packet")
 		mt, message, err := wsConn.ReadMessage()
 		if err != nil {
 			fmt.Println("mqtt ws read err", err) // eg. websocket: close 1000 (normal)
+			// websocket: close 1005 (no status) which is NOT normal
+			// websocket: close 1006 (abnormal closure): unexpected EOF
 			break
 		}
+
 		_ = mt
 		wsBuffer.Write(message)
 		// this REALLY stinks. They should only send WHOLE packets.
@@ -502,7 +526,7 @@ func WebSocketLoop(wsConn *websocket.Conn, config *ContactStructConfig) {
 
 		MQTTHandlePacket(&cc.mqttContact, control)
 	}
-	//fmt.Println("returned from loop ")
+	fmt.Println("returned from loop ")
 }
 
 // IsWholeMqttPacket returns true if the data is an mqtt packet and returns the length used.

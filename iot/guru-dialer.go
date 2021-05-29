@@ -141,7 +141,9 @@ func ConnectGuruToSuperAide(guru *Executive, aide *Executive) {
 // we need a version of this to connect a guru to an aide in a super cluster.
 func (upc *upperChannel) dialGuru() {
 
-	defer fmt.Println("** aren't we supposed to never quit this? **")
+	defer func() {
+		fmt.Println("** aren't we supposed to never quit this? **")
+	}()
 
 	isTCP := false
 	if upc.ex.ce != nil && upc.ex.ce.isTCP {
