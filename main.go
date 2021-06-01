@@ -57,14 +57,14 @@ func main() {
 	h := sha256.New()
 	h.Write([]byte("AnonymousAnonymous"))
 	hashBytes := h.Sum(nil)
-	fmt.Println(" sha256 of AnonymousAnonymous is " + base64.RawURLEncoding.EncodeToString(hashBytes))
+	fmt.Println("Hello. sha256 of AnonymousAnonymous is " + base64.RawURLEncoding.EncodeToString(hashBytes))
 
 	var htmp iot.HashType
 	hptr := &htmp
 	hptr.HashBytes([]byte("alice_vociferous_mcgrath"))
 	var tmpbuf [24]byte
 	hptr.GetBytes(tmpbuf[:])
-	fmt.Println("standard hash of alice_vociferous_mcgrath is " + base64.RawURLEncoding.EncodeToString(tmpbuf[:]))
+	fmt.Println("Hello. fyi, standard hash of alice_vociferous_mcgrath is " + base64.RawURLEncoding.EncodeToString(tmpbuf[:]))
 
 	isGuru := flag.Bool("isguru", false, "")
 

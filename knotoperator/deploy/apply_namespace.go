@@ -32,6 +32,9 @@ var startTheOperator = true
 var alsoDoLibra = false         // are deprecating libra due to excessive disk usage.
 var alsoStartMonitoring = false // once is enough
 
+var buildReactAndCopy = true // todo: mount the react statioc files instead of baking them in the docker.
+
+
 func main() {
 
 	isKind := false
@@ -181,7 +184,10 @@ func main() {
 }
 
 func buildTheKnotFreeMain(registry string) {
-	kubectl.K("cd ../../docs;bundle exec jekyll build")
+	//kubectl.K("cd ../../docs;bundle exec jekyll build")
+
+	
+
 	digest, _ := kubectl.K8s("docker inspect --format='{{.RepoDigests}}' "+registry+"/knotfreeserver", "")
 	fmt.Println("digest of knotfreeserver 1", digest)
 	kubectl.K("cd ../..;docker build -t " + registry + "/knotfreeserver .")
