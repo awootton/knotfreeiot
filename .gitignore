@@ -5,6 +5,9 @@
 *.so
 *.dylib
 
+# the react build is in here
+docs/_site2/**
+
 # Test binary, build with `go test -c`
 *.test
 

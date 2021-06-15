@@ -37,6 +37,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/awootton/knotfreeiot/mainhelpers"
+
 	"github.com/awootton/knotfreeiot/iot"
 	"github.com/awootton/knotfreeiot/packets"
 	"github.com/awootton/knotfreeiot/tokens"
@@ -53,6 +55,8 @@ func main() {
 	tokens.LoadPrivateKeys("~/atw/privateKeys4.txt")
 
 	fmt.Println("Hello knotfreeserver")
+
+	mainhelpers.TrySomeS3Stuff()
 
 	h := sha256.New()
 	h.Write([]byte("AnonymousAnonymous"))
@@ -112,7 +116,30 @@ func (api ApiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	fmt.Println("ApiHandler ServeHTTP", req.RequestURI, req.Host)
 
-	if req.RequestURI == "/api1/getallstats" {
+	if req.RequestURI == "/api1/paypal-transaction-complete" {
+
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+
+		var buff1024 [1024]byte
+		n, err := req.Body.Read(buff1024[:])
+		buf := buff1024[:n]
+		fmt.Println("paypal-transaction-complete request read body", string(buf), n, err)
+		_ = buf
+		// there's a facilitatorAccessToken  ??
+
+		// FIXME: check with paypal that this actually happened.
+
+		//make a 32x token
+		tok, payload := mainhelpers.Make32xLargeToken()
+
+		ctx := req.Context()
+		err = tokens.LogNewToken(ctx, &payload, string(buf))
+		if err != nil {
+			fmt.Println("ERROR logging token", err)
+		}
+		w.Write([]byte(tok))
+
+	} else if req.RequestURI == "/api1/getallstats" {
 
 		stats := api.ce.Aides[0].ClusterStatsString
 
@@ -166,6 +193,18 @@ type SuperMux struct {
 	ce         *iot.ClusterExecutive
 	super, sub *http.ServeMux
 }
+
+type pinfo struct {
+	// these are the reply buffers
+	buff []byte
+}
+type RequestReplyStruct struct {
+	originalRequest []byte
+	firstLine       string
+	replyParts      []pinfo
+}
+
+var servedMap = map[string]*RequestReplyStruct{}
 
 func (superMux *SuperMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
@@ -234,17 +273,43 @@ func (superMux *SuperMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		// now the whole original request packet is in buf
 
-		fmt.Println("http is request ", firstLine[0:len(firstLine)-2])
+		isCachable := strings.Contains(firstLine, "/static/") || strings.Contains(firstLine, "/images/")
+		haveAlready, ok := servedMap[firstLine]
+		if ok && isCachable {
 
-		type pinfo struct {
-			// these are the reply buffers
-			buff []byte
+			size := 0
+			for _, databuf := range haveAlready.replyParts {
+				size += len(databuf.buff)
+			}
+
+			fmt.Println("serving from cache ", firstLine, size)
+
+			hj, ok := w.(http.Hijacker)
+			if !ok {
+				http.Error(w, "webserver doesn't support hijacking", http.StatusInternalServerError)
+				return
+			}
+			conn, responseBuffer, err := hj.Hijack()
+			if err != nil {
+				fmt.Println("hijack error  ", err)
+			}
+			defer func() {
+				fmt.Println("closing hijack socket with " + r.URL.String())
+				conn.Close()
+			}()
+
+			for i, databuf := range haveAlready.replyParts {
+				n, err := responseBuffer.Write(databuf.buff[:])
+				if err != nil {
+					fmt.Println("responseBuffer.Write ERROR ", firstLine[0:len(firstLine)-2])
+				}
+				_ = i
+				_ = n
+			}
+			return
 		}
-		type RequestReplyStruct struct {
-			originalRequest []byte
-			firstLine       string
-			replyParts      []pinfo
-		}
+
+		fmt.Println("http is request ", firstLine[0:len(firstLine)-2])
 
 		pastWritesIndex := 0
 		packetStruct := &RequestReplyStruct{}
@@ -466,6 +531,16 @@ func (superMux *SuperMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			err = iot.PushPacketUpFromBottom(contact, &unsub)
 			_ = err
 			contact.Close(errors.New("normal close"))
+			if isCachable {
+				size := 0
+				for _, databuf := range packetStruct.replyParts {
+					size += len(databuf.buff)
+				}
+				if size > 1500 {
+					fmt.Println("adding to cache ", firstLine, size)
+					servedMap[firstLine] = packetStruct
+				}
+			}
 		}
 	} else {
 		superMux.sub.ServeHTTP(w, r)
@@ -730,7 +805,7 @@ func (api ApiHandler) ServeMakeToken(w http.ResponseWriter, req *http.Request) {
 	fmt.Println("token req RemoteAddr", remoteAddr) // F I X M E: use db see below
 
 	now := time.Now().Unix()
-	numberOfMinutesPassed := (now - bootTimeSec) / 60
+	numberOfMinutesPassed := (now - bootTimeSec) / 6 // now it's 10 sec
 	if tokensServed > numberOfMinutesPassed {
 		iot.BadTokenRequests.Inc()
 		http.Error(w, "Token dispenser is too busy now. Try in a minute, or, you could buy $5 worth and pass them to all your friends", 500)
@@ -769,12 +844,12 @@ func (api ApiHandler) ServeMakeToken(w http.ResponseWriter, req *http.Request) {
 		//payload := tokenRequest.Payload // can we not use the request payload?
 		// we only need variable sizes when collcecting money
 		payload := tokens.KnotFreeTokenPayload{}
-		payload.Connections = 2
-		// 90 days
-		payload.ExpirationTime = uint32(time.Now().Unix() + 60*60*24*90)
+		payload.Connections = 2 // TODO: move into standard x-small token
+		// 30 days
+		payload.ExpirationTime = uint32(time.Now().Unix() + 60*60*24*30)
 
-		payload.Input = 32 * 4
-		payload.Output = 32 * 4
+		payload.Input = 32 * 4  // TODO: move into standard x-small token
+		payload.Output = 32 * 4 // TODO: move into standard x-small token
 
 		payload.Issuer = "_9sh"
 		payload.JWTID = tokens.GetRandomB64String()
@@ -785,7 +860,7 @@ func (api ApiHandler) ServeMakeToken(w http.ResponseWriter, req *http.Request) {
 		// 	targetSite = "knotfree0.com"
 		// }
 
-		payload.Subscriptions = 20
+		payload.Subscriptions = 20 // TODO: move into standard x-small token
 
 		//  Host:"building_bob_bottomline_boldness.knotfree2.com:8085"
 
@@ -829,12 +904,12 @@ func (api ApiHandler) ServeMakeToken(w http.ResponseWriter, req *http.Request) {
 		comments := make([]interface{}, 3)
 		tmp := fmt.Sprintf(" expires: %v-%v-%v", year, int(month), day)
 		comments[0] = tokenRequest.Comment + tmp
-		comments[1] = payload
+		comments[1] = "" //payload
 		comments[2] = string(tokenString)
 		returnval, err := json.Marshal(comments)
 		returnval = []byte(strings.ReplaceAll(string(returnval), `"`, ``))
 		returnval = []byte(strings.ReplaceAll(string(returnval), ` `, `_`))
-		//fmt.Println("sending token package ", string(returnval)) // FIXME: use db
+		//fmt.Println("sending token package ", string(returnval))
 
 		err = tokens.LogNewToken(ctx, &payload, remoteAddr)
 		if err != nil {
@@ -891,15 +966,17 @@ func (api webHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	fmt.Println("webHandler ServeHTTP", r.RequestURI)
 
-	isGotohere := false
+	isGotohere := false // when this is true we serve the react build in docs/_site2
 	domainParts := strings.Split(r.Host, ".")
-	if len(domainParts) >= 2 && domainParts[len(domainParts)-2] == "gotohere" {
+	if len(domainParts) >= 2 && (domainParts[len(domainParts)-2] == "gotohere" || domainParts[len(domainParts)-2] == "gotolocal") {
 		isGotohere = true
 	}
+	// just kidding. we're dumping teh old _site jekyl thing
+	// the react build at _site2 switches for knotfree and gotohere.
+	isGotohere = true
 	if isGotohere {
 		api.fs2.ServeHTTP(w, r)
 	} else {
 		api.fs1.ServeHTTP(w, r)
 	}
-
 }

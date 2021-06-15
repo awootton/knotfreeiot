@@ -34,7 +34,7 @@ func GetFirebaseApp(ctx context.Context) (*firebase.App, error) {
 }
 
 // CalcTokenPrice figures out how much we would need to pay to get this token.
-// move out of firebase
+// TODO: move out of firebase
 func CalcTokenPrice(token *KnotFreeTokenPayload, unixIssueTime uint32) float32 {
 	price := float32(0.0)
 	// at DigitalOcean 4/2021:

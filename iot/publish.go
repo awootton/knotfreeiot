@@ -29,7 +29,7 @@ func processPublish(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *publ
 	})
 
 	if wereSpecial {
-		log := fmt.Sprintln("processPublish ", pubmsg.p.Address.String(), " p=", string(pubmsg.p.Payload), " in ", me.ex.Name, " from:", pubmsg.ss.GetKey())
+		log := fmt.Sprintln("processPublish ", pubmsg.p.Address.String(), " in ", me.ex.Name, " from:", pubmsg.ss.GetKey())
 		logs = append(logs, log)
 		str := fmt.Sprint(pubmsg.ss.GetKey())
 		_ = str

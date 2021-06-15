@@ -34,7 +34,6 @@ var alsoStartMonitoring = false // once is enough
 
 var buildReactAndCopy = true // todo: mount the react statioc files instead of baking them in the docker.
 
-
 func main() {
 
 	isKind := false
@@ -186,7 +185,12 @@ func main() {
 func buildTheKnotFreeMain(registry string) {
 	//kubectl.K("cd ../../docs;bundle exec jekyll build")
 
-	
+	if buildReactAndCopy {
+		val, err := kubectl.K8s("pwd", "")
+		fmt.Println("buildTheKnotFreeMain in ", val, err)
+		kubectl.K("rm -rf ../../docs/_site2/ ")
+		kubectl.K("cd ../../../gotohere/ ; ./build_to_knotfree_docs.sh")
+	}
 
 	digest, _ := kubectl.K8s("docker inspect --format='{{.RepoDigests}}' "+registry+"/knotfreeserver", "")
 	fmt.Println("digest of knotfreeserver 1", digest)

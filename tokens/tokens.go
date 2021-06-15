@@ -291,6 +291,7 @@ func decodeKey(key string, destination []byte) (int, error) {
 // ed25519 token signing private keys.
 var knownPrivateKeys = make(map[string]string)
 var kpkSync sync.Mutex
+var knownPrivateKeyPrefixes []string
 
 // GetPrivateKey is
 func GetPrivateKey(first4 string) string {
@@ -340,6 +341,7 @@ func LoadPrivateKeys(fname string) error {
 		//fmt.Println(public64)
 		first4 := public64[0:4]
 		knownPrivateKeys[first4] = string(privateKey)
+		knownPrivateKeyPrefixes = append(knownPrivateKeyPrefixes, first4)
 		_ = publicKey
 		_ = epublic
 	}

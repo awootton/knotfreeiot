@@ -366,7 +366,7 @@ func (cc *mqttContact) WriteDownstream(p packets.Interface) error {
 			mq.Props.UserProps.Add("atw", "test1")
 		}
 
-		//mq.ProtoVersion = cc.protoVersion
+		//fmt.Println("mqtt WriteDownstream send topic = ", string(mq.TopicName))
 		err := cc.writeLibPacket(mq, cc) // mq.WriteTo(cc)
 
 		// since there's no message in mqtt disconnect, send the pub first.
