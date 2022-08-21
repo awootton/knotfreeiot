@@ -31,10 +31,22 @@ import (
 // Segment is a what a chunk of text will become and we'll be returning a list of them.
 // Number or string or []byte are the only types.
 type Segment interface {
-	String() string // as json so 123 or "abc" or "=ABC" or "$414243"
 	Next() Segment
 	setNext(s Segment)
-	Raw() string // unquoted
+	GetQuoted() string // as json so 123 or "abc" or "=ABC" or "$414243"
+	Raw() string       // unquoted
+}
+
+type Base struct {
+	nexts Segment
+	input string
+}
+
+// RuneArray is a span of runes with quoting hints
+type RuneArray struct {
+	Base
+	theQuote        int // is 0 or "" or '
+	hadQuoteOrSlash bool
 }
 
 // Chop up a line of text into segments. Calling it a parser would be overstating.
@@ -46,9 +58,9 @@ func Chop(inputLineOfText string) (Segment, error) {
 	}
 	if s == nil { // parsed nothing
 		//not fond of returning nil return s, errors.New("no content")
-		b := new(RuneArray)
+		b := RuneArray{}
 		b.input = ""
-		s = b
+		s = &b
 	} else if s.Next() == nil { // special case for '[ content ]' just return content
 		parent := AsParent(s)
 		// if has child, and was an array
@@ -62,18 +74,18 @@ func Chop(inputLineOfText string) (Segment, error) {
 
 // TODO: rewrite without recursion (stack the head and the tail).
 // closer might be } or ] when recursing
+// it returns the head segment, a count of the chars used used, and a possible error.
 func chop(inputLineOfText string, closer rune, depth int) (Segment, int, error) {
 
 	if len(inputLineOfText) > 16*1024 {
 		return nil, 0, errors.New("is longer than 16k")
 	}
-	if depth >= 16 {
+	if depth > 16 {
 		return nil, 0, errors.New("recursed 16 deep")
+
 	}
-	// we're returning a linked list, head.Next() which may be nil
-	var head Base
-	var tail Segment
-	tail = &head
+	var front Segment // the first element of the linked list
+	var tail Segment  // the last
 
 	// working variables for scanning loop below
 	str := inputLineOfText[:]
@@ -104,27 +116,36 @@ func chop(inputLineOfText string, closer rune, depth int) (Segment, int, error) 
 	isB64 := func() bool { // is r is a char used in base64 encoding?
 		return runeLength == 1 && B64DecodeMap[r] != byte(0xFF)
 	}
+	linktoTail := func(s Segment) {
+		if front == nil {
+			front = s
+		}
+		if tail != nil {
+			tail.setNext(s)
+		}
+		tail = s
+	}
 
 	for { // while not done() scan the input text.
 		// pass delimeters
 		for r == ' ' {
 			if pop() {
-				return head.nexts, i, nil
+				return front, i, nil
 			}
 		}
 		if r == ',' || r == ':' {
 			if pop() {
-				return head.nexts, i, nil
+				return front, i, nil
 			}
 		}
 		for r == ' ' {
 			if pop() {
-				return head.nexts, i, nil
+				return front, i, nil
 			}
 		}
 		start = i
 		if r == closer {
-			return head.nexts, i, nil
+			return front, i, nil
 		}
 		switch r {
 		case '$': // hex for a byte array
@@ -139,49 +160,38 @@ func chop(inputLineOfText string, closer rune, depth int) (Segment, int, error) 
 				}
 			}
 		donehexarray:
-			tail = NewHexBytes(currentString(), tail)
+			hb := new(HexBytes)
+			hb.input = currentString()
+			linktoTail(hb)
 		case '"', 39: // 39 is ' // quoted string, unescaped later
 			quote := r
 			if pop() {
 				break
 			}
 			start = i
-			hasEscape := false
+			hadQuoteOrSlash := false
 			for r != quote {
 				if r == '\\' {
-					hasEscape = true
+					hadQuoteOrSlash = true
 					if pop() {
 						break
 					}
+				} else if r == '"' {
+					hadQuoteOrSlash = true
 				}
 				if pop() {
 					break
 				}
 			}
-			tail = NewRuneArray(currentString(), tail, hasEscape, true)
+			//needsQuote := true
+			ra := new(RuneArray)
+			ra.hadQuoteOrSlash = hadQuoteOrSlash
+			ra.theQuote = int(quote)
+			ra.input = currentString()
+			linktoTail(ra)
 			if pop() {
 				break
 			}
-		// case '+', '-': // numbers
-		// 	sign := r
-		// 	if pop() { // pass the +
-		// 		break
-		// 	}
-		// 	start = i
-		// 	previousr := r
-		// morenum:
-		// 	for r != ' ' && r != ':' && r != ',' && r != '+' && r != '-' && r != closer {
-		// 		previousr = r
-		// 		if pop() {
-		// 			break
-		// 		}
-		// 	}
-		// 	if (r == '+' || r == '-') && previousr == 'e' {
-		// 		if pop() == false {
-		// 			goto morenum
-		// 		}
-		// 	}
-		// 	tail = NewNumber(currentString(), tail, sign == '-')
 		case '=':
 			var sss string
 			if pop() { // pass the =
@@ -201,7 +211,10 @@ func chop(inputLineOfText string, closer rune, depth int) (Segment, int, error) 
 				}
 			}
 		doneb64array:
-			tail = NewBase64Bytes(sss, tail)
+			ba64 := new(Base64Bytes) //(sss, tail)
+			ba64.input = sss
+			ba64.input = currentString()
+			linktoTail(ba64)
 		case '{', '[':
 			paren := r
 			if pop() {
@@ -214,26 +227,42 @@ func chop(inputLineOfText string, closer rune, depth int) (Segment, int, error) 
 			}
 			childList, newi, err := chop(str[i:], closewith, depth+1)
 			if err != nil {
-				return head.nexts, newi, nil
+				return front, i + newi, err
 			}
 			i = i + newi
-			tail = NewParent(tail, childList, paren == '[')
+			par := new(Parent)
+			par.children = childList
+			par.wasArray = paren == '['
+			linktoTail(par)
+			if i >= len(str) {
+				return front, len(str), nil
+			}
 			if pop() {
 				break
 			}
 		default:
 			// an unquoted string
+			hadQuoteOrSlash := false
 			for r != ' ' && r != ':' && r != ',' && r != closer {
+
+				if r == '"' || r == '\\' {
+					hadQuoteOrSlash = true
+				}
 				if pop() {
 					break
 				}
 			}
-			tail = NewRuneArray(currentString(), tail, false, true)
+			ra := new(RuneArray)
+			ra.hadQuoteOrSlash = hadQuoteOrSlash
+			ra.theQuote = 0
+			ra.input = currentString()
+			linktoTail(ra)
 		}
 	}
 }
 
 // ToString will wrap the list with `[` and `]` and output like child list.
+// todo: move to testing.
 func ToString(segment Segment) string {
 	var sb strings.Builder
 	sb, _ = getJSONinternal(segment, sb, true)
@@ -241,7 +270,7 @@ func ToString(segment Segment) string {
 	return result
 }
 
-//  expresses a list of Segment's as JSON, Is the String() of the Parent object.
+// expresses a list of Segment's as JSON, Is the GetQuoted() of the Parent object.
 func getJSONinternal(s Segment, dest strings.Builder, isArray bool) (strings.Builder, error) {
 
 	oddDelimeter := ','
@@ -251,7 +280,6 @@ func getJSONinternal(s Segment, dest strings.Builder, isArray bool) (strings.Bui
 		dest.WriteByte('{')
 		oddDelimeter = ':'
 	}
-
 	for i := 0; s != nil; s = s.Next() {
 		if i != 0 {
 			if i&1 != 1 {
@@ -260,7 +288,7 @@ func getJSONinternal(s Segment, dest strings.Builder, isArray bool) (strings.Bui
 				dest.WriteRune(oddDelimeter)
 			}
 		}
-		dest.WriteString(s.String())
+		dest.WriteString(s.GetQuoted())
 		i++
 	}
 	if isArray {
@@ -268,32 +296,13 @@ func getJSONinternal(s Segment, dest strings.Builder, isArray bool) (strings.Bui
 	} else {
 		dest.WriteByte('}')
 	}
-
-	_ = s
-
 	return dest, nil
-}
-
-// Base - they will all decend from Base
-type Base struct {
-	nexts Segment
-	input string
-}
-
-func (b *Base) String() string {
-	return `""`
-}
-
-// Raw has no quotes
-func (b *Base) Raw() string {
-	return ``
 }
 
 // Next returns the next segment or nil
 func (b *Base) Next() Segment {
 	return b.nexts
 }
-
 func (b *Base) setNext(n Segment) {
 	b.nexts = n
 }
@@ -301,18 +310,9 @@ func (b *Base) setNext(n Segment) {
 // Base64Bytes for when there's a block of data in base64
 type Base64Bytes struct {
 	Base
-	//output []byte
 }
 
-// NewBase64Bytes is a factory
-func NewBase64Bytes(data string, previous Segment) Segment {
-	b := new(Base64Bytes)
-	b.input = data
-	previous.setNext(b)
-	return b
-}
-
-// GetBytes try to parse
+// GetBytes try to parse b64 to bytes
 func (b *Base64Bytes) GetBytes() []byte {
 	decoded, err := base64.RawURLEncoding.DecodeString(b.input)
 	if err != nil {
@@ -321,30 +321,20 @@ func (b *Base64Bytes) GetBytes() []byte {
 	return decoded
 }
 
-func (b *Base64Bytes) String() string {
-	bytes := b.GetBytes()
-	str := base64.RawURLEncoding.EncodeToString(bytes)
-	return `"=` + str + `"`
+func (b *Base64Bytes) GetQuoted() string {
+	return `"` + b.Raw() + `"`
 }
 
-// Raw is
+// Raw decodes and then reencodes because the input can be weird
 func (b *Base64Bytes) Raw() string {
-	bytes := b.GetBytes()
-	str := base64.RawURLEncoding.EncodeToString(bytes)
+	bytes := b.GetBytes()                              // why do we decode
+	str := base64.RawURLEncoding.EncodeToString(bytes) // and then encode?
 	return `=` + str + ``
 }
 
 // HexBytes is for when there's a block of data in hex.
 type HexBytes struct {
 	Base
-}
-
-// NewHexBytes is a factory
-func NewHexBytes(data string, previous Segment) Segment {
-	b := new(HexBytes)
-	b.input = data
-	previous.setNext(b)
-	return b
 }
 
 // GetBytes try to parse
@@ -363,76 +353,25 @@ func (b *HexBytes) GetBytes() []byte {
 	return decoded
 }
 
-func (b *HexBytes) String() string {
-	bytes := b.GetBytes()
-	encodedStr := hex.EncodeToString(bytes)
-	return `"$` + encodedStr + `"`
+func (b *HexBytes) GetQuoted() string {
+	return `"` + b.Raw() + `"`
 }
 
 // Raw is unquoted
 func (b *HexBytes) Raw() string {
-	bytes := b.GetBytes()
-	encodedStr := hex.EncodeToString(bytes)
+	bytes := b.GetBytes()                   // why do we decode
+	encodedStr := hex.EncodeToString(bytes) // and then encode? fixeme:
 	return `$` + encodedStr + ``
 }
 
-// RuneArray aka string
-type RuneArray struct {
-	Base
-	hasEscape  bool
-	needsQuote bool
-}
-
-// NewRuneArray is a factory
-func NewRuneArray(data string, previous Segment, hasEscape bool, needsQuote bool) Segment {
-	b := new(RuneArray)
-	b.input = data
-	previous.setNext(b)
-	b.hasEscape = hasEscape
-	b.needsQuote = needsQuote
-	return b
-}
-
-// GetString to return the unescaped string
-func (b *RuneArray) GetString() string {
-	if b.hasEscape {
-		var sb strings.Builder
-		sb.Grow(len(b.input))
-		passed := false
-		for _, r := range b.input {
-			if r == '\\' && !passed {
-				passed = true
-			} else {
-				sb.WriteRune(r)
-				passed = false
-			}
-		}
-		return sb.String()
-	}
-	return b.input
-}
-
-// NeedsEscape returns a count of how much longer the escaped version
-// of the string would be. This is not for strings with \n or \r or \t in them.
-func NeedsEscape(str string) int {
-	count := 0
-	for _, r := range str {
-		if r == '\\' || r == '\'' || r == '"' {
-			count++
-		}
-	}
-	return count
-}
-
-// MakeEscaped will return an 'escaped' version of the string
-// if the string contains \ or " or '
-// The sizeHint is for we already know how many much longer
-// the output will be. See NeedsEscape
-func MakeEscaped(str string, sizeHint int) string {
+// MakeEscaped will return an 'escaped' version of the string when string contains \ or "
+// the usual escaping for json values and keys
+func MakeEscaped(str string) string {
 	var sb strings.Builder
-	sb.Grow(len(str) + sizeHint)
+	sb.Grow(len(str))
+
 	for _, r := range str {
-		if r == '\\' || r == '\'' || r == '"' {
+		if r == '\\' || r == '"' { // we can  || r == '\''
 			sb.WriteRune('\\')
 		}
 		sb.WriteRune(r)
@@ -440,85 +379,88 @@ func MakeEscaped(str string, sizeHint int) string {
 	return sb.String()
 }
 
+// MakeUnescaped if we find a \ followed by a \ or a " then skip it
+func MakeUnescaped(str string, theQuote rune) string {
+	var sb strings.Builder
+	sb.Grow(len(str))
+
+	passedSlash := false
+	for _, r := range str {
+		if r == '\\' && !passedSlash {
+			// don't output just yet
+			passedSlash = true
+		} else {
+			if passedSlash && r != '\\' && r != theQuote {
+				// we needed to output that slash after all
+				sb.WriteRune('\\')
+			}
+			sb.WriteRune(r)
+			passedSlash = false
+		}
+	}
+	return sb.String()
+}
+
 // Return the string in json format
-func (b *RuneArray) String() string {
-	str := b.GetString()
-	needAmt := NeedsEscape(str)
-	if needAmt > 0 {
-		str = MakeEscaped(str, needAmt)
+// so we always quote with " and never '
+func (b *RuneArray) GetQuoted() string {
+
+	var sb strings.Builder
+	sb.Grow(len(b.input))
+
+	sb.WriteRune('"')
+
+	if b.theQuote == int('"') {
+		// it was quoted
+		if b.hadQuoteOrSlash {
+
+			sb.WriteString(b.input)
+
+		} else {
+
+			sb.WriteString(MakeEscaped(b.input))
+		}
+	} else if b.theQuote == '\'' {
+
+		tmp := MakeUnescaped(b.input, '\'')
+		tmp = MakeEscaped(tmp)
+		sb.WriteString(tmp)
+
+	} else {
+		// wasn't quoted.
+		sb.WriteString(MakeEscaped(b.input))
 	}
-	if b.needsQuote {
-		return `"` + str + `"`
-	}
-	return str
+	sb.WriteRune('"')
+
+	return sb.String()
 }
 
-// Raw is
+// Raw returns the 'original' string with no escaping
 func (b *RuneArray) Raw() string {
-	str := b.GetString()
-	needAmt := NeedsEscape(str)
-	if needAmt > 0 {
-		str = MakeEscaped(str, needAmt)
+
+	if b.theQuote == int('"') {
+		// it was quoted
+		if b.hadQuoteOrSlash {
+			// we'll have to un escape it.
+			return MakeUnescaped(b.input, '"')
+
+		} else {
+			return b.input
+		}
+	} else if b.theQuote == '\'' {
+		// it was quoted but with ' and not "
+		if b.hadQuoteOrSlash {
+			// we'll have to un escape it.
+			return MakeUnescaped(b.input, '\'')
+
+		} else {
+			return b.input
+		}
+	} else {
+		// wasn't quoted.
+		return b.input
 	}
-	if b.needsQuote {
-		return `` + str + ``
-	}
-	return str
 }
-
-// // Number is a float64
-// type Number struct {
-// 	Base
-// 	wasNegative bool
-// }
-
-// // NewNumber is a factory
-// func NewNumber(data string, previous Segment, wasNegative bool) Segment {
-// 	b := new(Number)
-// 	b.input = data
-// 	b.wasNegative = wasNegative
-// 	previous.setNext(b)
-// 	return b
-// }
-
-// // GetNumber parses errors into zeros.
-// func (b *Number) GetNumber() float64 {
-// 	var val float64
-// 	if len(b.input) == 0 {
-// 		return val
-// 	}
-// 	if b.input[0] == '$' {
-// 		if len(b.input) >= 2 {
-// 			ival, _ := strconv.ParseInt(b.input[1:], 16, 64)
-// 			val = float64(ival)
-// 		} else {
-// 			val = 0
-// 		}
-// 	} else {
-// 		val, _ = strconv.ParseFloat(b.input, 64)
-// 	}
-// 	if b.wasNegative {
-// 		val = -val
-// 	}
-// 	return val
-// }
-
-// func (b *Number) String() string {
-// 	val := b.GetNumber()
-// 	prefix := ""
-// 	if val >= 0 {
-// 		prefix = "+"
-// 	}
-// 	if float64(int64(val)) == val {
-// 		return prefix + strconv.FormatInt(int64(val), 10)
-// 	}
-// 	return prefix + strconv.FormatFloat(val, 'g', -1, 64)
-// }
-
-// // Raw is
-// func (b *Number) Raw() string {
-// 	return b.String()
-// }
 
 // Parent has a sub-list
 type Parent struct {
@@ -528,28 +470,29 @@ type Parent struct {
 }
 
 // NewParent is a factory
-func NewParent(previous Segment, children Segment, wasArray bool) Segment {
+func xxNewParent(previous Segment, children Segment, wasArray bool) Segment {
 	b := new(Parent)
-	previous.setNext(b)
+	//previous.setNext(b)
 	b.children = children
 	b.wasArray = wasArray
 	return b
 }
 
-func (b *Parent) String() string {
+func (b *Parent) GetQuoted() string {
 	var sb strings.Builder
 	sb, _ = getJSONinternal(b.children, sb, b.wasArray)
 	return sb.String()
 }
 
-// Raw is should we st
+// Raw is
 func (b *Parent) Raw() string {
 	var sb strings.Builder
 	sb, _ = getJSONinternal(b.children, sb, b.wasArray)
 	return sb.String()
 }
 
-//const encodeStd = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+// const encodeStd = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+// No. Use the url version:
 const encodeStd = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/-_"
 
 // B64DecodeMap from ascii to b64

@@ -30,8 +30,6 @@ import (
 	"io"
 
 	"github.com/awootton/knotfreeiot/badjson"
-	//"github.com/awootton/knotfreeiot/iot"
-	//"github.com/awootton/knotfreeiot/iot"
 
 	"github.com/emirpasic/gods/trees/redblacktree"
 )
@@ -81,10 +79,10 @@ const (
 // AddressUnion is one byte followed by more bytes.
 // is either utf-8 of an address, or it is a coded version of HashTypeLen bytes
 // coding:
-// space followed by utf8
-// $ followed by 48 bytes of hex
-// = followed by 32 bytes of base64
-// ` followed by 24 bytes of binary
+// space followed by utf8 glyphs
+// $ followed by exactly 48 bytes of hex
+// = followed by exactly 32 bytes of base64
+// \0 followed by exactly 24 bytes of binary
 type AddressUnion struct {
 	Type  AddressType // AddressType
 	Bytes []byte      // ' ' or '$' or '=' or 0
@@ -206,7 +204,7 @@ func (address *AddressUnion) EnsureAddressIsBinary() {
 	default:
 	}
 	// is utf8. Hash it.
-	// FIXME this is the same as in HashType but we can't use hashtype in packets.
+	// FIXME this is the same as in HashType but we can't use hashtype in packets package.
 	sh := sha256.New()
 	sh.Write(address.Bytes)
 	shabytes := sh.Sum(nil)
@@ -521,7 +519,7 @@ func UniversalToJSON(str *Universal) ([]byte, error) {
 				bb.WriteByte(',')
 				if hasdelimeters {
 					bb.WriteByte('"')
-					bb.WriteString(badjson.MakeEscaped(string(bstr), 0))
+					bb.WriteString(badjson.MakeEscaped(string(bstr)))
 					bb.WriteByte('"')
 				} else {
 					bb.Write(bstr)
@@ -531,7 +529,7 @@ func UniversalToJSON(str *Universal) ([]byte, error) {
 
 				bb.WriteByte('"')
 
-				bb.WriteString(badjson.MakeEscaped(string(bstr), 0))
+				bb.WriteString(badjson.MakeEscaped(string(bstr)))
 				bb.WriteByte('"')
 
 			} else {

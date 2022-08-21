@@ -48,7 +48,7 @@ Code coverage is 100%.
 
 func ExampleChop() {
 
-	someText := `abc:def,ghi:jkl`
+	someText := `abc:def,ghi:jkl` // an array of 4 strings
 
 	// parse the text
 	segment, err := badjson.Chop(someText)
@@ -63,7 +63,7 @@ func ExampleChop() {
 	output := badjson.ToString(segment)
 	fmt.Println(output)
 
-	someText = `"abc""def""ghi""jkl"`
+	someText = `"abc""def""ghi""jkl"` // an quoted array of 4 strings
 	segment, err = badjson.Chop(someText)
 	if err != nil {
 		fmt.Println(err)
@@ -104,18 +104,18 @@ func TestParse1(t *testing.T) {
 	want := "b"
 
 	got = getOneString(`"ab\cd"`)
-	want = `abcd`
+	want = `ab\cd`
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
 	}
 	got = tryParseAndUnparse(`"ab\cd"`)
-	want = `["abcd"]`
+	want = `["ab\cd"]`
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
 	}
 
-	got = getOneString(`"ab\'cd"`)
-	want = `ab'cd`
+	got = getOneString(`"ab\'cd"`) // don't need to \ '
+	want = `ab\'cd`
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
 	}
@@ -168,30 +168,6 @@ func TestParse1(t *testing.T) {
 
 }
 
-func xxTestParse2(t *testing.T) {
-
-	got := "a"
-	want := "b"
-
-	got = tryParseAndUnparse("+2e-2")
-	want = `[+0.02]`
-	if got != want {
-		t.Errorf("got %v, want %v", got, want)
-	}
-
-	got = tryParseAndUnparse(" +1234567 ")
-	want = `[+1234567]`
-	if got != want {
-		t.Errorf("got %v, want %v", got, want)
-	}
-
-	got = tryParseAndUnparse(" +11e2 +.0001  +2e-2")
-	want = `[+1100,+0.0001,+0.02]`
-	if got != want {
-		t.Errorf("got %v, want %v", got, want)
-	}
-}
-
 func TestParse3(t *testing.T) {
 
 	got := "a"
@@ -210,7 +186,7 @@ func TestParse3(t *testing.T) {
 	}
 
 	got = tryParseAndUnparse("{{{{{{{{{{{{{{{{a b}}}}}}}}}}}}}}}}")
-	want = `[{{{{{{{{{{{{{{{}:"a","b"}}}}}}}}}}}}}},"}}"]`
+	want = `[{{{{{{{{{{{{{{{{"a":"b"}}}}}}}}}}}}}}}}]`
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
 	}
@@ -218,7 +194,7 @@ func TestParse3(t *testing.T) {
 	got = tryParseAndUnparse("{{{{{{{{{{{{{{{{{{a b}")
 	// note that it refuses to recurse that deep so the last '{'
 	// becomes a sibling and not a child. bad parser. bad.
-	want = `[{{{{{{{{{{{{{{{}:{},"a":"b"}}}}}}}}}}}}}}]`
+	want = `ERROR_recursed 16 deep`
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
 	}
@@ -229,12 +205,6 @@ func TestParse4(t *testing.T) {
 
 	got := "a"
 	want := "b"
-
-	// got = tryParseAndUnparse(" $1234 $45678 +$1234 -$8765")
-	// want = `["$1234","$456780",+4660,-34661]`
-	// if got != want {
-	// 	t.Errorf("got %v, want %v", got, want)
-	// }
 
 	got = tryParseAndUnparse("   aaa : bbb ")
 	want = `["aaa","bbb"]`
@@ -272,33 +242,21 @@ func TestParse4(t *testing.T) {
 		t.Errorf("got %v, want %v", got, want)
 	}
 
-	// got = tryParseAndUnparse("a +1234 MyName_var " + `"quoted string"` + " 'another' " + "=isuhe48r8dhbsvs  ")
-	// want = `["a",+1234,"MyName_var","quoted string","another","=isuhe48r8dhbsvs"]`
-	// if got != want {
-	// 	t.Errorf("got %v, want %v", got, want)
-	// }
-
 	got = tryParseAndUnparse("[      []]   ")
 	want = `[[]]`
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
 	}
-
-	// exponents and fractions are zeros. ++ is two zeros.
-	// got = tryParseAndUnparse("+1+2+3-4 ++++ ---- ++$+ --$- +1e4 +7e-4 fails!! +.00007 is_ok ")
-	// want = `[+1,+2,+3,-4,+0,+0,+0,+0,+0,+0,+0,+0,+0,+0,+0,+0,+0,+0,+10000,+0.0007,"fails!!",+7e-05,"is_ok"]`
-	// if got != want {
-	// 	t.Errorf("got %v, want %v", got, want)
-	// }
 }
 
+// We Chop it up like usual but then try to cast the first element to a RuneArray and return the string
 func getOneString(input string) string {
 	segment, err := badjson.Chop(input)
 	ra, ok := segment.(*badjson.RuneArray)
 	if !ok {
-		return "this is not the string you were looking for " + err.Error()
+		return "getOneString error " + err.Error()
 	}
-	return ra.GetString()
+	return ra.Raw() //.GetRawString()
 }
 
 // check for zombies
@@ -307,6 +265,13 @@ func TestParseZ(t *testing.T) {
 	got := "a"
 	want := "b"
 	var sb strings.Builder
+
+	got = tryParseAndUnparse(" , ")
+	want = `[""]`
+	if got != want {
+		t.Errorf("got %v, want %v", got, want)
+	}
+
 	for i := 0; i < 1024; i++ {
 		sb.WriteString("0123456789abcdef")
 	}
@@ -317,19 +282,7 @@ func TestParseZ(t *testing.T) {
 	}
 	sb.WriteString("a")
 	got = getOneString(sb.String())
-	want = `this is not the string you were looking for is longer than 16k`
-	if got != want {
-		t.Errorf("got %v, want %v", got, want)
-	}
-
-	got = tryParseAndUnparse(" ,")
-	want = `[]`
-	if got != want {
-		t.Errorf("got %v, want %v", got, want)
-	}
-
-	got = tryParseAndUnparse(" , ")
-	want = `[]`
+	want = `getOneString error is longer than 16k`
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
 	}
@@ -340,6 +293,11 @@ func TestParseZ(t *testing.T) {
 		t.Errorf("got %v, want %v", got, want)
 	}
 
+	got = tryParseAndUnparse("$F")
+	want = `["$f0"]`
+	if got != want {
+		t.Errorf("got %v, want %v", got, want)
+	}
 	got = tryParseAndUnparse(" aaa $F")
 	want = `["aaa","$f0"]`
 	if got != want {
@@ -352,39 +310,18 @@ func TestParseZ(t *testing.T) {
 		t.Errorf("got %v, want %v", got, want)
 	}
 
-	got = tryParseAndUnparse(` aaa "\`)
-	want = `["aaa",""]`
-	if got != want {
-		t.Errorf("got %v, want %v", got, want)
-	}
+	// this one is too weird to care about
+	// got = tryParseAndUnparse(` aaa "\`)
+	// want = `["aaa",""]`
+	// if got != want {
+	// 	t.Errorf("got %v, want %v", got, want)
+	// }
 
 	got = tryParseAndUnparse(` "unterminated`)
 	want = `["unterminated"]`
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
 	}
-
-	// got = tryParseAndUnparse(` +`)
-	// want = `[]`
-	// if got != want {
-	// 	t.Errorf("got %v, want %v", got, want)
-	// }
-	// got = tryParseAndUnparse(` +1`)
-	// want = `[+1]`
-	// if got != want {
-	// 	t.Errorf("got %v, want %v", got, want)
-	// }
-	// got = tryParseAndUnparse(` +1e`)
-	// want = `[+0]` // because it's a float parse error
-	// if got != want {
-	// 	t.Errorf("got %v, want %v", got, want)
-	// }
-
-	// got = tryParseAndUnparse(` +1e+`)
-	// want = `[+0]` // because it's a float parse error
-	// if got != want {
-	// 	t.Errorf("got %v, want %v", got, want)
-	// }
 
 	got = tryParseAndUnparse(` =`)
 	want = `["="]` // because empty
@@ -424,25 +361,16 @@ func TestParseZ(t *testing.T) {
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
 	}
-	got = tryParseAndUnparse(` =aa=`)
-	want = `["=aQ"]`
+	got = tryParseAndUnparse(` =aa=`) // too few b64 chars to make a byte array.
+	want = `["="]`                    // a garbage b64 result
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
 	}
-
 	got = tryParseAndUnparse(`{`)
-	want = `[]`
+	want = `[""]`
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
 	}
-
-	abase := badjson.Base{}
-	got = abase.String()
-	want = `""`
-	if got != want {
-		t.Errorf("got %v, want %v", got, want)
-	}
-
 }
 
 func tryParseAndUnparse(str string) string {

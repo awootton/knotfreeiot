@@ -12,11 +12,17 @@ For example, all the forms below parse into the same 4 byte arrays:
 
 `abc def ghi "jkl`  and
 
-`"abc":"def","ghi":"jkl"`  and the bizarre form:
+`"abc":"def","ghi":"jkl"`  
 
-`"abc""def""ghi""jkl"` and also the common form 
+and the bizarre form:
 
-`{"abc":"def","ghi":"jkl"}` we can also declare the bytes directly in hex or base64:
+`"abc""def""ghi""jkl"` 
+
+and also the common form 
+
+`{"abc":"def","ghi":"jkl"}` 
+
+we can also declare the bytes directly in hex or base64:
 
 `$616263 $646566 =Z2hp =amts` also becomes the same three byte arrays (which is the true reason I wrote it).
 

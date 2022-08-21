@@ -10,11 +10,11 @@ The players are:
 
 * Disconnect is the last packet received.
 
-* Subscribe contains a string ([]byte really) with a channel name, or topic, or address, or source address or domain name. 
+* Subscribe contains a string ([]byte really) with a channel name, or topic, or address, or source address or domain name. Whatever you want to call it. 
 
 * Unsubscribe reverses what Subscribe did. 
 
-* Lookup will return options set during the Subscribe (like an IPv6 address) and also whether any thing is subscribed to this channel.
+* Lookup will return options set during the Subscribe (like an IPv6 address) and also whether anything is subscribed to this channel.
 
 * Send sends a message or payload (a byte array) to another channel, or topic, or destination address. 
 
@@ -35,7 +35,7 @@ String is for display purposes only
 
 ToBytes makes a parsable 'string'
 
-EnsureAddressIsBinary converts all the other types to binary
+EnsureAddressIsBinary converts all the address formats to binary
 
 
 

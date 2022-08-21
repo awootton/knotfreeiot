@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 # pip3 install paho-mqtt
+# is (1.5.1)
 
 import time
 import datetime
@@ -20,7 +21,7 @@ from paho.mqtt.packettypes import PacketTypes
 
 
 broker = "knotfree.net" # 192.168.86.159" 
-broker = "knotfree2.com" #  aka localhost
+broker = "knotfree2.com" #  aka localhost in my /etc/hosts file
 
 clientid = "clientId-ws131u1ewt"
 password = '[Free_token_expires:_2021-12-31,{exp:1641023999,iss:_9sh,jti:HpifIJkhgnTOGc3EDmOJaV0A,in:32,out:32,su:4,co:2,url:knotfree.net},eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiSldUIn0.eyJleHAiOjE2NDEwMjM5OTksImlzcyI6Il85c2giLCJqdGkiOiJIcGlmSUpraGduVE9HYzNFRG1PSmFWMEEiLCJpbiI6MzIsIm91dCI6MzIsInN1Ijo0LCJjbyI6MiwidXJsIjoia25vdGZyZWUubmV0In0.YSo2Ur7lbkwTPZfQymyvy4N1mWQaUn_cziwK36kTKlASgqOReHQ4FAocVvgq7ogbPWB1hD4hNoJtCg2WWq-BCg]'
@@ -36,6 +37,9 @@ def on_message(client, userdata, message):
     # what is this? is None print(str(userdata))
     user_properties=message.properties.UserProperty
     print("user properties received= ",user_properties)
+    print("return addr= ", message.properties.ResponseTopic)
+    #cccc = message.properties.CorrelationData
+    #print("corr data= ",cccc) # fail
     now = time.time() * 1000
     delta = now - lastTime
     print("latency= ",int(delta))
@@ -55,10 +59,10 @@ def on_connect(client, userdata, flags, rc):
 def on_connectV5(client, userdata, flags, rc, properties):
     if rc==0:
         print("v5 connected OK Returned code=",rc)
-        topic = "alice_vociferous_mcgrath" # "atw/xsgournklogc/house/bulb1/client-001" 
+        topic = "testtopic" # "alice_vociferous_mcgrath" # "atw/xsgournklogc/house/bulb1/client-001" 
         print("subscribing " + topic)
         client.subscribe(topic)
-        topic = "dummy" 
+        topic = "PyClientReturnAddr" 
         print("subscribing " + topic)
         client.subscribe(topic)
         #client.subscribe(topic,no_local=True)
@@ -95,17 +99,21 @@ client.connect(broker)  # connect
 client.loop_start()  
 time.sleep(2)
 print("publishing ")
-for x in range(9999):
-    print(x)
+for count in range(9999):
+    print(count)
     topic = "alice_vociferous_mcgrath" 
-    message = "msg#"+clientid+"_"+str(x)
+    topic = "testtopic" 
+    message = "msg#"+clientid+"_"+str(count)
 
-    properties= Properties(PacketTypes.PUBLISH)
-    properties.UserProperty=[("debg","xx12345678")]
-    
+    properties = Properties(PacketTypes.PUBLISH)
+    properties.UserProperty=[("xxdebg","xx12345678","key9","val9")]
+    properties.ResponseTopic = "PyClientReturnAddr"
+    cdatabytes = bytearray(str(100), 'utf-8')
+    properties.CorrelationData = bytes([count + 10000000000]) 
     lastTime = time.time() * 1000
     client.publish(topic, message, qos=0, retain=False, properties=properties)
     time.sleep(10)
      
 client.disconnect()  # disconnect
 client.loop_stop()  # stop loop
+

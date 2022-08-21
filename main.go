@@ -600,7 +600,7 @@ func startPublicServer(ce *iot.ClusterExecutive) {
 }
 
 func startPublicServer9102(ce *iot.ClusterExecutive) {
-	fmt.Println("http service 9102")
+	fmt.Println("http metrics service 9102")
 	http.Handle("/metrics", promhttp.Handler())
 	http.ListenAndServe(":9102", nil)
 	fmt.Println("http service 9102 FAIL")
@@ -633,7 +633,7 @@ func startPublicServer3100(ce *iot.ClusterExecutive) {
 		MaxHeaderBytes: 1 << 13,
 	}
 	go func(s *http.Server) {
-		fmt.Println("http service " + s.Addr)
+		fmt.Println("http grafana service " + s.Addr)
 		err := s.ListenAndServe()
 		_ = err
 		fmt.Println("ListenAndServe 3100 returned !!!!!  arrrrg", err)
@@ -676,40 +676,6 @@ func startPublicServer9090(ce *iot.ClusterExecutive) {
 
 }
 
-// func startPublicServer8000(ce *iot.ClusterExecutive) {
-// 	fmt.Println("tcp service 8000")
-// 	ln, err := net.Listen("tcp", ":8000")
-// 	if err != nil {
-// 		fmt.Println("tcp 8000 listen fail")
-// 		//panic(err)
-// 		return
-// 	}
-// 	for {
-// 		conn, err := ln.Accept()
-// 		if err != nil {
-// 			//panic(err)
-// 			iot.ForwardsAcceptl8000.Inc()
-// 			break
-// 		}
-// 		go handleRequest(conn)
-// 	}
-// }
-
-// func handleRequest(conn net.Conn) {
-// 	fmt.Println("new client")
-// 	proxy, err := net.Dial("tcp", "libra.libra:8000")
-// 	if err != nil {
-// 		//panic(err)
-// 		//fmt.Println("startPublicServer8000 FAIL to dial", err)
-// 		iot.ForwardsDialFail8000.Inc()
-// 		return
-// 	}
-// 	//fmt.Println("proxy 8000 connected")
-// 	iot.ForwardsConnectedl8000.Inc()
-// 	go copyIO(conn, proxy)
-// 	go copyIO(proxy, conn)
-// }
-
 func copyIO(src, dest net.Conn) {
 	defer src.Close()
 	defer dest.Close()
@@ -741,20 +707,6 @@ func (api wsAPIHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	iot.WebSocketLoop(wsConn, api.ce.Aides[0].Config)
-	// for {
-	// 	mt, message, err := wsConn.ReadMessage()
-	// 	if err != nil {
-	// 		log.Println("read:", err)
-	// 		break
-	// 	}
-
-	// 	log.Printf("recv: %s", message)
-	// 	err = wsConn.WriteMessage(mt, message)
-	// 	if err != nil {
-	// 		log.Println("write:", err)
-	// 		break
-	// 	}
-	// }
 }
 
 func ParsePayload(httpBytes string) (string, map[string]string, string) {
@@ -971,7 +923,7 @@ func (api webHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if len(domainParts) >= 2 && (domainParts[len(domainParts)-2] == "gotohere" || domainParts[len(domainParts)-2] == "gotolocal") {
 		isGotohere = true
 	}
-	// just kidding. we're dumping teh old _site jekyl thing
+	// just kidding. we're dumping the old _site jekyl thing
 	// the react build at _site2 switches for knotfree and gotohere.
 	isGotohere = true
 	if isGotohere {

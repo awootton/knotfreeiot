@@ -95,6 +95,7 @@ func mqttConnection(tcpConn *net.TCPConn, ex *Executive) {
 	defer cc.Close(nil)
 
 	// connLogThing.Collect("new connection")
+	fmt.Println("new mqttConnection ")
 
 	err := SocketSetup(tcpConn)
 	if err != nil {
@@ -124,9 +125,6 @@ func mqttConnection(tcpConn *net.TCPConn, ex *Executive) {
 			}
 		}
 		//fmt.Println("waiting for packet", time.Now())
-		//control, err := mqttpackets.ReadPacket(tcpConn)
-		// Decode(version ProtoVersion, r BufferedReader) (Packet, error)
-		//protoVersion := libmqtt.V311
 		control, err := libmqtt.Decode(cc.protoVersion, cc)
 		// fmt.Println("got decode packet", control, err)
 		if err != nil {
@@ -191,9 +189,10 @@ func MQTTHandlePacket(cc *mqttContact, control libmqtt.Packet) {
 			for k, v := range mq.Props.UserProps {
 				p.SetOption(k, []byte(fmt.Sprint(v)))
 			}
+			if len(mq.Props.CorrelationData) > 0 {
+				p.SetOption("CorrelationData", mq.Props.CorrelationData)
+			}
 		}
-		//p.SetOption("toself", []byte("y"))
-		//p.SetOption("atwtestn", []byte("4321"))
 		//fmt.Println("mqtt client publish ", p)
 
 		bytes, ok := p.GetOption("api1")
@@ -235,7 +234,7 @@ func MQTTHandlePacket(cc *mqttContact, control libmqtt.Packet) {
 
 		for _, topic := range mq.Topics {
 
-			//fmt.Println("mqtt client subscribes to", topic)
+			fmt.Println("mqtt client subscribes to", topic)
 
 			p := &packets.Subscribe{}
 			p.Address.FromString(topic.Name)
@@ -358,12 +357,17 @@ func (cc *mqttContact) WriteDownstream(p packets.Interface) error {
 			// 	mq.Props.RespTopic = "xxTEST/TIMEefghijk"
 			// }
 			mq.Props.RespTopic = v.Source.String()
-
+			corrData, ok := v.GetOption("CorrelationData")
+			if ok {
+				mq.Props.CorrelationData = corrData
+			}
 			keys, values := v.GetOptionKeys()
 			for i, key := range keys {
-				mq.Props.UserProps.Add(key, string(values[i]))
+				if key != "CorrelationData" {
+					mq.Props.UserProps.Add(key, string(values[i]))
+				}
 			}
-			mq.Props.UserProps.Add("atw", "test1")
+			//mq.Props.UserProps.Add("atw", "test1")
 		}
 
 		//fmt.Println("mqtt WriteDownstream send topic = ", string(mq.TopicName))
@@ -407,30 +411,6 @@ func localMakeMqttContact(config *ContactStructConfig, tcpConn *net.TCPConn) *mq
 
 	return contact1
 }
-
-// func (cc *mqttWsContact) WriteDownstream(p packets.Interface) error {
-// 	// var buff bytes.Buffer
-// 	// cc.realWriter = &buff
-// 	super := cc.mqttContact
-
-// 	fmt.Println("ws writing ", p)
-
-// 	err := super.WriteDownstream(p)
-// 	if err != nil {
-// 		cc.Close(err)
-// 		return err
-// 	}
-// 	data := buff.Bytes()
-// 	if len(data) > 0 {
-// 		mt := websocket.BinaryMessage
-// 		err = cc.wsConn.WriteMessage(mt, data)
-// 		if err != nil {
-// 			cc.Close(err)
-// 			return err
-// 		}
-// 	}
-// 	return nil
-// }
 
 // WebSocketLoop loops
 func WebSocketLoop(wsConn *websocket.Conn, config *ContactStructConfig) {
