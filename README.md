@@ -5,7 +5,7 @@
 
 ## A 'simple MQTT' service is at knotfree.net:1883 To use it you need a 'password' [and you can get one here](http://knotfree.net/). 
 
-Welcome to the pro bono science project: Massively Scalable Distributed Open Source Non Profit Routing Network with JWT to Control Access..
+Knotfree is a pub/sub server. It will also accept MQTT5 and MQTT3.1 connections by TCP or websocket.
 
 This repository is for the backend code.
 
