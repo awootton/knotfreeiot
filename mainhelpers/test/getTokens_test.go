@@ -46,8 +46,8 @@ func TestMakeLargeToken(t *testing.T) {
 	payload.Subscriptions = 20 // TODO: move into standard x-small token
 
 	//  Host:"building_bob_bottomline_boldness.knotfree2.com:8085"
-	targetSite := "gotohere.com"
-	if os.Getenv("KNOT_KUNG_FOO") == "atw" {
+	targetSite := "knotfree.net" // gotohere.com"
+	if os.Getenv("KNOT_KUNG_FOO") == "Xatw" {
 		targetSite = "gotolocal.com"
 	}
 	payload.URL = targetSite
@@ -68,4 +68,15 @@ func TestMakeLargeToken(t *testing.T) {
 	jsonstr, _ = json.Marshal(large32x)
 	fmt.Println("token cost is "+fmt.Sprintf("%f", cost), string(jsonstr))
 
+}
+
+func TestMakeHugeToken(t *testing.T) {
+
+	tokens.LoadPublicKeys()
+
+	tokens.LoadPrivateKeys("~/atw/privateKeys4.txt")
+
+	tok, x := mainhelpers.Make32xLargeToken()
+	fmt.Println(tok)
+	fmt.Println(x)
 }

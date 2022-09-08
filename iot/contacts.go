@@ -482,6 +482,8 @@ func makeErrorAndDisconnect(ssi ContactInterface, str string, err error) error {
 	if err == nil {
 		err = errors.New(str)
 	}
+
+
 	dis := &packets.Disconnect{}
 	dis.SetOption("error", []byte(err.Error()))
 	ssi.WriteDownstream(dis)
@@ -566,7 +568,7 @@ func (ss *ContactStruct) Heartbeat(now uint32) {
 	}
 	if !ss.GetConfig().IsGuru() {
 		if ss.contactExpires < now {
-			ss.Close(errors.New(" timed out in hb "))
+			ss.Close(errors.New("timed out in heartbeat "))
 		}
 	}
 }

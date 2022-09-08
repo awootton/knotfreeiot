@@ -48,13 +48,13 @@ func Make32xLargeToken() (string, tokens.KnotFreeTokenPayload) {
 	payload := tokens.KnotFreeTokenPayload{}
 	tokenRequest.Payload = &payload
 
-	payload.Connections = 2 // TODO: move into standard x-small token
+	payload.Connections = 20 // 2 // TODO: move into standard x-small token
 
 	// a year - standard x-small
 	payload.ExpirationTime = uint32(time.Now().Unix() + 60*60*24*365)
 
-	payload.Input = 32 * 4  // TODO: move into standard x-small token
-	payload.Output = 32 * 4 // TODO: move into standard x-small token
+	payload.Input = 1024  // 32 * 4  // TODO: move into standard x-small token
+	payload.Output = 1024 // 32 * 4 // TODO: move into standard x-small token
 
 	payload.Issuer = "_9sh"
 	payload.JWTID = tokens.GetRandomB64String()
@@ -64,9 +64,9 @@ func Make32xLargeToken() (string, tokens.KnotFreeTokenPayload) {
 	payload.Subscriptions = 20 // TODO: move into standard x-small token
 
 	//  Host:"building_bob_bottomline_boldness.knotfree2.com:8085"
-	targetSite := "gotohere.com"
+	targetSite := "knotfree.net" // "gotohere.com"
 	if os.Getenv("KNOT_KUNG_FOO") == "atw" {
-		targetSite = "gotolocal.com"
+		// targetSite = "gotolocal.com"
 	}
 	payload.URL = targetSite
 

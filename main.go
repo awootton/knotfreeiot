@@ -56,7 +56,7 @@ func main() {
 
 	fmt.Println("Hello knotfreeserver")
 
-	mainhelpers.TrySomeS3Stuff()
+	// no need to keep doing this mainhelpers.TrySomeS3Stuff()
 
 	h := sha256.New()
 	h.Write([]byte("AnonymousAnonymous"))
@@ -596,6 +596,58 @@ func startPublicServer(ce *iot.ClusterExecutive) {
 		_ = err
 		fmt.Println("ListenAndServe 8085 returned !!!!!  arrrrg", err)
 	}(s)
+
+	// see dns-sd -B _mqtt._tcp
+	// this is NOT working.
+	// I don't even know how it would ever work.
+	// how would we open a port to 5353 if it's already open?
+	// lsof -Pn -i4 | grep 5353
+	// returns
+	// Google      530 awootton  236u  IPv4 0x7453d2bfa091be27      0t0  UDP *:5353
+	// so wtf?
+
+	//Setup our service export
+
+	// fmt.Println("starting mDns")
+	// host, _ := os.Hostname()
+	// info := []string{"Knotfree mqtt service"}
+	// srvc := "_mqtt._tcp"
+	// domain := "local."
+	// hostname := ""
+	// service, _ := mdns.NewMDNSService(host, srvc, domain, hostname, 1883, nil, info)
+
+	// fmt.Println("mDns HostName", service.HostName)
+	// fmt.Println("mDns Service", service.Service)
+	// fmt.Println("mDns IPs", service.IPs)
+	// server, _ := mdns.NewServer(&mdns.Config{Zone: service})
+	// _ = server
+
+	// defer func() {
+	// 	server.Shutdown()
+	// 	fmt.Println("mDns shutdown")
+	// }()
+
+	// this don't work
+	//let's check what's avail
+	// Make a channel for results and start listening
+	// entriesCh := make(chan *mdns.ServiceEntry, 4)
+	// go func() {
+	// 	for entry := range entriesCh {
+	// 		fmt.Printf("Got new entry: %v\n", entry)
+	// 	}
+	// }()
+
+	// // Start the lookup
+	// //  need params.DisableIPv6 = true
+	// //mdns.Lookup("_mqtt._tcp", entriesCh)
+	// //close(entriesCh)
+
+	// params := mdns.DefaultParams("_mqtt._tcp")
+	// params.Entries = entriesCh
+	// params.DisableIPv6 = true
+	// something := mdns.Query(params)
+	// _ = something
+	// fmt.Println("mdns.Query err", something)
 
 }
 

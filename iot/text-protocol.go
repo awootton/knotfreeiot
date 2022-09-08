@@ -17,6 +17,7 @@ package iot
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"net"
 	"time"
@@ -39,16 +40,22 @@ func MakeTextExecutive(ex *Executive, serverName string) *Executive {
 
 // Text2Packet turns badjson into a packet
 func Text2Packet(text string) (packets.Interface, error) {
+
+	// fmt.Println("Text2Packet converting ", text)
 	// parse the text
 	segment, err := badjson.Chop(text)
 	if err != nil {
 		fmt.Println("SendText badjson err", err)
 		return nil, err
 	}
+	rawFirstSegment := segment.Raw()
+	if len(rawFirstSegment) == 0 {
+		return nil, errors.New("too little data")
+	}
 	uni := packets.Universal{}
 	uni.Args = make([][]byte, 64) // much too big
-	tmp := segment.Raw()          // will not be quoted
-	uni.Cmd = packets.CommandType(tmp[0])
+	// will not be quoted
+	uni.Cmd = packets.CommandType(rawFirstSegment[0])
 	segment = segment.Next()
 
 	// traverse the result

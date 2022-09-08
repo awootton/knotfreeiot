@@ -874,7 +874,7 @@ func WriteArrayOfByteArray(args [][]byte, writer io.Writer) error {
 	return nil
 }
 
-// WriteVarLenInt writes a variable length integer.
+// WriteVarLenInt writes a variable length integer. bigendian
 // I'm sure there's a name for this but I forget.
 // Unsigned integers are written big end first 7 bits at at time.
 // The last byte is >=0 and <=127. The other bytes have the high bit set.
@@ -897,7 +897,7 @@ func WriteVarLenInt(uintvalue uint32, mask uint8, writer io.Writer) error {
 }
 
 // ReadVarLenInt see comments above
-// Not meant for integers >= 2^28
+// Not meant for integers >= 2^28 big endian
 func ReadVarLenInt(reader io.Reader) (int, error) {
 	oneByte := []uint8{0}
 	_, err := reader.Read(oneByte)

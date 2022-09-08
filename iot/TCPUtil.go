@@ -141,7 +141,9 @@ func (cc *tcpContact) Close(err error) {
 	ss.Close(err) // close my parent
 	if hadConfig {
 		dis := packets.Disconnect{}
-		dis.SetOption("error", []byte(err.Error()))
+		if err != nil {
+			dis.SetOption("error", []byte(err.Error()))
+		}
 		cc.WriteDownstream(&dis)
 		if cc.netDotTCPConn != nil {
 			cc.netDotTCPConn.Close()
@@ -256,7 +258,6 @@ func handleConnection(tcpConn *net.TCPConn, ex *Executive) {
 }
 
 // SocketSetup sets common options
-//
 func SocketSetup(tcpConn *net.TCPConn) error {
 	//tcpConn := conn.(*net.TCPConn)
 	err := tcpConn.SetReadBuffer(4096)
