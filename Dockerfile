@@ -36,7 +36,6 @@ COPY tokens/go.sum tokens/
 COPY badjson/go.mod badjson/
 COPY badjson/go.sum badjson/
 
-
 RUN go mod download
 
 # and then add the code

@@ -20,7 +20,7 @@ require (
 	github.com/awootton/knotfreeiot/tokens v0.0.0-20210322105824-7c2b62c09ca0
 	github.com/aws/aws-sdk-go v1.38.51
 	github.com/gorilla/websocket v1.4.2
-	github.com/hashicorp/mdns v1.0.5
+	//github.com/hashicorp/mdns v1.0.5
 	github.com/klauspost/compress v1.11.12 // indirect
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.3.0
 	github.com/prometheus/client_golang v1.10.0

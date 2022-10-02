@@ -123,3 +123,66 @@ spec:
 
   selector:
     run: "knotfreeaide"
+
+
+#---
+
+# see: https://runnable.com/blog/how-to-use-lets-encrypt-on-kubernetes
+
+# apiVersion: batch/v1
+# kind: Job
+# metadata:
+#   name: letsencrypt-job
+#   labels:
+#     app: letsencrypt
+# spec:
+#   template:
+#     metadata:
+#       name: letsencrypt
+#       labels:
+#         app: letsencrypt
+#     spec:
+#       containers:
+#       # Bash script that starts an http server and launches certbot
+#       # Fork of github.com/sjenning/kube-nginx-letsencrypt
+#       - image: quay.io/hiphipjorge/kube-nginx-letsencrypt:latest
+#         name: letsencrypt
+#         imagePullPolicy: Always
+#         ports:
+#         - name: letsencrypt
+#           containerPort: 80
+#         resources:
+#           limits:
+#             cpu: 25m  
+#             memory: 25Mi  
+#         env:
+#         - name: DOMAINS
+#           value: knotfree.net # Domain you want to use. CHANGE ME!
+#         - name: EMAIL
+#           value: alan@gotohere.com # Your email. CHANGE ME!
+#         - name: SECRET
+#           value: letsencrypt-certs
+#       restartPolicy: Never
+
+# ---
+
+# apiVersion: v1
+# kind: Service
+# metadata:
+#   name: letsencrypt
+# spec:
+#   selector:
+#     app: letsencrypt
+#   ports:
+#   - protocol: "TCP"
+#     port: 80
+
+# ---
+
+# apiVersion: v1
+# kind: Secret
+# metadata:
+#   name: letsencrypt-certs
+# type: Opaque
+# # Create an empty secret (with no data) in order for the update to work
+

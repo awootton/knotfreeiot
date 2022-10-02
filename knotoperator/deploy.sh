@@ -34,7 +34,7 @@ kubectl create ns knotspace | true
 kubectl config set-context --current --namespace=knotspace
 
 #do this all the time:
-operator-sdk generate k8s
+# ?? why ?? operator-sdk generate k8s
 
 kubectl apply -f deploy/service_account.yaml
 kubectl apply -f deploy/role.yaml

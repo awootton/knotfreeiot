@@ -96,3 +96,60 @@ func TestBox1(t *testing.T) {
 	fmt.Println("decrypted message ", string(opened))
 	//fmt.Println("decrypted message ", hex.EncodeToString(result))
 }
+
+func getBoxKeyPairFromPassphrase(pass string) ([32]byte, [32]byte) {
+
+	publicKey := new([32]byte)
+	privateKey := new([32]byte)
+
+	hash := sha256.Sum256([]byte(pass))
+	copy(privateKey[:], hash[:])
+
+	curve25519.ScalarBaseMult(publicKey, privateKey)
+
+	return *publicKey, *privateKey
+}
+
+func TestBoxMatchesTypeScript(t *testing.T) {
+
+	senderPass := "testString123" //
+	hash := sha256.Sum256([]byte(senderPass))
+
+	fmt.Println(senderPass, "hashes to ", base64.RawURLEncoding.EncodeToString(hash[:]))
+
+	receiverPass := "myFamousOldeSaying" //
+	hash = sha256.Sum256([]byte(receiverPass))
+
+	fmt.Println(receiverPass, "hashes to ", base64.RawURLEncoding.EncodeToString(hash[:]))
+
+	spublic, sprivate := getBoxKeyPairFromPassphrase(senderPass)
+
+	fmt.Println(senderPass, "makes sender public key ", base64.RawURLEncoding.EncodeToString(spublic[:]))
+	fmt.Println(senderPass, "makes sender private key ", base64.RawURLEncoding.EncodeToString(sprivate[:]))
+	//testString123 makes sender public key   bht-Ka3j7GKuMFOablMlQnABnBvBeugvSf4CdFV3LXs
+	//testString123 makes sender secret key   VY5e4pCAwDlr-HdfioX6TCiv41Xx_SsTtUcupKndFpQ
+
+	rpublic, rprivate := getBoxKeyPairFromPassphrase(receiverPass)
+
+	fmt.Println(receiverPass, "makes receiver public key ", base64.RawURLEncoding.EncodeToString(rpublic[:]))
+	fmt.Println(receiverPass, "makes receiver private key ", base64.RawURLEncoding.EncodeToString(rprivate[:]))
+
+	message := "this is my test message"
+
+	nonceSlice := []byte("EhBJOkFN3CjwqBGzkSurniXj")
+	var nonce [24]byte
+	copy(nonce[:], nonceSlice[:])
+
+	buffer := make([]byte, 0, (len(message) + box.Overhead))
+	sealed := box.Seal(buffer, []byte(message), &nonce, &rpublic, &sprivate)
+
+	fmt.Println("boxed", base64.RawURLEncoding.EncodeToString(sealed))
+
+	// send out, and nonce to device
+	openbuffer := make([]byte, 0, (len(sealed))) // - box.Overhead))
+
+	opened, ok := box.Open(openbuffer, sealed, &nonce, &spublic, &rprivate)
+	_ = ok
+	fmt.Println("unboxed ", string(opened))
+
+}

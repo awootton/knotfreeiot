@@ -59,18 +59,22 @@ func main() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		if needtobuild && startTheOperator {
+			buildTheOperator(registry)
+		}
+	}()
+
+	wg.Wait()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
 		if needtobuild {
 			buildTheKnotFreeMain(registry)
 		}
 	}()
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		if needtobuild && startTheOperator {
-			buildTheOperator(registry)
-		}
-	}()
+	wg.Wait()
 
 	kubectl.K("kubectl create ns knotspace")
 	kubectl.K("kubectl config set-context --current --namespace=knotspace")
@@ -81,7 +85,7 @@ func main() {
 	kubectl.K("kubectl apply -f crds/app.knotfree.io_appservices_crd.yaml")
 	kubectl.K("kubectl apply -f crds/app.knotfree.io_v1alpha1_appservice_cr.yaml")
 
-	wg.Wait()
+	//wg.Wait()
 
 	deploymentName := "aide-"
 	previousPodNames, err := kubectl.K8s("kubectl get po | grep "+deploymentName, "")
@@ -188,8 +192,13 @@ func buildTheKnotFreeMain(registry string) {
 	if buildReactAndCopy {
 		val, err := kubectl.K8s("pwd", "")
 		fmt.Println("buildTheKnotFreeMain in ", val, err)
-		kubectl.K("rm -rf ../../docs/_site2/ ")
-		kubectl.K("cd ../../../gotohere/ ; ./build_to_knotfree_docs.sh")
+
+		kubectl.K("ls -lah ../../gotohere/")
+
+		kubectl.K("rm -rf ../../docs/ ")
+		// /Users/awootton/Documents/workspace/gotohere
+		// /Users/awootton/Documents/workspace/knotfreeiot/knotoperator
+		kubectl.K("cd ../../gotohere/ ; ./build_to_knotfree_docs.sh")
 	}
 
 	digest, _ := kubectl.K8s("docker inspect --format='{{.RepoDigests}}' "+registry+"/knotfreeserver", "")
@@ -205,7 +214,8 @@ func buildTheKnotFreeMain(registry string) {
 func buildTheOperator(registry string) {
 	digest, _ := kubectl.K8s("docker inspect --format='{{.RepoDigests}}' "+registry+"/knotoperator", "")
 	fmt.Println("digest of knotoperator 1", digest)
-	kubectl.K("cd ..;operator-sdk build " + registry + "/knotoperator")
+	kubectl.K("cd ../;ls -lah")
+	kubectl.K("cd ../;docker build - < build/Dockerfile -t " + registry + "/knotoperator ")
 	digest, _ = kubectl.K8s("docker inspect --format='{{.RepoDigests}}' "+registry+"/knotoperator", "")
 	fmt.Println("digest of knotoperator 2", digest)
 	kubectl.K("docker push " + registry + "/knotoperator")

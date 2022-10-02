@@ -19,8 +19,8 @@ spec:
       containers:
         - name: knotoperator
           image: gcr.io/fair-theater-238820/knotoperator
-          command:
-          - knotoperator
+          command: ["sleep", "999999"] # ["/go/bin/linux_386/main"]
+          #- knotoperator
           imagePullPolicy: Always
           env:
             - name: WATCH_NAMESPACE

@@ -575,8 +575,8 @@ func startPublicServer(ce *iot.ClusterExecutive) {
 	supermux.sub.Handle("/mqtt", wsAPIHandler{ce})
 
 	staticStuffHandler := webHandler{ce,
-		http.FileServer(http.Dir("./docs/_site")),
-		http.FileServer(http.Dir("./docs/_site2"))} // FIXME: point to gotohere static assets (a react build)
+		// doesn't exist anymore: http.FileServer(http.Dir("./docs/_site")),
+		http.FileServer(http.Dir("./docs"))} // FIXME: points to gotohere static assets (a react build)
 
 	supermux.sub.Handle("/", staticStuffHandler)
 	// moved to webHandler:
@@ -957,7 +957,7 @@ func (api ApiHandler) ServeMakeToken(w http.ResponseWriter, req *http.Request) {
 type webHandler struct {
 	ce *iot.ClusterExecutive
 
-	fs1 http.Handler
+	//	fs1 http.Handler
 	fs2 http.Handler
 
 	//fs := http.FileServer(http.Dir("./docs/_site"))
@@ -970,17 +970,17 @@ func (api webHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	fmt.Println("webHandler ServeHTTP", r.RequestURI)
 
-	isGotohere := false // when this is true we serve the react build in docs/_site2
-	domainParts := strings.Split(r.Host, ".")
-	if len(domainParts) >= 2 && (domainParts[len(domainParts)-2] == "gotohere" || domainParts[len(domainParts)-2] == "gotolocal") {
-		isGotohere = true
-	}
+	// isGotohere := false // when this is true we serve the react build in docs/_site2
+	// domainParts := strings.Split(r.Host, ".")
+	// if len(domainParts) >= 2 && (domainParts[len(domainParts)-2] == "gotohere" || domainParts[len(domainParts)-2] == "gotolocal") {
+	// 	isGotohere = true
+	// }
 	// just kidding. we're dumping the old _site jekyl thing
 	// the react build at _site2 switches for knotfree and gotohere.
-	isGotohere = true
-	if isGotohere {
-		api.fs2.ServeHTTP(w, r)
-	} else {
-		api.fs1.ServeHTTP(w, r)
-	}
+	// isGotohere = true
+	// if isGotohere {
+	api.fs2.ServeHTTP(w, r)
+	// } else {
+	// 	api.fs1.ServeHTTP(w, r)
+	// }
 }
