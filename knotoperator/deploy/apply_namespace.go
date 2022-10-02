@@ -64,7 +64,7 @@ func main() {
 		}
 	}()
 
-	wg.Wait()
+	//wg.Wait()
 
 	wg.Add(1)
 	go func() {
@@ -214,8 +214,10 @@ func buildTheKnotFreeMain(registry string) {
 func buildTheOperator(registry string) {
 	digest, _ := kubectl.K8s("docker inspect --format='{{.RepoDigests}}' "+registry+"/knotoperator", "")
 	fmt.Println("digest of knotoperator 1", digest)
-	kubectl.K("cd ../;ls -lah")
-	kubectl.K("cd ../;docker build - < build/Dockerfile -t " + registry + "/knotoperator ")
+	//kubectl.K("cd ../;ls -lah")
+	// docker build --file knotoperator/Dockerfile .
+	kubectl.K("cd ../../;docker build --file knotoperator/Dockerfile -t " + registry + "/knotoperator .")
+	//kubectl.K("cd ../;docker build -t " + registry + "/knotoperator .")
 	digest, _ = kubectl.K8s("docker inspect --format='{{.RepoDigests}}' "+registry+"/knotoperator", "")
 	fmt.Println("digest of knotoperator 2", digest)
 	kubectl.K("docker push " + registry + "/knotoperator")

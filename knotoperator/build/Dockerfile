@@ -29,6 +29,18 @@ RUN ls
 COPY go.mod .
 COPY go.sum .
 
+COPY iot/go.mod iot/
+COPY iot/go.sum iot/
+
+COPY packets/go.mod packets/
+COPY packets/go.sum packets/
+
+COPY tokens/go.mod tokens/
+COPY tokens/go.sum tokens/
+
+COPY badjson/go.mod badjson/
+COPY badjson/go.sum badjson/
+
 RUN go mod download
 
 # and then add the code
