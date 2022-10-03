@@ -483,7 +483,6 @@ func makeErrorAndDisconnect(ssi ContactInterface, str string, err error) error {
 		err = errors.New(str)
 	}
 
-
 	dis := &packets.Disconnect{}
 	dis.SetOption("error", []byte(err.Error()))
 	ssi.WriteDownstream(dis)
@@ -545,11 +544,11 @@ func (ss *ContactStruct) Heartbeat(now uint32) {
 
 		msg := &StatsWithTime{}
 		msg.Start = now
-		msg.Input = float32(ss.input)
+		msg.Input = float64(ss.input)
 		ss.input -= int(msg.Input) // todo: atomic
-		msg.Output = float32(ss.output)
+		msg.Output = float64(ss.output)
 		ss.output -= int(msg.Output)         // todo: atomic
-		msg.Connections = float32(deltaTime) // means one per sec, one per min ...
+		msg.Connections = float64(deltaTime) // means one per sec, one per min ...
 		// Subscriptions handled elsewhere.
 		p := &packets.Send{}
 		p.Address.FromString(ss.token.JWTID)

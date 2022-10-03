@@ -125,7 +125,7 @@ func (ba *BillingAccumulator) AreUnderMax(now uint32) (bool, string) {
 		weGood = false
 		why += fmt.Sprintf("BILLING ERROR %v connections > %v", current.Connections, ba.max.Connections)
 	}
-	if current.Input > (ba.max.Input + .1) {
+	if current.Input > (ba.max.Input + .1*100) {
 		weGood = false
 		why += fmt.Sprintf("BILLING ERROR %v bytes in > %v/s", current.Input, ba.max.Input)
 	}
@@ -145,9 +145,9 @@ const lookback = 4
 
 // GetInput - we sum up some prevous buckets and divide.
 // do we need to sync with Add? No, because all access to this goes through a q in lookup.
-func (ba *BillingAccumulator) GetInput(now uint32) float32 {
-	vals := float32(0)
-	times := float32(0)
+func (ba *BillingAccumulator) GetInput(now uint32) float64 {
+	vals := float64(0)
+	times := float64(0)
 	tmpnow := now
 	for i := 0; i < lookback; i++ {
 		index := (ba.i - i + len(ba.a)) % len(ba.a)
@@ -155,16 +155,16 @@ func (ba *BillingAccumulator) GetInput(now uint32) float32 {
 		vals += c.Input
 		buckettime := tmpnow - c.Start
 		tmpnow -= buckettime
-		times += float32(buckettime)
+		times += float64(buckettime)
 	}
 	f := vals / times
 	return f
 }
 
 // GetConnections is
-func (ba *BillingAccumulator) GetConnections(now uint32) float32 {
-	vals := float32(0)
-	times := float32(0)
+func (ba *BillingAccumulator) GetConnections(now uint32) float64 {
+	vals := float64(0)
+	times := float64(0)
 	tmpnow := now
 	for i := 0; i < lookback; i++ {
 		index := (ba.i - i + len(ba.a)) % len(ba.a)
@@ -172,16 +172,16 @@ func (ba *BillingAccumulator) GetConnections(now uint32) float32 {
 		vals += c.Connections
 		buckettime := tmpnow - c.Start
 		tmpnow -= buckettime
-		times += float32(buckettime)
+		times += float64(buckettime)
 	}
 	f := vals / times
 	return f
 }
 
 // GetOutput is
-func (ba *BillingAccumulator) GetOutput(now uint32) float32 {
-	vals := float32(0)
-	times := float32(0)
+func (ba *BillingAccumulator) GetOutput(now uint32) float64 {
+	vals := float64(0)
+	times := float64(0)
 	tmpnow := now
 	for i := 0; i < lookback; i++ {
 		index := (ba.i - i + len(ba.a)) % len(ba.a)
@@ -189,16 +189,16 @@ func (ba *BillingAccumulator) GetOutput(now uint32) float32 {
 		vals += c.Output
 		buckettime := tmpnow - c.Start
 		tmpnow -= buckettime
-		times += float32(buckettime)
+		times += float64(buckettime)
 	}
 	f := vals / times
 	return f
 }
 
 // GetSubscriptions is
-func (ba *BillingAccumulator) GetSubscriptions(now uint32) float32 {
-	vals := float32(0)
-	times := float32(0)
+func (ba *BillingAccumulator) GetSubscriptions(now uint32) float64 {
+	vals := float64(0)
+	times := float64(0)
 	tmpnow := now
 	for i := 0; i < lookback; i++ {
 		index := (ba.i - i + len(ba.a)) % len(ba.a)
@@ -206,7 +206,7 @@ func (ba *BillingAccumulator) GetSubscriptions(now uint32) float32 {
 		vals += c.Subscriptions
 		buckettime := tmpnow - c.Start
 		tmpnow -= buckettime
-		times += float32(buckettime)
+		times += float64(buckettime)
 	}
 	f := vals / times
 	return f
@@ -216,7 +216,7 @@ func (ba *BillingAccumulator) GetSubscriptions(now uint32) float32 {
 // dest should be zeroed before calling.
 func (ba *BillingAccumulator) GetStats(now uint32, dest *tokens.KnotFreeContactStats) {
 
-	times := float32(0)
+	times := float64(0)
 	tmpnow := now
 	for i := 0; i < lookback; i++ {
 		index := (ba.i - i + len(ba.a)) % len(ba.a)
@@ -227,7 +227,7 @@ func (ba *BillingAccumulator) GetStats(now uint32, dest *tokens.KnotFreeContactS
 		dest.Subscriptions += c.Subscriptions
 		buckettime := tmpnow - c.Start
 		tmpnow -= buckettime
-		times += float32(buckettime)
+		times += float64(buckettime)
 	}
 	dest.Connections /= times
 	dest.Input /= times

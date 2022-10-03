@@ -1,0 +1,215 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.9.2
+  #creationTimestamp: null
+  name: knotoperators.cache.knotfree.net
+spec:
+  group: cache.knotfree.net
+  names:
+    kind: Knotoperator
+    listKind: KnotoperatorList
+    plural: knotoperators
+    singular: knotoperator
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: Knotoperator is the Schema for the knotoperators API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: KnotoperatorSpec defines the desired state of Knotoperator
+            properties:
+              ce:
+                description: ClusterState is too much like see iot.ClusterExecutive
+                properties:
+                  guruNamesPending:
+                    format: int32
+                    type: integer
+                  gurunames:
+                    items:
+                      type: string
+                    type: array
+                  nodes:
+                    additionalProperties:
+                      description: 'ExecutiveStats is fractions relative to the limits.
+                        a fraction: 1.0 is 100% maxed out. 0 is idle.'
+                      properties:
+                        buf:
+                          type: number
+                        contactStats:
+                          description: 'four float32 :   in out su co'
+                          properties:
+                            co:
+                              type: number
+                            in:
+                              type: number
+                            out:
+                              type: number
+                            su:
+                              type: number
+                          required:
+                          - co
+                          - in
+                          - out
+                          - su
+                          type: object
+                        guru:
+                          type: boolean
+                        http:
+                          type: string
+                        limits:
+                          description: ExecutiveLimits will be how we tell if the
+                            ex is 'full'
+                          properties:
+                            contactStats:
+                              description: KnotFreeContactStats is the numeric part
+                                of the token claims it is floats to and fractions
+                                in json
+                              properties:
+                                co:
+                                  type: number
+                                in:
+                                  type: number
+                                out:
+                                  type: number
+                                su:
+                                  type: number
+                              required:
+                              - co
+                              - in
+                              - out
+                              - su
+                              type: object
+                          required:
+                          - contactStats
+                          type: object
+                        name:
+                          type: string
+                        tcp:
+                          type: string
+                      required:
+                      - buf
+                      - contactStats
+                      - guru
+                      - http
+                      - limits
+                      - name
+                      - tcp
+                      type: object
+                    description: name to stats
+                    type: object
+                required:
+                - guruNamesPending
+                - gurunames
+                - nodes
+                type: object
+            type: object
+          status:
+            description: KnotoperatorStatus defines the observed state of Knotoperator
+            properties:
+              ce:
+                description: ClusterState is too much like see iot.ClusterExecutive
+                properties:
+                  guruNamesPending:
+                    format: int32
+                    type: integer
+                  gurunames:
+                    items:
+                      type: string
+                    type: array
+                  nodes:
+                    additionalProperties:
+                      description: 'ExecutiveStats is fractions relative to the limits.
+                        a fraction: 1.0 is 100% maxed out. 0 is idle.'
+                      properties:
+                        buf:
+                          type: number
+                        contactStats:
+                          description: 'four float32 :   in out su co'
+                          properties:
+                            co:
+                              type: number
+                            in:
+                              type: number
+                            out:
+                              type: number
+                            su:
+                              type: number
+                          required:
+                          - co
+                          - in
+                          - out
+                          - su
+                          type: object
+                        guru:
+                          type: boolean
+                        http:
+                          type: string
+                        limits:
+                          description: ExecutiveLimits will be how we tell if the
+                            ex is 'full'
+                          properties:
+                            contactStats:
+                              description: KnotFreeContactStats is the numeric part
+                                of the token claims it is floats to and fractions
+                                in json
+                              properties:
+                                co:
+                                  type: number
+                                in:
+                                  type: number
+                                out:
+                                  type: number
+                                su:
+                                  type: number
+                              required:
+                              - co
+                              - in
+                              - out
+                              - su
+                              type: object
+                          required:
+                          - contactStats
+                          type: object
+                        name:
+                          type: string
+                        tcp:
+                          type: string
+                      required:
+                      - buf
+                      - contactStats
+                      - guru
+                      - http
+                      - limits
+                      - name
+                      - tcp
+                      type: object
+                    description: name to stats
+                    type: object
+                required:
+                - guruNamesPending
+                - gurunames
+                - nodes
+                type: object
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

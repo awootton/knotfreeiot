@@ -241,7 +241,7 @@ func heartBeatCallBack(me *LookupTableStruct, bucket *subscribeBucket, cmd *call
 				msg := &StatsWithTime{}
 				msg.Start = cmd.now
 
-				msg.Subscriptions = float32(deltaTime) // means one per sec, one per min ...
+				msg.Subscriptions = float64(deltaTime) // means one per sec, one per min ...
 				p := &packets.Send{}
 				p.Address.Type = packets.BinaryAddress
 				p.Address.Bytes = ([]byte(watchedItem.jwtidAlias))[0:HashTypeLen]

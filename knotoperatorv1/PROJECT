@@ -1,0 +1,19 @@
+domain: knotfree.net
+layout:
+- go.kubebuilder.io/v3
+plugins:
+  manifests.sdk.operatorframework.io/v2: {}
+  scorecard.sdk.operatorframework.io/v2: {}
+projectName: knotoperatorv1
+repo: github.com/awootton/knotfreeiot/knotoperatorv1
+resources:
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: knotfree.net
+  group: cache
+  kind: Knotoperator
+  path: github.com/awootton/knotfreeiot/knotoperatorv1/api/v1alpha1
+  version: v1alpha1
+version: "3"

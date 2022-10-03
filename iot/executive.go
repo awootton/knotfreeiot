@@ -79,19 +79,19 @@ type ClusterExecutive struct {
 
 // ExecutiveLimits will be how we tell if the ex is 'full'
 type ExecutiveLimits struct {
-	tokens.KnotFreeContactStats //   in out su co
+	tokens.KnotFreeContactStats `json:"contactStats"` //   in out su co
 }
 
 // ExecutiveStats is fractions relative to the limits.
 // a fraction: 1.0 is 100% maxed out. 0 is idle.
 type ExecutiveStats struct {
 	// four float32 :   in out su co
-	tokens.KnotFreeContactStats
-	Buffers     float32 `json:"buf"`
-	Name        string  `json:"name"`
-	HTTPAddress string  `json:"http"`
-	TCPAddress  string  `json:"tcp"`
-	IsGuru      bool    `json:"guru"`
+	tokens.KnotFreeContactStats `json:"contactStats"`
+	Buffers                     float64 `json:"buf"`
+	Name                        string  `json:"name"`
+	HTTPAddress                 string  `json:"http"`
+	TCPAddress                  string  `json:"tcp"`
+	IsGuru                      bool    `json:"guru"`
 
 	Limits *ExecutiveLimits `json:"limits"`
 }
@@ -344,7 +344,7 @@ func CalcExpansionDesired(aides []*ExecutiveStats, gurus []*ExecutiveStats) Expa
 			result.ChangeAides = -1
 			// we can shrink, which one?
 			index := 0
-			max := float32(0.0)
+			max := float64(0.0)
 			for i, ex := range aides {
 				c := ex.Subscriptions
 				fract := ex.Buffers
@@ -583,11 +583,11 @@ func (ex *Executive) GetExecutiveStats() *ExecutiveStats {
 	stats := &ExecutiveStats{}
 	stats.IsGuru = ex.isGuru
 
-	stats.Input = (float32(inputs) / float32(times)) / ex.Limits.Input
-	stats.Output = (float32(outputs) / float32(times)) / ex.Limits.Output
-	stats.Connections = float32(contactCount) / ex.Limits.Connections
-	stats.Subscriptions = float32(subscriptions) / ex.Limits.Subscriptions
-	stats.Buffers = float32(queuefraction)
+	stats.Input = (float64(inputs) / float64(times)) / ex.Limits.Input
+	stats.Output = (float64(outputs) / float64(times)) / ex.Limits.Output
+	stats.Connections = float64(contactCount) / ex.Limits.Connections
+	stats.Subscriptions = float64(subscriptions) / ex.Limits.Subscriptions
+	stats.Buffers = float64(queuefraction)
 
 	stats.Limits = ex.Limits
 	stats.Name = ex.Name

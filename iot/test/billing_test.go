@@ -81,7 +81,7 @@ func TestSubscriptionOverrun(t *testing.T) {
 		return ok
 	}, "timed out waiting for TestSubscriptionOverrun result")
 
-	fmt.Println("subscriptions. aide1", aide1.GetExecutiveStats().Subscriptions*float32(aide1.GetExecutiveStats().Limits.Subscriptions))
+	fmt.Println("subscriptions. aide1", aide1.GetExecutiveStats().Subscriptions*float64(aide1.GetExecutiveStats().Limits.Subscriptions))
 
 	got, _ = c1.(*testContact).getResultAsString()
 	want = `[P,,,,,"4.151899 subscriptions > 4",error,"4.151899 subscriptions > 4"]`
@@ -124,7 +124,7 @@ func TestContactTimeout(t *testing.T) {
 
 	ce.WaitForActions()
 
-	fmt.Println("contacts aide1", aide1.GetExecutiveStats().Connections*float32(aide1.GetExecutiveStats().Limits.Connections))
+	fmt.Println("contacts aide1", aide1.GetExecutiveStats().Connections*float64(aide1.GetExecutiveStats().Limits.Connections))
 
 	for minutes := 0; minutes < 20; minutes++ {
 		localtime += 60
@@ -137,7 +137,7 @@ func TestContactTimeout(t *testing.T) {
 	SendText(c1, "S "+c1.String()) // subscribe to my name, again
 	ce.WaitForActions()
 
-	got = fmt.Sprint("contacts aide1 ", aide1.GetExecutiveStats().Connections*float32(aide1.GetExecutiveStats().Limits.Connections))
+	got = fmt.Sprint("contacts aide1 ", aide1.GetExecutiveStats().Connections*float64(aide1.GetExecutiveStats().Limits.Connections))
 	want = "contacts aide1 3"
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
@@ -153,7 +153,7 @@ func TestContactTimeout(t *testing.T) {
 	}
 	fmt.Println("minutes passed", (localtime-starttime)/60)
 
-	got = fmt.Sprint("contacts aide1 ", aide1.GetExecutiveStats().Connections*float32(aide1.GetExecutiveStats().Limits.Connections))
+	got = fmt.Sprint("contacts aide1 ", aide1.GetExecutiveStats().Connections*float64(aide1.GetExecutiveStats().Limits.Connections))
 	want = "contacts aide1 3"
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
@@ -166,7 +166,7 @@ func TestContactTimeout(t *testing.T) {
 		ce.WaitForActions()
 	}
 
-	got = fmt.Sprint("contacts aide1 ", aide1.GetExecutiveStats().Connections*float32(aide1.GetExecutiveStats().Limits.Connections))
+	got = fmt.Sprint("contacts aide1 ", aide1.GetExecutiveStats().Connections*float64(aide1.GetExecutiveStats().Limits.Connections))
 	want = "contacts aide1 2"
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
@@ -239,8 +239,8 @@ func TestConnectionsOver(t *testing.T) {
 	// the contacts should be c3 refused
 	ce.WaitForActions()
 
-	fmt.Println("contacts aide1", aide1.GetExecutiveStats().Connections*float32(aide1.GetExecutiveStats().Limits.Connections))
-	fmt.Println("contacts aide2", aide2.GetExecutiveStats().Connections*float32(aide2.GetExecutiveStats().Limits.Connections))
+	fmt.Println("contacts aide1", aide1.GetExecutiveStats().Connections*float64(aide1.GetExecutiveStats().Limits.Connections))
+	fmt.Println("contacts aide2", aide2.GetExecutiveStats().Connections*float64(aide2.GetExecutiveStats().Limits.Connections))
 
 	for minutes := 0; minutes < 40; minutes++ {
 		localtime += 60
@@ -254,8 +254,8 @@ func TestConnectionsOver(t *testing.T) {
 	}
 	ce.WaitForActions()
 
-	got = fmt.Sprint("contacts aide1 ", aide1.GetExecutiveStats().Connections*float32(aide1.GetExecutiveStats().Limits.Connections))
-	got += fmt.Sprint(" contacts aide2 ", aide2.GetExecutiveStats().Connections*float32(aide2.GetExecutiveStats().Limits.Connections))
+	got = fmt.Sprint("contacts aide1 ", aide1.GetExecutiveStats().Connections*float64(aide1.GetExecutiveStats().Limits.Connections))
+	got += fmt.Sprint(" contacts aide2 ", aide2.GetExecutiveStats().Connections*float64(aide2.GetExecutiveStats().Limits.Connections))
 	want = "contacts aide1 3 contacts aide2 0"
 	if got != want {
 		// unreliable because of 	t.Errorf("got %v, want %v", got, want)
@@ -290,7 +290,7 @@ func TestBills(t *testing.T) {
 		stats := &tokens.KnotFreeContactStats{}
 		stats.Input = 900
 		dt := 90 // seconds
-		stats.Connections = float32(dt)
+		stats.Connections = float64(dt)
 
 		ba.Add(stats, testtime)
 
@@ -325,7 +325,7 @@ func TestBills2(t *testing.T) {
 		for minutes := 0; minutes < 20; minutes++ {
 
 			stats := &tokens.KnotFreeContactStats{}
-			stats.Connections = float32(60)
+			stats.Connections = float64(60)
 			ba.Add(stats, localtime)
 
 			localtime += 60

@@ -218,7 +218,7 @@ func AddFileFileToS3(s *session.Session, fileDir string) error {
 	return err
 }
 
-func ScaleTokenPayload(token *tokens.KnotFreeTokenPayload, scale float32) *tokens.KnotFreeTokenPayload {
+func ScaleTokenPayload(token *tokens.KnotFreeTokenPayload, scale float64) *tokens.KnotFreeTokenPayload {
 	scaled := tokens.KnotFreeTokenPayload{}
 
 	scaled.ExpirationTime = token.ExpirationTime // unix seconds
@@ -238,10 +238,10 @@ func ScaleTokenPayload(token *tokens.KnotFreeTokenPayload, scale float32) *token
 	scaled.KnotFreeContactStats.Subscriptions *= scale
 	scaled.KnotFreeContactStats.Connections *= scale
 
-	scaled.KnotFreeContactStats.Input = float32(math.Floor(float64(scaled.KnotFreeContactStats.Input)))
-	scaled.KnotFreeContactStats.Output = float32(math.Floor(float64(scaled.KnotFreeContactStats.Output)))
-	scaled.KnotFreeContactStats.Subscriptions = float32(math.Floor(float64(scaled.KnotFreeContactStats.Subscriptions)))
-	scaled.KnotFreeContactStats.Connections = float32(math.Floor(float64(scaled.KnotFreeContactStats.Connections)))
+	scaled.KnotFreeContactStats.Input = float64(math.Floor(float64(scaled.KnotFreeContactStats.Input)))
+	scaled.KnotFreeContactStats.Output = float64(math.Floor(float64(scaled.KnotFreeContactStats.Output)))
+	scaled.KnotFreeContactStats.Subscriptions = float64(math.Floor(float64(scaled.KnotFreeContactStats.Subscriptions)))
+	scaled.KnotFreeContactStats.Connections = float64(math.Floor(float64(scaled.KnotFreeContactStats.Connections)))
 
 	return &scaled
 }

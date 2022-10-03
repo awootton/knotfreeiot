@@ -1,0 +1,33 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  name: manager-role
+rules:
+- apiGroups:
+  - cache.knotfree.net
+  resources:
+  - knotoperators
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - cache.knotfree.net
+  resources:
+  - knotoperators/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - cache.knotfree.net
+  resources:
+  - knotoperators/status
+  verbs:
+  - get
+  - patch
+  - update

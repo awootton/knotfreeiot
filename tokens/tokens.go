@@ -49,14 +49,13 @@ type KnotFreeTokenPayload struct {
 }
 
 // KnotFreeContactStats is the numeric part of the token claims
-// it is floats to compress numbers and allow fractions in json
-// these don't count above 2^24 or else we need more bits.
+// it is floats to and fractions in json
 type KnotFreeContactStats struct {
 	//
-	Input         float32 `json:"in"`  // bytes per sec
-	Output        float32 `json:"out"` // bytes per sec
-	Subscriptions float32 `json:"su"`  // seconds per sec
-	Connections   float32 `json:"co"`  // seconds per sec
+	Input         float64 `json:"in,string"`  // bytes per sec float32
+	Output        float64 `json:"out,string"` // bytes per sec
+	Subscriptions float64 `json:"su,string"`  // seconds per sec
+	Connections   float64 `json:"co,string"`  // seconds per sec
 }
 
 // TokenRequest is created in javascript and sent as json.

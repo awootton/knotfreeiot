@@ -35,8 +35,8 @@ func GetFirebaseApp(ctx context.Context) (*firebase.App, error) {
 
 // CalcTokenPrice figures out how much we would need to pay to get this token.
 // TODO: move out of firebase
-func CalcTokenPrice(token *KnotFreeTokenPayload, unixIssueTime uint32) float32 {
-	price := float32(0.0)
+func CalcTokenPrice(token *KnotFreeTokenPayload, unixIssueTime uint32) float64 {
+	price := float64(0.0)
 	// at DigitalOcean 4/2021:
 	// $5
 	// 0.5 cpu
@@ -54,15 +54,15 @@ func CalcTokenPrice(token *KnotFreeTokenPayload, unixIssueTime uint32) float32 {
 	// fmt.Println("tinyConnectAmt ", tinyConnectAmt)   // 2
 	// fmt.Println("tinyIO/sec ", tinyIO/secsInMonth) // 77 bytes/sec
 
-	greaterPrice := float32(-1.0)
+	greaterPrice := float64(-1.0)
 
-	secsInMonth := float32(60 * 60 * 24 * 30)
+	secsInMonth := float64(60 * 60 * 24 * 30)
 
-	connectionPrice := token.Connections * float32(5) / float32(10*1000)
-	subscriptionPrice := token.Subscriptions * float32(5) / float32(500*1000)
+	connectionPrice := token.Connections * float64(5) / float64(10*1000)
+	subscriptionPrice := token.Subscriptions * float64(5) / float64(500*1000)
 	subscriptionPrice *= 2                                                             // because it's on two layers
-	ioPrice1 := token.Input * secsInMonth * float32(5) / float32(1000*1000*1000*1000)  // per month
-	ioPrice2 := token.Output * secsInMonth * float32(5) / float32(1000*1000*1000*1000) // per month
+	ioPrice1 := token.Input * secsInMonth * float64(5) / float64(1000*1000*1000*1000)  // per month
+	ioPrice2 := token.Output * secsInMonth * float64(5) / float64(1000*1000*1000*1000) // per month
 
 	greaterPrice = connectionPrice
 	if subscriptionPrice > greaterPrice {
@@ -76,7 +76,7 @@ func CalcTokenPrice(token *KnotFreeTokenPayload, unixIssueTime uint32) float32 {
 	}
 
 	nowSeconds := unixIssueTime //uint32(time.Now().Unix())
-	deltaTime := float32(uint32(token.ExpirationTime - nowSeconds))
+	deltaTime := float64(uint32(token.ExpirationTime - nowSeconds))
 	deltaTime = deltaTime / secsInMonth // now in months
 
 	price = greaterPrice * deltaTime
@@ -92,7 +92,7 @@ type TokenLogStruct struct {
 	Token *KnotFreeTokenPayload
 }
 
-//LogNewToken to make a record that this token was delivered to customer.
+// LogNewToken to make a record that this token was delivered to customer.
 // Let's not include the whole jwt.
 func LogNewToken(ctx context.Context, token *KnotFreeTokenPayload, remoteAddr string) error {
 
