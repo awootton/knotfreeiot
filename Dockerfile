@@ -2,7 +2,7 @@
 # docker build -t gcr.  io/fair-theater-238820/knotfreeserver .	
 # docker push gcr.   io/fair-theater-238820/knotfreeserver
 
-FROM golang:1.14.0-stretch
+FROM golang:1.17.0-stretch
 #FROM golang:1.12-alpine 
 # alpine is smaller by 200 MiB but is tragicially git free
 
@@ -14,7 +14,7 @@ ENV PORT 8085
 ENV PORT 9090
 ENV PORT 3100
 
-# We can use the 32 bit version to save pointer space?
+# We can use the 32 bit version to save pointer space
 ENV GOARCH=386
 
 WORKDIR /knotfreeiot/
@@ -24,17 +24,17 @@ WORKDIR /knotfreeiot/
 COPY go.mod .
 COPY go.sum .
 
-COPY iot/go.mod iot/
-COPY iot/go.sum iot/
+# COPY iot/go.mod iot/
+# COPY iot/go.sum iot/
 
-COPY packets/go.mod packets/
-COPY packets/go.sum packets/
+# COPY packets/go.mod packets/
+# COPY packets/go.sum packets/
 
-COPY tokens/go.mod tokens/
-COPY tokens/go.sum tokens/
+# COPY tokens/go.mod tokens/
+# COPY tokens/go.sum tokens/
 
-COPY badjson/go.mod badjson/
-COPY badjson/go.sum badjson/
+# COPY badjson/go.mod badjson/
+# COPY badjson/go.sum badjson/
 
 RUN go mod download
 

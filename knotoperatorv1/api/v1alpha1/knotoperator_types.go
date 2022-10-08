@@ -56,6 +56,7 @@ type KnotoperatorStatus struct {
 //+kubebuilder:subresource:status
 
 // Knotoperator is the Schema for the knotoperators API
+// +kubebuilder:subresource:status
 type Knotoperator struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

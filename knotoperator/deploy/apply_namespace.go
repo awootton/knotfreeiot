@@ -56,13 +56,13 @@ func main() {
 
 	var wg sync.WaitGroup
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		if needtobuild && startTheOperator {
-			buildTheOperator(registry)
-		}
-	}()
+	// wg.Add(1)
+	// go func() {
+	// 	defer wg.Done()
+	// 	if needtobuild && startTheOperator {
+	// 		buildTheOperator(registry)
+	// 	}
+	//}()
 
 	//wg.Wait()
 
@@ -79,11 +79,11 @@ func main() {
 	kubectl.K("kubectl create ns knotspace")
 	kubectl.K("kubectl config set-context --current --namespace=knotspace")
 
-	kubectl.K("kubectl apply -f service_account.yaml")
-	kubectl.K("kubectl apply -f role.yaml")
-	kubectl.K("kubectl apply -f role_binding.yaml")
-	kubectl.K("kubectl apply -f crds/app.knotfree.io_appservices_crd.yaml")
-	kubectl.K("kubectl apply -f crds/app.knotfree.io_v1alpha1_appservice_cr.yaml")
+	//kubectl.K("kubectl apply -f service_account.yaml")
+	//kubectl.K("kubectl apply -f role.yaml")
+	//kubectl.K("kubectl apply -f role_binding.yaml")
+	//kubectl.K("kubectl apply -f crds/app.knotfree.io_appservices_crd.yaml")
+	//kubectl.K("kubectl apply -f crds/app.knotfree.io_v1alpha1_appservice_cr.yaml")
 
 	//wg.Wait()
 
@@ -95,9 +95,9 @@ func main() {
 	previousPodNames2, err := kubectl.K8s("kubectl get po | grep "+deploymentName2, "")
 	_ = err
 
-	deploymentName3 := "knotoperator-"
-	previousPodNames3, err := kubectl.K8s("kubectl get po | grep "+deploymentName3, "")
-	_ = err
+	// deploymentName3 := "knotoperator-"
+	// previousPodNames3, err := kubectl.K8s("kubectl get po | grep "+deploymentName3, "")
+	// _ = err
 
 	// previousPodNames += previousPodNames2
 	// previousPodNames += previousPodNames3
@@ -114,11 +114,11 @@ func main() {
 	kubectl.K8s("kubectl apply -f -", sdata)
 
 	//kubectl.K("kubectl apply -f operator.yaml")
-	data, _ = ioutil.ReadFile("operator.yaml")
-	sdata = strings.ReplaceAll(string(data), "gcr.io/fair-theater-238820", registry)
-	if startTheOperator {
-		kubectl.K8s("kubectl apply -f -", sdata)
-	}
+	// data, _ = ioutil.ReadFile("operator.yaml")
+	// sdata = strings.ReplaceAll(string(data), "gcr.io/fair-theater-238820", registry)
+	// if startTheOperator {
+	// 	kubectl.K8s("kubectl apply -f -", sdata)
+	// }
 
 	if alsoStartMonitoring {
 
@@ -143,20 +143,20 @@ func main() {
 				kubectl.K("kubectl delete po " + podname)
 			}
 		}
-		{
-			lines := strings.Split(previousPodNames3, "\n")
-			for _, line := range lines {
-				if len(line) < len(deploymentName) {
-					continue
-				}
-				i := strings.Index(line, " ")
-				podname := line[0:i]
-				podname = strings.Trim(podname, " ")
-				// eg aide-7428876776-54rws
-				kubectl.K("kubectl delete po " + podname)
-			}
-		}
-		time.Sleep(time.Second * 20)
+		// if false {
+		// 	lines := strings.Split(previousPodNames3, "\n")
+		// 	for _, line := range lines {
+		// 		if len(line) < len(deploymentName) {
+		// 			continue
+		// 		}
+		// 		i := strings.Index(line, " ")
+		// 		podname := line[0:i]
+		// 		podname = strings.Trim(podname, " ")
+		// 		// eg aide-7428876776-54rws
+		// 		kubectl.K("kubectl delete po " + podname)
+		// 	}
+		// }
+		//time.Sleep(time.Second * 20)
 		{ // these are the aides. do them last
 			// so it's less likeely it will beroken.
 			lines := strings.Split(previousPodNames, "\n")
@@ -193,12 +193,12 @@ func buildTheKnotFreeMain(registry string) {
 		val, err := kubectl.K8s("pwd", "")
 		fmt.Println("buildTheKnotFreeMain in ", val, err)
 
-		kubectl.K("ls -lah ../../gotohere/")
+		kubectl.K("ls -lah ../../../gotohere/")
 
 		kubectl.K("rm -rf ../../docs/ ")
 		// /Users/awootton/Documents/workspace/gotohere
 		// /Users/awootton/Documents/workspace/knotfreeiot/knotoperator
-		kubectl.K("cd ../../gotohere/ ; ./build_to_knotfree_docs.sh")
+		kubectl.K("cd ../../../gotohere/ ; ./build_to_knotfree_docs.sh")
 	}
 
 	digest, _ := kubectl.K8s("docker inspect --format='{{.RepoDigests}}' "+registry+"/knotfreeserver", "")

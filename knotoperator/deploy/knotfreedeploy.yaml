@@ -20,7 +20,7 @@ spec:
     spec:
       containers:
       - name: golang
-        imagePullPolicy: Alwaysw
+        imagePullPolicy: Always
         image: gcr.io/fair-theater-238820/knotfreeserver 
         command: ["/go/bin/linux_386/knotfreeiot"] 
         #args: ["--nano"]

@@ -4,7 +4,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.9.2
-  creationTimestamp: null
+  # creationTimestamp: "null"
   name: knotoperators.cache.knotfree.net
 spec:
   group: cache.knotfree.net

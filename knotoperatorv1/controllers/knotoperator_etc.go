@@ -62,6 +62,11 @@ type status struct {
 	PrintMe func(msg string, args ...interface{})
 }
 
+// +kubebuilder:rbac:groups=cache.knotfree.net,resources=knotoperators,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=cache.knotfree.net,resources=knotoperators/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=cache.knotfree.net,resources=knotoperators/finalizers,verbs=update
+// +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;
 func (s *status) rebalanceGurus() error {
 
 	if len(s.instance.Spec.Ce.GuruNames) == 0 {
@@ -91,7 +96,7 @@ func (s *status) rebalanceGurus() error {
 		add = add + ":8080"
 		wg.Add(1)
 		go func() {
-			err := postUpstreamNames(guruNames, guruAddresses, pod.Name, add)
+			err := postUpstreamNames(guruNames, guruAddresses, pod.GetName(), add)
 			if err != nil {
 				errs = append(errs, err)
 			}
@@ -104,7 +109,7 @@ func (s *status) rebalanceGurus() error {
 		add = add + ":8080"
 		wg.Add(1)
 		go func() {
-			err := postUpstreamNames(guruNames, guruAddresses, pod.Name, add)
+			err := postUpstreamNames(guruNames, guruAddresses, pod.GetName(), add)
 			if err != nil {
 				errs = append(errs, err)
 			}
@@ -121,6 +126,11 @@ func (s *status) rebalanceGurus() error {
 	return nil
 }
 
+// +kubebuilder:rbac:groups=cache.knotfree.net,resources=knotoperators,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=cache.knotfree.net,resources=knotoperators/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=cache.knotfree.net,resources=knotoperators/finalizers,verbs=update
+// +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;
 func (s *status) updateApp(virginInstance *cachev1alpha1.Knotoperator) error {
 
 	s.PrintMe("UPDATING app because: ")
@@ -156,6 +166,11 @@ func (s *status) updateApp(virginInstance *cachev1alpha1.Knotoperator) error {
 	return nil
 }
 
+// +kubebuilder:rbac:groups=cache.knotfree.net,resources=knotoperators,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=cache.knotfree.net,resources=knotoperators/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=cache.knotfree.net,resources=knotoperators/finalizers,verbs=update
+// +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;
 func (s *status) getCurrentAidesReplCount(u *unstructured.Unstructured) (int64, error) {
 	// can  we get the replicas of the deployment?
 	// List Deployments
@@ -191,6 +206,11 @@ func (s *status) getCurrentAidesReplCount(u *unstructured.Unstructured) (int64, 
 	return repcount, nil
 }
 
+// +kubebuilder:rbac:groups=cache.knotfree.net,resources=knotoperators,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=cache.knotfree.net,resources=knotoperators/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=cache.knotfree.net,resources=knotoperators/finalizers,verbs=update
+// +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;
 func (s *status) httpSendAllStatusToAllPods() {
 	// so now we have all the stats
 	{ // tell everyone
@@ -239,7 +259,7 @@ func (s *status) httpGetStatusAllPods() {
 					}
 				}
 			}
-		}(pod.Name, add)
+		}(pod.GetName(), add)
 		_ = i
 	}
 	for i, pod := range s.guruPods {
@@ -264,7 +284,7 @@ func (s *status) httpGetStatusAllPods() {
 					}
 				}
 			}
-		}(pod.Name, add)
+		}(pod.GetName(), add)
 		_ = i
 	}
 	wg.Wait()
@@ -279,6 +299,11 @@ func (s *status) triggerGuruRebalance(why string) {
 	s.triggerGuruRebalanceReasons = append(s.triggerGuruRebalanceReasons, why)
 }
 
+// +kubebuilder:rbac:groups=cache.knotfree.net,resources=knotoperators,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=cache.knotfree.net,resources=knotoperators/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=cache.knotfree.net,resources=knotoperators/finalizers,verbs=update
+// +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;
 func (s *status) loadPodList(items *corev1.PodList) {
 
 	for i, pod := range items.Items {
@@ -348,7 +373,7 @@ func (s *status) loadPodList(items *corev1.PodList) {
 	// are there any non-pending guru's that are not on the AppService list?
 	// what if it's on the list but it's not feeling well?
 	for i, pod := range s.guruPods {
-		nodeStats, present := s.instance.Spec.Ce.Nodes[pod.Name]
+		nodeStats, present := s.instance.Spec.Ce.Nodes[pod.GetName()]
 		if present == false {
 			// so it's not on the list.
 			// is it running?
@@ -362,11 +387,11 @@ func (s *status) loadPodList(items *corev1.PodList) {
 				stats := new(iot.ExecutiveStats)
 				stats.TCPAddress = pod.Status.PodIP + ":8384"
 				stats.HTTPAddress = pod.Status.PodIP + ":8080"
-				stats.Name = pod.Name
+				stats.Name = pod.GetName()
 
-				s.instance.Spec.Ce.Nodes[pod.Name] = stats
+				s.instance.Spec.Ce.Nodes[pod.GetName()] = stats
 
-				s.instance.Spec.Ce.GuruNames = append(s.instance.Spec.Ce.GuruNames, pod.Name)
+				s.instance.Spec.Ce.GuruNames = append(s.instance.Spec.Ce.GuruNames, pod.GetName())
 
 				s.appChanged("added new ready guru to nodes array ")
 				s.triggerGuruRebalance("added new ready guru to nodes array ")
@@ -374,7 +399,7 @@ func (s *status) loadPodList(items *corev1.PodList) {
 
 			} else {
 
-				s.gurusPending[pod.Name] = pod
+				s.gurusPending[pod.GetName()] = pod
 
 			}
 
@@ -391,7 +416,7 @@ func (s *status) loadPodList(items *corev1.PodList) {
 
 	// are lets also walk the aides list
 	for i, pod := range s.aidePods {
-		nodeStats, present := s.instance.Spec.Ce.Nodes[pod.Name]
+		nodeStats, present := s.instance.Spec.Ce.Nodes[pod.GetName()]
 		if present == false {
 			// so it's not on the list.
 			// is it running?
@@ -404,13 +429,13 @@ func (s *status) loadPodList(items *corev1.PodList) {
 				stats := new(iot.ExecutiveStats)
 				stats.TCPAddress = pod.Status.PodIP + ":8384"
 				stats.HTTPAddress = pod.Status.PodIP + ":8080"
-				stats.Name = pod.Name
-				s.instance.Spec.Ce.Nodes[pod.Name] = stats
+				stats.Name = pod.GetName()
+				s.instance.Spec.Ce.Nodes[pod.GetName()] = stats
 
 				s.appChanged("add ready aide to nodes")
 				s.triggerGuruRebalance("add ready aide to nodes") // FIXME: We really only need to send the gurunames to this pod not everyone.
 			} else {
-				s.aidesPending[pod.Name] = pod
+				s.aidesPending[pod.GetName()] = pod
 			}
 		} else if len(pod.Status.ContainerStatuses) != 0 {
 			// we found it.
@@ -489,7 +514,7 @@ func postClusterStats(array []*iot.ExecutiveStats, name string, addr string) err
 		kubectl.Quiet = true
 		kubectl.SuperQuiet = true
 
-		fmt.Println("why the curl method : ", cmd)
+		//fmt.Println("with the curl method : ", cmd)
 
 		str, err := kubectl.K8s(cmd, "")
 		_ = str
@@ -501,7 +526,7 @@ func postClusterStats(array []*iot.ExecutiveStats, name string, addr string) err
 	}
 	// when in cluster
 
-	fmt.Println("why the curl method ? when in cluster ")
+	// fmt.Println("with the curl method ? when in cluster ")
 
 	err := iot.PostClusterStats(stats, addr)
 

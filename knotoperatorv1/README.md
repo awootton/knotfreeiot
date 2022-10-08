@@ -18,7 +18,8 @@ make manifests
 1. Install Instances of Custom Resources:
 
 ```sh
-kubectl apply -f config/samples/cache_v1alpha1_memcached.yaml
+atw no, use deploy kubectl apply -f config/samples/cache_v1alpha1_memcached.yaml
+atw no, use deploy kubectl apply -f config/cache.knotfree.net_knotoperators.yaml
 ```
 
 2. Build and push your image to the location specified by `IMG`:

@@ -62,6 +62,13 @@ var count int
 //
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.12.2/pkg/reconcile
+
+// +kubebuilder:rbac:groups=cache.knotfree.net,resources=knotoperators,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=cache.knotfree.net,resources=knotoperators/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=cache.knotfree.net,resources=knotoperators/finalizers,verbs=update
+// +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;
+// +kubebuilder:rbac:groups=coordination.k8s.io,resources=leases,verbs=get;list;create;update
 func (r *KnotoperatorReconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
 	_ = log.FromContext(ctx)
 
@@ -106,7 +113,7 @@ func (r *KnotoperatorReconciler) Reconcile(ctx context.Context, request ctrl.Req
 	virginInstance := gotinstance
 	workingInstance := gotinstance.DeepCopy()
 
-	s := &status{}
+	s := new(status)
 
 	s.instance = workingInstance
 	s.r = r
@@ -121,12 +128,17 @@ func (r *KnotoperatorReconciler) Reconcile(ctx context.Context, request ctrl.Req
 
 	if s.instance.Status.Ce == nil {
 		s.instance.Status.Ce = &cachev1alpha1.ClusterState{} // v1alpha1.NewClusterState()
+		s.instance.Status.Ce.GuruNames = make([]string, 0)
+		s.instance.Status.Ce.Nodes = make(map[string]*iot.ExecutiveStats, 0)
 	} else if len(s.instance.Status.Ce.GuruNames) == 0 {
 		s.instance.Status.Ce = &cachev1alpha1.ClusterState{} //v1alpha1.NewClusterState()
 		s.appChanged("empty status GuruNames")
 	}
 	if s.instance.Spec.Ce == nil {
 		s.instance.Spec.Ce = &cachev1alpha1.ClusterState{} //v1alpha1.NewClusterState()
+		s.instance.Spec.Ce.GuruNames = make([]string, 0)
+		s.instance.Spec.Ce.Nodes = make(map[string]*iot.ExecutiveStats, 0)
+
 		s.appChanged("empty spec")
 	} else if len(s.instance.Spec.Ce.GuruNames) == 0 {
 		//s.instance.Spec.Ce = v1alpha1.NewClusterState()
@@ -142,6 +154,7 @@ func (r *KnotoperatorReconciler) Reconcile(ctx context.Context, request ctrl.Req
 	//namespace := request.Namespace
 
 	items := &corev1.PodList{}
+	items.Items = make([]corev1.Pod, 0)
 	err2 := r.Client.List(context.TODO(), items)
 	if err2 != nil {
 		return rr, err2

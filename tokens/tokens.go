@@ -52,10 +52,10 @@ type KnotFreeTokenPayload struct {
 // it is floats to and fractions in json
 type KnotFreeContactStats struct {
 	//
-	Input         float64 `json:"in,string"`  // bytes per sec float32
-	Output        float64 `json:"out,string"` // bytes per sec
-	Subscriptions float64 `json:"su,string"`  // seconds per sec
-	Connections   float64 `json:"co,string"`  // seconds per sec
+	Input         float64 `json:"in"`  // bytes per sec float32
+	Output        float64 `json:"out"` // bytes per sec
+	Subscriptions float64 `json:"su"`  // seconds per sec
+	Connections   float64 `json:"co"`  // seconds per sec
 }
 
 // TokenRequest is created in javascript and sent as json.
