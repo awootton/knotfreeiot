@@ -25,6 +25,7 @@ import (
 	"io"
 	"reflect"
 	"sync"
+	"time"
 
 	"github.com/awootton/knotfreeiot/packets"
 	"github.com/awootton/knotfreeiot/tokens"
@@ -456,12 +457,17 @@ func expectToken(ssi ContactInterface, p packets.Interface) error {
 		// find the public key that matches.
 		publicKeyBytes := tokens.FindPublicKey(issuer)
 		if len(publicKeyBytes) != 32 {
-			return makeErrorAndDisconnect(ssi, "bad issuer", nil)
+			return makeErrorAndDisconnect(ssi, "token bad issuer", nil)
 		}
 		foundPayload, ok := tokens.VerifyToken([]byte(trimmedToken), []byte(publicKeyBytes))
 		if !ok {
-			return makeErrorAndDisconnect(ssi, "not verified", nil)
+			return makeErrorAndDisconnect(ssi, "token not verified", nil)
 		}
+		nowsec := uint32(time.Now().Unix())
+		if nowsec > foundPayload.ExpirationTime {
+			return makeErrorAndDisconnect(ssi, "token expired", nil)
+		}
+
 		ssi.SetToken(foundPayload)
 		{ // subscribe to token for billing
 			billstr, err := json.Marshal(foundPayload.KnotFreeContactStats)

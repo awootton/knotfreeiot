@@ -95,8 +95,6 @@ func VerifyToken(ticket []byte, publicKey []byte) (*KnotFreeTokenPayload, bool) 
 		return &KnotFreeTokenPayload{}, false
 	}
 	_ = hd
-	// TODO: compare all the fields with limits.
-	// FIXME:
 	return &payload, true
 }
 
@@ -148,14 +146,21 @@ func GetKnotFreePayload(token string) (string, string, error) {
 	tokenStartIndex := 0
 	tokenEndIndex := 0
 
-	// part 1
+	// part 1 eg eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJleHAiOjE2OTczNDU4OTMsImlzcyI6Il85c2giLCJqdGkiOiJCMEQxT1JoWGVjYnA0anVPSXZKcDQ5ajYiLCJpbiI6MTAwMDAwMCwib3V0IjoxMDAwMDAwLCJzdSI6MjAwMDAwLCJjbyI6MjAwMDAwLCJ1cmwiOiJrbm90ZnJlZS5uZXQifQ.SH47mr46105AL8wxfZkNB0iZMAc-MzpZ1hqzNz3lPa65R8XmR4TXNrzPz3aTVJd5PYXhgXmt0EubSvJB7mqADA
+	// or     eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiSldUIn0.
 	{
-		firstPart := "eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiSldUIn0."
+		firstPart := "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9."     // {"alg":"EdDSA","typ":"JWT"}
+		firstPart2 := "eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiSldUIn0." //{"alg":"Ed25519","typ":"JWT"}
 		index := strings.Index(token, firstPart)
-		tokenStartIndex = index
-		tokenEndIndex = index + len(firstPart)
+		flen := len(firstPart)
 		if index < 0 {
-			s := "expected eyJhbG... got " + token
+			index = strings.Index(token, firstPart2)
+			flen = len(firstPart2)
+		}
+		tokenStartIndex = index
+		tokenEndIndex = index + flen
+		if index < 0 {
+			s := "expected eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9. OR eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiSldUIn0. got " + token
 			return token, issuer, errors.New(s)
 		}
 	}
@@ -183,6 +188,7 @@ func GetKnotFreePayload(token string) (string, string, error) {
 	// part 3
 	// scan as b64
 	// is it not always the same length? Why are we scanning?
+	// TODO: just get indexof .
 	for {
 		if tokenEndIndex >= len(token) {
 			break
@@ -449,8 +455,8 @@ func parseString(in []byte) (out, rest []byte, ok bool) {
 // GetSampleBigToken is used for testing.
 func GetSampleBigToken(startTime uint32, serviceUrl string) *KnotFreeTokenPayload {
 	p := &KnotFreeTokenPayload{}
-	p.Issuer = "_9sh" // first 4 from public
-	p.ExpirationTime = startTime + 60*60*24*(365)
+	p.Issuer = "_9sh"                             // first 4 from public
+	p.ExpirationTime = startTime + 60*60*24*(365) // year
 	p.JWTID = GetRandomB64String()
 	p.Input = 1e6
 	p.Output = 1e6
@@ -460,7 +466,7 @@ func GetSampleBigToken(startTime uint32, serviceUrl string) *KnotFreeTokenPayloa
 	return p
 }
 
-var giantToken string
+var giantToken = ""
 
 // GetImpromptuGiantToken is
 func GetImpromptuGiantToken() string {

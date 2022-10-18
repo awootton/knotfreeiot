@@ -245,7 +245,7 @@ func handleConnection(tcpConn *net.TCPConn, ex *Executive) {
 			cc.Close(err)
 			return
 		}
-		//fmt.Println("tcp got packet", p, cc)
+		// fmt.Println("tcp got packet", p, cc)
 		err = PushPacketUpFromBottom(cc, p)
 		if err != nil {
 			//connLogThing.Collect("se err " + err.Error())

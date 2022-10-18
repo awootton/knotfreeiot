@@ -15,20 +15,20 @@ You’ll need a Kubernetes cluster to run against. You can use [KIND](https://si
 make manifests 
 
 ### Running on the cluster
-1. Install Instances of Custom Resources:
+-1. Install Instances of Custom Resources:
 
 ```sh
-atw no, use deploy kubectl apply -f config/samples/cache_v1alpha1_memcached.yaml
-atw no, use deploy kubectl apply -f config/cache.knotfree.net_knotoperators.yaml
+atw no, use make deploy xxxxkubectl apply -f config/samples/cache_v1alpha1_memcached.yaml
+atw no, use make deploy xxxxkubectl apply -f config/cache.knotfree.net_knotoperators.yaml
 ```
 
-2. Build and push your image to the location specified by `IMG`:
+# 1. Build and push your image to the location specified by `IMG`:
 	
 ```sh
 make docker-build docker-push IMG=gcr.io/fair-theater-238820/knotoperator
 ```
 	
-3. Deploy the controller to the cluster with the image specified by `IMG`:
+# 2. Deploy the controller to the cluster with the image specified by `IMG`:
 
 ```sh
 make deploy IMG=gcr.io/fair-theater-238820/knotoperator

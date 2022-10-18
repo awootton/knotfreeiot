@@ -6,7 +6,7 @@ Server Version: version.Info{Major:"1", Minor:"22", GitVersion:"v1.22.11+k3s1", 
 makig new v1 version:
 
 
-// new operator version
+// new operator version in ../knotoperatorv1
 operator-sdk init --domain knotfree.net --repo github.com/awootton/knotfreeiot/knotoperatorv1
 
 operator-sdk create api --group cache --version v1alpha1 --kind Knotoperator --resource --controller

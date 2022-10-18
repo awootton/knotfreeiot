@@ -1,0 +1,48 @@
+# Copyright 2019,2020,2021 Alan Tracey Wootton 
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "monitor-pod"
+  labels:
+    app: "monitor-pod"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      run: "monitor-pod"
+  template:
+    metadata:
+      labels:
+        run: "monitor-pod"
+      annotations:
+        prometheus.io/scrape: 'true'
+        prometheus.io/port: '9102'
+    spec:
+      containers:
+      - name: golang
+        imagePullPolicy: Always
+        image: gcr.io/fair-theater-238820/monitor_pod 
+        command: ["/workspace/manager"] # ["sleep", "999999"] # ["/workspace/manager"]  # see the Dockerfile
+        resources:
+          limits:
+            cpu: 125m  #INSERT_CPU_NEEDED_HERE was 500m
+            memory: 500Mi #INSERT_MEM_NEEDED_HERE was 800Mi
+          #requests:
+            #cpu: 250m  #INSERT_CPU_NEEDED_HERE
+            #memory: 800Mi #INSERT_MEM_NEEDED_HERE
+        env:
+        - name: NAME
+          value: "monitor-pod"
+        - name: TARGET_CLUSTER
+          value: "__TARGET_CLUSTER__"
+        - name: TOKEN
+          value: "__TOKEN__"
+        - name: MY_POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+              

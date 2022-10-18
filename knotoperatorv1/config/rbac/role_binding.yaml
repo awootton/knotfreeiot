@@ -10,3 +10,95 @@ subjects:
 - kind: ServiceAccount
   name: controller-manager
   namespace: knotspace # atw system
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: manager-rolebinding2
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: manager-role
+subjects:
+- kind: ServiceAccount
+  name: knotoperatorv1-controller-manager # I'm not sure which one works yet.
+  namespace: knotspace # atw system
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  # creationTimestamp: null
+  name: manager-more-role
+rules:
+- apiGroups:
+  - ""
+  - apps
+  - core
+  - autoscaling
+  - batch
+  - extensions
+  - policy
+  - rbac.authorization.k8s.io
+  resources:
+  - pods
+  # - componentstatuses
+  # - configmaps
+  # - daemonsets
+  - deployments
+  # - events
+  # - endpoints
+  # - horizontalpodautoscalers
+  # - ingress
+  # - jobs
+  # - limitranges
+  # - namespaces
+  # - nodes
+  # - persistentvolumes
+  # - persistentvolumeclaims
+  # - resourcequotas
+  # - replicasets
+  # - replicationcontrollers
+  # - serviceaccounts
+  - services
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: manager-more-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: manager-more-role
+subjects:
+- kind: ServiceAccount
+  name: controller-manager
+  namespace: knotspace # atw system
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: manager-more-rolebinding2
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: manager-more-role
+subjects:
+- kind: ServiceAccount
+  name: knotoperatorv1-controller-manager
+  namespace: knotspace # atw system

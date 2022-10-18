@@ -29,18 +29,6 @@ rules:
   - patch
   - delete
 - apiGroups:
-  - "" # atw everyone can lease until I can make it work
-  resources:
-  - leases
-  verbs:
-  - get
-  - list
-  - watch
-  - create
-  - update
-  - patch
-  - delete
-- apiGroups:
   - ""
   resources:
   - events

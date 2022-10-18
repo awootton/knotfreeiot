@@ -58,7 +58,7 @@ func TestTwoTierTcp(t *testing.T) {
 
 	ce.WaitForActions()
 
-	connectStr := "C token " + `'` + tokens.SampleSmallToken + `'` + "\n"
+	connectStr := "C token " + `'` + tokens.GetImpromptuGiantToken() + `'` + "\n"
 	sock1.Write([]byte(connectStr))
 	sock2.Write([]byte(connectStr))
 
@@ -130,7 +130,7 @@ func TestSimpleText(t *testing.T) {
 	sock1.SetNoDelay(true)
 	sock2.SetNoDelay(true)
 
-	connectStr := "C token " + `'` + tokens.SampleSmallToken + `'` + "\n"
+	connectStr := "C token " + `'` + tokens.GetImpromptuGiantToken() + `'` + "\n"
 	sock1.Write([]byte(connectStr))
 	sock2.Write([]byte(connectStr))
 

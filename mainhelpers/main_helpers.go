@@ -89,7 +89,7 @@ func Make32xLargeToken() (string, tokens.KnotFreeTokenPayload) {
 	signingKey := tokens.GetPrivateKey("_9sh")
 	bbb, err := tokens.MakeToken(&payload, []byte(signingKey))
 	if err != nil {
-		fmt.Println("GetImpromptuGiantToken", err)
+		fmt.Println("Make32xLargeToken ", err)
 	}
 	exptime := time.Unix(int64(exp), 0)
 	formatted := exptime.Format("Jan/_2/2006")

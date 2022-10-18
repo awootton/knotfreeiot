@@ -83,6 +83,7 @@ type ExecutiveLimits struct {
 }
 
 // ExecutiveStats is fractions relative to the limits.
+//
 // a fraction: 1.0 is 100% maxed out. 0 is idle.
 type ExecutiveStats struct {
 	// four float32 :   in out su co

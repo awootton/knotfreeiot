@@ -2,7 +2,9 @@ module github.com/awootton/knotfreeiot/knotoperatorv1
 
 go 1.18
 
-// replace github.com/awootton/knotfreeiot/iot => ../iot
+// uncomment to debug
+// comment this out to build dockerFile. Upgrade version knotfreeiot first.
+// replace github.com/awootton/knotfreeiot => ../
 
 // replace github.com/awootton/knotfreeiot/badjson => ../badjson
 
@@ -13,7 +15,7 @@ go 1.18
 // replace github.com/awootton/knotfreeiot/kubectl => ../kubectl
 
 require (
-	github.com/awootton/knotfreeiot v0.1.1
+	github.com/awootton/knotfreeiot v0.1.2
 	//	github.com/awootton/knotfreeiot/kubectl v0.1.0
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.19.0

@@ -6,7 +6,7 @@ namespace: knotspace
 # "wordpress" becomes "alices-wordpress".
 # Note that it should also match with the prefix (text before '-') of the namespace
 # field above.
-namePrefix: "" # knotoperatorv1-
+namePrefix: "knotoperatorv1-" # knotoperatorv1-
 
 # Labels to add to all resources and selectors.
 #commonLabels:

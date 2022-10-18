@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/awootton/knotfreeiot/kubectl"
+	"github.com/awootton/knotfreeiot/tokens"
 )
 
 // ## build and deploy knotfree using kubectl to current namespace.
@@ -27,12 +28,15 @@ import (
 // TODO: have config and args
 // it's much faster when we don't build the docker every time.
 var needtobuild = true
-var startTheOperator = true
+var startTheOperator = false // this is now ../knotoperatorv1/make deploy
 
-var alsoDoLibra = false         // are deprecating libra due to excessive disk usage.
-var alsoStartMonitoring = false // once is enough
+var alsoDoLibra = false        // are deprecating libra due to excessive disk usage.
+var alsoStartMonitoring = true // once is enough //this is broken from being too old
 
-var buildReactAndCopy = true // todo: mount the react statioc files instead of baking them in the docker.
+var buildReactAndCopy = true // todo: mount the react static files instead of baking them in the docker.
+// TODO: better. redirect to s3 bucket with the files in it.? does this work?
+
+var TARGET_CLUSTER = "knotfree.net"
 
 func main() {
 
@@ -51,7 +55,27 @@ func main() {
 
 	registry := "gcr.io/fair-theater-238820"
 	if isKind {
-		registry = "localhost:5000"
+		registry = "localhost:5000" // btw. isKind is broken
+	}
+
+	kubectl.K("kubectl create ns knotspace")
+	kubectl.K("kubectl config set-context --current --namespace=knotspace")
+
+	{
+		tokens.LoadPrivateKeys("~/atw/privateKeys4.txt")
+		TOKEN := tokens.GetImpromptuGiantToken()
+
+		kubectl.K("cd ../../monitor_pod;docker build -t  gcr.io/fair-theater-238820/monitor_pod .")
+		kubectl.K("cd ../../monitor_pod;docker push gcr.io/fair-theater-238820/monitor_pod")
+
+		data, _ := ioutil.ReadFile("../../monitor_pod/deploy.yaml")
+		sdata := strings.ReplaceAll(string(data), "__TARGET_CLUSTER__", TARGET_CLUSTER)
+		sdata = strings.ReplaceAll(sdata, "__TOKEN__", TOKEN)
+		err := ioutil.WriteFile("dummy.yaml", []byte(sdata), 0644)
+		if err != nil {
+			fmt.Println("fail fial 888")
+		}
+		kubectl.K("kubectl apply -f dummy.yaml")
 	}
 
 	var wg sync.WaitGroup
@@ -64,8 +88,6 @@ func main() {
 	// 	}
 	//}()
 
-	//wg.Wait()
-
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -76,23 +98,16 @@ func main() {
 
 	wg.Wait()
 
-	kubectl.K("kubectl create ns knotspace")
-	kubectl.K("kubectl config set-context --current --namespace=knotspace")
-
-	//kubectl.K("kubectl apply -f service_account.yaml")
-	//kubectl.K("kubectl apply -f role.yaml")
-	//kubectl.K("kubectl apply -f role_binding.yaml")
-	//kubectl.K("kubectl apply -f crds/app.knotfree.io_appservices_crd.yaml")
-	//kubectl.K("kubectl apply -f crds/app.knotfree.io_v1alpha1_appservice_cr.yaml")
-
-	//wg.Wait()
-
 	deploymentName := "aide-"
 	previousPodNames, err := kubectl.K8s("kubectl get po | grep "+deploymentName, "")
 	_ = err
 
 	deploymentName2 := "guru-"
 	previousPodNames2, err := kubectl.K8s("kubectl get po | grep "+deploymentName2, "")
+	_ = err
+
+	deploymentName3 := "monitor-"
+	previousPodNames3, err := kubectl.K8s("kubectl get po | grep "+deploymentName3, "")
 	_ = err
 
 	// deploymentName3 := "knotoperator-"
@@ -120,13 +135,13 @@ func main() {
 	// 	kubectl.K8s("kubectl apply -f -", sdata)
 	// }
 
-	if alsoStartMonitoring {
+	if alsoStartMonitoring { //this is broken from being too old
 
-		kubectl.K("cd ../my-kube-prometheus;kubectl create -f manifests/setup")
-		kubectl.K(`until kubectl get servicemonitors --all-namespaces ; do date; sleep 1; echo ""; done`)
-		kubectl.K("cd ../my-kube-prometheus;kubectl apply -f manifests/")
+		// kubectl.K("cd ../my-kube-prometheus;kubectl create -f manifests/setup")
+		// kubectl.K(`until kubectl get servicemonitors --all-namespaces ; do date; sleep 1; echo ""; done`)
+		// kubectl.K("cd ../my-kube-prometheus;kubectl apply -f manifests/")
 
-		kubectl.K("kubectl apply -f knotfreemonitoring.yaml")
+		// kubectl.K("kubectl apply -f knotfreemonitoring.yaml")
 	}
 	if needtobuild && strings.Contains(previousPodNames, "No resources found") == false {
 		// delete the aides, and others
@@ -143,6 +158,20 @@ func main() {
 				kubectl.K("kubectl delete po " + podname)
 			}
 		}
+		{
+			lines := strings.Split(previousPodNames3, "\n")
+			for _, line := range lines {
+				if len(line) < len(deploymentName) {
+					continue
+				}
+				i := strings.Index(line, " ")
+				podname := line[0:i]
+				podname = strings.Trim(podname, " ")
+				// eg aide-7428876776-54rws
+				kubectl.K("kubectl delete po " + podname)
+			}
+		}
+
 		// if false {
 		// 	lines := strings.Split(previousPodNames3, "\n")
 		// 	for _, line := range lines {
@@ -223,4 +252,12 @@ func buildTheOperator(registry string) {
 	kubectl.K("docker push " + registry + "/knotoperator")
 	digest, _ = kubectl.K8s("docker inspect --format='{{.RepoDigests}}' "+registry+"/knotoperator", "")
 	fmt.Println("digest of knotoperator 3", digest)
+}
+
+func XXXbuildTheMonitor(registry string) {
+
+	kubectl.K("cd ../../;docker build -t  gcr.io/fair-theater-238820/monitor_pod .")
+	kubectl.K("cd ../../;docker push gcr.io/fair-theater-238820/monitor_pod")
+	kubectl.K("cd ../../;docker push gcr.io/fair-theater-238820/monitor_pod")
+
 }

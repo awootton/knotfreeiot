@@ -63,11 +63,14 @@ var count int
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.12.2/pkg/reconcile
 
+// knotoperatorv1-leader-election-role ??
+
 // +kubebuilder:rbac:groups=cache.knotfree.net,resources=knotoperators,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=cache.knotfree.net,resources=knotoperators/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=cache.knotfree.net,resources=knotoperators/finalizers,verbs=update
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;
+// +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;create;update;patch;delete
+// +kubebuilder:rbac:groups=coordination.k8s.io,resources=leases,verbs=get;list;create;update
 // +kubebuilder:rbac:groups=coordination.k8s.io,resources=leases,verbs=get;list;create;update
 func (r *KnotoperatorReconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
 	_ = log.FromContext(ctx)
@@ -90,30 +93,31 @@ func (r *KnotoperatorReconciler) Reconcile(ctx context.Context, request ctrl.Req
 	PrintMe("count", count) // atw fixme: this is a stat, not a log
 	count++
 
-	rr := reconcile.Result{}
-	rr.RequeueAfter = 5 * time.Second
-	rr.Requeue = true
+	reconcileResult := reconcile.Result{}
+	reconcileResult.RequeueAfter = 5 * time.Second
+	reconcileResult.Requeue = true
 
 	// Fetch the AppService instance
 	gotinstance := &cachev1alpha1.Knotoperator{} // appv1alpha1.AppService{}
 	//err := r.client.Get(context.TODO(), request.NamespacedName, gotinstance)
-	err := r.Client.Get(context.TODO(), request.NamespacedName, gotinstance)
+	//err := r.Client.Get(context.TODO(), request.NamespacedName, gotinstance)
+	err := r.Get(context.TODO(), request.NamespacedName, gotinstance)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
 			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
 			// Return and don't requeue
 			PrintMe("AppService NOT FOUND") // atw fixme: this is an error, not a log
-			return rr, nil
+			return reconcileResult, nil
 		}
 		// Error reading the object - requeue the request.
 		PrintMe("AppService FAIL", err)
-		return rr, err
+		return reconcileResult, err
 	}
 	virginInstance := gotinstance
 	workingInstance := gotinstance.DeepCopy()
 
-	s := new(status)
+	s := new(status) // TODO: use a NewStatus() that init's the maps (below)
 
 	s.instance = workingInstance
 	s.r = r
@@ -155,9 +159,10 @@ func (r *KnotoperatorReconciler) Reconcile(ctx context.Context, request ctrl.Req
 
 	items := &corev1.PodList{}
 	items.Items = make([]corev1.Pod, 0)
-	err2 := r.Client.List(context.TODO(), items)
+	//err2 := r.Client.List(context.TODO(), items)
+	err2 := r.List(context.TODO(), items)
 	if err2 != nil {
-		return rr, err2
+		return reconcileResult, err2
 	}
 
 	// load the current state into s
@@ -210,13 +215,14 @@ func (r *KnotoperatorReconciler) Reconcile(ctx context.Context, request ctrl.Req
 		// Set AppService instance as the owner and controller  r.scheme??
 		if err := controllerutil.SetControllerReference(s.instance, pod, r.Scheme); err != nil {
 			PrintMe("SetControllerReference ", "err", err)
-			return rr, err
+			return reconcileResult, err
 		}
 		reqLogger.Info("Creating a new Pod", "Pod.Namespace", pod.Namespace, "Pod.Name", pod.Name)
-		err = r.Client.Create(context.TODO(), pod)
+		//err = r.Client.Create(context.TODO(), pod)
+		err = r.Create(context.TODO(), pod)
 		if err != nil {
 			PrintMe("pod create fail", "err", err)
-			return rr, err
+			return reconcileResult, err
 		}
 		s.instance.Spec.Ce.GuruNamesPending = uint32(time.Now().Unix())
 		s.appChanged("guru is pending")
@@ -230,10 +236,11 @@ func (r *KnotoperatorReconciler) Reconcile(ctx context.Context, request ctrl.Req
 		pod, ok := s.guruPods[name]
 		if ok {
 			reqLogger.Info("Deleting a Pod", "Pod.Namespace", pod.Namespace, "Pod.Name", name)
-			err := r.Client.Delete(context.TODO(), &pod)
+			// err := r.Client.Delete(context.TODO(), &pod)
+			err := r.Delete(context.TODO(), &pod)
 			if err != nil {
 				PrintMe("pod delete fail", "err", err)
-				return rr, err
+				return reconcileResult, err
 			}
 		}
 		s.mux.Lock()
@@ -256,7 +263,7 @@ func (r *KnotoperatorReconciler) Reconcile(ctx context.Context, request ctrl.Req
 	repcount := targetRepCount
 
 	if geterr != nil {
-		return rr, err
+		return reconcileResult, err
 	}
 
 	if resize.ChangeAides > 0 && len(s.aidesPending) == 0 {
@@ -272,10 +279,10 @@ func (r *KnotoperatorReconciler) Reconcile(ctx context.Context, request ctrl.Req
 	if geterr == nil && repcount != targetRepCount {
 		unstructured.SetNestedField(u.UnstructuredContent(), targetRepCount, "spec", "replicas")
 		//err = r.client.Update(context.TODO(), u)
-		err = r.Client.Update(context.TODO(), u)
+		err = r.Update(context.TODO(), u)
 		if err != nil {
 			PrintMe("update err", "err", err)
-			return rr, err
+			return reconcileResult, err
 		}
 	}
 
@@ -285,7 +292,7 @@ func (r *KnotoperatorReconciler) Reconcile(ctx context.Context, request ctrl.Req
 
 		err := s.rebalanceGurus()
 		if err != nil {
-			return rr, err
+			return reconcileResult, err
 		}
 	}
 
@@ -295,13 +302,13 @@ func (r *KnotoperatorReconciler) Reconcile(ctx context.Context, request ctrl.Req
 		err := s.updateApp(virginInstance)
 		if err != nil {
 			PrintMe("UPDATING app error", err)
-			return rr, err
+			return reconcileResult, err
 		}
 	}
 
-	rr.RequeueAfter = 11 * time.Second
-	rr.Requeue = true
-	return rr, nil
+	reconcileResult.RequeueAfter = 11 * time.Second
+	reconcileResult.Requeue = true
+	return reconcileResult, nil
 
 	// return ctrl.Result{}, nil
 }

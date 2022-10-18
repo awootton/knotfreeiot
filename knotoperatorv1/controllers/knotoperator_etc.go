@@ -80,8 +80,8 @@ func (s *status) rebalanceGurus() error {
 	for i, n := range guruNames {
 		g, ok := s.instance.Spec.Ce.Nodes[n]
 		if !ok {
-			s.PrintMe("no stat for name", n, s.instance.Spec.Ce.Nodes)
-			return errors.New(fmt.Sprint("no stat for name", n, s.instance.Spec.Ce.Nodes))
+			s.PrintMe("no stat for name ", n, s.instance.Spec.Ce.Nodes)
+			return errors.New(fmt.Sprint("no stat for name ", n, s.instance.Spec.Ce.Nodes))
 		}
 		guruAddresses[i] = g.TCPAddress
 	}
@@ -158,7 +158,8 @@ func (s *status) updateApp(virginInstance *cachev1alpha1.Knotoperator) error {
 	jpatch := client.RawPatch(types.JSONPatchType, payloadBytes)
 	_ = jpatch
 	//err = r.client.Patch(context.TODO(), s.instance, jpatch)
-	err = s.r.Client.Update(context.TODO(), s.instance)
+	//err = s.r.Client.Update(context.TODO(), s.instance)
+	err = s.r.Update(context.TODO(), s.instance)
 	if err != nil {
 		s.PrintMe("app update err", "err", err)
 		return err
@@ -180,7 +181,8 @@ func (s *status) getCurrentAidesReplCount(u *unstructured.Unstructured) (int64, 
 		Namespace: "knotspace",
 		Name:      "aide",
 	}
-	geterr := s.r.Client.Get(context.TODO(), ckey, u)
+	// geterr := s.r.Client.Get(context.TODO(), ckey, u)
+	geterr := s.r.Get(context.TODO(), ckey, u)
 	if geterr != nil {
 		s.PrintMe("depl list get ", "err", geterr)
 		return 0, geterr //reconcile.Result{}, geterr

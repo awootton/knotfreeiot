@@ -19,7 +19,7 @@ from paho.mqtt.packettypes import PacketTypes
 # knotfree.net -- OK
 # https://www.cloudmqtt.com/plans.html  out of stock.
 
-broker = "knotfree.net" # 192.168.86.159" 
+broker = "knotlocal.com" # "knotfree.net" # 192.168.86.159" knotlocal.com is localhost in my hosts
 # broker = "knotfree2.com" #  aka localhost in my /etc/hosts file
 
 clientid = "clientId-ws131u1ewt"
@@ -74,7 +74,7 @@ def on_message(client, userdata, message):
             message = "GET command received: " + cleaned
             properties = Properties(PacketTypes.PUBLISH)
             properties.ResponseTopic = "xxxx"
-            client.publish(topic, message, qos=0, retain=False, properties=properties)
+            #client.publish(topic, message, qos=0, retain=False, properties=properties)
 
 
 def on_connect(client, userdata, flags, rc):

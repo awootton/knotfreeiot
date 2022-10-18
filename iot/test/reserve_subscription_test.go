@@ -88,7 +88,7 @@ func TestReserveName(t *testing.T) {
 	iot.PushPacketUpFromBottom(contact0, &subs)
 
 	connect := packets.Connect{}
-	connect.SetOption("token", []byte(tokens.SampleSmallToken))
+	connect.SetOption("token", []byte(tokens.GetImpromptuGiantToken()))
 	iot.PushPacketUpFromBottom(contact0, &connect)
 	iot.PushPacketUpFromBottom(contact9, &connect)
 
@@ -110,7 +110,7 @@ func TestReserveName(t *testing.T) {
 	subs = packets.Subscribe{}
 	subs.Address.FromString("contact9_address")
 	subs.SetOption("pubk", client_public[:]) // pub key of client required
-	subs.SetOption("tokn", []byte(tokens.SampleSmallToken))
+	subs.SetOption("tokn", []byte(tokens.GetImpromptuGiantToken()))
 	subs.SetOption("reserved", box_bytes)
 	subs.SetOption("nonce", nonce[:])
 	// let's check the unbox right here right now.
@@ -228,7 +228,7 @@ func TestLookup(t *testing.T) {
 	contact9 := makeTestContact(aide9.Config, "")
 
 	connect := packets.Connect{}
-	connect.SetOption("token", []byte(tokens.SampleSmallToken))
+	connect.SetOption("token", []byte(tokens.GetImpromptuGiantToken()))
 	iot.PushPacketUpFromBottom(contact0, &connect)
 	iot.PushPacketUpFromBottom(contact9, &connect)
 

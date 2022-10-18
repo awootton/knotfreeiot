@@ -62,7 +62,7 @@ func TestTwoLevel(t *testing.T) {
 	// note that they are in *different* lookups so normally they could not communicate but here we have a guru.
 
 	connect := packets.Connect{}
-	connect.SetOption("token", []byte(tokens.SampleSmallToken))
+	connect.SetOption("token", []byte(tokens.GetImpromptuGiantToken()))
 	iot.PushPacketUpFromBottom(contact1, &connect)
 	iot.PushPacketUpFromBottom(contact2, &connect)
 
@@ -162,7 +162,7 @@ func TestSend(t *testing.T) {
 	contact2 := makeTestContact(guru.Config, "")
 
 	connect := packets.Connect{}
-	connect.SetOption("token", []byte(tokens.SampleSmallToken))
+	connect.SetOption("token", []byte(tokens.GetImpromptuGiantToken()))
 	iot.PushPacketUpFromBottom(contact1, &connect)
 	iot.PushPacketUpFromBottom(contact2, &connect)
 

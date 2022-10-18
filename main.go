@@ -80,7 +80,7 @@ func main() {
 	flag.Parse()
 
 	if *token == "" {
-		*token = tokens.SampleSmallToken
+		*token = tokens.GetImpromptuGiantToken()
 	}
 
 	var mainLimits = &iot.ExecutiveLimits{}
@@ -110,6 +110,8 @@ func main() {
 
 type ApiHandler struct {
 	ce *iot.ClusterExecutive
+
+	staticStuffHandler webHandler
 }
 
 func (api ApiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
@@ -176,10 +178,21 @@ func (api ApiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 		w.Write([]byte(sss))
 
+	} else if req.RequestURI == "/help" {
+
+		sss := "/api1/getallstats\n"
+		sss += "/api1/getstats\n"
+		sss += "/api1/getToken\n"
+		sss += "/api1/getPublicKey\n"
+		sss += "/api1/getGiantPassword\n"
+
+		w.Write([]byte(sss))
+
 	} else {
-		http.NotFound(w, req)
-		//fmt.Fprintf(w, "expected known path "+req.RequestURI)
-		iot.HTTPServe404.Inc()
+		// http.NotFound(w, req)
+		// fmt.Fprintf(w, "expected known path "+req.RequestURI)
+		// iot.HTTPServe404.Inc()
+		api.staticStuffHandler.ServeHTTP(w, req)
 	}
 }
 
@@ -190,8 +203,9 @@ func GetRandomB64String() string {
 }
 
 type SuperMux struct {
-	ce         *iot.ClusterExecutive
-	super, sub *http.ServeMux
+	ce *iot.ClusterExecutive
+	//super,
+	sub *http.ServeMux
 }
 
 type pinfo struct {
@@ -218,10 +232,6 @@ func (superMux *SuperMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// eg [subdomain go2here io]
 	// fmt.Println("serving domainParts ", domainParts)
 
-	// supermux.sub.Handle("/api1/", apiHandler{ce})
-	// supermux.sub.Handle("/mqtt", wsAPIHandler{ce})
-	// fs := http.FileServer(http.Dir("./docs/_site"))
-	// supermux.sub.Handle("/", fs)
 	isGetToken := len(r.RequestURI) >= 9 && r.RequestURI[:9] == "/api1/get"
 	isGetToken = isGetToken || r.RequestURI == "/mqtt"
 
@@ -331,7 +341,7 @@ func (superMux *SuperMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		//contact.SetExpires(contact.contactExpires + 60*60*24*365*10) // in 10 years
 
 		connect := packets.Connect{}
-		connect.SetOption("token", []byte(tokens.SampleSmallToken)) //FIXME: What token??
+		connect.SetOption("token", []byte(tokens.GetImpromptuGiantToken()))
 		err = iot.PushPacketUpFromBottom(contact, &connect)
 		if err != nil {
 			fmt.Println("connect problems subdomain dial conn ", err)
@@ -571,14 +581,15 @@ func startPublicServer(ce *iot.ClusterExecutive) {
 	supermux.ce = ce
 
 	supermux.sub = http.NewServeMux()
-	supermux.sub.Handle("/api1/", ApiHandler{ce})
-	supermux.sub.Handle("/mqtt", wsAPIHandler{ce})
 
 	staticStuffHandler := webHandler{ce,
-		// doesn't exist anymore: http.FileServer(http.Dir("./docs/_site")),
 		http.FileServer(http.Dir("./docs"))} // FIXME: points to gotohere static assets (a react build)
 
-	supermux.sub.Handle("/", staticStuffHandler)
+	//supermux.sub.Handle("/api1/", ApiHandler{ce})
+	//supermux.sub.Handle("/help", ApiHandler{ce})
+	supermux.sub.Handle("/mqtt", wsAPIHandler{ce})
+
+	supermux.sub.Handle("/", ApiHandler{ce, staticStuffHandler})
 	// moved to webHandler:
 	// fs := http.FileServer(http.Dir("./docs/_site"))
 	// supermux.sub.Handle("/", fs)
@@ -954,7 +965,7 @@ func (api ApiHandler) ServeMakeToken(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-type webHandler struct {
+type webHandler struct { // is this even used?
 	ce *iot.ClusterExecutive
 
 	//	fs1 http.Handler
