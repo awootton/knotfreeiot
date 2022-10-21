@@ -412,7 +412,7 @@ func localMakeMqttContact(config *ContactStructConfig, tcpConn *net.TCPConn) *mq
 	return contact1
 }
 
-// WebSocketLoop loops
+// WebSocketLoop loops reading mqtt packets
 func WebSocketLoop(wsConn *websocket.Conn, config *ContactStructConfig) {
 
 	cc := &mqttWsContact{}
@@ -421,6 +421,7 @@ func WebSocketLoop(wsConn *websocket.Conn, config *ContactStructConfig) {
 	cc.netDotTCPConn = nil
 	cc.realReader = nil // set below.
 	cc.realWriter = &cc.writebuff
+	// todo out-line this
 	cc.writeLibPacket = func(mq libmqtt.Packet, ccx *mqttContact) error {
 
 		mq.SetVersion(cc.protoVersion)

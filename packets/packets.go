@@ -1,19 +1,4 @@
-// Copyright 2019,2020,2021 Alan Tracey Wootton
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
-// Package packets comments. TODO: package comments for these packets.
+// See copyright below
 package packets
 
 import (
@@ -34,21 +19,20 @@ import (
 	"github.com/emirpasic/gods/trees/redblacktree"
 )
 
-/** There is a struct (Universal) that can represent *any* packet.
-There are individual types for each of the packets.
-We read the Universal and then construct the Packet from that and visa versa when writing.
-It may seem like we're duplicating data and making a mess but the structs
-are full of slices backed by the same data. Readability counts.
-*/
+/**
+All packets are in the form of an array of strings where the first string is length of 1.
+The format is the first string followed by a count followed by the length of each string followed by the
+strings themselves. This format is read and written into and from the Universal struct below.
+After that the various classes of packets are derived from the Universal. There is also a Typescript version available.
 
-/** Packet wire format: They all have the same format: a byte followed by an array of strings.
-The strings are written by first writing a byte of the count of them, aka the length of the array.
-Then we write the lengths of the strings (in variable size int format).
-Then we write the strings. See func ReadUniversal
+Addresses can be plain text, in which case they will be hashed (SHA-256) before use
+or they can be in hex or base64 or 32 binary bytes.
+
+Lengths are variale length integers.
 */
 
 // Interface is virtual functions for all packets.
-// Basically odd versions of marshal and unmarshal.
+// Basically versions of marshal and unmarshal.
 type Interface interface {
 	//
 	Write(writer io.Writer) error // write to Universal and then to writer
@@ -975,3 +959,18 @@ func (p *PacketCommon) SetOption(key string, val []byte) {
 	}
 	p.optionalKeyValues.Put(key, val)
 }
+
+// Copyright 2019,2020,2021,2022 Alan Tracey Wootton
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <http://www.gnu.org/licenses/>.

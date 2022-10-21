@@ -1,8 +1,0 @@
-apiVersion: app.knotfree.io/v1alpha1
-kind: AppService
-metadata:
-  name: knotfree-appservice
-spec:
-  Ce:
-    Gurunames: []
-    Nodes: {}
