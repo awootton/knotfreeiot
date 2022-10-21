@@ -61,14 +61,14 @@ The address ```get-unix-time``` will respond to several commands. Sent it a ```h
 
 We can do all of this at the same time by pasting this into a terminal:
 ```
-nc newpeoples.net 7465
+nc knotfree.net 7465
 C token "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJleHAiOjE2OTc2MTQ5MjMsImlzcyI6Il85c2giLCJqdGkiOiJJc2dLamd1RmdfVjNzaVVIYWQ3MFNyVlMiLCJpbiI6MTAyNCwib3V0IjoxMDI0LCJzdSI6MjAsImNvIjoyMCwidXJsIjoia25vdGZyZWUubmV0In0.9N6kW6QK4ZUk9129uzJDnU1jSrX6XTcHthsQZiAFL7nwfzRNNEqOWeZgjKlL7ekcHMF-H0VTHKizXZoR1J1_BA"
 S myaddresstopicchannelthing82754459
 P get-unix-time myaddresstopicchannelthing82754459 "help"
 ```
 One may also subscribe to the 'testtopic' and get periodic messages. Note that this is *not* our proper request/response format.
 ```
-nc newpeoples.net 7465
+nc knotfree.net 7465
 C token "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJleHAiOjE2OTc2MTQ5MjMsImlzcyI6Il85c2giLCJqdGkiOiJJc2dLamd1RmdfVjNzaVVIYWQ3MFNyVlMiLCJpbiI6MTAyNCwib3V0IjoxMDI0LCJzdSI6MjAsImNvIjoyMCwidXJsIjoia25vdGZyZWUubmV0In0.9N6kW6QK4ZUk9129uzJDnU1jSrX6XTcHthsQZiAFL7nwfzRNNEqOWeZgjKlL7ekcHMF-H0VTHKizXZoR1J1_BA"
 S testtopic
 ```
