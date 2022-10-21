@@ -31,11 +31,11 @@ jobs:
             dep ensure
         fi
 
-    - name: Build
+    - name: Test
       run: |
         pwd
         ls -lah /home/runner/work/knotfreeiot/src/knotfreeiot
         export GOPATH=/home/runner/work/knotfreeiot
         echo GITHUB_WORKSPACE= $GITHUB_WORKSPACE
         echo GOPATH= $GOPATH
-        go build -v .
+        go test -v ./...
