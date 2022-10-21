@@ -1,5 +1,5 @@
 
-![knotfree knot](/knotfreeknot256cropped.png)
+![knotfree knot](/KnotFreeKnot256cropped.png)
  # knotfree.net
 
 ## What
