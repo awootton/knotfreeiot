@@ -117,6 +117,7 @@ func init() {
 }
 
 // MakeSimplestCluster is just for testing as k8s doesn't work like this.
+// can't work in CI
 func MakeSimplestCluster(timegetter func() uint32, isTCP bool, aideCount int, suffix string) *ClusterExecutive {
 
 	GuruNameToConfigMap = make(map[string]*Executive)
@@ -173,7 +174,6 @@ func MakeSimplestCluster(timegetter func() uint32, isTCP bool, aideCount int, su
 			// FIXME : MakeMQTTExecutive
 		}
 		go aide1.DialContactToAnyAide(isTCP, ce)
-
 	}
 
 	go guru0.DialContactToAnyAide(isTCP, ce)

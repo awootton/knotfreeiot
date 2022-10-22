@@ -23,8 +23,9 @@ import (
 	"github.com/awootton/knotfreeiot/tokens"
 )
 
-// this token comes from topkens.TestMakeToken1connection
-var sampleToken1 = `eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiSldUIn0.eyJleHAiOjE2MDkzNzY0MDAsImlzcyI6Il85c2giLCJqdGkiOiIxMjM0NTYiLCJpbiI6MjAsIm91dCI6MjAsInN1IjoxLCJjbyI6MSwidXJsIjoia25vdGZyZWUubmV0In0.i5-h6Yup6vYVD6HZhzIz_jP0y1FYkqfiM4D56eJi_-L8DWyDB9_6gSozpdF3eNgRHKBexiLVyhAAqLHUHLMZBw`
+// this token comes from tokens.TestMakeToken1connection
+// One connection, one subscription.
+var sampleToken1 = `eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJleHAiOjE2OTc5MzE2NjMsImlzcyI6Il85c2giLCJqdGkiOiIxMjM0NTYiLCJpbiI6MjAsIm91dCI6MjAsInN1IjoxLCJjbyI6MSwidXJsIjoia25vdGZyZWUubmV0In0.W6dYgJvedMuolrYXCYzQauaAynu80bmX3Qtq5lSACGxvaro6tqttnGozxXBDVzHO5IYzut9vb5Yi9i-ThCwfBA`
 
 func TestSubscriptionOverrun(t *testing.T) {
 
@@ -37,13 +38,13 @@ func TestSubscriptionOverrun(t *testing.T) {
 		return localtime
 	}
 
-	// the token above allows for 1 contact and we'll make just one
+	// the token above allows for 1 contact and 1 sub we'll make just one
 	// it will post every 5 minutes for an hour and then go quiet.
 	// it should get closed.
 
 	allContacts := make([]*testContact, 0)
 
-	// make cluster with 1 guru and 2 aides.
+	// make cluster with 1 guru and 1 aides.
 	// don't call operate or it will lose an aide.
 	ce := iot.MakeSimplestCluster(getTime, false, 1, "")
 	globalClusterExec = ce
@@ -51,16 +52,18 @@ func TestSubscriptionOverrun(t *testing.T) {
 
 	c1 := getNewContactFromAide(aide1, sampleToken1)
 	allContacts = append(allContacts, c1.(*testContact))
+	c1.SetExpires(localtime + 60*60*60) // an hour
 
-	c2 := getNewContactFromAide(aide1, sampleToken1)
-	allContacts = append(allContacts, c2.(*testContact))
+	// c2 := getNewContactFromAide(aide1, sampleToken1)
+	// allContacts = append(allContacts, c2.(*testContact))
 
-	SendText(c1, "S "+c1.String()+" debg 12345678") // subscribe to my name
+	SendText(c1, "S "+c1.String()+" debg 12345678")         // subscribe to my name
+	SendText(c1, "S "+"someotherchannel "+" debg 12345678") // subscribe to my name
 
-	SendText(c2, "S "+c1.String()+" debg 12345678") // subscribe to c1's name
+	//	SendText(c2, "S "+c1.String()+" debg 12345678") // subscribe to c1's name
 
-	c1.(*testContact).doNotReconnect = true
-	c2.(*testContact).doNotReconnect = true
+	// c1.(*testContact).doNotReconnect = true
+	// c2.(*testContact).doNotReconnect = true
 
 	ce.WaitForActions()
 
@@ -68,23 +71,25 @@ func TestSubscriptionOverrun(t *testing.T) {
 		localtime += 60
 		ce.Heartbeat(localtime)
 		ce.WaitForActions()
+		c1.SetExpires(localtime + 60*60*60) // an hour
 	}
 	for minutes := 0; minutes < 25; minutes++ {
 		localtime += 60
 		ce.Heartbeat(localtime)
 		ce.WaitForActions()
+		c1.SetExpires(localtime + 60*60*60) // an hour
 	}
 
 	IterateAndWait(t, func() bool {
 		got, ok := c1.(*testContact).getResultAsString()
-		fmt.Println(got)
+		fmt.Println("c1 got", got)
 		return ok
 	}, "timed out waiting for TestSubscriptionOverrun result")
 
 	fmt.Println("subscriptions. aide1", aide1.GetExecutiveStats().Subscriptions*float64(aide1.GetExecutiveStats().Limits.Subscriptions))
 
 	got, _ = c1.(*testContact).getResultAsString()
-	want = `[P,,,,,"4.151899 subscriptions > 4",error,"4.151899 subscriptions > 4"]`
+	want = `[P,=jZae727K08KaOmKSgOaGzww_XVqGr_PK,ping,"BILLING ERROR 2.27027027027027 subscriptions > 2",error,"BILLING ERROR 2.27027027027027 subscriptions > 2"]`
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
 	}
@@ -263,13 +268,15 @@ func TestConnectionsOver(t *testing.T) {
 	// note the packet in the q of c3 describes the error.
 	got = fmt.Sprint(c3.(*testContact).getResultAsString())
 	//fmt.Println(got)
-	want = `[P,=/vbtSa9EBGTgCWQQnUlEJTqqmiOs/Cvj,"billingAccumulator empty source","1.1538461 connections > 1",error,"1.1538461 connections > 1"]`
+	want = `[P,=jZae727K08KaOmKSgOaGzww_XVqGr_PK,ping,"BILLING ERROR 60 connections > 1",error,"BILLING ERROR 60 connections > 1"]true`
+	want2 := `[P,=jZae727K08KaOmKSgOaGzww_XVqGr_PK,ping,"BILLING ERROR 3 connections > 1",error,"BILLING ERROR 3 connections > 1"]true`
 	//fmt.Println(want)
 	// for i := 40; i < 45; i++ {
 	// 	fmt.Println(got[i])
 	// 	fmt.Println(want[i])
 	// }
-	if got != want {
+	// FIXME: this one won't hold still.
+	if got != want && got != want2 {
 		t.Errorf("got %v, want %v", got, want)
 	}
 
@@ -292,7 +299,7 @@ func TestBills(t *testing.T) {
 		dt := 90 // seconds
 		stats.Connections = float64(dt)
 
-		ba.Add(stats, testtime)
+		ba.AddUsage(stats, testtime)
 
 		testtime += uint32(dt)
 
@@ -301,7 +308,7 @@ func TestBills(t *testing.T) {
 
 	}
 	got = fmt.Sprint(ba.GetInput(testtime), ba.GetConnections(testtime))
-	want = "9.772727 0.97727275"
+	want = "9.565217391304348 0.9565217391304348"
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
 	}
@@ -326,7 +333,7 @@ func TestBills2(t *testing.T) {
 
 			stats := &tokens.KnotFreeContactStats{}
 			stats.Connections = float64(60)
-			ba.Add(stats, localtime)
+			ba.AddUsage(stats, localtime)
 
 			localtime += 60
 			//fmt.Println("conn", ba.GetConnections(localtime))
@@ -334,7 +341,7 @@ func TestBills2(t *testing.T) {
 	}
 
 	got = fmt.Sprint(ba.GetConnections(localtime))
-	want = "1"
+	want = "0.9722222222222222"
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
 	}

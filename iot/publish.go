@@ -54,18 +54,23 @@ func processPublish(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *publ
 		}
 	} else {
 
-		billingAccumulator, ok := watchedTopic.IsBilling()
-		if ok {
+		billingAccumulator, isBilling := watchedTopic.IsBilling()
+		if isBilling {
+
 			// statsHandled.Inc()
 			// it's a billing channel
 			// publishing to a billing channel is a special case
 			billstr, ok := pubmsg.p.GetOption("stats")
-			if ok {
-				msg := &StatsWithTime{}
+			if ok && me.isGuru {
+				msg := &Stats{}
 				err := json.Unmarshal(billstr, msg)
 				if err == nil {
 
-					billingAccumulator.Add(&msg.KnotFreeContactStats, msg.Start)
+					if billingAccumulator.max.Subscriptions == 1 { // the test in billing_test
+						//fmt.Println("publish BillingAccumulator ADDING", msg)
+					}
+					now := me.getTime()
+					billingAccumulator.AddUsage(&msg.KnotFreeContactStats, now)
 
 				} else {
 					// statsUnmarshalFail.Inc()
@@ -96,7 +101,7 @@ func processPublish(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *publ
 						}
 					}
 				} else {
-					//   we don't sent right back to the
+					// we don't sent right back to
 					// who just sent it to us.
 					if key != pubMsgKey {
 						if me.checkForBadContact(ci, watchedTopic) == false {
@@ -128,7 +133,7 @@ func processPublish(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *publ
 		if err != nil {
 			// what? we're sad? todo: man up
 			// we should die and reconnect
-			fmt.Println("FIXME tws0")
+			fmt.Println("FIXME tws0000000")
 			// sendPushUpFail.Inc()
 		}
 	}

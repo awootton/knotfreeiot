@@ -198,6 +198,7 @@ func NewContactStructConfig(looker *LookupTableStruct) *ContactStructConfig {
 }
 
 // PushPacketUpFromBottom to deal with an incoming message on a bottom contact heading up.
+// it expects a token before anything else.
 func PushPacketUpFromBottom(ssi ContactInterface, p packets.Interface) error {
 
 	if ssi.GetClosed() {
@@ -226,15 +227,14 @@ func PushPacketUpFromBottom(ssi ContactInterface, p packets.Interface) error {
 	case *packets.Subscribe:
 		v.Address.EnsureAddressIsBinary()
 
-		// _, found := v.GetOption("jwtidAlias") // ss.token.JWTID
-		// if found == false {
-		// 	// what was this for?
-		// 	//t := ssi.GetToken().JWTID
-		// 	// FIXME:
-		// 	//v.SetOption("jwtidAlias", HashNameToAlias([]byte(t)))
-		// }
-		//ssi.AddSubscription(v)
-		// send the token for reserving permanent ??
+		// every sub gets a jwtidAlias except for the stats subs
+		_, ok := v.GetOption("statsmax")
+		if !ok && !config.IsGuru() {
+			// it's a non-billing topic.
+			// later, during heartbeat, it will send messages to this address
+			id := ssi.GetToken().JWTID
+			v.SetOption("jwtidAlias", []byte(id))
+		}
 		looker.sendSubscriptionMessage(ssi, v)
 	case *packets.Unsubscribe:
 		v.Address.EnsureAddressIsBinary()
@@ -470,12 +470,14 @@ func expectToken(ssi ContactInterface, p packets.Interface) error {
 
 		ssi.SetToken(foundPayload)
 		{ // subscribe to token for billing
+			foundPayload.KnotFreeContactStats.Subscriptions += 1 // for billing subscription
 			billstr, err := json.Marshal(foundPayload.KnotFreeContactStats)
 			if err != nil {
 				return makeErrorAndDisconnect(ssi, "", nil)
 			}
 			sub := packets.Subscribe{}
-			sub.Address.FromString(foundPayload.JWTID) // the billing channel real name JWTID
+			id := ssi.GetToken().JWTID
+			sub.Address.FromString(id) // the billing channel real name JWTID
 			sub.SetOption("statsmax", billstr)
 			PushPacketUpFromBottom(ssi, &sub)
 		}
@@ -548,8 +550,8 @@ func (ss *ContactStruct) Heartbeat(now uint32) {
 
 		//fmt.Println("delta t", deltaTime, ss.String())
 
-		msg := &StatsWithTime{}
-		msg.Start = now
+		msg := &Stats{}
+		//msg.Start = now
 		msg.Input = float64(ss.input)
 		ss.input -= int(msg.Input) // todo: atomic
 		msg.Output = float64(ss.output)
@@ -558,13 +560,14 @@ func (ss *ContactStruct) Heartbeat(now uint32) {
 		// Subscriptions handled elsewhere.
 		p := &packets.Send{}
 		p.Address.FromString(ss.token.JWTID)
-		p.Source.FromString("heartbeat empty source address")
+		p.Source.FromString("billing_stats_return_address_contact")
 		str, err := json.Marshal(msg)
 		if err != nil {
-			fmt.Println("3 impossible")
+			fmt.Println("impossible#3")
 		}
 		p.SetOption("stats", str)
 		oldtimeout := ss.contactExpires // don't let heartbeat reset the expiration.
+		//fmt.Println("contact heartbeat sending stats", p, "from", ss.config.Name)
 		err = PushPacketUpFromBottom(ss, p)
 		ss.contactExpires = oldtimeout
 		if err != nil {

@@ -59,9 +59,9 @@ func fixmeTestGrowGurus(t *testing.T) {
 	ce.WaitForActions()
 
 	c1test := c1.(*testContact)
-	got,_ = c1test.getResultAsString()
+	got, _ = c1test.getResultAsString()
 	c2test := c2.(*testContact)
-	got,_ = c2test.getResultAsString()
+	got, _ = c2test.getResultAsString()
 
 	c1test.SetExpires(2000000000)
 	c2test.SetExpires(2000000000)
@@ -102,7 +102,7 @@ func fixmeTestGrowGurus(t *testing.T) {
 		SendText(c2, command) // publish to c1 from c2
 	}
 	WaitForActions(ce.Aides[0])
-	got,_ = c1test.getResultAsString()
+	got, _ = c1test.getResultAsString()
 	for i := 0; i < subsStressSize; i++ {
 
 		got = "none"
@@ -149,7 +149,7 @@ func fixmeTestGrowGurus(t *testing.T) {
 }
 
 // test auto scale in the minions and also reconnect when a minion is lost.
-func TestGrowAides(t *testing.T) {
+func atw_fixme_TestGrowAides(t *testing.T) {
 
 	isTCP := false
 	tokens.LoadPublicKeys()
@@ -171,7 +171,7 @@ func TestGrowAides(t *testing.T) {
 	ce.WaitForActions()
 	ce.WaitForActions()
 
-	c1 := getNewContactFromSlackestAide(ce, tokens.GetImpromptuGiantToken())
+	c1 := getNewContactFromSlackestAide(ce, tokens.Test32xToken)
 	c1.(*testContact).index = 0
 	allContacts = append(allContacts, c1.(*testContact))
 	c1.SetExpires(2000000000) //localtime + 60*60) // 1580000000
@@ -200,7 +200,7 @@ func TestGrowAides(t *testing.T) {
 	// add a contact a minute and see what happens.
 	// contacts will start timing out
 	for i := 0; i < contactStressSize; i++ {
-		ci := getNewContactFromSlackestAide(ce, tokens.GetImpromptuGiantToken())
+		ci := getNewContactFromSlackestAide(ce, tokens.Test32xToken)
 		allContacts = append(allContacts, ci.(*testContact))
 		index := len(allContacts)
 		ci.(*testContact).index = index

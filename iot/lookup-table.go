@@ -407,88 +407,6 @@ func setWatcher(bucket *subscribeBucket, h *HashType, watcher *WatchedTopic) {
 	}
 }
 
-// func heartBeatCallBack(me *LookupTableStruct, bucket *subscribeBucket, cmd *callBackCommand) {
-// 	defer cmd.wg.Done()
-// 	// we don't delete them here and now. We q up Unsubscribe packets.
-// 	// except the billing.
-// 	s := bucket.mySubscriptions
-// 	for h, watchedItem := range s {
-// 		expireAll := watchedItem.expires < cmd.expires
-// 		// first, scan all the contact references and schedule the stale ones for deleteion.
-// 		it := watchedItem.Iterator()
-// 		for it.Next() {
-// 			key, item := it.KeyValue()
-// 			//if item.expires < cmd.expires || expireAll || item.ci.GetClosed() {
-// 			if expireAll || item.contactInterface.GetClosed() {
-
-// 				p := new(packets.Unsubscribe)
-// 				p.Address.Type = packets.BinaryAddress
-// 				p.Address.Bytes = new([24]byte)[:]
-// 				watchedItem.name.GetBytes(p.Address.Bytes)
-// 				me.sendUnsubscribeMessage(item.contactInterface, p)
-// 			}
-// 			_ = key
-// 		}
-// 		_ = h
-// 		// second, check if this is a billing topic
-// 		// if it's billing and it's over limits then write 'error Send' down.
-// 		billingAccumulator, ok := watchedItem.IsBilling()
-// 		if ok {
-// 			if expireAll {
-// 				setWatcher(bucket, &h, nil) // kill it now
-// 			} else {
-// 				good, msg := billingAccumulator.AreUnderMax(me.getTime())
-// 				if !good {
-// 					p := &packets.Send{}
-// 					p.Address.Bytes = new([24]byte)[:]
-// 					p.Address.Type = packets.BinaryAddress
-// 					h.GetBytes(p.Address.Bytes)
-// 					p.Source.FromString("billingAccumulator empty source")
-// 					p.Payload = []byte(msg)
-// 					p.SetOption("error", p.Payload)
-// 					// just like a publish down.
-// 					it = watchedItem.Iterator()
-// 					for it.Next() {
-// 						key, item := it.KeyValue()
-// 						_ = key
-// 						ci := item.contactInterface
-// 						if me.checkForBadContact(ci, watchedItem) == false {
-// 							ci.WriteDownstream(p)
-// 						}
-// 					}
-// 				}
-// 			}
-// 		}
-// 		// third, we'll need to send out the topic usage-stats occasionally.
-// 		if len(watchedItem.jwtidAlias) == 32 {
-
-// 			if watchedItem.nextBillingTime < cmd.now {
-
-// 				deltaTime := cmd.now - watchedItem.lastBillingTime
-// 				watchedItem.lastBillingTime = cmd.now
-// 				watchedItem.nextBillingTime = cmd.now + 300 // 300 secs after first time
-
-// 				msg := &StatsWithTime{}
-// 				msg.Start = cmd.now
-
-// 				msg.Subscriptions = float32(deltaTime) // means one per sec, one per min ...
-// 				p := &packets.Send{}
-// 				p.Address.Type = packets.BinaryAddress
-// 				p.Address.Bytes = ([]byte(watchedItem.jwtidAlias))[0:HashTypeLen]
-// 				p.Source.FromString("billing time empty source")
-// 				str, err := json.Marshal(msg)
-// 				if err != nil {
-// 					fmt.Println(" break fast ")
-// 				}
-// 				p.SetOption("stats", str)
-// 				// send somewhere
-// 				// we need some kind of pipe to the cluster front.
-// 				me.ex.channelToAnyAide <- p
-// 			}
-// 		}
-// 	}
-// }
-
 // Heartbeat is every 10 sec. now is unix seconds.
 func (me *LookupTableStruct) Heartbeat(now uint32) {
 
@@ -617,6 +535,9 @@ func (wt *WatchedTopic) IsBilling() (*BillingAccumulator, bool) {
 	stats, ok := val.(*BillingAccumulator)
 	if !ok {
 		return nil, ok
+	}
+	if stats.max.Subscriptions == 1 { // a test
+		fmt.Print("")
 	}
 	return stats, ok
 }

@@ -32,7 +32,7 @@ sends "statsmax" with the subscribe and statsmax is a KnotFreeContactStats from 
 In subscribe.go we notice the statsmax KnotFreeContactStats and construct a BillingAccumulator
 and add it to the watcher with the name of "bill". There is a getter for that. watchedItem.GetBilling()
 
-In the Heartbeat of a Contact we periodically (30 then 300 sec) construct a StatsWithTime
+In the Heartbeat of a Contact we periodically (30 then 300 sec) construct a Stats
 and we Push it as a Send with option "stats".
 When the publish.go gets the stats message we do a GetBilling() (aka GetOption("bill"))
  and we have special case for that and we BillingAccumulator.Add(stats)
@@ -45,7 +45,7 @@ Then, in all the implementations of WriteDownstream check for error and make a d
 See HasError()
 
 The subscribe packets, as they pass the contact going upwards, are all going to need to carry the alias
-of the jwtid from the token. See the Push(...) in Contacts.go. It will become watchedTopic.jwtidAlias in subscribe.go.
+of the jwtid from the token. See the Push(...) in Contacts.go. It will become watchedTopic.jwtid in subscribe.go.
 
 Then, during the lookup-table Heartbeat (heartBeatCallBack) we periodically (30 then 300 sec) construct a
 StatsWithTime and Send it to the odd contact Looker.contactToAnyAide where it will meet the topic with the BillingAccumulator
@@ -59,9 +59,9 @@ and send down our special error Send{}
 
 // how to accumulate:
 // we only want to go back about an hour. about.
-// we'll use 20 min buckets and add three of them.
+// we'll use 10 min buckets and add 4 of them.
 
-const bucketSpanTime = 20 * 60 // 20 minutes
+const bucketSpanTime = 10 * 60 // 20 minutes
 
 // BillingAccumulator is terse
 type BillingAccumulator struct {
@@ -74,23 +74,31 @@ type BillingAccumulator struct {
 	name string
 }
 
-// StatsWithTime is
+// StatsWithTime
 type StatsWithTime struct {
 	tokens.KnotFreeContactStats
 	Start uint32 `json:"st"`
+	Used  bool   `json:"u"`
 }
 
-// Add accumulates the stats into the BillingAccumulator
-func (ba *BillingAccumulator) Add(stats *tokens.KnotFreeContactStats, now uint32) {
+// Stats
+type Stats struct {
+	tokens.KnotFreeContactStats
+}
+
+// AddUsage accumulates the stats into the BillingAccumulator
+func (ba *BillingAccumulator) AddUsage(stats *tokens.KnotFreeContactStats, now uint32) {
 
 	c := &ba.a[ba.i]
-	if c.Start == 0 {
+	if c.Used == false {
 		// first time. init with some time. 60 min free
 		for i := 0; i < len(ba.a); i++ {
 			ba.a[i].Start = now - uint32(bucketSpanTime*(len(ba.a)-i))
 		}
 		c.Start = now
+		c.Used = false
 	}
+	c.Used = true
 
 	c.Connections += stats.Connections
 	c.Input += stats.Input
@@ -106,6 +114,16 @@ func (ba *BillingAccumulator) Add(stats *tokens.KnotFreeContactStats, now uint32
 
 		c = next
 		c.Start = now
+		c.Used = true
+		c.Connections = 0
+		c.Input = 0
+		c.Output = 0
+		c.Subscriptions = 0
+	}
+
+	if ba.max.Subscriptions == 1 && stats.Subscriptions != 0 { // the test in billing_test
+		subs := ba.GetSubscriptions(now)
+		fmt.Println("Subscriptions now", subs, ba.name)
 	}
 
 	//fmt.Println("added", stats.Subscriptions)
@@ -149,13 +167,19 @@ func (ba *BillingAccumulator) GetInput(now uint32) float64 {
 	vals := float64(0)
 	times := float64(0)
 	tmpnow := now
-	for i := 0; i < lookback; i++ {
+	for i := 0; i < lookback; i++ { // walk backwards
 		index := (ba.i - i + len(ba.a)) % len(ba.a)
 		c := &ba.a[index]
+		if !c.Used {
+			break
+		}
 		vals += c.Input
 		buckettime := tmpnow - c.Start
 		tmpnow -= buckettime
 		times += float64(buckettime)
+	}
+	if times == 0 {
+		return 0
 	}
 	f := vals / times
 	return f
@@ -169,10 +193,16 @@ func (ba *BillingAccumulator) GetConnections(now uint32) float64 {
 	for i := 0; i < lookback; i++ {
 		index := (ba.i - i + len(ba.a)) % len(ba.a)
 		c := &ba.a[index]
+		if !c.Used {
+			break
+		}
 		vals += c.Connections
 		buckettime := tmpnow - c.Start
 		tmpnow -= buckettime
 		times += float64(buckettime)
+	}
+	if times == 0 {
+		return 0
 	}
 	f := vals / times
 	return f
@@ -186,10 +216,16 @@ func (ba *BillingAccumulator) GetOutput(now uint32) float64 {
 	for i := 0; i < lookback; i++ {
 		index := (ba.i - i + len(ba.a)) % len(ba.a)
 		c := &ba.a[index]
+		if !c.Used {
+			break
+		}
 		vals += c.Output
 		buckettime := tmpnow - c.Start
 		tmpnow -= buckettime
 		times += float64(buckettime)
+	}
+	if times == 0 {
+		return 0
 	}
 	f := vals / times
 	return f
@@ -203,10 +239,16 @@ func (ba *BillingAccumulator) GetSubscriptions(now uint32) float64 {
 	for i := 0; i < lookback; i++ {
 		index := (ba.i - i + len(ba.a)) % len(ba.a)
 		c := &ba.a[index]
+		if !c.Used {
+			break
+		}
 		vals += c.Subscriptions
 		buckettime := tmpnow - c.Start
 		tmpnow -= buckettime
 		times += float64(buckettime)
+	}
+	if times == 0 {
+		return 0
 	}
 	f := vals / times
 	return f
@@ -221,6 +263,9 @@ func (ba *BillingAccumulator) GetStats(now uint32, dest *tokens.KnotFreeContactS
 	for i := 0; i < lookback; i++ {
 		index := (ba.i - i + len(ba.a)) % len(ba.a)
 		c := &ba.a[index]
+		if !c.Used {
+			break
+		}
 		dest.Connections += c.Connections
 		dest.Input += c.Input
 		dest.Output += c.Output
@@ -228,6 +273,9 @@ func (ba *BillingAccumulator) GetStats(now uint32, dest *tokens.KnotFreeContactS
 		buckettime := tmpnow - c.Start
 		tmpnow -= buckettime
 		times += float64(buckettime)
+	}
+	if times == 0 {
+		return
 	}
 	dest.Connections /= times
 	dest.Input /= times

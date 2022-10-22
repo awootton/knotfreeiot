@@ -64,7 +64,7 @@ func makeTestContact(config *iot.ContactStructConfig, token string) iot.ContactI
 	acontact.SetWriter(&iot.DevNull{})
 
 	if len(token) == 0 {
-		token = tokens.GetImpromptuGiantToken()
+		token = tokens.Test32xToken //GetImpromptuGiantToken()
 	}
 
 	// go func(cc *testContact) {
@@ -241,7 +241,7 @@ func openConnectedSocket(name string, t *testing.T, token string) *net.TCPConn {
 	}
 
 	if len(token) == 0 {
-		token = tokens.GetImpromptuGiantToken()
+		token = tokens.Test32xToken
 	}
 
 	connect := packets.Connect{}

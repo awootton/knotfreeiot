@@ -73,7 +73,7 @@ func (ex *Executive) DialContactToAnyAide(isTCP bool, ce *ClusterExecutive) {
 				aide := ce.Aides[rand.Intn(len(ce.Aides))]
 				//   because we're in test
 				// with no tcp
-				token := tokens.GetImpromptuGiantToken()
+				token := tokens.Test32xToken//GetImpromptuGiantToken()
 
 				contact := &ContactStruct{}
 				AddContactStruct(contact, contact, aide.Config)
@@ -91,10 +91,10 @@ func (ex *Executive) DialContactToAnyAide(isTCP bool, ce *ClusterExecutive) {
 				}
 
 				for p := range ex.channelToAnyAide {
+					// fmt.Println(" got channelToAnyAide aide ", p)
 					err := PushPacketUpFromBottom(contact, p)
-					//fmt.Println("L pushing to aide ", p)
 					if err != nil {
-						fmt.Println("err L pushing to aide ", err)
+						fmt.Println("err PushPacketUpFromBottom ", err)
 					}
 				}
 			} else {
@@ -168,7 +168,7 @@ func (ex *Executive) dialAideAndServe(address string, ce *ClusterExecutive) erro
 
 	for p := range ex.channelToAnyAide {
 		err := p.Write(conn)
-		//fmt.Println("L pushing to aide ", p)
+		fmt.Println("channelToAnyAide pushing to aide ", p)
 		if err != nil || founderr != nil {
 			if err == nil {
 				err = founderr

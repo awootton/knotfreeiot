@@ -20,7 +20,7 @@ import (
 	"golang.org/x/crypto/nacl/box"
 )
 
-func TestGetGiantTokens(t *testing.T) {
+func not_TestGetGiantTokens(t *testing.T) {
 	fmt.Println("giant token ", tokens.GetImpromptuGiantToken())
 	fmt.Println("giant local ", tokens.GetImpromptuGiantTokenLocal())
 }
@@ -210,7 +210,7 @@ func TestKnotEncode(t *testing.T) {
 		//the old one `eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiSldUIn0.eyJleHAiOjE2MDk0NjI4MDAsImlzcyI6IjFpVnQiLCJqdGkiOiIxMjM0NTYiLCJpbiI6NzAwMDAsIm91dCI6NzAwMDAsInN1IjoyLCJjbyI6MiwidXJsIjoia25vdGZyZWUubmV0In0.T7SrbbXq7V7otfX0eo9eFabWguxwuPsG4Zn9XArGwMc2Q4ifMBm9aSOgvBIBn1Q0Or7pvIsA8u_UL9FnOW-aDg`
 		// this is the sample token used in the tests. It's a _9sh small token.
 		// why? want = `eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiSldUIn0.eyJleHAiOjE2MDk0NjI4MDAsImlzcyI6Ii85c2giLCJqdGkiOiIxMjM0NTYiLCJpbiI6MjAsIm91dCI6MjAsInN1IjoyLCJjbyI6MiwidXJsIjoia25vdGZyZWUubmV0In0.YmKO8U_jKYyZsJo4m4lj0wjP8NJhciY4y3QXt_xlxvnHYznfWI455JJnnPh4HZluGaUcvrNdKAENGh4CfG4tBg`
-		want = `eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiSldUIn0.eyJleHAiOjE2MDk0NjI4MDAsImlzcyI6Il85c2giLCJqdGkiOiIxMjM0NTYiLCJpbiI6MjAsIm91dCI6MjAsInN1IjoyLCJjbyI6MiwidXJsIjoia25vdGZyZWUubmV0In0.nMq6Rrb7-GoTyidPh-FWPoCwtQIrDdJkFQMvov0CsA0PbnYLa6260qBu0aaGpKfRgxyHYv1ZA-Ddz6FQcsCLDg`
+		want = `eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJleHAiOjE2MDkzNzY0MDAsImlzcyI6Il85c2giLCJqdGkiOiIxMjM0NTYiLCJpbiI6MjAsIm91dCI6MjAsInN1IjoyLCJjbyI6MiwidXJsIjoia25vdGZyZWUubmV0In0.jMztt6lQZf4szxtkU2BQHy2HvKv3o_5t7u3HQzaSbThCZZ5yo9yQQBr0geWdegkfl-es06enbrbrJXuM-i8kBg`
 		if got != want {
 			t.Errorf("got %v, want %v", got, want)
 		}
@@ -580,7 +580,7 @@ func BenchmarkCheckToken2(b *testing.B) {
 	}
 }
 
-func TestMakeTok2(t *testing.T) {
+func not_TestMakeTok2(t *testing.T) {
 
 	tokens.LoadPublicKeys()
 
@@ -599,14 +599,14 @@ func TestMakeTok2(t *testing.T) {
 
 }
 
-func TestMakeToken1connection(t *testing.T) {
+func not_TestMakeToken1connection(t *testing.T) {
 
 	tokens.LoadPublicKeys()
 
 	tokens.LoadPrivateKeys("~/atw/privateKeys4.txt")
 	signingKey := tokens.GetPrivateKey("_9sh")
 
-	payload := GetSampleTokenPayload(starttime)
+	payload := GetSampleTokenPayload(uint32(time.Now().Unix()))
 	payload.Connections = 1
 	payload.Subscriptions = 1
 	payload.Issuer = "_9sh"
@@ -618,10 +618,10 @@ func TestMakeToken1connection(t *testing.T) {
 	_, ok := tokens.VerifyToken(tok, []byte(tokens.FindPublicKey("_9sh")))
 
 	fmt.Println("OK", ok)
-
 }
 
-func TestBox(t *testing.T) {
+// can't LoadPrivateKeys in test
+func not_TestBox(t *testing.T) {
 
 	counter := &tokens.CountReader{}
 

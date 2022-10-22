@@ -36,6 +36,8 @@ import (
 	"github.com/gbrlsnchs/jwt/v3"
 )
 
+const Test32xToken = "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJleHAiOjE2OTc5NjAyNjQsImlzcyI6Il85c2giLCJqdGkiOiI5cTM0cy01MXJaWHlCdElSN0pqMDVoVFEiLCJpbiI6MTAyNCwib3V0IjoxMDI0LCJzdSI6MjAsImNvIjoyMCwidXJsIjoia25vdGZyZWUubmV0In0.CbFh2xsrwixf0i0IOknjNEy_Sh_wB3QysYm1xV4pPTA9QEPvZDoUIwggGFHPsmWbP0WzC47TVbCSPJahE-SNBg"
+
 // KnotFreeTokenPayload is our JWT 'claims'.
 type KnotFreeTokenPayload struct {
 	//

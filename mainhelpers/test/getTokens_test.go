@@ -17,8 +17,8 @@ import (
 // this token comes from topkens.TestMakeToken1connection
 var sampleToken1 = `eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiSldUIn0.eyJleHAiOjE2MDkzNzY0MDAsImlzcyI6Il85c2giLCJqdGkiOiIxMjM0NTYiLCJpbiI6MjAsIm91dCI6MjAsInN1IjoxLCJjbyI6MSwidXJsIjoia25vdGZyZWUubmV0In0.i5-h6Yup6vYVD6HZhzIz_jP0y1FYkqfiM4D56eJi_-L8DWyDB9_6gSozpdF3eNgRHKBexiLVyhAAqLHUHLMZBw`
 
-// TestMakeLargeToken is 2 connections for a year
-func TestMakeLargeToken(t *testing.T) {
+// TestMakeLargeToken is 4 connections for a year
+func not_TestMakeLargeToken(t *testing.T) {
 
 	tokens.LoadPublicKeys()
 
@@ -67,12 +67,14 @@ func TestMakeLargeToken(t *testing.T) {
 	cost = tokens.CalcTokenPrice(large32x, uint32(time.Now().Unix()))
 	jsonstr, _ = json.Marshal(large32x)
 	fmt.Println("token cost is "+fmt.Sprintf("%f", cost), string(jsonstr))
-	
+
+	fmt.Println("token is "+fmt.Sprintf("%f", cost), string(jsonstr))
+
 	fmt.Println("token is "+fmt.Sprintf("%f", cost), string(jsonstr))
 
 }
 
-func TestMakeHugeToken(t *testing.T) {
+func not_TestMakeHugeToken(t *testing.T) {
 
 	tokens.LoadPublicKeys()
 

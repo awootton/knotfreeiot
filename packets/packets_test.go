@@ -27,6 +27,10 @@ import (
 	"github.com/awootton/knotfreeiot/packets"
 )
 
+func TestFail(t *testing.T) {
+	//t.Error(("dummy")) // check that tests run
+}
+
 func TestFromString(t *testing.T) {
 
 	a := &packets.AddressUnion{}
@@ -465,7 +469,7 @@ func ExampleToJSON() {
 	//  GetIPV6Option
 	fmt.Println(cmd.GetIPV6Option())
 
-	// Output: [P,destaddr,sourceaddr,"some data",IPv6,=IAENuIWjAAAAAIouA3BzNA,option1,test,option2,"На берегу пустынных волн",z,=//8AAAAAAAAAq83v]
+	// Output: [P,destaddr,sourceaddr,"some data",IPv6,=IAENuIWjAAAAAIouA3BzNA,option1,test,option2,"На берегу пустынных волн",z,=__8AAAAAAAAAq83v]
 	// [32 1 13 184 133 163 0 0 0 0 138 46 3 112 115 52]
 
 }
@@ -685,11 +689,21 @@ func TestForZombies2(t *testing.T) {
 		val = val + val
 		val = val + val
 		val = val + val
+		val = val + val
+		val = val + val
+		val = val + val
+		val = val + val
+		val = val + val
+		val = val + val
+		val = val + val
+		val = val + val
+		val = val + val
+		val = val + val
 		cmd.SetOption("a very long key name"+strconv.Itoa(i), []byte(val))
 	}
 	bb.Reset()
 	err = (&cmd).Write(&bb)
-	fmt.Println("buffer size", bb.Len())
+	fmt.Println("buffer size", bb.Len()) // the limit is 8m now
 	aPacket, err = packets.ReadPacket(&bb)
 	_ = aPacket
 	got = err.Error()

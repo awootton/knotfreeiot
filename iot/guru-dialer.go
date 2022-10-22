@@ -177,7 +177,7 @@ func (upc *upperChannel) dialGuru() {
 			}
 			guru := config.Looker.ex // the ex of the guru
 
-			token := tokens.GetImpromptuGiantToken()
+			token := tokens.Test32xToken //GetImpromptuGiantToken()
 			contact := &ContactStruct{}
 			AddContactStruct(contact, contact, guru.Config) // force contact to guru
 
