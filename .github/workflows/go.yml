@@ -14,7 +14,7 @@ jobs:
       id: go
 
     - name: Check out code into the Go module directory
-      # to $GITHUB_WORKSPACE TODO: (atw) learn to use go modules 
+      # to $GITHUB_WORKSPACE
       uses: actions/checkout@v1
       with:
         path: 'src/knotfreeiot'
@@ -22,19 +22,20 @@ jobs:
     - name: Get dependencies
       run: |
         export GOPATH=/home/runner/work/knotfreeiot
-        go get -u github.com/minio/highwayhash
-        go get -u github.com/eclipse/paho.mqtt.golang
+        go mod download
+        #go get -u github.com/minio/highwayhash
+        #go get -u github.com/eclipse/paho.mqtt.golang
         #go get -v -t -d ./...
         if [ -f Gopkg.toml ]; then
             curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
             dep ensure
         fi
 
-    - name: Build
+    - name: Test
       run: |
         pwd
         ls -lah /home/runner/work/knotfreeiot/src/knotfreeiot
         export GOPATH=/home/runner/work/knotfreeiot
         echo GITHUB_WORKSPACE= $GITHUB_WORKSPACE
         echo GOPATH= $GOPATH
-        go build -v .
+        go test -v ./...
