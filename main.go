@@ -882,12 +882,14 @@ func (api ApiHandler) ServeMakeToken(w http.ResponseWriter, req *http.Request) {
 		parts := strings.Split(req.Host, ".")
 		partslen := len(parts)
 		if partslen < 2 {
-			http.Error(w, "expected at least 2 parts in Host "+req.Host, 500)
-			return
+			//http.Error(w, "expected at least 2 parts in Host "+req.Host, 500)
+			//return
+			parts = strings.Split("local.localhost", ".")
+			partslen = len(parts)
 		}
 		targetSite := parts[partslen-2] + "." + parts[partslen-1]
 
-		payload.URL = targetSite
+		payload.URL = targetSite + "/mqtt"
 
 		exp := payload.ExpirationTime
 		if exp > uint32(time.Now().Unix()+60*60*24*365) {
@@ -925,6 +927,8 @@ func (api ApiHandler) ServeMakeToken(w http.ResponseWriter, req *http.Request) {
 		returnval = []byte(strings.ReplaceAll(string(returnval), `"`, ``))
 		returnval = []byte(strings.ReplaceAll(string(returnval), ` `, `_`))
 		//fmt.Println("sending token package ", string(returnval))
+
+		returnval = tokenString
 
 		err = tokens.LogNewToken(ctx, &payload, remoteAddr)
 		if err != nil {

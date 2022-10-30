@@ -68,7 +68,7 @@ func Make32xLargeToken() (string, tokens.KnotFreeTokenPayload) {
 	if os.Getenv("KNOT_KUNG_FOO") == "atw" {
 		// targetSite = "gotolocal.com"
 	}
-	payload.URL = targetSite
+	payload.URL = targetSite + "/mqtt"
 
 	exp := payload.ExpirationTime
 	if exp > uint32(time.Now().Unix()+60*60*24*365) {

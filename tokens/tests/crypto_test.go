@@ -540,7 +540,7 @@ func GetSampleTokenPayload(startTime uint32) *tokens.KnotFreeTokenPayload {
 	p.Output = 20
 	p.Subscriptions = 2
 	p.Connections = 2
-	p.URL = "knotfree.net"
+	p.URL = "knotfree.net/mqtt"
 	return p
 }
 

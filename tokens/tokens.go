@@ -478,7 +478,7 @@ func GetImpromptuGiantToken() string {
 
 	LoadPrivateKeys("~/atw/privateKeys4.txt")
 
-	payload := GetSampleBigToken(uint32(time.Now().Unix()), "knotfree.net")
+	payload := GetSampleBigToken(uint32(time.Now().Unix()), "knotfree.net/mqtt")
 	signingKey := GetPrivateKey("_9sh")
 	bbb, err := MakeToken(payload, []byte(signingKey))
 	if err != nil {
@@ -492,7 +492,7 @@ func GetImpromptuGiantTokenLocal() string {
 
 	LoadPrivateKeys("~/atw/privateKeys4.txt")
 
-	payload := GetSampleBigToken(uint32(time.Now().Unix()), "knotfree.dog:8085") // is localhost in my /etc/hosts
+	payload := GetSampleBigToken(uint32(time.Now().Unix()), "knotfree.dog:8085/mqtt") // is localhost in my /etc/hosts
 	signingKey := GetPrivateKey("_9sh")
 	bbb, err := MakeToken(payload, []byte(signingKey))
 	if err != nil {

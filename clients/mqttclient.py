@@ -23,7 +23,6 @@ broker = "knotlocal.com" # "knotfree.net" # 192.168.86.159" knotlocal.com is loc
 # broker = "knotfree2.com" #  aka localhost in my /etc/hosts file
 
 clientid = "clientId-ws131u1ewt"
-password = '[Free_token_expires:_2021-12-31,{exp:1641023999,iss:_9sh,jti:HpifIJkhgnTOGc3EDmOJaV0A,in:32,out:32,su:4,co:2,url:knotfree.net},eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiSldUIn0.eyJleHAiOjE2NDEwMjM5OTksImlzcyI6Il85c2giLCJqdGkiOiJIcGlmSUpraGduVE9HYzNFRG1PSmFWMEEiLCJpbiI6MzIsIm91dCI6MzIsInN1Ijo0LCJjbyI6MiwidXJsIjoia25vdGZyZWUubmV0In0.YSo2Ur7lbkwTPZfQymyvy4N1mWQaUn_cziwK36kTKlASgqOReHQ4FAocVvgq7ogbPWB1hD4hNoJtCg2WWq-BCg]'
 
 password = 'eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiSldUIn0.eyJleHAiOjE2OTMzMTIzNTQsImlzcyI6Il85c2giLCJqdGkiOiJ4TkR4SV9sbkZ1NV9aakNITFU4MXlvTTkiLCJpbiI6MTAyNCwib3V0IjoxMDI0LCJzdSI6MjAsImNvIjoyMCwidXJsIjoia25vdGZyZWUubmV0In0.Utcx5e2ve-U8nVrjmYipB45X5QsGDwlufczfq34i8tEA-QO659ox3IsXHu9qLeIukiAFc3cKGtRjeJqCww40Aw'
 
@@ -131,7 +130,7 @@ client.connect(broker)  # connect
 client.loop_start()  
 time.sleep(2)
 print("publishing ")
-for count in range(9999):
+for count in range(9999999):
     print(count)
     topic = "alice_vociferous_mcgrath" 
     topic = "testtopic" 
@@ -143,7 +142,7 @@ for count in range(9999):
     cdatabytes = bytearray(str(count), 'utf-8')
     properties.CorrelationData = cdatabytes #bytes([count]) 
     lastTime = time.time() * 1000
-    client.publish(topic, message, qos=0, retain=False, properties=properties)
+  #####  client.publish(topic, message, qos=0, retain=False, properties=properties)
     time.sleep(10)
      
 client.disconnect()  # disconnect

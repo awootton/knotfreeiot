@@ -73,7 +73,7 @@ func (ex *Executive) DialContactToAnyAide(isTCP bool, ce *ClusterExecutive) {
 				aide := ce.Aides[rand.Intn(len(ce.Aides))]
 				//   because we're in test
 				// with no tcp
-				token := tokens.Test32xToken//GetImpromptuGiantToken()
+				token := tokens.Test32xToken //GetImpromptuGiantToken()
 
 				contact := &ContactStruct{}
 				AddContactStruct(contact, contact, aide.Config)
@@ -168,7 +168,7 @@ func (ex *Executive) dialAideAndServe(address string, ce *ClusterExecutive) erro
 
 	for p := range ex.channelToAnyAide {
 		err := p.Write(conn)
-		fmt.Println("channelToAnyAide pushing to aide ", p)
+		// fmt.Println("channelToAnyAide pushing to aide ", p)
 		if err != nil || founderr != nil {
 			if err == nil {
 				err = founderr
