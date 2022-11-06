@@ -19,7 +19,7 @@ from paho.mqtt.packettypes import PacketTypes
 # knotfree.net -- OK
 # https://www.cloudmqtt.com/plans.html  out of stock.
 
-broker = "knotlocal.com" # "knotfree.net" # 192.168.86.159" knotlocal.com is localhost in my hosts
+broker = "knotfree2.com" # "knotfree.net" # 192.168.86.159" knotlocal.com is localhost in my hosts
 # broker = "knotfree2.com" #  aka localhost in my /etc/hosts file
 
 clientid = "clientId-ws131u1ewt"
@@ -142,7 +142,7 @@ for count in range(9999999):
     cdatabytes = bytearray(str(count), 'utf-8')
     properties.CorrelationData = cdatabytes #bytes([count]) 
     lastTime = time.time() * 1000
-  #####  client.publish(topic, message, qos=0, retain=False, properties=properties)
+    client.publish(topic, message, qos=0, retain=False, properties=properties)
     time.sleep(10)
      
 client.disconnect()  # disconnect

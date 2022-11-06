@@ -960,6 +960,20 @@ func (p *PacketCommon) SetOption(key string, val []byte) {
 	p.optionalKeyValues.Put(key, val)
 }
 
+func (p *PacketCommon) CopyOptions(source *PacketCommon) {
+
+	if p.optionalKeyValues == nil {
+		p.optionalKeyValues = redblacktree.NewWithStringComparator()
+	}
+	if source.optionalKeyValues == nil {
+		return
+	}
+	it := source.optionalKeyValues.Iterator()
+	for it.Next() {
+		p.SetOption(it.Key().(string), it.Value().([]byte))
+	}
+}
+
 // Copyright 2019,2020,2021,2022 Alan Tracey Wootton
 //
 // This program is free software: you can redistribute it and/or modify

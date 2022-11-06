@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
 	"net"
 	"os"
@@ -37,7 +36,7 @@ func main() {
 
 	serveTime(token)
 
-	publistTestTopic(token)
+	publishTestTopic(token)
 
 	for {
 		fmt.Println("in monitor_pod")
@@ -47,7 +46,7 @@ func main() {
 
 var testtopicCount = 0
 
-func publistTestTopic(token string) { // use knotfree format
+func publishTestTopic(token string) { // use knotfree format
 
 	target_cluster := os.Getenv("TARGET_CLUSTER")
 
@@ -60,7 +59,7 @@ func publistTestTopic(token string) { // use knotfree format
 				fail++
 				continue
 			}
-			println("testtopic Dialing ")
+			// println("testtopic Dialing ")
 			conn, err := net.DialTCP("tcp", nil, tcpAddr)
 			if err != nil {
 				println("Dial failed:", err.Error())
@@ -87,7 +86,7 @@ func publistTestTopic(token string) { // use knotfree format
 			message := min + ":" + sec + " count " + strconv.Itoa(testtopicCount)
 			testtopicCount++
 
-			fmt.Println("testtopic connected")
+			//fmt.Println("testtopic connected")
 			topic := "testtopic"
 			sub := &packets.Send{}
 			sub.Address.FromString(topic)
@@ -173,7 +172,8 @@ func serveTime(token string) { // use knotfree format
 				//fmt.Println("from ", string(pub.Source.String()))
 
 				message := string(pub.Payload)
-				//println("client got:", message)
+				println("get-unix-time got:", message)
+
 				isHttp := false
 				if strings.HasPrefix(message, `GET /`) {
 					isHttp = true
@@ -207,10 +207,10 @@ func serveTime(token string) { // use knotfree format
 					countStr := strconv.FormatInt(int64(fail), 10)
 					reply = countStr
 				} else {
-					reply += "[get time] returns the unix time in seconds\n"
-					reply += "[get count] returns how many served since reboot\n"
-					reply += "[get fail] returns how requests were bad since reboot\n"
-					reply += "[help] returns this message\n"
+					reply += "[get time] unix time in seconds\n"
+					reply += "[get count] how many served since reboot\n"
+					reply += "[get fail] how many requests were bad since reboot\n"
+					reply += "[help] lists all commands\n"
 				}
 				if isHttp {
 
@@ -228,6 +228,7 @@ func serveTime(token string) { // use knotfree format
 				sendme.Address = pub.Source
 				sendme.Source = pub.Address
 				sendme.Payload = []byte(reply)
+				sendme.CopyOptions(&pub.PacketCommon) // this is very important. there's a nonce in here
 
 				// fmt.Println("destination ", string(sendme.Address.String()))
 				//  fmt.Println("source ", string(sendme.Source.String()))
@@ -236,151 +237,6 @@ func serveTime(token string) { // use knotfree format
 					println("send err:", err)
 					fail++
 					break
-				}
-				count++
-			}
-		}
-	}()
-}
-
-// delete me
-func XXXserveTimeTextMode(token string) { // fails http and is awkward with help. works otherwise
-
-	// using the text protocol on port 7465
-
-	target_cluster := os.Getenv("TARGET_CLUSTER")
-
-	go func() {
-		for {
-			servAddr := target_cluster + ":7465"
-			tcpAddr, err := net.ResolveTCPAddr("tcp", servAddr)
-			if err != nil {
-				println("serveTime ResolveTCPAddr failed:", err.Error())
-				continue
-			}
-			println("serveTime Dialing ")
-			conn, err := net.DialTCP("tcp", nil, tcpAddr)
-			if err != nil {
-				println("serveTime Dial failed:", err.Error())
-				continue
-			}
-
-			str := "C token " + token
-			_, err = conn.Write([]byte(str + "\n"))
-			if err != nil {
-				println("serveTime C Write to server failed:", err.Error())
-				continue
-			}
-
-			topic := "get-unix-time"
-			str = "S " + topic
-			_, err = conn.Write([]byte(str + "\n"))
-			if err != nil {
-				println("serveTime Write S to server failed:", err.Error())
-				continue
-			}
-
-			println("serveTime subscribed, waiting for line... ")
-
-			lineReader := bufio.NewReader(conn)
-			for {
-				str, err := lineReader.ReadString('\n')
-				if err != nil {
-					println("serveTime ReadString err:", err.Error())
-					break
-					// start over
-				}
-				if len(str) < 3 {
-					continue
-				}
-				println("serveTime got:", str)
-				// eg. [P,=xOZPbNiNsA_lM_6xJEwM1C7YmVMGlDpA,myaddresstopicchannel,"get time"]\n
-				// or  [P,=xOZPbNiNsA_lM_6xJEwM1C7YmVMGlDpA,=NSIrmrHdo37keWaU1RP4MikldE4B-Vga,"GET /get/time HTTP/1.1
-				// it's going  to come through without spaces
-
-				if strings.HasPrefix(str, "[") {
-					str = str[1:]
-				} else {
-					continue
-				}
-				if strings.HasSuffix(str, "]\n") {
-					str = str[0 : len(str)-2]
-				} else {
-					//continue
-				}
-				parts := strings.Split(str, ",")
-				fmt.Println(parts) // eg. [P,=xOZPbNiNsA_lM_6xJEwM1C7YmVMGlDpA,=NSIrmrHdo37keWaU1RP4MikldE4B-Vga,"GET /get/time HTTP/1.1
-				if len(parts) != 4 {
-					continue
-				}
-				isHttp := false
-				if parts[0] != "P" { // it has to be a publish
-					continue
-				}
-				ourAddress := parts[1]    // hashed by system : will always be =xOZPbNiNsA_lM_6xJEwM1C7YmVMGlDpA
-				returnAddress := parts[2] // eg, in example, myaddresstopicchannel
-				message := parts[3]       // eg, "get time" or "GET /get/time HTTP/1.1
-
-				if strings.HasPrefix(message, `"GET /`) {
-					isHttp = true
-					for {
-						headerLine, err := lineReader.ReadString('\n')
-						if err != nil {
-							println("serveTime headerLine err:", err.Error())
-							break
-						}
-						if headerLine == "\n" {
-							break
-						}
-					}
-					getparts := strings.Split(message, " ")
-					if len(getparts) != 3 {
-						continue
-					}
-					// now we passed the headers
-					message = getparts[1]
-					message = strings.ReplaceAll(message, "/", " ")
-					message = strings.Trim(message, " ")
-					fmt.Println("http command is ", message)
-				} else {
-					// message is ok
-					message = strings.Trim(message, `"`)
-				}
-				reply := "[get time] returns the unix time in seconds\n"
-				reply += "[get count] returns how many served since reboot\n"
-				reply += "[get fail] returns how requests were bad since reboot\n"
-				reply += "[help] returns this message\n"
-				if message == `get time` {
-					sec := time.Now().UnixMilli() / 1000
-					secStr := strconv.FormatInt(sec, 10)
-					reply = secStr
-				} else if message == `get count` {
-					countStr := strconv.FormatInt(int64(count), 10)
-					reply = countStr
-				}
-				_ = isHttp
-				// make a reply
-				if isHttp {
-
-					tmp := "HTTP/1.1 200 OK\r\n"
-					tmp += "Content-Length: "
-					tmp += strconv.FormatInt(int64(len(reply)), 10)
-					tmp += "\r\n"
-					tmp += "Content-Type: text/plain\r\n"
-					tmp += "Connection: Closed\r\n"
-					tmp += "\r\n"
-					tmp += reply
-					reply = tmp
-				}
-				lines := strings.Split(reply, "\n")
-				for _, line := range lines {
-					replyStr := "P " + returnAddress + " " + ourAddress + ` "` + line + `"\n`
-					fmt.Println("get time reply: ", replyStr)
-					_, err = conn.Write([]byte(replyStr + "\n"))
-					if err != nil {
-						println("serveTime Write err:", err.Error())
-						break
-					}
 				}
 				count++
 			}

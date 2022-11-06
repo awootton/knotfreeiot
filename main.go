@@ -753,7 +753,7 @@ type wsAPIHandler struct {
 
 func (api wsAPIHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
-	fmt.Println("ws ServeHTTP", r.RequestURI)
+	// fmt.Println("ws ServeHTTP", r.RequestURI)
 
 	allowAll := func(r *http.Request) bool {
 		return true

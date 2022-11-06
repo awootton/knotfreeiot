@@ -152,7 +152,7 @@ func MQTTHandlePacket(cc *mqttContact, control libmqtt.Packet) {
 
 	case *libmqtt.ConnPacket:
 
-		fmt.Println("have mqttpackets.ConnectPacket")
+		// fmt.Println("have mqttpackets.ConnectPacket")
 
 		p := &packets.Connect{}
 		if len(mq.Password) == 0 {
@@ -234,7 +234,7 @@ func MQTTHandlePacket(cc *mqttContact, control libmqtt.Packet) {
 
 		for _, topic := range mq.Topics {
 
-			fmt.Println("mqtt client subscribes to", topic)
+			// fmt.Println("mqtt client subscribes to", topic)
 
 			p := &packets.Subscribe{}
 			p.Address.FromString(topic.Name)
@@ -287,6 +287,7 @@ func (cc *mqttContact) WriteDownstream(p packets.Interface) error {
 	case *packets.Connect:
 		fmt.Println("cant happen")
 	case *packets.Disconnect:
+
 		mq := &libmqtt.DisconnPacket{}
 		mq.Props = &libmqtt.DisconnProps{}
 		//	mq.MessageType = mqttpackets.Disconnect
@@ -294,6 +295,7 @@ func (cc *mqttContact) WriteDownstream(p packets.Interface) error {
 		if ok {
 			mq.Props.Reason = string(estr)
 		}
+		fmt.Println("mqtt-protocol packets.Disconnect", string(estr))
 		//mq.ProtoVersion = cc.protoVersion
 		return cc.writeLibPacket(mq, cc) // mq.WriteTo(cc)
 	case *packets.Subscribe:
@@ -467,7 +469,8 @@ func WebSocketLoop(wsConn *websocket.Conn, config *ContactStructConfig) {
 		//fmt.Println("waiting for mqtt ws packet")
 		mt, message, err := wsConn.ReadMessage()
 		if err != nil {
-			fmt.Println("mqtt ws read err", err) // eg. websocket: close 1000 (normal)
+			// fmt.Println("mqtt ws read err", err) // eg. websocket: close 1000 (normal)
+			// websocket: close 1001 (going away)
 			// websocket: close 1005 (no status) which is NOT normal
 			// websocket: close 1006 (abnormal closure): unexpected EOF
 			break

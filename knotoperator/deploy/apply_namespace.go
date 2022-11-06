@@ -222,13 +222,13 @@ func buildTheKnotFreeMain(registry string) {
 		val, err := kubectl.K8s("pwd", "")
 		fmt.Println("buildTheKnotFreeMain in ", val, err)
 
-		// /Users/awootton/Documents/workspace/knotfree-ts-pwa/build_to_knotfree_docs.sh
+		// /Users/awootton/Documents/workspace/knotfree-net-homepage/build_to_knotfree_docs.sh
 
-		kubectl.K("ls -lah ../../../knotfree-ts-pwa/")
+		kubectl.K("ls -lah ../../../knotfree-net-homepage/")
 
 		kubectl.K("rm -rf ../../docs/ ")
 
-		kubectl.K("cd ../../../knotfree-ts-pwa/ ; ./build_to_knotfree_docs.sh")
+		kubectl.K("cd ../../../knotfree-net-homepage/ ; ./build_to_knotfree_docs.sh")
 	}
 
 	digest, _ := kubectl.K8s("docker inspect --format='{{.RepoDigests}}' "+registry+"/knotfreeserver", "")
