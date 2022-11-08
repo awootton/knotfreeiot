@@ -57,8 +57,9 @@ func TestSubscriptionOverrun(t *testing.T) {
 	// c2 := getNewContactFromAide(aide1, sampleToken1)
 	// allContacts = append(allContacts, c2.(*testContact))
 
-	SendText(c1, "S "+c1.String()+" debg 12345678")         // subscribe to my name
-	SendText(c1, "S "+"someotherchannel "+" debg 12345678") // subscribe to my name
+	SendText(c1, "S "+c1.String()+" debg 12345678")          // subscribe to my name
+	SendText(c1, "S "+"someotherchannel "+" debg 12345678")  // subscribe to another channel
+	SendText(c1, "S "+"someotherchannel2 "+" debg 12345678") // subscribe to another channel
 
 	//	SendText(c2, "S "+c1.String()+" debg 12345678") // subscribe to c1's name
 
@@ -67,29 +68,33 @@ func TestSubscriptionOverrun(t *testing.T) {
 
 	ce.WaitForActions()
 
-	for minutes := 0; minutes < 25; minutes++ {
-		localtime += 60
-		ce.Heartbeat(localtime)
-		ce.WaitForActions()
-		c1.SetExpires(localtime + 60*60*60) // an hour
-	}
-	for minutes := 0; minutes < 25; minutes++ {
-		localtime += 60
-		ce.Heartbeat(localtime)
-		ce.WaitForActions()
-		c1.SetExpires(localtime + 60*60*60) // an hour
-	}
+	ok := true
 
-	IterateAndWait(t, func() bool {
-		got, ok := c1.(*testContact).getResultAsString()
-		fmt.Println("c1 got", got)
-		return ok
-	}, "timed out waiting for TestSubscriptionOverrun result")
-
+	for seconds := 0; seconds < 20*60; seconds++ {
+		localtime += 1
+		ce.Heartbeat(localtime)
+		if seconds%10 == 1 {
+			ce.WaitForActions()
+		}
+		c1.SetExpires(localtime + 60*60) // an hour
+		got, ok = c1.(*testContact).getResultAsString()
+		if ok {
+			fmt.Println("got", got)
+			break
+		}
+	}
+	if got == "" {
+		IterateAndWait(t, func() bool {
+			got, ok := c1.(*testContact).getResultAsString()
+			fmt.Println("c1 got", got)
+			return ok
+		}, "timed out waiting for TestSubscriptionOverrun result")
+	}
+	fmt.Println("got", got)
 	fmt.Println("subscriptions. aide1", aide1.GetExecutiveStats().Subscriptions*float64(aide1.GetExecutiveStats().Limits.Subscriptions))
 
 	got, _ = c1.(*testContact).getResultAsString()
-	want = `[P,=jZae727K08KaOmKSgOaGzww_XVqGr_PK,ping,"BILLING ERROR 2.27027027027027 subscriptions > 2",error,"BILLING ERROR 2.27027027027027 subscriptions > 2"]`
+	want = `[P,=jZae727K08KaOmKSgOaGzww_XVqGr_PK,ping," BILLING ERROR 2.9 subscriptions > 2",error," BILLING ERROR 2.9 subscriptions > 2"]`
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
 	}
@@ -131,13 +136,15 @@ func TestContactTimeout(t *testing.T) {
 
 	fmt.Println("contacts aide1", aide1.GetExecutiveStats().Connections*float64(aide1.GetExecutiveStats().Limits.Connections))
 
-	for minutes := 0; minutes < 20; minutes++ {
-		localtime += 60
+	for seconds := 0; seconds < 20*60; seconds += 10 {
+		localtime += 10
 		ce.Heartbeat(localtime)
-		if minutes%5 == 4 {
+		if seconds%300 == 1 {
 			SendText(c1, "S "+c1.String()) // subscribe to my name, again
 		}
-		ce.WaitForActions()
+		if seconds%10 == 1 {
+			ce.WaitForActions()
+		}
 	}
 	SendText(c1, "S "+c1.String()) // subscribe to my name, again
 	ce.WaitForActions()
@@ -151,10 +158,12 @@ func TestContactTimeout(t *testing.T) {
 	fmt.Println("minutes passed", (localtime-starttime)/60)
 
 	// now just wait for a while for c1 to get kicked off
-	for minutes := 0; minutes < 18; minutes++ {
-		localtime += 60
+	for seconds := 0; seconds < 18*60; seconds += 10 {
+		localtime += 10
 		ce.Heartbeat(localtime)
+
 		ce.WaitForActions()
+
 	}
 	fmt.Println("minutes passed", (localtime-starttime)/60)
 
@@ -268,15 +277,13 @@ func TestConnectionsOver(t *testing.T) {
 	// note the packet in the q of c3 describes the error.
 	got = fmt.Sprint(c3.(*testContact).getResultAsString())
 	//fmt.Println(got)
-	want = `[P,=jZae727K08KaOmKSgOaGzww_XVqGr_PK,ping,"BILLING ERROR 60 connections > 1",error,"BILLING ERROR 60 connections > 1"]true`
-	want2 := `[P,=jZae727K08KaOmKSgOaGzww_XVqGr_PK,ping,"BILLING ERROR 3 connections > 1",error,"BILLING ERROR 3 connections > 1"]true`
+	want = `[P,=jZae727K08KaOmKSgOaGzww_XVqGr_PK,ping," BILLING ERROR 1.8 connections > 1",error," BILLING ERROR 1.8 connections > 1"]true`
 	//fmt.Println(want)
 	// for i := 40; i < 45; i++ {
 	// 	fmt.Println(got[i])
 	// 	fmt.Println(want[i])
 	// }
-	// FIXME: this one won't hold still.
-	if got != want && got != want2 {
+	if got != want {
 		t.Errorf("got %v, want %v", got, want)
 	}
 
@@ -299,7 +306,7 @@ func TestBills(t *testing.T) {
 		dt := 90 // seconds
 		stats.Connections = float64(dt)
 
-		ba.AddUsage(stats, testtime)
+		ba.AddUsage(stats, testtime, 90)
 
 		testtime += uint32(dt)
 
@@ -308,19 +315,17 @@ func TestBills(t *testing.T) {
 
 	}
 	got = fmt.Sprint(ba.GetInput(testtime), ba.GetConnections(testtime))
-	want = "9.565217391304348 0.9565217391304348"
+	want = "9.39 0.93"
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
 	}
 
 }
 
-func TestBills2(t *testing.T) {
+func TestBillingAccumulatorContact(t *testing.T) {
 
 	got := ""
 	want := ""
-
-	ba := &iot.BillingAccumulator{}
 
 	localtime := starttime
 	getTime := func() uint32 {
@@ -328,20 +333,84 @@ func TestBills2(t *testing.T) {
 	}
 	_ = getTime
 
-	for t := 0; t < 4; t++ {
-		for minutes := 0; minutes < 20; minutes++ {
+	// let's loop by seconds. 20 min.
+	// two connections, offset in time.
 
-			stats := &tokens.KnotFreeContactStats{}
-			stats.Connections = float64(60)
-			ba.AddUsage(stats, localtime)
+	c1nextHeart := starttime + 40 + 10 // the heartbeat for a whole executive
+	c2nextHeart := starttime + 20 + 10
 
-			localtime += 60
-			//fmt.Println("conn", ba.GetConnections(localtime))
+	c1lastBillingTime := c1nextHeart
+	c1nextBillingTime := c1nextHeart + 30 // the heartbeat for a client, starts at 30 sec and then goes to 60
+
+	c2lastBillingTime := c2nextHeart
+	c2nextBillingTime := c2nextHeart + 30
+
+	ba := &iot.BillingAccumulator{}
+
+	for t := uint32(0); t < 60*20; t++ {
+
+		localtime = starttime + t
+		now := localtime
+
+		changed := false
+
+		// clients heartbeat every 10 sec
+		if now > c1nextHeart {
+
+			if localtime > c1nextBillingTime {
+
+				deltaTime := float64(c1nextBillingTime - c1lastBillingTime) // see contacts ContactStruct.Heartbeat
+				c1lastBillingTime = c1nextBillingTime
+				c1nextBillingTime += 60 // 60 secs after first time
+
+				stats := &tokens.KnotFreeContactStats{}
+				stats.Connections = deltaTime // one connection
+				stats.Input = 32 * deltaTime  // so 32 per sec
+				stats.Output = 16 * deltaTime // so 16
+
+				ba.AddUsage(stats, now, int(deltaTime))
+				changed = true
+			}
+
+			c1nextHeart += 10
+		}
+		if localtime > c2nextHeart {
+
+			if localtime > c2nextBillingTime {
+
+				deltaTime := float64(c2nextBillingTime - c2lastBillingTime) // see contacts ContactStruct.Heartbeat
+				c2lastBillingTime = c2nextBillingTime
+				c2nextBillingTime += 60 // 60 secs after first time
+
+				stats := &tokens.KnotFreeContactStats{}
+				stats.Connections = deltaTime // one connection
+				stats.Input = 24 * deltaTime  // so 32 per sec
+				stats.Output = 8 * deltaTime  // so 16
+
+				ba.AddUsage(stats, now, int(deltaTime))
+				changed = true
+			}
+			c2nextHeart += 10
+		}
+		if changed {
+			statsResult := &tokens.KnotFreeContactStats{}
+			ba.GetStats(now, statsResult)
+			fmt.Println("stats", statsResult)
 		}
 	}
 
 	got = fmt.Sprint(ba.GetConnections(localtime))
-	want = "0.9722222222222222"
+	want = "1.9"
+	if got != want {
+		t.Errorf("got %v, want %v", got, want)
+	}
+	got = fmt.Sprint(ba.GetInput(localtime))
+	want = "53.21" // of 56
+	if got != want {
+		t.Errorf("got %v, want %v", got, want)
+	}
+	got = fmt.Sprint(ba.GetOutput(localtime))
+	want = "22.8" // of 24
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
 	}

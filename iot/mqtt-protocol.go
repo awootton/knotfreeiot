@@ -143,7 +143,7 @@ func mqttConnection(tcpConn *net.TCPConn, ex *Executive) {
 // MQTTHandlePacket is for when the packet was parsed elsewhere (like in the websocket).
 func MQTTHandlePacket(cc *mqttContact, control libmqtt.Packet) {
 
-	//fmt.Println("mqtt packet", control)
+	// fmt.Println("mqtt packet", control)
 	// As much fun as it would be to make the following code into virtual methods
 	// of the types involved (and I tried it) it's more annoying and harder to read
 	// than just doing it all here.
@@ -152,7 +152,7 @@ func MQTTHandlePacket(cc *mqttContact, control libmqtt.Packet) {
 
 	case *libmqtt.ConnPacket:
 
-		// fmt.Println("have mqttpackets.ConnectPacket")
+		fmt.Println("have mqttpackets.ConnectPacket")
 
 		p := &packets.Connect{}
 		if len(mq.Password) == 0 {
@@ -426,6 +426,8 @@ func WebSocketLoop(wsConn *websocket.Conn, config *ContactStructConfig) {
 	// todo out-line this
 	cc.writeLibPacket = func(mq libmqtt.Packet, ccx *mqttContact) error {
 
+		// this is the downstream write function
+
 		mq.SetVersion(cc.protoVersion)
 
 		//fmt.Println("writeLibPacket has version %n ", cc.protoVersion)
@@ -466,15 +468,17 @@ func WebSocketLoop(wsConn *websocket.Conn, config *ContactStructConfig) {
 		wsConn.SetReadDeadline(t)
 		wsConn.SetWriteDeadline(t)
 
-		//fmt.Println("waiting for mqtt ws packet")
+		// fmt.Println("waiting for mqtt ws packet")
 		mt, message, err := wsConn.ReadMessage()
 		if err != nil {
-			// fmt.Println("mqtt ws read err", err) // eg. websocket: close 1000 (normal)
+			fmt.Println("mqtt ws read err", err) // eg. websocket: close 1000 (normal)
 			// websocket: close 1001 (going away)
 			// websocket: close 1005 (no status) which is NOT normal
 			// websocket: close 1006 (abnormal closure): unexpected EOF
 			break
 		}
+
+		// fmt.Println("mqtt partial message ")
 
 		_ = mt
 		wsBuffer.Write(message)
@@ -490,7 +494,8 @@ func WebSocketLoop(wsConn *websocket.Conn, config *ContactStructConfig) {
 		extra := currentBytes[plen:]
 
 		packetData := currentBytes[0:plen]
-		//fmt.Println("got ws decoded packet", hex.EncodeToString(packetData))
+
+		// fmt.Println("got ws decoded packet", hex.EncodeToString(packetData))
 
 		readBuffer.Reset()
 		readBuffer.Write(packetData)
@@ -510,7 +515,7 @@ func WebSocketLoop(wsConn *websocket.Conn, config *ContactStructConfig) {
 
 		MQTTHandlePacket(&cc.mqttContact, control)
 	}
-	fmt.Println("returned from loop ")
+	fmt.Println("returned from ReadMessage loop ")
 }
 
 // IsWholeMqttPacket returns true if the data is an mqtt packet and returns the length used.

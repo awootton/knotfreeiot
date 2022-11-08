@@ -17,6 +17,7 @@ package iot
 
 import (
 	"fmt"
+	"math"
 
 	"github.com/awootton/knotfreeiot/tokens"
 )
@@ -32,8 +33,8 @@ sends "statsmax" with the subscribe and statsmax is a KnotFreeContactStats from 
 In subscribe.go we notice the statsmax KnotFreeContactStats and construct a BillingAccumulator
 and add it to the watcher with the name of "bill". There is a getter for that. watchedItem.GetBilling()
 
-In the Heartbeat of a Contact we periodically (30 then 300 sec) construct a Stats
-and we Push it as a Send with option "stats".
+In the Heartbeat of a Contact we periodically (30 then 60 sec) construct a Stats
+and we Push it as a Send with option "add-stats".
 When the publish.go gets the stats message we do a GetBilling() (aka GetOption("bill"))
  and we have special case for that and we BillingAccumulator.Add(stats)
 
@@ -61,7 +62,7 @@ and send down our special error Send{}
 // we only want to go back about an hour. about.
 // we'll use 10 min buckets and add 4 of them.
 
-const bucketSpanTime = 10 * 60 // 20 minutes
+const bucketSpanTime = 10 * 60 // 10 minutes
 
 // BillingAccumulator is terse
 type BillingAccumulator struct {
@@ -87,7 +88,7 @@ type Stats struct {
 }
 
 // AddUsage accumulates the stats into the BillingAccumulator
-func (ba *BillingAccumulator) AddUsage(stats *tokens.KnotFreeContactStats, now uint32) {
+func (ba *BillingAccumulator) AddUsage(stats *tokens.KnotFreeContactStats, now uint32, deltat int) {
 
 	c := &ba.a[ba.i]
 	if c.Used == false {
@@ -95,7 +96,7 @@ func (ba *BillingAccumulator) AddUsage(stats *tokens.KnotFreeContactStats, now u
 		for i := 0; i < len(ba.a); i++ {
 			ba.a[i].Start = now - uint32(bucketSpanTime*(len(ba.a)-i))
 		}
-		c.Start = now
+		c.Start = now - uint32(deltat)
 		c.Used = false
 	}
 	c.Used = true
@@ -106,6 +107,8 @@ func (ba *BillingAccumulator) AddUsage(stats *tokens.KnotFreeContactStats, now u
 	c.Subscriptions += stats.Subscriptions
 
 	if (c.Start + bucketSpanTime) < now {
+
+		previousTime := c.Start + bucketSpanTime
 		ba.i = (ba.i + 1) % len(ba.a)
 		next := &ba.a[ba.i]
 
@@ -113,7 +116,7 @@ func (ba *BillingAccumulator) AddUsage(stats *tokens.KnotFreeContactStats, now u
 		BucketClear(next)
 
 		c = next
-		c.Start = now
+		c.Start = previousTime
 		c.Used = true
 		c.Connections = 0
 		c.Input = 0
@@ -141,19 +144,19 @@ func (ba *BillingAccumulator) AreUnderMax(now uint32) (bool, string) {
 
 	if current.Connections > (ba.max.Connections + .1) {
 		weGood = false
-		why += fmt.Sprintf("BILLING ERROR %v connections > %v", current.Connections, ba.max.Connections)
+		why += fmt.Sprintf(" BILLING ERROR %v connections > %v", current.Connections, ba.max.Connections)
 	}
 	if current.Input > (ba.max.Input + .1*100) {
 		weGood = false
-		why += fmt.Sprintf("BILLING ERROR %v bytes in > %v/s", current.Input, ba.max.Input)
+		why += fmt.Sprintf(" BILLING ERROR %v bytes in > %v/s", current.Input, ba.max.Input)
 	}
 	if current.Output > (ba.max.Output + .1) {
 		weGood = false
-		why += fmt.Sprintf("BILLING ERROR %v bytes out > %v/s", current.Output, ba.max.Output)
+		why += fmt.Sprintf(" BILLING ERROR %v bytes out > %v/s", current.Output, ba.max.Output)
 	}
 	if current.Subscriptions > (ba.max.Subscriptions + .1) {
 		weGood = false
-		why += fmt.Sprintf("BILLING ERROR %v subscriptions > %v", current.Subscriptions, ba.max.Subscriptions)
+		why += fmt.Sprintf(" BILLING ERROR %v subscriptions > %v", current.Subscriptions, ba.max.Subscriptions)
 	}
 
 	return weGood, why
@@ -164,94 +167,113 @@ const lookback = 4
 // GetInput - we sum up some prevous buckets and divide.
 // do we need to sync with Add? No, because all access to this goes through a q in lookup.
 func (ba *BillingAccumulator) GetInput(now uint32) float64 {
-	vals := float64(0)
-	times := float64(0)
-	tmpnow := now
-	for i := 0; i < lookback; i++ { // walk backwards
-		index := (ba.i - i + len(ba.a)) % len(ba.a)
-		c := &ba.a[index]
-		if !c.Used {
-			break
-		}
-		vals += c.Input
-		buckettime := tmpnow - c.Start
-		tmpnow -= buckettime
-		times += float64(buckettime)
-	}
-	if times == 0 {
-		return 0
-	}
-	f := vals / times
-	return f
+
+	statsResult := &tokens.KnotFreeContactStats{}
+	ba.GetStats(now, statsResult)
+	return statsResult.Input
+
+	// vals := float64(0)
+	// times := float64(0)
+	// tmpnow := now
+	// for i := 0; i < lookback; i++ { // walk backwards
+	// 	index := (ba.i - i + len(ba.a)) % len(ba.a)
+	// 	c := &ba.a[index]
+	// 	if !c.Used {
+	// 		break
+	// 	}
+	// 	vals += c.Input
+	// 	buckettime := tmpnow - c.Start
+	// 	tmpnow -= buckettime
+	// 	times += float64(buckettime)
+	// }
+	// if times == 0 {
+	// 	return 0
+	// }
+	// f := vals / times
+	// return f
 }
 
 // GetConnections is
 func (ba *BillingAccumulator) GetConnections(now uint32) float64 {
-	vals := float64(0)
-	times := float64(0)
-	tmpnow := now
-	for i := 0; i < lookback; i++ {
-		index := (ba.i - i + len(ba.a)) % len(ba.a)
-		c := &ba.a[index]
-		if !c.Used {
-			break
-		}
-		vals += c.Connections
-		buckettime := tmpnow - c.Start
-		tmpnow -= buckettime
-		times += float64(buckettime)
-	}
-	if times == 0 {
-		return 0
-	}
-	f := vals / times
-	return f
+	statsResult := &tokens.KnotFreeContactStats{}
+	ba.GetStats(now, statsResult)
+	return statsResult.Connections
+
+	// vals := float64(0)
+	// times := float64(0)
+	// tmpnow := now
+	// for i := 0; i < lookback; i++ {
+	// 	index := (ba.i - i + len(ba.a)) % len(ba.a)
+	// 	c := &ba.a[index]
+	// 	if !c.Used {
+	// 		break
+	// 	}
+	// 	vals += c.Connections
+	// 	buckettime := tmpnow - c.Start
+	// 	tmpnow -= buckettime
+	// 	times += float64(buckettime)
+	// }
+	// if times == 0 {
+	// 	return 0
+	// }
+	// f := vals / times
+	// return f
 }
 
 // GetOutput is
 func (ba *BillingAccumulator) GetOutput(now uint32) float64 {
-	vals := float64(0)
-	times := float64(0)
-	tmpnow := now
-	for i := 0; i < lookback; i++ {
-		index := (ba.i - i + len(ba.a)) % len(ba.a)
-		c := &ba.a[index]
-		if !c.Used {
-			break
-		}
-		vals += c.Output
-		buckettime := tmpnow - c.Start
-		tmpnow -= buckettime
-		times += float64(buckettime)
-	}
-	if times == 0 {
-		return 0
-	}
-	f := vals / times
-	return f
+
+	statsResult := &tokens.KnotFreeContactStats{}
+	ba.GetStats(now, statsResult)
+	return statsResult.Output
+
+	// vals := float64(0)
+	// times := float64(0)
+	// tmpnow := now
+	// for i := 0; i < lookback; i++ {
+	// 	index := (ba.i - i + len(ba.a)) % len(ba.a)
+	// 	c := &ba.a[index]
+	// 	if !c.Used {
+	// 		break
+	// 	}
+	// 	vals += c.Output
+	// 	buckettime := tmpnow - c.Start
+	// 	tmpnow -= buckettime
+	// 	times += float64(buckettime)
+	// }
+	// if times == 0 {
+	// 	return 0
+	// }
+	// f := vals / times
+	// return f
 }
 
 // GetSubscriptions is
 func (ba *BillingAccumulator) GetSubscriptions(now uint32) float64 {
-	vals := float64(0)
-	times := float64(0)
-	tmpnow := now
-	for i := 0; i < lookback; i++ {
-		index := (ba.i - i + len(ba.a)) % len(ba.a)
-		c := &ba.a[index]
-		if !c.Used {
-			break
-		}
-		vals += c.Subscriptions
-		buckettime := tmpnow - c.Start
-		tmpnow -= buckettime
-		times += float64(buckettime)
-	}
-	if times == 0 {
-		return 0
-	}
-	f := vals / times
-	return f
+
+	statsResult := &tokens.KnotFreeContactStats{}
+	ba.GetStats(now, statsResult)
+	return statsResult.Subscriptions
+
+	// vals := float64(0)
+	// times := float64(0)
+	// tmpnow := now
+	// for i := 0; i < lookback; i++ {
+	// 	index := (ba.i - i + len(ba.a)) % len(ba.a)
+	// 	c := &ba.a[index]
+	// 	if !c.Used {
+	// 		break
+	// 	}
+	// 	vals += c.Subscriptions
+	// 	buckettime := tmpnow - c.Start
+	// 	tmpnow -= buckettime
+	// 	times += float64(buckettime)
+	// }
+	// if times == 0 {
+	// 	return 0
+	// }
+	// f := vals / times
+	// return f
 }
 
 // GetStats calcs them all at once into dest.
@@ -281,6 +303,11 @@ func (ba *BillingAccumulator) GetStats(now uint32, dest *tokens.KnotFreeContactS
 	dest.Input /= times
 	dest.Output /= times
 	dest.Subscriptions /= times
+
+	dest.Connections = math.Floor(dest.Connections*100) / 100
+	dest.Input = math.Floor(dest.Input*100) / 100
+	dest.Output = math.Floor(dest.Output*100) / 100
+	dest.Subscriptions = math.Floor(dest.Subscriptions*100) / 100
 }
 
 // BucketCopy is

@@ -65,7 +65,7 @@ type WatchedTopic struct {
 
 	optionalKeyValues *redblacktree.Tree // might be nil if no options. used by billing
 
-	// billing: can we NOT use the optionalKeyValues ?
+	// billing: can we NOT use the optionalKeyValues ? like bill
 
 	nextBillingTime uint32
 	lastBillingTime uint32
@@ -579,8 +579,8 @@ type callBackCommand struct { // todo make interface
 	callback func(me *LookupTableStruct, bucket *subscribeBucket, cmd *callBackCommand)
 	index    int
 	wg       sync.WaitGroup
-	expires  uint32
-	now      uint32
+	// expires  uint32
+	now uint32
 }
 
 func guruDeleteRemappedAndGoneTopics(me *LookupTableStruct, bucket *subscribeBucket, cmd *callBackCommand) {

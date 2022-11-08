@@ -37,7 +37,6 @@ import (
 var globalClusterExec *iot.ClusterExecutive
 
 const starttime = uint32(1577840400) // Wednesday, January 1, 2020 1:00:00 AM
-//var currentTime = uint32(1577840400)
 
 // a typical bottom contact with a q instead of a writer
 type testContact struct {

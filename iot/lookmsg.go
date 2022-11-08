@@ -65,6 +65,7 @@ func processLookup(me *LookupTableStruct, bucket *subscribeBucket, lookmsg *look
 	send.Address = lookmsg.p.Source
 	send.Source = lookmsg.p.Address
 	send.SetOption("isLookup", []byte("true"))
+	send.CopyOptions(&lookmsg.p.PacketCommon)
 	// we have level
 	// we have the count at this level
 	nodeName := me.ex.Name

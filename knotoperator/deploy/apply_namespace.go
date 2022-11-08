@@ -65,6 +65,7 @@ func main() {
 		tokens.LoadPrivateKeys("~/atw/privateKeys4.txt")
 		TOKEN := tokens.GetImpromptuGiantToken()
 
+		// wtf? hangs kubectl.K("cd ../../monitor_pod;go mod tidy")
 		kubectl.K("cd ../../monitor_pod;docker build -t  gcr.io/fair-theater-238820/monitor_pod .")
 		kubectl.K("cd ../../monitor_pod;docker push gcr.io/fair-theater-238820/monitor_pod")
 

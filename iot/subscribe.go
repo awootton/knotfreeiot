@@ -20,6 +20,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"strconv"
 
 	"github.com/awootton/knotfreeiot/packets"
 	"github.com/awootton/knotfreeiot/tokens"
@@ -30,17 +31,17 @@ import (
 
 func processSubscribe(me *LookupTableStruct, bucket *subscribeBucket, submsg *subscriptionMessage) {
 
-	//fmt.Println("top of processSubscribe", string(submsg.p.Address.String()), " in ", me.ex.Name)
 	SpecialPrint(&submsg.p.PacketCommon, func() {
 		fmt.Println("processSubscribe ", submsg.p.Address.String(), " in ", me.ex.Name)
 	})
 
 	watchedTopic, ok := getWatcher(bucket, &submsg.topicHash)
 	if !ok {
+		// make a new one as necessary
 		watchedTopic = &WatchedTopic{}
 		watchedTopic.name = submsg.topicHash
 		watchedTopic.thetree = NewWithInt64Comparator()
-		watchedTopic.expires = 20 * 60 * me.getTime()
+		watchedTopic.expires = 20*60 + me.getTime()
 
 		t, _ := submsg.p.GetOption("jwtidAlias") // don't they ALL have this?, except billing topics
 		if len(t) != 0 {                         // it's always 64 bytes binary
@@ -55,12 +56,12 @@ func processSubscribe(me *LookupTableStruct, bucket *subscribeBucket, submsg *su
 		now := me.getTime()
 		watchedTopic.nextBillingTime = now + 30 // 30 seconds to start with
 		watchedTopic.lastBillingTime = now
-
 	}
 
 	wi := &watcherItem{}
 	wi.contactInterface = submsg.ss
 
+	// is this rigtht?
 	opt, ok := submsg.p.GetOption("pub2self")
 	if ok {
 		_ = opt // assume it's 0 which means false
@@ -72,21 +73,32 @@ func processSubscribe(me *LookupTableStruct, bucket *subscribeBucket, submsg *su
 		wi.pub2self = true // default is true
 	}
 
-	// check some options
+	// The contact is going to send up this subscribe to the billing channel
 	val, ok := submsg.p.GetOption("statsmax")
 	if ok {
-		// we're a billing channel
-		stats := &tokens.KnotFreeContactStats{}
-		err := json.Unmarshal(val, stats)
-		if err == nil {
-			ba := &BillingAccumulator{}
-			ba.name = submsg.topicHash.String()[0:4]
-			BucketCopy(stats, &ba.max)
-			watchedTopic.SetOption("bill", ba)
+
+		// we need to make a note that we're a billing sub even if this is an aide
+		// just add the bill ?
+
+		// how do we keep anyone from sending a message to fake this?
+		// check if there's already a BillingAccumulator
+		_, haveBilling := watchedTopic.GetOption("bill")
+		if !haveBilling {
+			//fmt.Println("new BillingAccumulator", watchedTopic.name)
+			stats := &tokens.KnotFreeContactStats{}
+			err := json.Unmarshal(val, stats)
+			if err == nil {
+				ba := &BillingAccumulator{}
+				ba.name = submsg.topicHash.String()[0:4]
+				BucketCopy(stats, &ba.max)
+				watchedTopic.SetOption("bill", ba)
+			}
+		} else {
+			//fmt.Println("found BillingAccumulator", watchedTopic.name)
 		}
-		watchedTopic.expires = 60 * 60 * me.getTime()
+		watchedTopic.expires = 60*60 + me.getTime()
 	} else {
-		watchedTopic.expires = 20 * 60 * me.getTime()
+		watchedTopic.expires = 20*60 + me.getTime() // 20 min.
 	}
 	// only the first subscriber can set the IPv6 address that lookup can return.
 	val, ok = submsg.p.GetOption("IPv6")
@@ -182,18 +194,26 @@ func processSubscribe(me *LookupTableStruct, bucket *subscribeBucket, submsg *su
 
 func heartBeatCallBack(me *LookupTableStruct, bucket *subscribeBucket, cmd *callBackCommand) {
 
+	haveUpstream := len(me.upstreamRouter.channels) != 0
+
 	//fmt.Println("Heartbeat for sub ", me.myname)
 	defer cmd.wg.Done()
 	// we don't delete them here and now. We queue up Unsubscribe packets.
 	s := bucket.mySubscriptions
 	for h, watchedItem := range s {
-		expireAll := watchedItem.expires < cmd.expires
+		expireAll := watchedItem.expires < cmd.now
 		// FIRST, scan all the contact references and schedule the stale ones for deleteion.
+		if expireAll {
+			// expire the whole subscription because it's dead for too long
+			//fmt.Println("expiring ALL", watchedItem.name)
+		}
+
 		it := watchedItem.Iterator()
 		for it.Next() {
 			key, item := it.KeyValue()
-			//if item.expires < cmd.expires || expireAll || item.ci.GetClosed() {
 			if expireAll || item.contactInterface.GetClosed() {
+
+				//fmt.Println("expiring subscription", watchedItem.name)
 
 				p := new(packets.Unsubscribe)
 				p.Address.Type = packets.BinaryAddress
@@ -214,6 +234,7 @@ func heartBeatCallBack(me *LookupTableStruct, bucket *subscribeBucket, cmd *call
 				now := me.getTime()
 				good, msg := billingAccumulator.AreUnderMax(now)
 				if !good {
+					fmt.Println("have token error", msg, watchedItem.name.GetUint64())
 					p := &packets.Send{}
 					p.Address.Bytes = new([24]byte)[:]
 					p.Address.Type = packets.BinaryAddress
@@ -235,27 +256,20 @@ func heartBeatCallBack(me *LookupTableStruct, bucket *subscribeBucket, cmd *call
 			}
 		}
 
-		// if me.isGuru {
-		// 	fmt.Println("topic in guru", watchedItem, "jwt", watchedItem.jwtidAlias)
-		// } else {
-		// 	fmt.Println("topic in aide", watchedItem, "jwt", watchedItem.jwtidAlias)
-		// }
-
 		// THIRD, we'll need to send out the topic usage-stats occasionally.
 		// from the guru only. For all topics that are not billing
-		if watchedItem.jwtidAlias == "123456" && me.isGuru {
+		if watchedItem.jwtidAlias == "123456" && !haveUpstream {
 			// fmt.Println("have 123456 in sub heart")
 		}
-		if len(watchedItem.jwtidAlias) > 0 && me.isGuru {
+		if len(watchedItem.jwtidAlias) > 0 && !haveUpstream {
 
 			if watchedItem.nextBillingTime < cmd.now {
 
-				deltaTime := cmd.now - watchedItem.lastBillingTime
-				watchedItem.lastBillingTime = cmd.now
-				watchedItem.nextBillingTime = cmd.now + 300 // 300 secs after first time
+				deltaTime := watchedItem.nextBillingTime - watchedItem.lastBillingTime
+				watchedItem.lastBillingTime = watchedItem.nextBillingTime
+				watchedItem.nextBillingTime += 60 // 60 secs after first time
 
 				msg := &Stats{}
-				//msg.Start = cmd.now
 
 				msg.Subscriptions = float64(deltaTime) // means one per sec, one per min ... one. Q: is 300?
 
@@ -268,9 +282,9 @@ func heartBeatCallBack(me *LookupTableStruct, bucket *subscribeBucket, cmd *call
 				if err != nil {
 					fmt.Println(" break fast ")
 				}
-				p.SetOption("stats", str)
-				// send somewhere
-				// we need some kind of pipe to the cluster front.
+				p.SetOption("add-stats", str)
+				p.SetOption("stats-deltat", []byte(strconv.FormatInt(int64(deltaTime), 10)))
+				// publish a "add-stats" command to billing topic
 				// fmt.Println(" push to channelToAnyAide ", p)
 				me.ex.channelToAnyAide <- p
 			}

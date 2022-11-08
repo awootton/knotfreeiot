@@ -570,7 +570,7 @@ func startPublicServer(ce *iot.ClusterExecutive) {
 
 	go startPublicServer9102(ce) // promhttp.Handler for getting metrics
 
-	go func() {
+	go func() { // generate heartbeat
 		for {
 			ce.Aides[0].Heartbeat(uint32(time.Now().Unix()))
 			time.Sleep(10 * time.Second)
@@ -753,7 +753,7 @@ type wsAPIHandler struct {
 
 func (api wsAPIHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
-	// fmt.Println("ws ServeHTTP", r.RequestURI)
+	//fmt.Println("ws ServeHTTP", r.RequestURI)
 
 	allowAll := func(r *http.Request) bool {
 		return true
@@ -859,7 +859,7 @@ func (api ApiHandler) ServeMakeToken(w http.ResponseWriter, req *http.Request) {
 		//payload := tokenRequest.Payload // can we not use the request payload?
 		// we only need variable sizes when collcecting money
 		payload := tokens.KnotFreeTokenPayload{}
-		payload.Connections = 2 // TODO: move into standard x-small token
+		payload.Connections = 4 // TODO: move into standard x-small token
 		// 30 days
 		payload.ExpirationTime = uint32(time.Now().Unix() + 60*60*24*30)
 
@@ -875,7 +875,7 @@ func (api ApiHandler) ServeMakeToken(w http.ResponseWriter, req *http.Request) {
 		// 	targetSite = "knotfree0.com"
 		// }
 
-		payload.Subscriptions = 20 // TODO: move into standard x-small token
+		payload.Subscriptions = 10 // TODO: move into standard x-small token
 
 		//  Host:"building_bob_bottomline_boldness.knotfree2.com:8085"
 

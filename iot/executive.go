@@ -597,7 +597,7 @@ func (ex *Executive) GetExecutiveStats() *ExecutiveStats {
 	return stats
 }
 
-// Heartbeat one per 10 sec?
+// Heartbeat one per 10 sec.
 func (ex *Executive) Heartbeat(now uint32) {
 
 	connectionsTotal.Set(float64(ex.Config.Len()))

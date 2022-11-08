@@ -18,6 +18,10 @@ package iot
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
+
+	"github.com/awootton/knotfreeiot/packets"
+	"github.com/awootton/knotfreeiot/tokens"
 )
 
 func processPublish(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *publishMessage) {
@@ -54,14 +58,40 @@ func processPublish(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *publ
 		}
 	} else {
 
-		billingAccumulator, isBilling := watchedTopic.IsBilling()
+		haveUpstream := len(me.upstreamRouter.channels) != 0
+
+		// it has the optionalKeyValues.Get("bill") which holds the billingAccumulator
+		billingAccumulator, isBilling := watchedTopic.IsBilling() // has billingAccumulator
+		// it's really only supposed to ever even have a billingAccumulator unless this is a guru
 		if isBilling {
+			// we could be an aide. In that case don't process the command (below)
+			// but also don't push down ever?
 
 			// statsHandled.Inc()
 			// it's a billing channel
 			// publishing to a billing channel is a special case
-			billstr, ok := pubmsg.p.GetOption("stats")
-			if ok && me.isGuru {
+			// todo: make this a m5n commmand.
+			// this should really be msg == "add stats {...stats...}"
+			// todo: implement "get stats"
+			billstr, hasStats := pubmsg.p.GetOption("add-stats")
+
+			// fmt.Println("isBilling ", haveUpstream, hasStats, string(pubmsg.p.Payload))
+
+			if hasStats && !haveUpstream {
+
+				deltat := 10
+				deltatStr, ok := pubmsg.p.GetOption("stats-deltat")
+				if ok {
+					tmp, err := strconv.ParseInt(string(deltatStr), 10, 32)
+					if err == nil {
+						deltat = int(tmp)
+					} else {
+						fmt.Println("ERROR FAIL to parse " + string(deltatStr))
+					}
+				} else {
+					fmt.Println("ERROR FAIL to find  stats-deltat")
+				}
+
 				msg := &Stats{}
 				err := json.Unmarshal(billstr, msg)
 				if err == nil {
@@ -70,18 +100,39 @@ func processPublish(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *publ
 						//fmt.Println("publish BillingAccumulator ADDING", msg)
 					}
 					now := me.getTime()
-					billingAccumulator.AddUsage(&msg.KnotFreeContactStats, now)
+					billingAccumulator.AddUsage(&msg.KnotFreeContactStats, now, deltat)
 
 				} else {
 					// statsUnmarshalFail.Inc()
 				}
 			} else {
-				// statsMissingStats.Inc()
+				if !haveUpstream && !hasStats {
+					// it's billing but it's not add-stats
+					command := string(pubmsg.p.Payload)
+					fmt.Println(" billing channel has command", command)
+					if command == "get stats" {
+						current := &tokens.KnotFreeContactStats{}
+						billingAccumulator.GetStats(me.getTime(), current)
+						bytes, err := json.Marshal(current)
+						if err != nil {
+							fmt.Println("error fail marshal KnotFreeContactStats really !?!", err)
+						} else {
+							// fmt.Println("have billing stats", string(bytes))
+							pub := packets.Send{}
+							pub.Address = pubmsg.p.Source
+							pub.Payload = bytes
+							pub.Source = pubmsg.p.Address
+							pub.CopyOptions(&pubmsg.p.PacketCommon)
+							me.ex.channelToAnyAide <- &pub
+						}
+					}
+				}
 			}
-			watchedTopic.expires = 60 * 60 * me.getTime()
+			watchedTopic.expires = 60*60 + me.getTime() // one hour
 
 		} else {
-			watchedTopic.expires = 20 * 60 * me.getTime()
+			// do the WriteDownstream
+			watchedTopic.expires = 20*60 + me.getTime() //20 min
 			// this is where the typical packet comes
 			// fmt.Println("pub down", string(pubmsg.p.Payload))
 			pubMsgKey := pubmsg.ss.GetKey()
@@ -171,7 +222,7 @@ func processPublishDown(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *
 		// NO send upstream publish
 
 	} else {
-		watcheditem.expires = 20 * 60 * me.getTime()
+		watcheditem.expires = 20*60 + me.getTime() // 20 min
 		it := watcheditem.Iterator()
 		for it.Next() {
 

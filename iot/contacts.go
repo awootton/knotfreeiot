@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+	"strconv"
 	"sync"
 	"time"
 
@@ -478,6 +479,7 @@ func expectToken(ssi ContactInterface, p packets.Interface) error {
 			sub := packets.Subscribe{}
 			id := ssi.GetToken().JWTID
 			sub.Address.FromString(id) // the billing channel real name JWTID
+			// fmt.Println("contact subscribing to ", ssi.GetToken().JWTID)
 			sub.SetOption("statsmax", billstr)
 			PushPacketUpFromBottom(ssi, &sub)
 		}
@@ -544,28 +546,30 @@ func (ss *ContactStruct) Heartbeat(now uint32) {
 
 	if ss.nextBillingTime < now && !ss.GetConfig().IsGuru() {
 
-		deltaTime := now - ss.lastBillingTime
-		ss.lastBillingTime = now
-		ss.nextBillingTime = now + 300 // 300 secs after first time
+		deltaTime := ss.nextBillingTime - ss.lastBillingTime
+		ss.lastBillingTime = ss.nextBillingTime
+		ss.nextBillingTime += 60 // 60 secs after first time
 
 		//fmt.Println("delta t", deltaTime, ss.String())
 
 		msg := &Stats{}
 		//msg.Start = now
 		msg.Input = float64(ss.input)
-		ss.input -= int(msg.Input) // todo: atomic
+		ss.input -= int(msg.Input) // todo: atomic?
 		msg.Output = float64(ss.output)
-		ss.output -= int(msg.Output)         // todo: atomic
+		ss.output -= int(msg.Output)         // todo: atomic?
 		msg.Connections = float64(deltaTime) // means one per sec, one per min ...
 		// Subscriptions handled elsewhere.
 		p := &packets.Send{}
+		// fmt.Println("contact publishing to ", ss.token.JWTID)
 		p.Address.FromString(ss.token.JWTID)
 		p.Source.FromString("billing_stats_return_address_contact")
 		str, err := json.Marshal(msg)
 		if err != nil {
 			fmt.Println("impossible#3")
 		}
-		p.SetOption("stats", str)
+		p.SetOption("add-stats", str)
+		p.SetOption("stats-deltat", []byte(strconv.FormatInt(int64(deltaTime), 10)))
 		oldtimeout := ss.contactExpires // don't let heartbeat reset the expiration.
 		//fmt.Println("contact heartbeat sending stats", p, "from", ss.config.Name)
 		err = PushPacketUpFromBottom(ss, p)

@@ -34,6 +34,8 @@ func main() {
 	token := os.Getenv("TOKEN")
 	fmt.Println("token", token)
 
+	fmt.Println("version 3")
+
 	serveTime(token)
 
 	publishTestTopic(token)
@@ -206,10 +208,13 @@ func serveTime(token string) { // use knotfree format
 				} else if message == `get fail` {
 					countStr := strconv.FormatInt(int64(fail), 10)
 					reply = countStr
+				} else if message == `about` {
+					reply = "v0.1.0"
 				} else {
 					reply += "[get time] unix time in seconds\n"
 					reply += "[get count] how many served since reboot\n"
 					reply += "[get fail] how many requests were bad since reboot\n"
+					reply += "[about] info on this device\n"
 					reply += "[help] lists all commands\n"
 				}
 				if isHttp {
@@ -230,6 +235,7 @@ func serveTime(token string) { // use knotfree format
 				sendme.Payload = []byte(reply)
 				sendme.CopyOptions(&pub.PacketCommon) // this is very important. there's a nonce in here
 
+				// println("get-unix-time reply to :", string(sendme.Address.String()))
 				// fmt.Println("destination ", string(sendme.Address.String()))
 				//  fmt.Println("source ", string(sendme.Source.String()))
 				err = sendme.Write(conn)
