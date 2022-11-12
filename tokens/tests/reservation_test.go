@@ -15,12 +15,22 @@ const starttime = uint32(1577840400) // Wednesday, January 1, 2020 1:00:00 AM
 
 func TestCalcTokenPrice(t *testing.T) {
 
-	payload := GetSampleTokenPayload(starttime)
+	// := GetSampleTokenPayload(starttime) // is TinyX2 for 2 connections
 
-	price := tokens.CalcTokenPrice(payload, starttime)
+	price := tokens.GetTokenStatsAndPrice(tokens.TinyX2)
 
-	fmt.Println("cost is ", price)
+	fmt.Println("TinyX2 cost is ", price.Price)
 
+}
+
+func TestCalcTokenPrice_TinyX4(t *testing.T) {
+
+	// is TinyX4 for 4 connections which is our statdard free token
+
+	price := tokens.GetTokenStatsAndPrice(tokens.TinyX4)
+
+	fmt.Println("TinyX4 cost is ", price.Price)
+	fmt.Println("TinyX4 for a year is ", price.Price*12) // 0.048 or about 50 cents per decade.
 }
 
 func fixme_TestMakeReservation(t *testing.T) {

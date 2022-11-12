@@ -36,7 +36,7 @@ spec:
         - name: TARGET_CLUSTER
           value: "knotfree.net"
         - name: TOKEN
-          value: "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJleHAiOjE2OTkzODY0NjQsImlzcyI6Il85c2giLCJqdGkiOiJxZFVQVEVzb2VsR1Z3bjRGdXk2ZmZSV2siLCJpbiI6MTAwMDAwMCwib3V0IjoxMDAwMDAwLCJzdSI6MjAwMDAwLCJjbyI6MjAwMDAwLCJ1cmwiOiJrbm90ZnJlZS5uZXQvbXF0dCJ9.-3WsVQ724lQTxuz8b72csIZilXpIv-h9CzmSy5ybqM5I7crqRgoxcR4dmpLgRZ2Zvm0cLmg92O40LkdblgFsCw"
+          value: "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJleHAiOjE2OTk4MDYxOTIsImlzcyI6Il85c2giLCJqdGkiOiI1UUViWmNjbnFaY2xwTGJhdGJ3Tl9jV2YiLCJpbiI6OTk2MTQ3Miwib3V0Ijo5OTYxNDcyLCJzdSI6NjU1MzYwMCwiY28iOjI2MjE0NCwidXJsIjoia25vdGZyZWUubmV0L21xdHQifQ.EMBZp9m5whpaWmhHXckicAW16WGCNoEakZTxZuV5G1VVT13jI0eLhF0ztk7RmricLz6egQ53WNDWMOaHmchQDw"
         - name: MY_POD_IP
           valueFrom:
             fieldRef:

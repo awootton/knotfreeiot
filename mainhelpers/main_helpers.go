@@ -36,55 +36,59 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 )
 
-func Make32xLargeToken() (string, tokens.KnotFreeTokenPayload) {
+// Makes a tokens.Medium token which is 32 connections
+func MakeMedium32cToken() (string, tokens.KnotFreeTokenPayload) {
+
+	// 20 connections is about Medium
+	// see tokens.Medium
 
 	// caller must do this:
 	// tokens.LoadPublicKeys()
 	// tokens.LoadPrivateKeys("~/atw/privateKeys4.txt")
 
-	fmt.Println("in Make32xLargeToken")
+	fmt.Println("in MakeMedium32cToken")
 
-	tokenRequest := &tokens.TokenRequest{}
+	// tokenRequest := &tokens.TokenRequest{}
 	payload := tokens.KnotFreeTokenPayload{}
-	tokenRequest.Payload = &payload
+	payload.KnotFreeContactStats = tokens.GetTokenStatsAndPrice(tokens.Medium).Stats
 
-	payload.Connections = 20 // 2 // TODO: move into standard x-small token
+	//payload.Connections = 20 // 2 // TODO: move into standard x-small token
 
 	// a year - standard x-small
 	payload.ExpirationTime = uint32(time.Now().Unix() + 60*60*24*365)
 
-	payload.Input = 1024  // 32 * 4  // TODO: move into standard x-small token
-	payload.Output = 1024 // 32 * 4 // TODO: move into standard x-small token
+	//payload.Input = 1024  // 32 * 4  // TODO: move into standard x-small token
+	// payload.Output = 1024 // 32 * 4 // TODO: move into standard x-small token
 
 	payload.Issuer = "_9sh"
 	payload.JWTID = tokens.GetRandomB64String()
 	nonce := payload.JWTID
 	_ = nonce
 
-	payload.Subscriptions = 20 // TODO: move into standard x-small token
+	//payload.Subscriptions = 20 // TODO: move into standard x-small token
 
 	//  Host:"building_bob_bottomline_boldness.knotfree2.com:8085"
 	targetSite := "knotfree.net" // "gotohere.com"
 	if os.Getenv("KNOT_KUNG_FOO") == "atw" {
 		// targetSite = "gotolocal.com"
 	}
-	payload.URL = targetSite + "/mqtt"
+	payload.URL = targetSite
 
 	exp := payload.ExpirationTime
-	if exp > uint32(time.Now().Unix()+60*60*24*365) {
-		// more than a year in the future not allowed now.
-		exp = uint32(time.Now().Unix() + 60*60*24*365)
-		fmt.Println("had long token ", string(payload.JWTID)) // TODO: store in db
-	}
+	// if exp > uint32(time.Now().Unix()+60*60*24*365) {
+	// 	// more than a year in the future not allowed now.
+	// 	exp = uint32(time.Now().Unix() + 60*60*24*365)
+	// 	fmt.Println("had long token ", string(payload.JWTID)) // TODO: store in db
+	// }
 
-	cost := tokens.CalcTokenPrice(&payload, uint32(time.Now().Unix()))
+	cost := tokens.GetTokenStatsAndPrice(tokens.Medium).Price * 12 //tokens.CalcTokenPrice(&payload, uint32(time.Now().Unix()))
 	jsonstr, _ := json.Marshal(payload)
 	fmt.Println("token cost is "+fmt.Sprintf("%f", cost), string(jsonstr))
 
-	large32x := ScaleTokenPayload(&payload, 8*32)
-	cost = tokens.CalcTokenPrice(large32x, uint32(time.Now().Unix()))
-	jsonstr, _ = json.Marshal(large32x)
-	fmt.Println("token cost is "+fmt.Sprintf("%f", cost), string(jsonstr))
+	// large32x := ScaleTokenPayload(&payload, 8*32)
+	// cost = tokens.CalcTokenPrice(large32x, uint32(time.Now().Unix()))
+	// jsonstr, _ = json.Marshal(large32x)
+	// fmt.Println("token cost is "+fmt.Sprintf("%f", cost), string(jsonstr))
 
 	signingKey := tokens.GetPrivateKey("_9sh")
 	bbb, err := tokens.MakeToken(&payload, []byte(signingKey))
@@ -96,7 +100,7 @@ func Make32xLargeToken() (string, tokens.KnotFreeTokenPayload) {
 
 	giantToken := string(bbb)
 	giantToken = "[32xlarge_token,expires:" + formatted + ",token:" + giantToken + "]"
-	return giantToken, *large32x
+	return giantToken, payload
 }
 
 type publishStreamer struct {
@@ -218,7 +222,7 @@ func AddFileFileToS3(s *session.Session, fileDir string) error {
 	return err
 }
 
-func ScaleTokenPayload(token *tokens.KnotFreeTokenPayload, scale float64) *tokens.KnotFreeTokenPayload {
+func XXXScaleTokenPayload(token *tokens.KnotFreeTokenPayload, scale float64) *tokens.KnotFreeTokenPayload {
 	scaled := tokens.KnotFreeTokenPayload{}
 
 	scaled.ExpirationTime = token.ExpirationTime // unix seconds

@@ -35,11 +35,20 @@ func GetFirebaseApp(ctx context.Context) (*firebase.App, error) {
 
 // CalcTokenPrice figures out how much we would need to pay to get this token.
 // TODO: move out of firebase
-func CalcTokenPrice(token *KnotFreeTokenPayload, unixIssueTime uint32) float64 {
+// TODO: use standard sizes
+func xxxxCalcTokenPrice(token *KnotFreeTokenPayload, unixIssueTime uint32) float64 {
 	price := float64(0.0)
 	// at DigitalOcean 4/2021:
 	// $5
 	// 0.5 cpu
+	// 1 Gb so 500k subs
+	// 1 tb io
+	// say 10k connections
+	// $0.01/GB. when over
+
+	// at Civo 11/2022:
+	// $5
+	// 1 cpu
 	// 1 Gb so 500k subs
 	// 1 tb io
 	// say 10k connections

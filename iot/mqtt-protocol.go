@@ -195,6 +195,8 @@ func MQTTHandlePacket(cc *mqttContact, control libmqtt.Packet) {
 		}
 		//fmt.Println("mqtt client publish ", p)
 
+		// special case for gotohere api1 protocol
+		// if GetOption("api1") == ping and topic == anonymous turn it back to sender right now.
 		bytes, ok := p.GetOption("api1")
 		//fmt.Println("api1 is ", string(bytes))
 		if ok && string(bytes) == "[ping]" { // special case for gotohere api1 protocol
@@ -295,7 +297,7 @@ func (cc *mqttContact) WriteDownstream(p packets.Interface) error {
 		if ok {
 			mq.Props.Reason = string(estr)
 		}
-		fmt.Println("mqtt-protocol packets.Disconnect", string(estr))
+		// fmt.Println("mqtt-protocol packets.Disconnect", string(estr))
 		//mq.ProtoVersion = cc.protoVersion
 		return cc.writeLibPacket(mq, cc) // mq.WriteTo(cc)
 	case *packets.Subscribe:

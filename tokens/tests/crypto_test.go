@@ -188,7 +188,7 @@ func TestKnotEncode(t *testing.T) {
 	got := "ok"
 	want := "ok"
 
-	p := GetSampleTokenPayload(starttime)
+	p := GetSampleTokenPayload(starttime) // is TinyX2 for 2 connections
 
 	// or:
 	// p := &tickets.KnotFreePayload{}
@@ -530,16 +530,19 @@ func GetSamplePrivate() []byte {
 	return bytes
 }
 
-// GetSampleTokenPayload is used for testing.
+// GetSampleTokenPayload is used for testing. // is TinyX2 for 2 connections for a year
 func GetSampleTokenPayload(startTime uint32) *tokens.KnotFreeTokenPayload {
+
 	p := &tokens.KnotFreeTokenPayload{}
 	p.Issuer = "1iVt" // first 4 from public
 	p.ExpirationTime = startTime + 60*60*24*(365)
 	p.JWTID = "123456"
-	p.Input = 20
-	p.Output = 20
-	p.Subscriptions = 2
-	p.Connections = 2
+
+	p.KnotFreeContactStats = tokens.GetTokenStatsAndPrice(tokens.TinyX2).Stats
+	//p.Input = 20
+	//p.Output = 20
+	//p.Subscriptions = 2
+	//p.Connections = 2
 	p.URL = "knotfree.net/mqtt"
 	return p
 }
@@ -580,7 +583,7 @@ func BenchmarkCheckToken2(b *testing.B) {
 	}
 }
 
-func not_TestMakeTok2(t *testing.T) {
+func xxxxnot_TestMakeTok2(t *testing.T) {
 
 	tokens.LoadPublicKeys()
 
@@ -599,7 +602,7 @@ func not_TestMakeTok2(t *testing.T) {
 
 }
 
-func not_TestMakeToken1connection(t *testing.T) {
+func xxxxnot_TestMakeToken1connection(t *testing.T) {
 
 	tokens.LoadPublicKeys()
 
@@ -638,7 +641,7 @@ func not_TestBox(t *testing.T) {
 	tokens.LoadPrivateKeys("~/atw/privateKeys4.txt")
 	signingKey := tokens.GetPrivateKey("_9sh")
 
-	payload := GetSampleTokenPayload(starttime)
+	payload := GetSampleTokenPayload(starttime) // is TinyX2 for 2 connections
 	payload.Issuer = "_9sh"
 	payload.JWTID = getRandomB64String() // has len = 24
 

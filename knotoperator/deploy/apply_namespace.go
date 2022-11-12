@@ -63,7 +63,7 @@ func main() {
 
 	{
 		tokens.LoadPrivateKeys("~/atw/privateKeys4.txt")
-		TOKEN := tokens.GetImpromptuGiantToken()
+		TOKEN := tokens.GetImpromptuGiantToken() // 256k connections is GiantX32
 
 		// wtf? hangs kubectl.K("cd ../../monitor_pod;go mod tidy")
 		kubectl.K("cd ../../monitor_pod;docker build -t  gcr.io/fair-theater-238820/monitor_pod .")
@@ -74,7 +74,7 @@ func main() {
 		sdata = strings.ReplaceAll(sdata, "__TOKEN__", TOKEN)
 		err := ioutil.WriteFile("dummy.yaml", []byte(sdata), 0644)
 		if err != nil {
-			fmt.Println("fail fial 888")
+			fmt.Println("fail flail 888")
 		}
 		kubectl.K("kubectl apply -f dummy.yaml")
 	}

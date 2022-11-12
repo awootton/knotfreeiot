@@ -11,7 +11,7 @@ import (
 	"github.com/awootton/knotfreeiot/tokens"
 )
 
-func not_TestLogTok(t *testing.T) {
+func not_TestLogTok(t *testing.T) { // fixme
 
 	ctx := context.Background()
 

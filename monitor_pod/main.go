@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/base64"
 	"fmt"
 	"net"
 	"os"
@@ -9,6 +10,7 @@ import (
 	"time"
 
 	"github.com/awootton/knotfreeiot/packets"
+	"github.com/awootton/knotfreeiot/tokens"
 )
 
 // Copyright 2022 Alan Tracey Wootton
@@ -36,7 +38,7 @@ func main() {
 
 	fmt.Println("version 3")
 
-	serveTime(token)
+	serveGetTime(token)
 
 	publishTestTopic(token)
 
@@ -108,9 +110,32 @@ func publishTestTopic(token string) { // use knotfree format
 var count = 0
 var fail = 0
 
-func serveTime(token string) { // use knotfree format
+func serveGetTime(token string) { // use knotfree format
 
 	target_cluster := os.Getenv("TARGET_CLUSTER")
+
+	passPhrase := "testString123"
+
+	pubk, privk := tokens.GetBoxKeyPairFromPassphrase(passPhrase)
+	pubStr := base64.RawURLEncoding.EncodeToString(pubk[:])
+	privStr := base64.RawURLEncoding.EncodeToString(privk[:])
+	_ = privStr
+
+	adminPassPhrase := "myFamousOldeSaying"
+
+	pubk, privk = tokens.GetBoxKeyPairFromPassphrase(adminPassPhrase)
+	adminPubStr := base64.RawURLEncoding.EncodeToString(pubk[:])
+	adminPrivStr := base64.RawURLEncoding.EncodeToString(privk[:])
+	_ = adminPrivStr
+
+	adminPassPhrase2 := "myFamousOldeSaying2"
+
+	pubk, privk = tokens.GetBoxKeyPairFromPassphrase(adminPassPhrase2)
+	adminPubStr2 := base64.RawURLEncoding.EncodeToString(pubk[:])
+	adminPrivStr2 := base64.RawURLEncoding.EncodeToString(privk[:])
+	_ = adminPrivStr2
+
+	dummyString := "none"
 
 	go func() {
 		for { // forever
@@ -154,7 +179,7 @@ func serveTime(token string) { // use knotfree format
 			fmt.Println("connected and subscribed and waiting..")
 			// receive cmd and respond loop
 			for {
-				p, err := packets.ReadPacket(conn) // this better block
+				p, err := packets.ReadPacket(conn) // blocks
 				if err != nil {
 					println("client err:", err.Error())
 					conn.Close()
@@ -167,14 +192,15 @@ func serveTime(token string) { // use knotfree format
 				if !ok {
 					println("expected a send aka publish:", p.String())
 					fail++
-					time.Sleep(10 * time.Second)
-					break
+					// time.Sleep(10 * time.Second)
+					// break
 				}
 				//fmt.Println("to ", string(pub.Address.String()))
 				//fmt.Println("from ", string(pub.Source.String()))
 
 				message := string(pub.Payload)
-				println("get-unix-time got:", message)
+				// n, _ := pub.GetOption("nonce")
+				// println("get-unix-time got:", message, string(n))
 
 				isHttp := false
 				if strings.HasPrefix(message, `GET /`) {
@@ -198,6 +224,7 @@ func serveTime(token string) { // use knotfree format
 				}
 
 				reply := ""
+				needsEncryption := false
 				if message == `get time` {
 					sec := time.Now().UnixMilli() / 1000
 					secStr := strconv.FormatInt(sec, 10)
@@ -205,15 +232,32 @@ func serveTime(token string) { // use knotfree format
 				} else if message == `get count` {
 					countStr := strconv.FormatInt(int64(count), 10)
 					reply = countStr
+					needsEncryption = true
 				} else if message == `get fail` {
 					countStr := strconv.FormatInt(int64(fail), 10)
 					reply = countStr
+					needsEncryption = true
 				} else if message == `about` {
 					reply = "v0.1.0"
+				} else if message == "get pubk" {
+					reply = pubStr
+				} else if message == "get admin hint" {
+					reply = adminPubStr[0:8] + " " + adminPubStr2[0:8]
+				} else if message == "get dummy" {
+					reply = dummyString
+				} else if strings.HasPrefix(message, "set dummy") {
+					s := message[len("set dummy"):]
+					s = strings.Trim(s, " ")
+					dummyString = s
+					fmt.Println("dummy is set to ", s)
 				} else {
 					reply += "[get time] unix time in seconds\n"
 					reply += "[get count] how many served since reboot\n"
 					reply += "[get fail] how many requests were bad since reboot\n"
+					reply += "[get pubk] device public key\n"
+					reply += "[get admin hint] the first chars of the admin public keys\n"
+					reply += "[get dummy] an unused string\n"
+					reply += "[set dummy] +1 set useless string\n"
 					reply += "[about] info on this device\n"
 					reply += "[help] lists all commands\n"
 				}
@@ -229,6 +273,8 @@ func serveTime(token string) { // use knotfree format
 					tmp += reply
 					reply = tmp
 				}
+
+				_ = needsEncryption
 				sendme := &packets.Send{}
 				sendme.Address = pub.Source
 				sendme.Source = pub.Address

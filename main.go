@@ -37,8 +37,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/awootton/knotfreeiot/mainhelpers"
-
 	"github.com/awootton/knotfreeiot/iot"
 	"github.com/awootton/knotfreeiot/packets"
 	"github.com/awootton/knotfreeiot/tokens"
@@ -83,11 +81,14 @@ func main() {
 		*token = tokens.GetImpromptuGiantToken()
 	}
 
+	tenKstats := tokens.GetTokenTenKStatsAndPrice()
 	var mainLimits = &iot.ExecutiveLimits{}
-	mainLimits.Connections = 10 * 1000
-	mainLimits.Input = 10 * 1000
-	mainLimits.Output = 10 * 1000
-	mainLimits.Subscriptions = 1000 * 1000
+	mainLimits.KnotFreeContactStats = tenKstats.Stats
+
+	// mainLimits.Connections = 10k
+	// mainLimits.Input = 10 * 1000
+	// mainLimits.Output = 10 * 1000
+	// mainLimits.Subscriptions = 1000 * 1000
 
 	limits := mainLimits
 
@@ -118,30 +119,34 @@ func (api ApiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	fmt.Println("ApiHandler ServeHTTP", req.RequestURI, req.Host)
 
-	if req.RequestURI == "/api1/paypal-transaction-complete" {
+	w.Header().Add("Access-Control-Allow-Origin", "http://localhost:3000")
 
-		w.Header().Set("Access-Control-Allow-Origin", "*")
+	// if req.RequestURI == "/api1/paypal-transaction-complete" {
 
-		var buff1024 [1024]byte
-		n, err := req.Body.Read(buff1024[:])
-		buf := buff1024[:n]
-		fmt.Println("paypal-transaction-complete request read body", string(buf), n, err)
-		_ = buf
-		// there's a facilitatorAccessToken  ??
+	// 	w.Header().Set("Access-Control-Allow-Origin", "*")
 
-		// FIXME: check with paypal that this actually happened.
+	// 	var buff1024 [1024]byte
+	// 	n, err := req.Body.Read(buff1024[:])
+	// 	buf := buff1024[:n]
+	// 	fmt.Println("paypal-transaction-complete request read body", string(buf), n, err)
+	// 	_ = buf
+	// 	// there's a facilitatorAccessToken  ??
 
-		//make a 32x token
-		tok, payload := mainhelpers.Make32xLargeToken()
+	// 	// FIXME: check with paypal that this actually happened.
 
-		ctx := req.Context()
-		err = tokens.LogNewToken(ctx, &payload, string(buf))
-		if err != nil {
-			fmt.Println("ERROR logging token", err)
-		}
-		w.Write([]byte(tok))
+	// 	//make a 32x token
+	// 	tok, payload := mainhelpers.MakeMedium32cToken()
 
-	} else if req.RequestURI == "/api1/getallstats" {
+	// 	ctx := req.Context()
+	// 	err = tokens.LogNewToken(ctx, &payload, string(buf))
+	// 	if err != nil {
+	// 		fmt.Println("ERROR logging token", err)
+	// 	}
+	// 	w.Write([]byte(tok))
+
+	// } else
+
+	if req.RequestURI == "/api1/getallstats" {
 
 		stats := api.ce.Aides[0].ClusterStatsString
 
@@ -158,7 +163,7 @@ func (api ApiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	} else if req.RequestURI == "/api1/getToken" {
 
-		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Origin", "*") // fixme: just localhost
 		api.ServeMakeToken(w, req)
 
 	} else if req.RequestURI == "/api1/getPublicKey" {
@@ -823,7 +828,7 @@ func (api ApiHandler) ServeMakeToken(w http.ResponseWriter, req *http.Request) {
 	numberOfMinutesPassed := (now - bootTimeSec) / 6 // now it's 10 sec
 	if tokensServed > numberOfMinutesPassed {
 		iot.BadTokenRequests.Inc()
-		http.Error(w, "Token dispenser is too busy now. Try in a minute, or, you could buy $5 worth and pass them to all your friends", 500)
+		http.Error(w, "Token dispenser is too busy now. Try in a minute, or, you could subscribe and get better tokens", 500)
 		return
 	}
 	if numberOfMinutesPassed > 60 {
@@ -856,28 +861,40 @@ func (api ApiHandler) ServeMakeToken(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 
-		//payload := tokenRequest.Payload // can we not use the request payload?
-		// we only need variable sizes when collcecting money
-		payload := tokens.KnotFreeTokenPayload{}
-		payload.Connections = 4 // TODO: move into standard x-small token
-		// 30 days
-		payload.ExpirationTime = uint32(time.Now().Unix() + 60*60*24*30)
+		// not using the payload . we always hand out Tiny4
 
-		payload.Input = 32 * 4  // TODO: move into standard x-small token
-		payload.Output = 32 * 4 // TODO: move into standard x-small token
+		// payload := tokenRequest.Payload // can we not use the request payload?
+		// // we only need variable sizes when collcecting money
+		// payload := tokens.KnotFreeTokenPayload{}
+		// payload.Connections = 4 // TODO: move into standard x-small token
+		// // 30 days
+		// payload.ExpirationTime = uint32(time.Now().Unix() + 60*60*24*30)
+
+		// payload.Input = 32 * 4  // TODO: move into standard x-small token
+		// payload.Output = 32 * 4 // TODO: move into standard x-small token
+
+		// payload.Issuer = "_9sh"
+		// payload.JWTID = tokens.GetRandomB64String()
+		// nonce := payload.JWTID
+
+		// // targetSite := "knotfree.net" // which is mapped to localhost by /etc/hosts
+		// // if os.Getenv("KNOT_KUNG_FOO") == "atw" {
+		// // 	targetSite = "knotfree0.com"
+		// // }
+
+		// payload.Subscriptions = 10 // TODO: move into standard x-small token DONE, is tokens.Tinyx4
+
+		//  Host:"building_bob_bottomline_boldness.knotfree2.com:8085"
+
+		payload := tokens.KnotFreeTokenPayload{}
 
 		payload.Issuer = "_9sh"
 		payload.JWTID = tokens.GetRandomB64String()
 		nonce := payload.JWTID
+		payload.ExpirationTime = uint32(time.Now().Unix()) + 60*60*24*30 // a month
 
-		// targetSite := "knotfree.net" // which is mapped to localhost by /etc/hosts
-		// if os.Getenv("KNOT_KUNG_FOO") == "atw" {
-		// 	targetSite = "knotfree0.com"
-		// }
-
-		payload.Subscriptions = 10 // TODO: move into standard x-small token
-
-		//  Host:"building_bob_bottomline_boldness.knotfree2.com:8085"
+		priceThing := tokens.GetTokenStatsAndPrice(tokens.TinyX4)
+		payload.KnotFreeContactStats = priceThing.Stats
 
 		parts := strings.Split(req.Host, ".")
 		partslen := len(parts)
@@ -889,7 +906,7 @@ func (api ApiHandler) ServeMakeToken(w http.ResponseWriter, req *http.Request) {
 		}
 		targetSite := parts[partslen-2] + "." + parts[partslen-1]
 
-		payload.URL = targetSite + "/mqtt"
+		payload.URL = targetSite
 
 		exp := payload.ExpirationTime
 		if exp > uint32(time.Now().Unix()+60*60*24*365) {
@@ -898,13 +915,13 @@ func (api ApiHandler) ServeMakeToken(w http.ResponseWriter, req *http.Request) {
 			fmt.Println("had long token ", string(payload.JWTID)) // TODO: store in db
 		}
 
-		cost := tokens.CalcTokenPrice(&payload, uint32(time.Now().Unix()))
+		cost := priceThing.Price // tokens.CalcTokenPrice(&payload, uint32(time.Now().Unix()))
 		fmt.Println("token cost is " + fmt.Sprintf("%f", cost))
 
-		if cost > 0.012 {
-			http.Error(w, "token too expensive at "+fmt.Sprintf("%f", cost), 500)
-			return
-		}
+		// if cost > 0.012 {
+		// 	http.Error(w, "token too expensive at "+fmt.Sprintf("%f", cost), 500)
+		// 	return
+		// }
 
 		signingKey := tokens.GetPrivateKey("_9sh")
 		tokenString, err := tokens.MakeToken(&payload, []byte(signingKey))

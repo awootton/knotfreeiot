@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"testing"
 
+	"github.com/awootton/knotfreeiot/tokens"
 	"golang.org/x/crypto/curve25519"
 	"golang.org/x/crypto/nacl/box"
 )
@@ -97,19 +98,6 @@ func TestBox1(t *testing.T) {
 	//fmt.Println("decrypted message ", hex.EncodeToString(result))
 }
 
-func getBoxKeyPairFromPassphrase(pass string) ([32]byte, [32]byte) {
-
-	publicKey := new([32]byte)
-	privateKey := new([32]byte)
-
-	hash := sha256.Sum256([]byte(pass))
-	copy(privateKey[:], hash[:])
-
-	curve25519.ScalarBaseMult(publicKey, privateKey)
-
-	return *publicKey, *privateKey
-}
-
 func TestBoxMatchesTypeScript(t *testing.T) {
 
 	senderPass := "testString123" //
@@ -122,14 +110,14 @@ func TestBoxMatchesTypeScript(t *testing.T) {
 
 	fmt.Println(receiverPass, "hashes to ", base64.RawURLEncoding.EncodeToString(hash[:]))
 
-	spublic, sprivate := getBoxKeyPairFromPassphrase(senderPass)
+	spublic, sprivate := tokens.GetBoxKeyPairFromPassphrase(senderPass)
 
 	fmt.Println(senderPass, "makes sender public key ", base64.RawURLEncoding.EncodeToString(spublic[:]))
 	fmt.Println(senderPass, "makes sender private key ", base64.RawURLEncoding.EncodeToString(sprivate[:]))
 	//testString123 makes sender public key   bht-Ka3j7GKuMFOablMlQnABnBvBeugvSf4CdFV3LXs
 	//testString123 makes sender secret key   VY5e4pCAwDlr-HdfioX6TCiv41Xx_SsTtUcupKndFpQ
 
-	rpublic, rprivate := getBoxKeyPairFromPassphrase(receiverPass)
+	rpublic, rprivate := tokens.GetBoxKeyPairFromPassphrase(receiverPass)
 
 	fmt.Println(receiverPass, "makes receiver public key ", base64.RawURLEncoding.EncodeToString(rpublic[:]))
 	fmt.Println(receiverPass, "makes receiver private key ", base64.RawURLEncoding.EncodeToString(rprivate[:]))

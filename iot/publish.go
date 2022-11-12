@@ -19,9 +19,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
-
-	"github.com/awootton/knotfreeiot/packets"
-	"github.com/awootton/knotfreeiot/tokens"
 )
 
 func processPublish(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *publishMessage) {
@@ -108,24 +105,28 @@ func processPublish(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *publ
 			} else {
 				if !haveUpstream && !hasStats {
 					// it's billing but it's not add-stats
-					command := string(pubmsg.p.Payload)
-					fmt.Println(" billing channel has command", command)
-					if command == "get stats" {
-						current := &tokens.KnotFreeContactStats{}
-						billingAccumulator.GetStats(me.getTime(), current)
-						bytes, err := json.Marshal(current)
-						if err != nil {
-							fmt.Println("error fail marshal KnotFreeContactStats really !?!", err)
-						} else {
-							// fmt.Println("have billing stats", string(bytes))
-							pub := packets.Send{}
-							pub.Address = pubmsg.p.Source
-							pub.Payload = bytes
-							pub.Source = pubmsg.p.Address
-							pub.CopyOptions(&pubmsg.p.PacketCommon)
-							me.ex.channelToAnyAide <- &pub
-						}
-					}
+
+					gotsend := serveBillingCommand(pubmsg.p, billingAccumulator, me.getTime())
+					me.ex.channelToAnyAide <- &gotsend
+
+					// command := string(pubmsg.p.Payload)
+					// fmt.Println(" billing channel has command", command)
+					// if command == "get stats" {
+					// 	current := &tokens.KnotFreeContactStats{}
+					// 	billingAccumulator.GetStats(me.getTime(), current)
+					// 	bytes, err := json.Marshal(current)
+					// 	if err != nil {
+					// 		fmt.Println("error fail marshal KnotFreeContactStats really !?!", err)
+					// 	} else {
+					// 		// fmt.Println("have billing stats", string(bytes))
+					// 		pub := packets.Send{}
+					// 		pub.Address = pubmsg.p.Source
+					// 		pub.Payload = bytes
+					// 		pub.Source = pubmsg.p.Address
+					// 		pub.CopyOptions(&pubmsg.p.PacketCommon)
+					// 		me.ex.channelToAnyAide <- &pub
+					// 	}
+					// }
 				}
 			}
 			watchedTopic.expires = 60*60 + me.getTime() // one hour

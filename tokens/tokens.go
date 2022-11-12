@@ -19,6 +19,7 @@ package tokens
 import (
 	"crypto/ed25519"
 	rand "crypto/rand"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
@@ -34,6 +35,7 @@ import (
 
 	"github.com/awootton/knotfreeiot/badjson"
 	"github.com/gbrlsnchs/jwt/v3"
+	"golang.org/x/crypto/curve25519"
 )
 
 const Test32xToken = "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJleHAiOjE2OTc5NjAyNjQsImlzcyI6Il85c2giLCJqdGkiOiI5cTM0cy01MXJaWHlCdElSN0pqMDVoVFEiLCJpbiI6MTAyNCwib3V0IjoxMDI0LCJzdSI6MjAsImNvIjoyMCwidXJsIjoia25vdGZyZWUubmV0In0.CbFh2xsrwixf0i0IOknjNEy_Sh_wB3QysYm1xV4pPTA9QEPvZDoUIwggGFHPsmWbP0WzC47TVbCSPJahE-SNBg"
@@ -454,23 +456,26 @@ func parseString(in []byte) (out, rest []byte, ok bool) {
 	return
 }
 
-// GetSampleBigToken is used for testing.
+// GetSampleBigToken is used for testing. 256k connections is GiantX32
 func GetSampleBigToken(startTime uint32, serviceUrl string) *KnotFreeTokenPayload {
 	p := &KnotFreeTokenPayload{}
 	p.Issuer = "_9sh"                             // first 4 from public
 	p.ExpirationTime = startTime + 60*60*24*(365) // year
 	p.JWTID = GetRandomB64String()
-	p.Input = 1e6
-	p.Output = 1e6
-	p.Subscriptions = 200000
-	p.Connections = 200000
+
+	// 256k connections is GiantX32
+	p.KnotFreeContactStats = GetTokenStatsAndPrice(GiantX32).Stats
+	// p.Input = 1e6
+	// p.Output = 1e6
+	// p.Subscriptions = 200000
+	// p.Connections = 200000
 	p.URL = serviceUrl
 	return p
 }
 
 var giantToken = ""
 
-// GetImpromptuGiantToken is
+// GetImpromptuGiantToken is GiantX32 256k connections is GiantX32
 func GetImpromptuGiantToken() string {
 	if len(giantToken) != 0 {
 		return giantToken
@@ -579,4 +584,17 @@ func MakeRandomPhrase(amount int) string {
 		result += word
 	}
 	return result
+}
+
+func GetBoxKeyPairFromPassphrase(pass string) ([32]byte, [32]byte) {
+
+	publicKey := new([32]byte)
+	privateKey := new([32]byte)
+
+	hash := sha256.Sum256([]byte(pass))
+	copy(privateKey[:], hash[:])
+
+	curve25519.ScalarBaseMult(publicKey, privateKey)
+
+	return *publicKey, *privateKey
 }

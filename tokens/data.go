@@ -1,5 +1,89 @@
 package tokens
 
+import "math"
+
+/*
+	civo:
+	Extra Small	1 GB	1 core	30GB NVMe	1 TB	$5 per month	/ 1 = 1 GB 1  core 30GB   1   TB	$5 per month
+	Small	      2 GB	1 core	40GB NVMe	2 TB	$10 per month / 2 = 1 GB .5 core 20GB   1   TB	$5 per month
+	Medium	    4 GB	2 cores	50GB NVMe	3 TB	$20 per month / 4 = 1 GB .5 core 12.5GB .75 TB	$5 per month
+	Large	      8 GB	4 cores	60GB NVMe	4 TB	$40 per month / 8 = 1 GB 1  core 30GB   1   TB	$5 per month
+
+	/ 10,000 = 100k ram, 3 mb disk, 100mb i/o
+	100mb io / 2592000 sec/month = 38 bytes / sec we'll need 4 of those
+	$5 / 10000 = $0.0005 and $0.0005 * 4 = $0.002 and $0.002 * 12 = 2.4 cents or about a quarter per decade.
+	ima double all this for a margin.
+	if a subscription uses 4k bytes across the cluster (totally unknown) then
+			1 GB / 4000 = 250k subs per instance and 250k / 10,000 conn/instance = 25
+
+*/
+
+type KnotFreeContactPrices struct {
+	Stats KnotFreeContactStats
+	Price float64 `json:"pr"`
+}
+
+// as per Civo 11/2022.
+var OneConnectionToken = KnotFreeContactPrices{
+	Stats: KnotFreeContactStats{
+		Connections:   1,
+		Subscriptions: 25,
+		Input:         38,
+		Output:        38,
+	},
+	Price: 0.0005 * 2, // per month
+}
+
+func ScaleTokenPrice(in KnotFreeContactPrices, factor float64) KnotFreeContactPrices {
+	res := KnotFreeContactPrices{
+		Stats: KnotFreeContactStats{
+			Connections:   math.Floor(in.Stats.Connections * factor),
+			Subscriptions: math.Floor(in.Stats.Subscriptions * factor),
+			Input:         math.Floor(in.Stats.Input * factor),
+			Output:        math.Floor(in.Stats.Output * factor),
+		},
+		Price: in.Price * factor, // per month
+	}
+	return res
+}
+
+func GetTokenStatsAndPrice(ttype TokenType) KnotFreeContactPrices {
+	power := 1 << ttype
+	return ScaleTokenPrice(OneConnectionToken, float64(power))
+}
+
+func GetTokenTenKStatsAndPrice() KnotFreeContactPrices {
+	return ScaleTokenPrice(OneConnectionToken, float64(10*2000))
+}
+
+type TokenType int
+
+// these are powers of two
+const (
+	Tiny TokenType = iota
+	TinyX2
+	TinyX4 // this is the free one , 4 connections
+	TinyX8
+	Small     // 16 connections
+	Medium    // 32 connections
+	MediumX2  // 64 connections
+	Large     // 128 connections
+	LargeX2   // 256 connections
+	LargeX4   // 512 connections
+	LargeX8   // 1024 connections
+	LargeX16  // 2048 connections
+	LargeX32  // 4096 connections
+	Giant     // 8192
+	GiantX2   // 16384 now it's more than one vn
+	GiantX4   // 32768
+	GiantX8   // 64k
+	GiantX16  // 128k
+	GiantX32  // 256k
+	GiantX64  // 1m
+	GiantX128 // 2m
+	GiantX256 // 4m
+)
+
 // SampleSmallToken is a small token signed by "_9sh" (below)
 // p.Input = 20
 // p.Output = 20

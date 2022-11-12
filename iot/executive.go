@@ -565,6 +565,7 @@ func (ex *Executive) GetExecutiveStats() *ExecutiveStats {
 	outputs := int64(0)
 	times := int64(0)
 
+	// fixme: have stats call billingAccumulator on heartbeat.
 	ex.Config.AccessContactsList(func(config *ContactStructConfig, listOfCi *list.List) {
 		e := listOfCi.Front()
 		for ; e != nil; e = e.Next() {
