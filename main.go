@@ -163,7 +163,7 @@ func (api ApiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	} else if req.RequestURI == "/api1/getToken" {
 
-		w.Header().Set("Access-Control-Allow-Origin", "*") // fixme: just localhost
+		w.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000") // "*") // fixme: just localhost
 		api.ServeMakeToken(w, req)
 
 	} else if req.RequestURI == "/api1/getPublicKey" {
@@ -840,7 +840,7 @@ func (api ApiHandler) ServeMakeToken(w http.ResponseWriter, req *http.Request) {
 	var buff1024 [1024]byte
 	n, err := req.Body.Read(buff1024[:])
 	buf := buff1024[:n]
-	fmt.Println("tpoken request read body", string(buf), n)
+	fmt.Println("token request read body", string(buf), n)
 	_ = buf
 
 	tokenRequest := &tokens.TokenRequest{}

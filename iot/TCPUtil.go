@@ -85,6 +85,8 @@ func (api apiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	} else if req.RequestURI == "/api2/clusterstats" { // POST
 
+		// todo: add security.
+
 		data, err := ioutil.ReadAll(req.Body)
 		if err != nil {
 			http.Error(w, "read error 2", 500)
@@ -364,7 +366,7 @@ func PostUpstreamNames(guruList []string, addressList []string, addr string) err
 	return nil
 }
 
-// PostClusterStats    makes http  client
+// PostClusterStats sends some stats to 
 func PostClusterStats(stats *ClusterStats, addr string) error {
 
 	jbytes, err := json.Marshal(stats)

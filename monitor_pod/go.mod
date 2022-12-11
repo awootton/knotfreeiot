@@ -5,7 +5,7 @@ go 1.19
 // when develping locally:
 // replace github.com/awootton/knotfreeiot => ../../knotfreeiot
 
-require github.com/awootton/knotfreeiot v0.1.3
+require github.com/awootton/knotfreeiot v0.1.4
 
 require (
 	cloud.google.com/go v0.97.0 // indirect

@@ -287,6 +287,8 @@ func heartBeatCallBack(me *LookupTableStruct, bucket *subscribeBucket, cmd *call
 				// publish a "add-stats" command to billing topic
 				// fmt.Println(" push to channelToAnyAide ", p)
 				me.ex.channelToAnyAide <- p
+
+				me.ex.Billing.AddUsage(&msg.KnotFreeContactStats, cmd.now, int(deltaTime))
 			}
 		}
 	}

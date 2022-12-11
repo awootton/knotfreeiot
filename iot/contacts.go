@@ -327,7 +327,7 @@ func (ss *ContactStruct) Close(err error) {
 
 	if ss.ele != nil && ss.config != nil {
 
-		ss.sendBillingInfo()
+		ss.sendBillingInfo(ss.config.lookup.getTime())
 
 		ss.config.listlock.Lock()
 		ss.config.listOfCi.Remove(ss.ele)
@@ -538,7 +538,7 @@ func (ss *ContactStruct) SetWriter(w io.Writer) {
 	ss.realWriter = w
 }
 
-func (ss *ContactStruct) sendBillingInfo() {
+func (ss *ContactStruct) sendBillingInfo(now uint32) {
 
 	if ss.token == nil {
 		return
@@ -557,6 +557,10 @@ func (ss *ContactStruct) sendBillingInfo() {
 	msg.Output = float64(ss.output)
 	ss.output -= int(msg.Output)         // todo: atomic?
 	msg.Connections = float64(deltaTime) // means one per sec, one per min ... one
+
+	// also send toi exec
+	ss.config.lookup.ex.Billing.AddUsage(&msg.KnotFreeContactStats, now, int(deltaTime))
+
 	// Subscriptions handled elsewhere.
 	p := &packets.Send{}
 	// fmt.Println("contact publishing to ", ss.token.JWTID)
@@ -597,39 +601,8 @@ func (ss *ContactStruct) Heartbeat(now uint32) {
 	// Guru clients don't bill. ? FIXME:
 	if ss.nextBillingTime < now { // && !ss.GetConfig().IsGuru() {
 
-		ss.sendBillingInfo()
+		ss.sendBillingInfo(now)
 
-		// deltaTime := ss.nextBillingTime - ss.lastBillingTime
-		// ss.lastBillingTime = ss.nextBillingTime
-		// ss.nextBillingTime += 60 // 60 secs after first time
-
-		// //fmt.Println("delta t", deltaTime, ss.String())
-
-		// msg := &Stats{}
-		// //msg.Start = now
-		// msg.Input = float64(ss.input)
-		// ss.input -= int(msg.Input) // todo: atomic?
-		// msg.Output = float64(ss.output)
-		// ss.output -= int(msg.Output)         // todo: atomic?
-		// msg.Connections = float64(deltaTime) // means one per sec, one per min ... one
-		// // Subscriptions handled elsewhere.
-		// p := &packets.Send{}
-		// // fmt.Println("contact publishing to ", ss.token.JWTID)
-		// p.Address.FromString(ss.token.JWTID)
-		// p.Source.FromString("billing_stats_return_address_contact")
-		// str, err := json.Marshal(msg)
-		// if err != nil {
-		// 	fmt.Println("impossible#3")
-		// }
-		// p.SetOption("add-stats", str)
-		// p.SetOption("stats-deltat", []byte(strconv.FormatInt(int64(deltaTime), 10)))
-		// oldtimeout := ss.contactExpires // don't let heartbeat reset the expiration.
-		// //fmt.Println("contact heartbeat sending stats", p, "from", ss.config.Name)
-		// err = PushPacketUpFromBottom(ss, p)
-		// ss.contactExpires = oldtimeout
-		// if err != nil {
-		// 	fmt.Println("things before")
-		// }
 	}
 	if !ss.GetConfig().IsGuru() {
 		if ss.contactExpires < now {

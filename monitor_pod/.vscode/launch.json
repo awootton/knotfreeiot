@@ -12,7 +12,7 @@
             "mode": "auto",
             "program": "main.go",
             "env": { "TARGET_CLUSTER" : "knotlocal.com",
-                "TOKEN": "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJleHAiOjE2NjkxNjgwMjcsImlzcyI6Il85c2giLCJqdGkiOiI2YTNVV3NGYmIxOThNOG14enhfVjFPTmMiLCJpbiI6MTI4LCJvdXQiOjEyOCwic3UiOjIwLCJjbyI6MiwidXJsIjoibG9jYWwubG9jYWxob3N0In0.Y6Rv143B62FfjwcRrFAVnOe8eOvY0EbCDNr1tbbPZ_Jv-VM_tOWT2UmayQRV_ilJyGqs3S8KGyHIyjHApkGZAA" },
+                "TOKEN": "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJleHAiOjE2NzE3NjExMzIsImlzcyI6Il85c2giLCJqdGkiOiJWWWVFVTJ3SnZOd0NuY3J1bmh2MG5ocloiLCJpbiI6MTUyLCJvdXQiOjE1Miwic3UiOjEwMCwiY28iOjQsInVybCI6ImxvY2FsLmxvY2FsaG9zdCJ9.75GqY7inIuq_Pvso38nyr0cA_k1t1OgL9Tlx29Zyrz3Iz_ea2_4pC02I2SziqIgOh88ssF91itNryM6PXByRCw" },
 
         }
     ]

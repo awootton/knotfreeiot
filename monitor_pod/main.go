@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/base64"
 	"fmt"
+	"math/rand"
 	"net"
 	"os"
 	"strconv"
@@ -96,7 +97,7 @@ func publishTestTopic(token string) { // use knotfree format
 			sub.Address.FromString(topic)
 			sub.Payload = []byte(message)
 			sub.Source.FromString("random unwatched return address")
-			sub.SetOption("hello", []byte("world"))
+			sub.SetOption("helloKey", []byte("worldValue"))
 			sub.Write(conn)
 			if err != nil {
 				println("Write testtopic failed:", err.Error())
@@ -193,7 +194,7 @@ func serveGetTime(token string) { // use knotfree format
 					println("expected a send aka publish:", p.String())
 					fail++
 					// time.Sleep(10 * time.Second)
-					// break
+					continue
 				}
 				//fmt.Println("to ", string(pub.Address.String()))
 				//fmt.Println("from ", string(pub.Source.String()))
@@ -229,6 +230,10 @@ func serveGetTime(token string) { // use knotfree format
 					sec := time.Now().UnixMilli() / 1000
 					secStr := strconv.FormatInt(sec, 10)
 					reply = secStr
+				} else if message == `get random` {
+					tmp := rand.Uint32()
+					secStr := strconv.FormatInt(int64(tmp), 10)
+					reply = secStr
 				} else if message == `get count` {
 					countStr := strconv.FormatInt(int64(count), 10)
 					reply = countStr
@@ -237,8 +242,8 @@ func serveGetTime(token string) { // use knotfree format
 					countStr := strconv.FormatInt(int64(fail), 10)
 					reply = countStr
 					needsEncryption = true
-				} else if message == `about` {
-					reply = "v0.1.0"
+				} else if message == `version` {
+					reply = "v0.1.2"
 				} else if message == "get pubk" {
 					reply = pubStr
 				} else if message == "get admin hint" {
@@ -250,6 +255,7 @@ func serveGetTime(token string) { // use knotfree format
 					s = strings.Trim(s, " ")
 					dummyString = s
 					fmt.Println("dummy is set to ", s)
+					reply = "ok"
 				} else {
 					reply += "[get time] unix time in seconds\n"
 					reply += "[get count] how many served since reboot\n"
@@ -258,7 +264,8 @@ func serveGetTime(token string) { // use knotfree format
 					reply += "[get admin hint] the first chars of the admin public keys\n"
 					reply += "[get dummy] an unused string\n"
 					reply += "[set dummy] +1 set useless string\n"
-					reply += "[about] info on this device\n"
+					reply += "[get random] returns a random integer\n"
+					reply += "[version] info on this device\n"
 					reply += "[help] lists all commands\n"
 				}
 				if isHttp {

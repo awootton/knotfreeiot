@@ -17,10 +17,10 @@ package iot
 
 import (
 	"bytes"
-	"container/list"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"runtime"
 	"strconv"
 	"time"
 
@@ -54,6 +54,8 @@ type Executive struct {
 	ClusterStats *ClusterStats // All the stats
 
 	ClusterStatsString string // serialization of ClusterStats
+
+	Billing BillingAccumulator
 
 	IAmBadError error // if something happened to simply ruin us and we're quitting.
 
@@ -93,6 +95,7 @@ type ExecutiveStats struct {
 	HTTPAddress                 string  `json:"http"`
 	TCPAddress                  string  `json:"tcp"`
 	IsGuru                      bool    `json:"guru"`
+	Memory                      int64   `json:"mem"`
 
 	Limits *ExecutiveLimits `json:"limits"`
 }
@@ -558,38 +561,48 @@ func (ex *Executive) GetExecutiveStats() *ExecutiveStats {
 
 	// call the looker to get the dirt on subscriptions and the buffers
 	subscriptions, queuefraction := ex.Looker.GetAllSubsCount()
+	_ = subscriptions
 
-	// scan the contacts for byte rates
-	contactCount := ex.Config.Len()
-	inputs := int64(0)
-	outputs := int64(0)
-	times := int64(0)
+	// // scan the contacts for byte rates
+	// contactCount := ex.Config.Len()
+	// inputs := int64(0)
+	// outputs := int64(0)
+	// times := int64(0)
 
 	// fixme: have stats call billingAccumulator on heartbeat.
-	ex.Config.AccessContactsList(func(config *ContactStructConfig, listOfCi *list.List) {
-		e := listOfCi.Front()
-		for ; e != nil; e = e.Next() {
-			cc, ok := e.Value.(ContactInterface)
-			if !ok {
-				fmt.Println("not a ci?")
-			}
-			in, out, dt := cc.GetRates(now)
-			inputs += int64(in)
-			outputs += int64(out)
-			times += int64(dt)
-		}
-	})
-	if times <= 0 {
-		times = 1
-	}
+	// ex.Config.AccessContactsList(func(config *ContactStructConfig, listOfCi *list.List) {
+	// 	e := listOfCi.Front()
+	// 	for ; e != nil; e = e.Next() {
+	// 		cc, ok := e.Value.(ContactInterface)
+	// 		if !ok {
+	// 			fmt.Println("not a ci?")
+	// 		}
+	// 		in, out, dt := cc.GetRates(now)
+	// 		inputs += int64(in)
+	// 		outputs += int64(out)
+	// 		times += int64(dt)
+	// 	}
+	// })
+	// if times <= 0 {
+	// 	times = 1
+	// }
 	stats := &ExecutiveStats{}
+	//statsex := tokens.KnotFreeContactStats{}
+	ex.Billing.GetStats(now, &stats.KnotFreeContactStats)
+
 	stats.IsGuru = ex.isGuru
 
-	stats.Input = (float64(inputs) / float64(times)) / ex.Limits.Input
-	stats.Output = (float64(outputs) / float64(times)) / ex.Limits.Output
-	stats.Connections = float64(contactCount) / ex.Limits.Connections
-	stats.Subscriptions = float64(subscriptions) / ex.Limits.Subscriptions
-	stats.Buffers = float64(queuefraction)
+	runtime.GC()
+	var gstats runtime.MemStats
+	runtime.ReadMemStats(&gstats)
+	stats.Memory = int64(gstats.HeapAlloc)
+
+	stats.Input = stats.Input / ex.Limits.Input
+	stats.Output = stats.Output / ex.Limits.Output
+	stats.Connections = stats.Connections / ex.Limits.Connections
+	stats.Subscriptions = stats.Subscriptions / ex.Limits.Subscriptions
+
+	stats.Buffers = queuefraction
 
 	stats.Limits = ex.Limits
 	stats.Name = ex.Name
