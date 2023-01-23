@@ -36,7 +36,7 @@ var alsoStartMonitoring = true // once is enough //this is broken from being too
 var buildReactAndCopy = true // todo: mount the react static files instead of baking them in the docker.
 // TODO: better. redirect to s3 bucket with the files in it.? does this work?
 
-var TARGET_CLUSTER = "knotfree.net"
+var TARGET_CLUSTER = "knotfree.io" // for monitor pod
 
 func main() {
 

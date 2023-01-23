@@ -47,8 +47,8 @@ spec:
                     type: array
                   nodes:
                     additionalProperties:
-                      description: 'ExecutiveStats is fractions relative to the limits.
-                        a fraction: 1.0 is 100% maxed out. 0 is idle.'
+                      description: "ExecutiveStats is fractions relative to the limits.
+                        \n a fraction: 1.0 is 100% maxed out. 0 is idle."
                       properties:
                         buf:
                           type: number
@@ -99,6 +99,9 @@ spec:
                           required:
                           - contactStats
                           type: object
+                        mem:
+                          format: int64
+                          type: integer
                         name:
                           type: string
                         tcp:
@@ -109,6 +112,7 @@ spec:
                       - guru
                       - http
                       - limits
+                      - mem
                       - name
                       - tcp
                       type: object
@@ -135,8 +139,8 @@ spec:
                     type: array
                   nodes:
                     additionalProperties:
-                      description: 'ExecutiveStats is fractions relative to the limits.
-                        a fraction: 1.0 is 100% maxed out. 0 is idle.'
+                      description: "ExecutiveStats is fractions relative to the limits.
+                        \n a fraction: 1.0 is 100% maxed out. 0 is idle."
                       properties:
                         buf:
                           type: number
@@ -187,6 +191,9 @@ spec:
                           required:
                           - contactStats
                           type: object
+                        mem:
+                          format: int64
+                          type: integer
                         name:
                           type: string
                         tcp:
@@ -197,6 +204,7 @@ spec:
                       - guru
                       - http
                       - limits
+                      - mem
                       - name
                       - tcp
                       type: object

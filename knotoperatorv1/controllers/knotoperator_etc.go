@@ -492,7 +492,7 @@ func postClusterStats(array []*iot.ExecutiveStats, name string, addr string) err
 	stats.When = uint32(time.Now().Unix())
 	stats.Stats = array
 
-	fmt.Println("starting PostClusterStats with ")
+	fmt.Println("starting PostClusterStats")
 	// start := time.Now()
 	// defer func() {
 	// 	end := time.Now()

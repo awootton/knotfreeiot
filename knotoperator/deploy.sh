@@ -1,5 +1,7 @@
 #!/bin/bash 
 
+this is abandoned? 
+
 # run this locally to start the cluster
 
 #!/bin/sh

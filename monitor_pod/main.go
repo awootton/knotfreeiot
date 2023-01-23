@@ -188,7 +188,7 @@ func serveGetTime(token string) { // use knotfree format
 					time.Sleep(10 * time.Second)
 					break
 				}
-				// println("received:", p.String())
+				println("received:", p.String())
 				pub, ok := p.(*packets.Send)
 				if !ok {
 					println("expected a send aka publish:", p.String())

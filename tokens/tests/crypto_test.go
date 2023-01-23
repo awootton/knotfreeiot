@@ -20,7 +20,7 @@ import (
 	"golang.org/x/crypto/nacl/box"
 )
 
-func not_TestGetGiantTokens(t *testing.T) {
+func TestGetGiantTokens(t *testing.T) {
 	fmt.Println("giant token ", tokens.GetImpromptuGiantToken())
 	fmt.Println("giant local ", tokens.GetImpromptuGiantTokenLocal())
 }

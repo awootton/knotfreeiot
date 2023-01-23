@@ -34,9 +34,9 @@ spec:
         - name: NAME
           value: "monitor-pod"
         - name: TARGET_CLUSTER
-          value: "knotfree.net"
+          value: "knotfree.io"
         - name: TOKEN
-          value: "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3MDIyNjQ5NzEsImlzcyI6Il85c2giLCJqdGkiOiJlekI1c0QxTzhoM2pZa01wOUxDeVA0YloiLCJpbiI6OTk2MTQ3Miwib3V0Ijo5OTYxNDcyLCJzdSI6NjU1MzYwMCwiY28iOjI2MjE0NCwidXJsIjoia25vdGZyZWUubmV0L21xdHQifQ.7wdjWNvb0kdwoLfbThD1DxF-R8PepbNLgYnGZfnKOCPXjOIZOSKbs416k8y-E_be74MvRmjP5sETQCj8EWGICg"
+          value: "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3MDU5NjgwNjcsImlzcyI6Il85c2giLCJqdGkiOiJZOWg4SlNCVk1zZVc3NTVnQ1Q3UC02VHMiLCJpbiI6OTk2MTQ3Miwib3V0Ijo5OTYxNDcyLCJzdSI6NjU1MzYwMCwiY28iOjI2MjE0NCwidXJsIjoia25vdGZyZWUubmV0L21xdHQifQ.ipjyTFBlowhRJAbyLaasV77oCakPS5nlk9TipF5CMl5iQvQQ7i7W2heQOgdukcIBmDlgzTMvEfEgnMTVzHUxDw"
         - name: MY_POD_IP
           valueFrom:
             fieldRef:

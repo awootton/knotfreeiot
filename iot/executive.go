@@ -555,6 +555,7 @@ func (ex *Executive) GetSubsCount() (int, float64) {
 }
 
 // GetExecutiveStats is fractions relative to the limits.
+// 
 func (ex *Executive) GetExecutiveStats() *ExecutiveStats {
 
 	now := ex.getTime()
@@ -626,6 +627,7 @@ func (ex *Executive) Heartbeat(now uint32) {
 
 	contactList := ex.Config.GetContactsListCopy()
 
+	fmt.Println("Heartbeat clients", len(contactList))
 	for _, ci := range contactList {
 		ci.Heartbeat(now)
 	}

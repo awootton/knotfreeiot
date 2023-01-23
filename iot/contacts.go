@@ -558,7 +558,7 @@ func (ss *ContactStruct) sendBillingInfo(now uint32) {
 	ss.output -= int(msg.Output)         // todo: atomic?
 	msg.Connections = float64(deltaTime) // means one per sec, one per min ... one
 
-	// also send toi exec
+	// also send to exec
 	ss.config.lookup.ex.Billing.AddUsage(&msg.KnotFreeContactStats, now, int(deltaTime))
 
 	// Subscriptions handled elsewhere.

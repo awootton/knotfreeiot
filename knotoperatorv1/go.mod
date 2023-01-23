@@ -15,8 +15,7 @@ go 1.18
 // replace github.com/awootton/knotfreeiot/kubectl => ../kubectl
 
 require (
-	github.com/awootton/knotfreeiot v0.1.2
-	//	github.com/awootton/knotfreeiot/kubectl v0.1.0
+	github.com/awootton/knotfreeiot v0.1.5
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.19.0
 	gomodules.xyz/jsonpatch/v2 v2.2.0

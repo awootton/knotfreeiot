@@ -259,6 +259,7 @@ func (superMux *SuperMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if clen > 0 {
 			n, err := r.Body.Read(theBody)
 			if err != nil || (n != int(clen)) {
+				
 				http.Error(w, "http content read fail ", 500)
 				return
 			}
