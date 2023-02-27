@@ -1,5 +1,7 @@
 
-    dns-01 google gcloud setup 
+    ## dns-01 google gcloud setup 
+
+	cd deploy
 
 	export PROJECT_ID=fair-theater-238820
 
@@ -16,7 +18,6 @@
 
 	kubectl create secret generic clouddns-dns01-solver-svc-acct \
 	   --from-file=key.json
-
 
 
 -------
