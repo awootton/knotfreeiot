@@ -98,8 +98,11 @@ func processSubscribe(me *LookupTableStruct, bucket *subscribeBucket, submsg *su
 		}
 		watchedTopic.expires = 60*60 + me.getTime()
 	} else {
-		watchedTopic.expires = 20*60 + me.getTime() // 20 min.
+
 	}
+
+	watchedTopic.expires = 26*60 + me.getTime()
+
 	// only the first subscriber can set the IPv6 address that lookup can return.
 	val, ok = submsg.p.GetOption("IPv6")
 	if ok {
@@ -118,6 +121,7 @@ func processSubscribe(me *LookupTableStruct, bucket *subscribeBucket, submsg *su
 	}
 
 	// done: permanent subscription.
+	// Pretty sure this is broken.
 	subs := submsg.p
 	box_bytes2, ok1 := subs.GetOption("reserved")
 	pubk, ok2 := subs.GetOption("pubk")

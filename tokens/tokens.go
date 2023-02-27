@@ -152,6 +152,7 @@ func GetKnotFreePayload(token string) (string, string, error) {
 
 	// part 1 eg eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJleHAiOjE2OTczNDU4OTMsImlzcyI6Il85c2giLCJqdGkiOiJCMEQxT1JoWGVjYnA0anVPSXZKcDQ5ajYiLCJpbiI6MTAwMDAwMCwib3V0IjoxMDAwMDAwLCJzdSI6MjAwMDAwLCJjbyI6MjAwMDAwLCJ1cmwiOiJrbm90ZnJlZS5uZXQifQ.SH47mr46105AL8wxfZkNB0iZMAc-MzpZ1hqzNz3lPa65R8XmR4TXNrzPz3aTVJd5PYXhgXmt0EubSvJB7mqADA
 	// or     eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiSldUIn0.
+	// I don't like this: should just check the front. Too fragile.
 	{
 		firstPart := "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9."     // {"alg":"EdDSA","typ":"JWT"}
 		firstPart2 := "eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiSldUIn0." //{"alg":"Ed25519","typ":"JWT"}
@@ -461,7 +462,7 @@ func GetSampleBigToken(startTime uint32, serviceUrl string) *KnotFreeTokenPayloa
 	p := &KnotFreeTokenPayload{}
 	p.Issuer = "_9sh"                             // first 4 from public
 	p.ExpirationTime = startTime + 60*60*24*(365) // year
-	p.JWTID = GetRandomB64String()
+	p.JWTID = GetRandomB36String()
 
 	// 256k connections is GiantX32
 	p.KnotFreeContactStats = GetTokenStatsAndPrice(GiantX32).Stats
@@ -469,6 +470,19 @@ func GetSampleBigToken(startTime uint32, serviceUrl string) *KnotFreeTokenPayloa
 	// p.Output = 1e6
 	// p.Subscriptions = 200000
 	// p.Connections = 200000
+	p.URL = serviceUrl
+	return p
+}
+
+// GetSampleTokenFromStats is used for testing.
+func GetSampleTokenFromStats(startTime uint32, serviceUrl string, stats KnotFreeContactStats) *KnotFreeTokenPayload {
+	p := &KnotFreeTokenPayload{}
+	p.Issuer = "_9sh"                             // first 4 from public
+	p.ExpirationTime = startTime + 60*60*24*(365) // year
+	p.JWTID = GetRandomB36String()
+
+	p.KnotFreeContactStats = stats
+
 	p.URL = serviceUrl
 	return p
 }
@@ -507,11 +521,38 @@ func GetImpromptuGiantTokenLocal() string {
 	return giantToken
 }
 
-// GetRandomB64String returns 18 bytes or 18 * 8 = 144 bits of randomness
+func Get32xTokenLocal() string {
+
+	LoadPrivateKeys("~/atw/privateKeys4.txt")
+
+	payload := GetSampleTokenFromStats(uint32(time.Now().Unix()), "knotfree.dog:8085/mqtt", GetTokenStatsAndPrice(Medium).Stats) // is localhost in my /etc/hosts
+	signingKey := GetPrivateKey("_9sh")
+	bbb, err := MakeToken(payload, []byte(signingKey))
+	if err != nil {
+		fmt.Println("Get32xTokenLocal", err)
+	}
+	giantToken = string(bbb)
+	return giantToken
+}
+
+// GetRandomB64String returns 18 bytes or 18 * 8 = 144 bits of randomness aka 24 bytes
 func GetRandomB64String() string {
 	var tmp [18]byte
 	rand.Read(tmp[:])
 	return base64.RawURLEncoding.EncodeToString(tmp[:])
+}
+
+const b36 = "0123456789abcdefghijklmnopqrstuvwxyz"
+
+// GetRandomB32String returns 24 bytes but only 24 * 5.1699 = 124 bits of random.
+// but it's url compatible
+func GetRandomB36String() string {
+	var tmp [24]byte
+	rand.Read(tmp[:])
+	for i := 0; i < len(tmp); i++ {
+		tmp[i] = b36[int(mathrand.Float32()*float32(len(b36)))]
+	}
+	return string(tmp[:])
 }
 
 // LoadPublicKeys adds the public keys below
@@ -576,7 +617,7 @@ func MakeRandomPhrase(amount int) string {
 	result := ""
 	for i := 0; i < amount; i++ {
 		if i > 0 {
-			result += "_"
+			result += "-"
 		}
 		max := len(e_words)
 		index := mathrand.Intn(max)

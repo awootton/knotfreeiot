@@ -204,7 +204,7 @@ func TestSimpleExecutive(t *testing.T) {
 
 	p = readSocket(sock2)
 	got = fmt.Sprint(p)
-	want = `[P,=1CHKeHF6q1WLMSylXwB0gRs-VVKJvEiH,bbcc,some_test_hello3]`
+	want = `[P,sock2channel,bbcc,some_test_hello3]`
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
 	}

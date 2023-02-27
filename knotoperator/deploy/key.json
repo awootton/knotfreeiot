@@ -1,0 +1,12 @@
+{
+  "type": "service_account",
+  "project_id": "fair-theater-238820",
+  "private_key_id": "7a49e4b11eb78cecb52a96d5cef860a456df5827",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQCfTA9yVRTpmtWV\n15f45KygaXeAaOWCcFSmmIGxUyawtlLWtTO65yAo1yB0c1wX76AFqiUPbGzokbU+\nKeV7dSOC4nZl1/0LHCbPt+0cR0iayIbyk1sh6QKxWJ7d2iZUzHg0VA7WXEkbtlfD\nBoCJduPotoLuNBwupAy8vwYOISEvwQIAoBDj5/MkG93mYlOkcwqqilqP9JX576Wd\nys7tl69/Knm1SxjQXEQNmI5SBQGdG6vKMSjPBdF3uxtgptTFKgIju74wDYtBP8dF\nsd6dtWQVKhDr+KML7Rxba2622qpV3X4WMEtXOw5DdazBCVSreyNklnaM3p1nXkxx\nIttwJ1prAgMBAAECggEAAkScavZ+Dy+V5Rcr/x0CYOwfff4AV/1FzoreyAbR9Xlo\n5IclwE/aHV2nHEcoMffGtggeIGrRU5iLISgtXnD7yefQ+qOvKM/hbwl+oDNa5I2j\nb69FDCukZiwwecU9uWGKEa7X+LD8CvD3IdNZgpuIMELuyktAu3fQSvnY637xnxuv\nuP/4rCR0qU0Tm/ULAmHCevbO+NCSsTnLv3PPSLKDJoZwrOSdFoI9IF3rhAyW4xZs\nEISfL6Pdd1+6pQxE1RZrWniZJ62CZalM7D73hdZWDo5+/CmvGkKS/6237PP9JbtX\nwvQ6odMEtc1OuxkQjmJpYx2Ohk4DEzY77XK6pyj2wQKBgQDOQIyUWd0Nm0652b+o\ngbAfakFERti3wnr0GMH2uPzTDNWmF7bJguW6OOdHyI6T5KTg4vbSu3hEXurKfO2y\n2yMoeOSCCbPyeF65y/+ejO4ChKCjkcmPdByiM558mjxX/6NSHKZWlXuN/wIZnTXU\n1ZTHa56VjG97Rn/9uLafFE7nnwKBgQDFuC3D10BZrdYrWROwFRT9T0u/l6ZhA/E7\n2igeZssXBiXBvaZSotkbkpwOueuL8EXwtMHmXb1vRq1xTMaVeGYbEbaDtMiQ7l/Y\nRljSzO04tv6g5nibMMtxW0hdhn5rNJJBMYKjFWXp/nXsODwMqDDY9aqb5ti02ROe\nhU/f2ycJtQKBgQCn65vIyGUVx+VPoL3Oxk+LNCoRGZEmAxuxklqQscl9Vsy3HkV+\nSKkadWuvYNTcCeJHCeIkbecb2x9TXmT0Ij+8mriIOrgb5+5PXIwwHNNGj45tvasZ\ntVH+qQIWtkf86S+iEZtHkQp38C9YhUsnjgBEYBVL8nttJVfdTT65w4H+RwKBgQC7\n7r2pWa8zzpU0rL2W7+L8h2Ozn9yoeEvSnSDnDMPbhZ9b0P0HrPx6RdeJ89RdNiv0\niIuJgO5vl5mCiPx01HURI7v84liF0d5OP0dsTxbogp/ypj5bHH0zqRVWuGDvW4/s\n4bePdeZiDNlfh3Akg7Wyc4gQGdM/ytnoIkTyvWcUxQKBgGhG5PRB1eEJMO95wShN\nbm4iTUMxGFyLELT6oUbTecwDWtTNvKE/GA+98AelNE93GjyABjaXjlOh4cW4E7aZ\nKOELKeNBihSxI9VMmndQsL41waRaEYEGxA2ywfyaeug49nof6tW3Kc0oDszmXkZq\np1yJO0XrYNR8WQAH0DYV5TOv\n-----END PRIVATE KEY-----\n",
+  "client_email": "dns01-solver@fair-theater-238820.iam.gserviceaccount.com",
+  "client_id": "108382122997605205061",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/dns01-solver%40fair-theater-238820.iam.gserviceaccount.com"
+}

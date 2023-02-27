@@ -176,7 +176,8 @@ func AddContactStruct(ss *ContactStruct, ssi ContactInterface, config *ContactSt
 	})
 
 	now := config.GetLookup().getTime()
-	ss.contactExpires = 20*60 + now // stale contacts expire in 20 min.
+	ss.contactExpires = 20*60 + now // stale contacts expire in 20 min. contact timeout
+	fmt.Println("contactExpires 20 min")
 
 	ss.nextBillingTime = now + 30 // 30 seconds to start with
 	ss.lastBillingTime = now
@@ -198,9 +199,13 @@ func NewContactStructConfig(looker *LookupTableStruct) *ContactStructConfig {
 	return &config
 }
 
+func PushPacketUpFromBottom(ssi ContactInterface, p packets.Interface) error {
+	return PushPacketUpFromBottom2(ssi, p, true)
+}
+
 // PushPacketUpFromBottom to deal with an incoming message on a bottom contact heading up.
 // it expects a token before anything else.
-func PushPacketUpFromBottom(ssi ContactInterface, p packets.Interface) error {
+func PushPacketUpFromBottom2(ssi ContactInterface, p packets.Interface, doSetExpires bool) error {
 
 	if ssi.GetClosed() {
 		return errors.New("closed contact")
@@ -212,7 +217,9 @@ func PushPacketUpFromBottom(ssi ContactInterface, p packets.Interface) error {
 	looker := config.GetLookup()
 	var destination *HashType
 
-	ssi.SetExpires(20*60 + config.GetLookup().getTime())
+	if doSetExpires {
+		ssi.SetExpires(20*60 + config.GetLookup().getTime())
+	}
 
 	err := expectToken(ssi, p)
 	if err != nil {
@@ -224,6 +231,7 @@ func PushPacketUpFromBottom(ssi ContactInterface, p packets.Interface) error {
 		// handled the first time by expectToken(ssi, p)
 	case *packets.Disconnect:
 		ssi.WriteDownstream(v)
+		fmt.Println("contact closing on disconnect")
 		ssi.Close(errors.New("closing on disconnect"))
 	case *packets.Subscribe:
 		v.Address.EnsureAddressIsBinary()
@@ -396,6 +404,7 @@ func (ss *ContactStruct) GetExpires() uint32 {
 
 // SetExpires sets when the ss will expire in unix time
 func (ss *ContactStruct) SetExpires(when uint32) {
+	// fmt.Println("SetExpires now", ss.GetSequence())
 	if when > ss.contactExpires {
 		ss.contactExpires = when
 	}
@@ -499,6 +508,7 @@ func makeErrorAndDisconnect(ssi ContactInterface, str string, err error) error {
 	dis := &packets.Disconnect{}
 	dis.SetOption("error", []byte(err.Error()))
 	ssi.WriteDownstream(dis)
+	fmt.Println("contacts makeErrorAndDisconnect")
 	ssi.Close(err)
 	return err
 }
@@ -548,10 +558,9 @@ func (ss *ContactStruct) sendBillingInfo(now uint32) {
 	ss.lastBillingTime = ss.nextBillingTime
 	ss.nextBillingTime += 60 // 60 secs after first time
 
-	//fmt.Println("delta t", deltaTime, ss.String())
+	// fmt.Println("delta t", deltaTime, ss.String())
 
 	msg := &Stats{}
-	//msg.Start = now
 	msg.Input = float64(ss.input)
 	ss.input -= int(msg.Input) // todo: atomic?
 	msg.Output = float64(ss.output)
@@ -572,16 +581,15 @@ func (ss *ContactStruct) sendBillingInfo(now uint32) {
 	}
 	p.SetOption("add-stats", str)
 	p.SetOption("stats-deltat", []byte(strconv.FormatInt(int64(deltaTime), 10)))
-	oldtimeout := ss.contactExpires // don't let heartbeat reset the expiration.
+
 	//fmt.Println("contact heartbeat sending stats", p, "from", ss.config.Name)
 
 	// don't bill a billing subscripton for the guru.
 
 	if !ss.GetConfig().IsGuru() {
-		err = PushPacketUpFromBottom(ss, p)
+		doSetExpires := false
+		err = PushPacketUpFromBottom2(ss, p, doSetExpires)
 	}
-	ss.contactExpires = oldtimeout
-	// fixme: q for a billingAccumulator on this executive.
 	if err != nil {
 		fmt.Println("things before")
 	}
@@ -606,6 +614,7 @@ func (ss *ContactStruct) Heartbeat(now uint32) {
 	}
 	if !ss.GetConfig().IsGuru() {
 		if ss.contactExpires < now {
+			fmt.Println("contact timed out in heartbeat")
 			ss.Close(errors.New("timed out in heartbeat "))
 		}
 	}

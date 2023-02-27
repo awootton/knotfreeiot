@@ -928,7 +928,7 @@ func (p *PacketCommon) GetOption(key string) ([]byte, bool) {
 	return val.([]byte), ok
 }
 
-// GetOptionKeys returns a slice of strings
+// GetOptionKeys returns a slice of strings and a slice of byte slices. The keys and the valus are in the same order.
 func (p *PacketCommon) GetOptionKeys() ([]string, [][]byte) {
 	keys := make([]string, 0)
 	values := make([][]byte, 0)

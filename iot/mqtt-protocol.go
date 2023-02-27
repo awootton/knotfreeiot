@@ -21,13 +21,14 @@ import (
 	"fmt"
 	"net"
 	"reflect"
+	"strconv"
 	"sync"
 
 	"time"
 
 	"github.com/awootton/knotfreeiot/packets"
+	"github.com/awootton/libmqtt" // was mqttpacket "github.com/eclipse/paho.mqtt.golang/packets"
 	"github.com/gorilla/websocket"
-	"github.com/thei4t/libmqtt" // was mqttpacket "github.com/eclipse/paho.mqtt.golang/packets"
 )
 
 type mqttContact struct {
@@ -46,6 +47,7 @@ type mqttWsContact struct {
 func (cc *mqttWsContact) Close(err error) {
 	hadConfig := cc.GetConfig() != nil
 	ss := &cc.ContactStruct
+	fmt.Println("mqtt contact close")
 	ss.Close(err) // close my parent
 	if hadConfig {
 		dis := packets.Disconnect{}
@@ -76,7 +78,7 @@ func mqttServer(ex *Executive, name string) {
 		return
 	}
 	for ex.IAmBadError == nil {
-		//fmt.Println("Server listening")
+		fmt.Println("MQTT Server listening")
 		tmpconn, err := ln.Accept()
 		if err != nil {
 			//	srvrLogThing.Collect(err.Error())
@@ -85,17 +87,22 @@ func mqttServer(ex *Executive, name string) {
 		}
 		go mqttConnection(tmpconn.(*net.TCPConn), ex) //,handler types.ProtocolHandler)
 	}
+	fmt.Println("MQTT Server loop break", ex.IAmBadError)
 }
 
 func mqttConnection(tcpConn *net.TCPConn, ex *Executive) {
 
 	//srvrLogThing.Collect("Conn Accept")
 
+	fmt.Println("new mqttConnection ")
+
 	cc := localMakeMqttContact(ex.Config, tcpConn)
-	defer cc.Close(nil)
+	defer func() {
+		fmt.Println("mqtt mqttConnection close")
+		cc.Close(nil)
+	}()
 
 	// connLogThing.Collect("new connection")
-	fmt.Println("new mqttConnection ")
 
 	err := SocketSetup(tcpConn)
 	if err != nil {
@@ -131,6 +138,8 @@ func mqttConnection(tcpConn *net.TCPConn, ex *Executive) {
 			//connLogThing.Collect("se err " + err.Error())
 			if err.Error() != "EOF" {
 				fmt.Println("packets 1 read err", err, time.Now())
+			} else {
+				fmt.Println("mqtt-protocol EOF close", err, time.Now())
 			}
 			cc.Close(err)
 			return
@@ -147,7 +156,7 @@ func MQTTHandlePacket(cc *mqttContact, control libmqtt.Packet) {
 	// As much fun as it would be to make the following code into virtual methods
 	// of the types involved (and I tried it) it's more annoying and harder to read
 	// than just doing it all here.
-	var err error
+	//var err error
 	switch mq := control.(type) {
 
 	case *libmqtt.ConnPacket:
@@ -162,7 +171,7 @@ func MQTTHandlePacket(cc *mqttContact, control libmqtt.Packet) {
 		}
 		// = mq.Username
 		cc.protoVersion = mq.Version()
-		err = PushPacketUpFromBottom(cc, p)
+		err := PushPacketUpFromBottom(cc, p)
 		if err != nil {
 			str := fmt.Sprint("mqtt push connect fail", err) // needs prom counter
 			err = errors.New(str)
@@ -172,11 +181,9 @@ func MQTTHandlePacket(cc *mqttContact, control libmqtt.Packet) {
 		}
 		// write an ack
 		conack := &libmqtt.ConnAckPacket{}
-		//conack.FixedHeader.MessageType = mqttpackets.Connack
-		//err = conack.WriteTo(cc)
 		err = cc.writeLibPacket(conack, cc)
 		if err != nil {
-			fmt.Println("mqtt conn fail", err) // needs prom counter
+			fmt.Println("mqtt connack fail", err) // needs prom counter
 		}
 
 	case *libmqtt.PublishPacket: // handle upstream publish
@@ -240,16 +247,22 @@ func MQTTHandlePacket(cc *mqttContact, control libmqtt.Packet) {
 
 			p := &packets.Subscribe{}
 			p.Address.FromString(topic.Name)
-			err = PushPacketUpFromBottom(cc, p)
+			err := PushPacketUpFromBottom(cc, p)
 			if err != nil {
 				fmt.Println("mqtt sub fail", err) // needs prom counter
 			}
 		}
+		timeStr := strconv.Itoa(int(time.Now().Unix()))
 		// write an ack
-		suback := &libmqtt.SubAckPacket{}
-		suback.Codes = []byte{0}
-		suback.PacketID = mq.PacketID
-		err = cc.writeLibPacket(suback, cc)
+		suback := &libmqtt.SubAckPacket{
+			Props: &libmqtt.SubAckProps{
+				Reason:    "",
+				UserProps: libmqtt.UserProps{"unix-time": []string{timeStr}},
+			},
+		}
+		suback.SetVersion(5)
+
+		err := cc.writeLibPacket(suback, cc)
 		if err != nil {
 			fmt.Println("mqtt conn fail", err) // needs prom counter
 		}
@@ -270,7 +283,7 @@ func MQTTHandlePacket(cc *mqttContact, control libmqtt.Packet) {
 		} else {
 			// client sent us junk somehow
 			str := "bad mqtt type=" + reflect.TypeOf(control).String()
-			err = errors.New(str)
+			err := errors.New(str)
 			//	mqttLogThing.Collect(str)
 			fmt.Println("unhandled mqttp packet", str)
 			//ss.Close(err)
@@ -312,7 +325,7 @@ func (cc *mqttContact) WriteDownstream(p packets.Interface) error {
 	case *packets.Unsubscribe:
 		fmt.Println("cant happen4")
 
-	case *packets.Lookup:
+	case *packets.Lookup: // TODO: discontinue this and use a type of publish
 		// what form does a lookup take in mqtt ?
 		mq := &libmqtt.PublishPacket{}
 		mq.Payload = []byte("had lookup") //v.??
@@ -437,6 +450,7 @@ func WebSocketLoop(wsConn *websocket.Conn, config *ContactStructConfig) {
 		cc.writebuff.Reset()
 		err := mq.WriteTo(cc)
 		if err != nil {
+			fmt.Println("WebSocketLoop err", err)
 			cc.Close(err)
 			return err
 		}
@@ -510,6 +524,8 @@ func WebSocketLoop(wsConn *websocket.Conn, config *ContactStructConfig) {
 		if err != nil {
 			if err.Error() != "EOF" {
 				fmt.Println("libmqtt.Decode err", control, err)
+			} else {
+				fmt.Println("libmqtt.Decode EOF", control, err)
 			}
 			cc.Close(err)
 			break // return

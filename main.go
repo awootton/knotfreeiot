@@ -25,9 +25,8 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"io"
+	"io/ioutil"
 	"log"
-	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -97,7 +96,7 @@ func main() {
 		name = "DefaultPodName"
 	}
 
-	if *nano == true {
+	if *nano {
 		limits = &iot.TestLimits
 		fmt.Println("nano limits")
 	}
@@ -118,8 +117,11 @@ type ApiHandler struct {
 func (api ApiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	fmt.Println("ApiHandler ServeHTTP", req.RequestURI, req.Host)
-
-	w.Header().Add("Access-Control-Allow-Origin", "http://localhost:3000")
+	if isLocal(req) {
+		w.Header().Add("Access-Control-Allow-Origin", "http://localhost:3000")
+	} else {
+		w.Header().Add("Access-Control-Allow-Origin", "http://knotfree.io")
+	}
 
 	// if req.RequestURI == "/api1/paypal-transaction-complete" {
 
@@ -146,7 +148,29 @@ func (api ApiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	// } else
 
-	if req.RequestURI == "/api1/getallstats" {
+	const proxyApiPath = "/api1/rawgithubusercontentproxy/"
+
+
+	if strings.HasPrefix(req.RequestURI, proxyApiPath) {
+
+		path := req.RequestURI[len(proxyApiPath):]
+
+		fmt.Println("proxy path", path)
+
+		resp, err := http.Get("https://raw.githubusercontent.com/" + path)
+		if err != nil {
+			w.Write([]byte("error " + err.Error()))
+		}
+		defer resp.Body.Close()
+
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			w.Write([]byte("error " + err.Error()))
+		} else {
+			w.Write(body)
+		}
+
+	} else if req.RequestURI == "/api1/getallstats" {
 
 		stats := api.ce.Aides[0].ClusterStatsString
 
@@ -163,7 +187,11 @@ func (api ApiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	} else if req.RequestURI == "/api1/getToken" {
 
-		w.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000") // "*") // fixme: just localhost
+		if isLocal(req) {
+			w.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
+		} else {
+			w.Header().Set("Access-Control-Allow-Origin", "http://knotfree.io")
+		}
 		api.ServeMakeToken(w, req)
 
 	} else if req.RequestURI == "/api1/getPublicKey" {
@@ -183,7 +211,9 @@ func (api ApiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 		w.Write([]byte(sss))
 
-	} else if req.RequestURI == "/help" {
+	} else if req.RequestURI == "/api1/help" {
+
+		w.Header().Set("Access-Control-Allow-Origin", "*")
 
 		sss := "/api1/getallstats\n"
 		sss += "/api1/getstats\n"
@@ -225,22 +255,33 @@ type RequestReplyStruct struct {
 
 var servedMap = map[string]*RequestReplyStruct{}
 
+func isLocal(r *http.Request) bool {
+	fmt.Println("host is ", r.Host)
+	if os.Getenv("KNOT_KUNG_FOO") == "atw" {
+		return true
+	}
+	if strings.Contains(r.Host, "local") {
+		return true
+	}
+	return false
+}
+
 func (superMux *SuperMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	//fmt.Println("giant token ", tokens.GetImpromptuGiantToken())
 
+	fmt.Println("ServeHTTP from host ", r.Host)
+
 	domainParts := strings.Split(r.Host, ".")
-	// eg [dummy localhost:8085]
 	// eg [knotfree net]
 	// eg [subdomain knotfree net]
-	// eg [subdomain knotfreeiot net]
-	// eg [subdomain go2here io]
+	// eg [subdomain knotfree io]
 	// fmt.Println("serving domainParts ", domainParts)
 
-	isGetToken := len(r.RequestURI) >= 9 && r.RequestURI[:9] == "/api1/get"
-	isGetToken = isGetToken || r.RequestURI == "/mqtt"
+	isApiRequest := strings.HasPrefix(r.RequestURI, "/api1/") // len(r.RequestURI) >= 9 && r.RequestURI[:9] == "/api1/get"
+	isApiRequest = isApiRequest || r.RequestURI == "/mqtt"
 
-	if len(domainParts) > 2 && !isGetToken && domainParts[0] != "www" {
+	if !isApiRequest && len(domainParts) > 2 && domainParts[0] != "www" {
 		// we have a subdomain
 		subDomain := domainParts[0]
 		fmt.Println("serving subdomain ", subDomain, "  with "+r.URL.String())
@@ -259,7 +300,7 @@ func (superMux *SuperMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if clen > 0 {
 			n, err := r.Body.Read(theBody)
 			if err != nil || (n != int(clen)) {
-				
+
 				http.Error(w, "http content read fail ", 500)
 				return
 			}
@@ -274,14 +315,14 @@ func (superMux *SuperMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		buf.WriteString(firstLine)
 		for key, val := range r.Header {
 			if key == "Cookie" {
-				continue
+				continue // don't pass the cookie
 			}
 			for i := 0; i < len(val); i++ {
-				tmp := key + ": " + val[i] + "\n"
+				tmp := key + ": " + val[i] + "\r\n"
 				buf.WriteString(tmp)
 			}
 		}
-		buf.WriteString("\n")
+		buf.WriteString("\r\n")
 		// write the body to a buffer
 		n, err := buf.Write(theBody)
 		if err != nil || (n != len(theBody)) {
@@ -363,6 +404,7 @@ func (superMux *SuperMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		subs.Address.EnsureAddressIsBinary()
 		//fmt.Println(" our return addr will be ", subs.Address.String())
 		err = iot.PushPacketUpFromBottom(contact, &subs)
+		_ = err
 
 		// define a reader and a writer
 		gotDataChan := new(iot.ByteChan)
@@ -386,6 +428,7 @@ func (superMux *SuperMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			pub.Payload = buf.Bytes()
 			//fmt.Println("payload ius ", string(pub.Payload))
 			err = iot.PushPacketUpFromBottom(contact, &pub)
+			_ = err
 		}
 
 		hj, ok := w.(http.Hijacker)
@@ -421,20 +464,18 @@ func (superMux *SuperMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 						http.Error(w, err.Error(), 500)
 						return
 					}
-					keys, values := cmd.GetOptionKeys()
+					//keys, values := cmd.GetOptionKeys()   TODO: clean this up
 					//fmt.Println("packet user keys ", keys, values)
-					_ = keys
-					_ = values
 
-					switch cmd.(type) {
+					switch v := cmd.(type) {
 					case *packets.Send:
-						snd := cmd.(*packets.Send)
-						end := 32
-						if end > len(snd.Payload) {
-							end = len(snd.Payload)
-						}
+						snd := v //cmd.(*packets.Send)
+						// end := 32
+						// if end > len(snd.Payload) {
+						// 	end = len(snd.Payload)
+						// }
 						packetCountStr, ok := snd.GetOption("of")
-						if ok == true {
+						if ok {
 							fmt.Println("packet count total= ", packetCountStr)
 							// we have the last packet.
 							running = false
@@ -460,7 +501,8 @@ func (superMux *SuperMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 							pi := &pinfo{}
 							packetStruct.replyParts = append(packetStruct.replyParts, *pi)
 						}
-						packetStruct.replyParts[packetIncomingIndex].buff = snd.Payload
+						//packetStruct.replyParts[packetIncomingIndex].buff = snd.Payload
+						currentPayload := snd.Payload
 
 						fmt.Println("have http reply packet #", packetIncomingIndex, "for ", firstLine)
 						if packetIncomingIndex == 0 {
@@ -487,10 +529,70 @@ func (superMux *SuperMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 								}
 								fmt.Println("theLengthWeNeed is ", i)
 								theLengthWeNeed = i + len(header) + 4
+
+								// we have to transfer the user options to the header
+								// we insert the options onto the currentPayload
+								// split the currentPayload into header and the rest
+								headerStart := string(currentPayload[0:int(headerPos)]) // force a copy
+								pastHeader := currentPayload[int(headerPos):]           // contains the \r\n\r\n, might contain some body
+								keys, bvalues := snd.GetOptionKeys()
+								values := make([]string, len(keys))
+								for n := 0; n < len(keys); n++ {
+									k := keys[n]
+									v := bvalues[n]
+									values[n] = string(v)
+									fmt.Println("Options k v ", k, values[n])
+								}
+
+								// fmt.Println("headerStart  ", string(headerStart))
+								// fmt.Println("pastHeader  ", string(pastHeader))
+								if len(keys) > 0 {
+									headerStart += "\r\n"
+									theLengthWeNeed += 2
+								}
+								// fmt.Println("headerStart 2 ", string(headerStart)+"\n\n")
+								for i := 0; i < len(keys); i++ {
+									k := keys[i]
+									v := values[i]
+
+									// for n := 0; n < len(keys); n++ {
+									// 	kk := keys[n]
+									// 	vv := values[n]
+									// //	fmt.Println("Options k v ", kk, string(vv))
+									// }
+
+									// fmt.Println("adding ", k, ":", string(v))
+									headerStart += k
+									theLengthWeNeed += len(k)
+									//fmt.Println("headerStart 3 ", string(headerStart)+"\n\n")
+									headerStart += ": "
+									theLengthWeNeed += 2
+									//fmt.Println("headerStart 4 ", string(headerStart)+"\n\n")
+
+									// for n := 0; n < len(keys); n++ {
+									// 	kk := keys[n]
+									// 	vv := values[n]
+									// 	fmt.Println("Options k v ", kk, string(vv))
+									// }
+
+									// fmt.Println("addingvalue  ", string(values[i])+"\n\n")
+									headerStart += v
+									theLengthWeNeed += len(v)
+									//fmt.Println("headerStart 5 ", string(headerStart)+"\n\n")
+									if i < len(keys)-1 {
+										headerStart += "\r\n"
+										theLengthWeNeed += 2
+									}
+									// fmt.Println("headerStart 6 ", string(headerStart)+"\n\n")
+								}
+								// fmt.Println("headerStart  ", string(headerStart)+"\n\n")
+								currentPayload = append([]byte(headerStart), pastHeader...)
+								fmt.Println("new payload is ", string(currentPayload)+"\n\n")
 							}
 						}
+						packetStruct.replyParts[packetIncomingIndex].buff = currentPayload
 
-						for true { // loop over packetlist stuff we can write
+						for { // loop over packetlist stuff we can write
 							if pastWritesIndex >= len(packetStruct.replyParts) {
 								break // at the end
 							}
@@ -546,6 +648,7 @@ func (superMux *SuperMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			unsub.Address.FromString(myRandomAddress)
 			err = iot.PushPacketUpFromBottom(contact, &unsub)
 			_ = err
+			fmt.Println("contact normal close")
 			contact.Close(errors.New("normal close"))
 			if isCachable {
 				size := 0
@@ -559,9 +662,19 @@ func (superMux *SuperMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	} else {
+		// it's not a subdomain pass it to the api.
 		superMux.sub.ServeHTTP(w, r)
 	}
+}
 
+type ProxyHandler struct {
+	p *httputil.ReverseProxy
+}
+
+func (ph *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	fmt.Println(r.URL)
+	w.Header().Set("X-Ben", "Rad")
+	ph.p.ServeHTTP(w, r)
 }
 
 func startPublicServer(ce *iot.ClusterExecutive) {
@@ -594,6 +707,13 @@ func startPublicServer(ce *iot.ClusterExecutive) {
 	//supermux.sub.Handle("/api1/", ApiHandler{ce})
 	//supermux.sub.Handle("/help", ApiHandler{ce})
 	supermux.sub.Handle("/mqtt", wsAPIHandler{ce})
+
+	// remote, err := url.Parse("https://github.com")
+	// if err != nil {
+	// 	fmt.Printf("error parsing url: %v", err)
+	// }
+	// proxy := httputil.NewSingleHostReverseProxy(remote)
+	// supermux.sub.Handle("/proxy", &ProxyHandler{proxy})
 
 	supermux.sub.Handle("/", ApiHandler{ce, staticStuffHandler})
 	// moved to webHandler:
@@ -745,11 +865,11 @@ func startPublicServer9090(ce *iot.ClusterExecutive) {
 
 }
 
-func copyIO(src, dest net.Conn) {
-	defer src.Close()
-	defer dest.Close()
-	io.Copy(src, dest)
-}
+// func xxx_unused_copyIO(src, dest net.Conn) {
+// 	defer src.Close()
+// 	defer dest.Close()
+// 	io.Copy(src, dest)
+// }
 
 var upgrader = websocket.Upgrader{}
 
@@ -840,6 +960,9 @@ func (api ApiHandler) ServeMakeToken(w http.ResponseWriter, req *http.Request) {
 
 	var buff1024 [1024]byte
 	n, err := req.Body.Read(buff1024[:])
+	if err != nil {
+		iot.BadTokenRequests.Inc()
+	}
 	buf := buff1024[:n]
 	fmt.Println("token request read body", string(buf), n)
 	_ = buf
@@ -890,7 +1013,7 @@ func (api ApiHandler) ServeMakeToken(w http.ResponseWriter, req *http.Request) {
 		payload := tokens.KnotFreeTokenPayload{}
 
 		payload.Issuer = "_9sh"
-		payload.JWTID = tokens.GetRandomB64String()
+		payload.JWTID = tokens.GetRandomB36String()
 		nonce := payload.JWTID
 		payload.ExpirationTime = uint32(time.Now().Unix()) + 60*60*24*30 // a month
 
@@ -941,12 +1064,13 @@ func (api ApiHandler) ServeMakeToken(w http.ResponseWriter, req *http.Request) {
 		comments[0] = tokenRequest.Comment + tmp
 		comments[1] = "" //payload
 		comments[2] = string(tokenString)
-		returnval, err := json.Marshal(comments)
-		returnval = []byte(strings.ReplaceAll(string(returnval), `"`, ``))
-		returnval = []byte(strings.ReplaceAll(string(returnval), ` `, `_`))
+		//returnval, err := json.Marshal(comments)
+		_ = err
+		//returnval = []byte(strings.ReplaceAll(string(returnval), `"`, ``))
+		// returnval = []byte(strings.ReplaceAll(string(returnval), ` `, `_`))
 		//fmt.Println("sending token package ", string(returnval))
 
-		returnval = tokenString
+		returnval := tokenString
 
 		err = tokens.LogNewToken(ctx, &payload, remoteAddr)
 		if err != nil {
@@ -962,6 +1086,7 @@ func (api ApiHandler) ServeMakeToken(w http.ResponseWriter, req *http.Request) {
 
 		var clipub [32]byte
 		n, err := hex.Decode(clipub[:], []byte(clientPublicKey))
+		_ = err
 		if n != 32 {
 			iot.BadTokenRequests.Inc()
 			http.Error(w, "bad size2", 500)
@@ -998,22 +1123,11 @@ type webHandler struct { // is this even used?
 
 }
 
-// serves /
+// webHandler.ServeHTTP serves the static content
 func (api webHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	fmt.Println("webHandler ServeHTTP", r.RequestURI)
 
-	// isGotohere := false // when this is true we serve the react build in docs/_site2
-	// domainParts := strings.Split(r.Host, ".")
-	// if len(domainParts) >= 2 && (domainParts[len(domainParts)-2] == "gotohere" || domainParts[len(domainParts)-2] == "gotolocal") {
-	// 	isGotohere = true
-	// }
-	// just kidding. we're dumping the old _site jekyl thing
-	// the react build at _site2 switches for knotfree and gotohere.
-	// isGotohere = true
-	// if isGotohere {
 	api.fs2.ServeHTTP(w, r)
-	// } else {
-	// 	api.fs1.ServeHTTP(w, r)
-	// }
+
 }

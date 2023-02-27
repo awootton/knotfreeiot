@@ -36,7 +36,7 @@ var sampleToken1 = `eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiSldUIn0.eyJleHAiOjE2MDkzNzY0
 // 	payload.Output = 32 * 4 // TODO: move into standard x-small token
 
 // 	payload.Issuer = "_9sh"
-// 	payload.JWTID = tokens.GetRandomB64String()
+// 	payload.JWTID = tokens.GetRandomB36String()
 // 	nonce := payload.JWTID
 // 	_ = nonce
 

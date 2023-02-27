@@ -39,7 +39,6 @@ metadata:
     traefik.ingress.kubernetes.io/router.middlewares: knotspace-https-redirect-scheme@kubernetescrd
     #traefik.ingress.kubernetes.io/router.middlewares: dev-https-redirect-scheme@kubernetescrd
 
-
   name: knotfree-ingress
   namespace: knotspace
 spec:
@@ -54,20 +53,19 @@ spec:
               number: 80
         path: /
         pathType: Prefix
+  - host: "*.knotfree.net"
+    http:
+      paths:
+      - backend:
+          service:
+            name: knotfreeaide
+            port:
+              number: 80
+        path: /
+        pathType: Prefix
   tls:
   - hosts:
-    - "knotfree.net" # demo.0d652485-6bb6-465f-b3b3-eb12485d9aee.lb.civo.com
-    secretName: knotfree 
-
-# --- 
-
-# # Redirect to https - doesn't work? 
-# apiVersion: traefik.containo.us/v1alpha1
-# kind: Middleware
-# metadata:
-#   name: test-redirectscheme
-#   namespace: knotspace
-# spec:
-#   redirectScheme:
-#     permanent: true
+    - "knotfree.net" 
+    - "*.knotfree.net"  
+    secretName: knotfree-secret 
 

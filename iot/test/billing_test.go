@@ -150,7 +150,7 @@ func TestContactTimeout(t *testing.T) {
 	ce.WaitForActions()
 
 	got = fmt.Sprint("contacts aide1 ", aide1.GetExecutiveStats().Connections*float64(aide1.GetExecutiveStats().Limits.Connections))
-	want = "contacts aide1 3"
+	want = "contacts aide1 2.94"
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
 	}
@@ -168,20 +168,20 @@ func TestContactTimeout(t *testing.T) {
 	fmt.Println("minutes passed", (localtime-starttime)/60)
 
 	got = fmt.Sprint("contacts aide1 ", aide1.GetExecutiveStats().Connections*float64(aide1.GetExecutiveStats().Limits.Connections))
-	want = "contacts aide1 3"
+	want = "contacts aide1 2.97"
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
 	}
 
 	// now just wait for a while for c1 to get kicked off
-	for minutes := 0; minutes < 4; minutes++ {
+	for minutes := 0; minutes < 40; minutes++ {
 		localtime += 60
 		ce.Heartbeat(localtime)
 		ce.WaitForActions()
 	}
 
 	got = fmt.Sprint("contacts aide1 ", aide1.GetExecutiveStats().Connections*float64(aide1.GetExecutiveStats().Limits.Connections))
-	want = "contacts aide1 2"
+	want = "contacts aide1 2.03"
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
 	}
@@ -277,7 +277,7 @@ func TestConnectionsOver(t *testing.T) {
 	// note the packet in the q of c3 describes the error.
 	got = fmt.Sprint(c3.(*testContact).getResultAsString())
 	//fmt.Println(got)
-	want = `[P,=jZae727K08KaOmKSgOaGzww_XVqGr_PK,ping," BILLING ERROR 1.8 connections > 1",error," BILLING ERROR 1.8 connections > 1"]true`
+	want = `[P,=jZae727K08KaOmKSgOaGzww_XVqGr_PK,ping," BILLING ERROR 1.66 connections > 1",error," BILLING ERROR 1.66 connections > 1"]true`
 	//fmt.Println(want)
 	// for i := 40; i < 45; i++ {
 	// 	fmt.Println(got[i])

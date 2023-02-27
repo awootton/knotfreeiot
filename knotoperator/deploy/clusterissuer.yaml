@@ -13,7 +13,15 @@ spec:
     privateKeySecretRef:
       name: letsencrypt-prod
     # Enable the HTTP-01 challenge provider
-    solvers: ## TODO: use dns01 solver
-    - http01:
-        ingress:
-          class: traefik
+    solvers: ##
+    # - http01:
+    #     ingress:
+    #       class: traefik
+    - dns01:
+        cloudDNS:
+          # The ID of the GCP project
+          project: fair-theater-238820
+          # This is the secret used to access the service account
+          serviceAccountSecretRef:
+            name: clouddns-dns01-solver-svc-acct
+            key: key.json

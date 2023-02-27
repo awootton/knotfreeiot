@@ -2,7 +2,8 @@
 # docker build -t gcr.  io/fair-theater-238820/knotfreeserver .	
 # docker push gcr.   io/fair-theater-238820/knotfreeserver
 
-FROM golang:1.17.0-stretch
+FROM golang:1.19.0-buster
+#FROM golang:1.17.0-stretch
 #FROM golang:1.12-alpine 
 # alpine is smaller by 200 MiB but is tragicially git free
 
@@ -19,12 +20,10 @@ ENV GOARCH=386
 
 WORKDIR /knotfreeiot/
 
-##RUN export GO111MODULE=on; go get -u github.com/thei4t/libmqtt@v0.9.9
-
 COPY go.mod .
 COPY go.sum .
 
-RUN go mod download
+RUN go mod download  && go mod verify
 
 # and then add the code
 ADD . /knotfreeiot

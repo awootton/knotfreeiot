@@ -23,6 +23,7 @@ import (
 func TestGetGiantTokens(t *testing.T) {
 	fmt.Println("giant token ", tokens.GetImpromptuGiantToken())
 	fmt.Println("giant local ", tokens.GetImpromptuGiantTokenLocal())
+	fmt.Println("medium local ", tokens.Get32xTokenLocal())
 }
 
 func TestMakeRandomPhrase(t *testing.T) {
@@ -37,6 +38,7 @@ func TestMakeRandomPhrase(t *testing.T) {
 	fmt.Println(" TestMakeRandomPhrase = ", str)
 
 }
+
 func xxxTestMassageWordList(t *testing.T) {
 
 	path, err := os.Getwd()
@@ -204,13 +206,12 @@ func TestKnotEncode(t *testing.T) {
 		p.Issuer = "_9sh"
 		bytes, err := tokens.MakeToken(p, []byte(getRemotePublic("_9sh")))
 		if err != nil {
-			got = err.Error()
+			t.Error("have error tokens.MakeToken", err)
 		}
 		got = string(bytes)
-		//the old one `eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiSldUIn0.eyJleHAiOjE2MDk0NjI4MDAsImlzcyI6IjFpVnQiLCJqdGkiOiIxMjM0NTYiLCJpbiI6NzAwMDAsIm91dCI6NzAwMDAsInN1IjoyLCJjbyI6MiwidXJsIjoia25vdGZyZWUubmV0In0.T7SrbbXq7V7otfX0eo9eFabWguxwuPsG4Zn9XArGwMc2Q4ifMBm9aSOgvBIBn1Q0Or7pvIsA8u_UL9FnOW-aDg`
-		// this is the sample token used in the tests. It's a _9sh small token.
-		// why? want = `eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiSldUIn0.eyJleHAiOjE2MDk0NjI4MDAsImlzcyI6Ii85c2giLCJqdGkiOiIxMjM0NTYiLCJpbiI6MjAsIm91dCI6MjAsInN1IjoyLCJjbyI6MiwidXJsIjoia25vdGZyZWUubmV0In0.YmKO8U_jKYyZsJo4m4lj0wjP8NJhciY4y3QXt_xlxvnHYznfWI455JJnnPh4HZluGaUcvrNdKAENGh4CfG4tBg`
-		want = `eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJleHAiOjE2MDkzNzY0MDAsImlzcyI6Il85c2giLCJqdGkiOiIxMjM0NTYiLCJpbiI6MjAsIm91dCI6MjAsInN1IjoyLCJjbyI6MiwidXJsIjoia25vdGZyZWUubmV0In0.jMztt6lQZf4szxtkU2BQHy2HvKv3o_5t7u3HQzaSbThCZZ5yo9yQQBr0geWdegkfl-es06enbrbrJXuM-i8kBg`
+		//the old one
+		// this is the sample token used in the tests. It's a _9sh TinyX2 token.
+		want = `eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJleHAiOjE2MDkzNzY0MDAsImlzcyI6Il85c2giLCJqdGkiOiIxMjM0NTYiLCJpbiI6NzYsIm91dCI6NzYsInN1Ijo1MCwiY28iOjIsInVybCI6Imtub3RmcmVlLm5ldC9tcXR0In0.uIXComIAMlUeXUyEdbdBq_b2vQ5NI4z7JSxUV5RRcvHupjjgDCvNi898VjVKsxtBAM5vgSDwPHw6AfXplmi-AA`
 		if got != want {
 			t.Errorf("got %v, want %v", got, want)
 		}
@@ -643,7 +644,7 @@ func not_TestBox(t *testing.T) {
 
 	payload := GetSampleTokenPayload(starttime) // is TinyX2 for 2 connections
 	payload.Issuer = "_9sh"
-	payload.JWTID = getRandomB64String() // has len = 24
+	payload.JWTID = tokens.GetRandomB36String() // has len = 24
 
 	tok, err := tokens.MakeToken(payload, []byte(signingKey))
 	fmt.Println("TestBox tok is ", base64.RawURLEncoding.EncodeToString(tok), err)

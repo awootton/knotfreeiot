@@ -39,7 +39,7 @@ func (MathRandReader) Read(buf []byte) (int, error) {
 	return len(buf), nil
 }
 
-// FIXME:
+// FIXME: reserve name is broken
 func not_TestReserveName(t *testing.T) {
 
 	tokens.LoadPublicKeys()

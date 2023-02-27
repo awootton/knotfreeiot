@@ -1,18 +1,18 @@
 {
   "files": {
-    "main.css": "/static/css/main.25664ba3.css",
-    "main.js": "/static/js/main.90a1b1c4.js",
+    "main.css": "/static/css/main.c736601c.css",
+    "main.js": "/static/js/main.f4b58eac.js",
     "static/js/787.f032c601.chunk.js": "/static/js/787.f032c601.chunk.js",
     "service-worker.js": "/service-worker.js",
     "static/media/KnotFreeKnot128cropped.png": "/static/media/KnotFreeKnot128cropped.57e9717e132efff23ba1.png",
     "static/media/knotfree-home-md.txt": "/static/media/knotfree-home-md.cc2d58c5fea96758cf00.txt",
     "index.html": "/index.html",
-    "main.25664ba3.css.map": "/static/css/main.25664ba3.css.map",
-    "main.90a1b1c4.js.map": "/static/js/main.90a1b1c4.js.map",
+    "main.c736601c.css.map": "/static/css/main.c736601c.css.map",
+    "main.f4b58eac.js.map": "/static/js/main.f4b58eac.js.map",
     "787.f032c601.chunk.js.map": "/static/js/787.f032c601.chunk.js.map"
   },
   "entrypoints": [
-    "static/css/main.25664ba3.css",
-    "static/js/main.90a1b1c4.js"
+    "static/css/main.c736601c.css",
+    "static/js/main.f4b58eac.js"
   ]
 }

@@ -2,7 +2,7 @@ module github.com/awootton/knotfreeiot
 
 go 1.14
 
-// replace github.com/awootton/knotfreeiot/packets => ./packets
+// replace github.com/awootton/knotfreeiot/packets => ./packetsrequire
 
 //replace github.com/awootton/knotfreeiot/badjson => ./badjson
 
@@ -12,11 +12,13 @@ go 1.14
 
 // replace github.com/awootton/knotfreeiot/mainhelpers => ./mainhelpers
 
-//replace github.com/thei4t/libmqtt => ../libmqtt
+// replace github.com/awootton/libmqtt => ../libmqtt
 
 require (
 	cloud.google.com/go/firestore v1.6.1 // indirect
 	firebase.google.com/go v3.13.0+incompatible
+	github.com/awootton/libmqtt v0.2.0
+	// github.com/awootton/libmqtt v0.0.0-00010101000000-000000000000
 	//	github.com/awootton/knotfreeiot/badjson v0.0.0-20221002062330-114974b38c0d // indirect
 	//	github.com/awootton/knotfreeiot/iot v0.0.0-20221002062330-114974b38c0d
 	//	github.com/awootton/knotfreeiot/packets v0.0.0-20221002062330-114974b38c0d
@@ -32,7 +34,6 @@ require (
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.5.0
 	github.com/prometheus/client_golang v1.13.0
 	github.com/prometheus/client_model v0.2.0
-	github.com/thei4t/libmqtt v0.9.9
 	golang.org/x/crypto v0.0.0-20220926161630-eccd6366d1be
 	google.golang.org/api v0.59.0
 

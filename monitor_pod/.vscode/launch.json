@@ -12,8 +12,7 @@
             "mode": "auto",
             "program": "main.go",
             "env": { "TARGET_CLUSTER" : "knotlocal.com",
-                "TOKEN": "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3MDU4NDQxMDQsImlzcyI6Il85c2giLCJqdGkiOiJHNVdnMmRYbzNaTFg3WVdzQWx5QW9zd1IiLCJpbiI6OTk2MTQ3Miwib3V0Ijo5OTYxNDcyLCJzdSI6NjU1MzYwMCwiY28iOjI2MjE0NCwidXJsIjoia25vdGZyZWUuZG9nOjgwODUvbXF0dCJ9.B6H3igB-oIAzh-0Z9sFECRfSMkr8IVmAzAv7c8Eia5zyxvJp1SyXL9AH_MYICNK66a8mRNNBn9i7EeUVnOdoDA" },
-
+                "TOKEN": "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3MDc1OTY3OTksImlzcyI6Il85c2giLCJqdGkiOiJzZHZhdzN6MjhvOGJ4cXNxNmZ3b3p4M2giLCJpbiI6MTIxNiwib3V0IjoxMjE2LCJzdSI6ODAwLCJjbyI6MzIsInVybCI6Imtub3RmcmVlLmRvZzo4MDg1L21xdHQifQ.OpDTwK3ubUfHkOQK1qmsCpbBb84oTFRoXZ53QShTjw_czpcClQX7rCdEtW5VuP8M0rUJGsT5pb3OcbWYGwliAQ" },
         }
     ]
 }

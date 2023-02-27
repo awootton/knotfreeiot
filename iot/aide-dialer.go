@@ -53,9 +53,9 @@ func (ex *Executive) DialContactToAnyAide(isTCP bool, ce *ClusterExecutive) {
 								err := ex.dialAideAndServe(aide.TCPAddress, ce)
 								if err != nil {
 									fmt.Println("DialContactToAnyAide dialAideAndServe returned")
-								} else {
-									// there's always an error or else we'd still be in dialAideAndServe
-								}
+								} //else {
+								// there's always an error or else we'd still be in dialAideAndServe
+								//}
 							}
 						}
 					}
@@ -152,7 +152,7 @@ func (ex *Executive) dialAideAndServe(address string, ce *ClusterExecutive) erro
 
 	go func() {
 		for founderr == nil {
-			time.Sleep(time.Second)
+			time.Sleep(300 * time.Second)
 			p := &packets.Ping{}
 			ex.channelToAnyAide <- p
 			// mux.Lock()

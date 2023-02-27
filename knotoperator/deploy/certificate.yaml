@@ -1,34 +1,20 @@
+
+# see: https://cert-manager.io/docs/configuration/acme/dns01/google/
+# and: https://cert-manager.io/docs/configuration/acme/dns01
+
+
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
   name: knotfree
   namespace: knotspace
 spec:
-  secretName: knotfree
+  secretName: knotfree-secret
   issuerRef:
     name: letsencrypt-prod
     kind: ClusterIssuer
   commonName: "knotfree.net" # knotfree.05548fc2-4953-4209-8299-1241cab85e16.lb.civo.com
   dnsNames:
-  - "knotfree.net" #knotfree.05548fc2-4953-4209-8299-1241cab85e16.lb.civo.com
-
-# --- 
-
-# apiVersion: traefik.containo.us/v1alpha1
-# kind: IngressRoute
-# metadata:
-#   name: knotfreeroute
-# spec:
-#   entryPoints:
-#     - websecure
-#   routes:
-#   - match: Host(`knotfree.net`)
-#     kind: Rule
-#     priority: 10
-#     services:
-#     - name: knotfreeaide
-#       port: 80
-#   tls:
-#     IngressRoute: customer
-
+  - "knotfree.net"   
+  - "*.knotfree.net"   
 

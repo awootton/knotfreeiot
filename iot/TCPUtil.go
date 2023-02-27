@@ -208,8 +208,13 @@ func handleConnection(tcpConn *net.TCPConn, ex *Executive) {
 	//srvrLogThing.Collect("Conn Accept")
 	TCPServerConnAccept.Inc() // <-- like this
 
+	fmt.Println("KF native contact add")
+
 	cc := localMakeTCPContact(ex.Config, tcpConn)
-	defer cc.Close(nil)
+	defer func() {
+		fmt.Println("handleConnection exit close")
+		cc.Close(nil)
+	}()
 
 	TCPServerNewConnection.Inc()
 
@@ -242,16 +247,19 @@ func handleConnection(tcpConn *net.TCPConn, ex *Executive) {
 		p, err := packets.ReadPacket(cc)
 		if err != nil {
 			//connLogThing.Collect("se err " + err.Error())
-			//fmt.Println("packets 3 read err", err)
+			fmt.Println("packets 3 read err", err)
 			TCPServerPacketReadError.Inc()
 			cc.Close(err)
 			return
 		}
-		// fmt.Println("tcp got packet", p, cc)
+		str := p.String()
+		if !strings.ContainsAny(str, "billing_stats_return_address_subscribe") {
+			fmt.Println("tcp got packet", p.String(), cc)
+		}
 		err = PushPacketUpFromBottom(cc, p)
 		if err != nil {
 			//connLogThing.Collect("se err " + err.Error())
-			//fmt.Println("iot.push err", err)
+			fmt.Println("iot.push err", err)
 			TCPServerIotPushEror.Inc()
 			cc.Close(err)
 			return
@@ -366,7 +374,7 @@ func PostUpstreamNames(guruList []string, addressList []string, addr string) err
 	return nil
 }
 
-// PostClusterStats sends some stats to 
+// PostClusterStats sends some stats to
 func PostClusterStats(stats *ClusterStats, addr string) error {
 
 	jbytes, err := json.Marshal(stats)

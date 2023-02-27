@@ -113,10 +113,10 @@ type ClusterStats struct {
 var TestLimits = ExecutiveLimits{}
 
 func init() {
-	TestLimits.Connections = 16
-	TestLimits.Input = 10
-	TestLimits.Output = 10
-	TestLimits.Subscriptions = 64
+	TestLimits.Connections = 1000 // 16
+	TestLimits.Input = 100
+	TestLimits.Output = 100
+	TestLimits.Subscriptions = 5000 // 64
 }
 
 // MakeSimplestCluster is just for testing as k8s doesn't work like this.
@@ -468,6 +468,7 @@ func (ce *ClusterExecutive) Operate() {
 			ce.Aides = ce.Aides[:len(ce.Aides)-1]   // shorten list
 
 			// close them all
+			fmt.Println("executive closing all contacts")
 			for _, cc := range contactList {
 				cc.Close(errors.New("routine maintainance a1"))
 			}
@@ -529,6 +530,7 @@ func (ce *ClusterExecutive) Operate() {
 				aide.Looker.SetUpstreamNames(ce.currentGuruList, ce.currentGuruList)
 			}
 			// we need to wait?
+			fmt.Println("executive closing all contacts2")
 			for _, cc := range contactList {
 				cc.Close(errors.New("routine maintainance g1"))
 			}
@@ -555,7 +557,7 @@ func (ex *Executive) GetSubsCount() (int, float64) {
 }
 
 // GetExecutiveStats is fractions relative to the limits.
-// 
+// like getclusterstats
 func (ex *Executive) GetExecutiveStats() *ExecutiveStats {
 
 	now := ex.getTime()
@@ -627,7 +629,7 @@ func (ex *Executive) Heartbeat(now uint32) {
 
 	contactList := ex.Config.GetContactsListCopy()
 
-	fmt.Println("Heartbeat clients", len(contactList))
+	// fmt.Println("Heartbeat clients", len(contactList))
 	for _, ci := range contactList {
 		ci.Heartbeat(now)
 	}

@@ -183,7 +183,10 @@ func (upc *upperChannel) dialGuru() {
 
 			contact.SetExpires(contact.contactExpires + 60*60*24*365*10) // in 10 years
 
-			defer contact.Close(errors.New("finished"))
+			defer func() {
+				fmt.Println("guru-dialer finished")
+				contact.Close(errors.New("finished"))
+			}()
 
 			fmt.Println("upc start from ", upc.ex.Name, " to ", guru.Name)
 

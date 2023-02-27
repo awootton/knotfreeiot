@@ -5,7 +5,10 @@ go 1.19
 // when develping locally:
 // replace github.com/awootton/knotfreeiot => ../../knotfreeiot
 
-require github.com/awootton/knotfreeiot v0.1.4
+require (
+	github.com/awootton/knotfreeiot v0.1.4
+	golang.org/x/crypto v0.0.0-20220926161630-eccd6366d1be
+)
 
 require (
 	cloud.google.com/go v0.97.0 // indirect
@@ -20,7 +23,6 @@ require (
 	github.com/googleapis/gax-go/v2 v2.1.1 // indirect
 	github.com/magefile/mage v1.9.0 // indirect
 	go.opencensus.io v0.23.0 // indirect
-	golang.org/x/crypto v0.0.0-20220926161630-eccd6366d1be // indirect
 	golang.org/x/net v0.0.0-20220225172249-27dd8689420f // indirect
 	golang.org/x/oauth2 v0.0.0-20220223155221-ee480838109b // indirect
 	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a // indirect

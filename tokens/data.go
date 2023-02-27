@@ -4,9 +4,9 @@ import "math"
 
 /*
 	civo:
-	Extra Small	1 GB	1 core	30GB NVMe	1 TB	$5 per month	/ 1 = 1 GB 1  core 30GB   1   TB	$5 per month
+	Extra Small	  1 GB	1 core	30GB NVMe	1 TB	$5 per month	/ 1 = 1 GB 1  core 30GB   1   TB	$5 per month
 	Small	      2 GB	1 core	40GB NVMe	2 TB	$10 per month / 2 = 1 GB .5 core 20GB   1   TB	$5 per month
-	Medium	    4 GB	2 cores	50GB NVMe	3 TB	$20 per month / 4 = 1 GB .5 core 12.5GB .75 TB	$5 per month
+	Medium	      4 GB	2 cores	50GB NVMe	3 TB	$20 per month / 4 = 1 GB .5 core 12.5GB .75 TB	$5 per month
 	Large	      8 GB	4 cores	60GB NVMe	4 TB	$40 per month / 8 = 1 GB 1  core 30GB   1   TB	$5 per month
 
 	/ 10,000 = 100k ram, 3 mb disk, 100mb i/o

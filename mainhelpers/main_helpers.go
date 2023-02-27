@@ -61,7 +61,7 @@ func MakeMedium32cToken() (string, tokens.KnotFreeTokenPayload) {
 	// payload.Output = 1024 // 32 * 4 // TODO: move into standard x-small token
 
 	payload.Issuer = "_9sh"
-	payload.JWTID = tokens.GetRandomB64String()
+	payload.JWTID = tokens.GetRandomB36String()
 	nonce := payload.JWTID
 	_ = nonce
 

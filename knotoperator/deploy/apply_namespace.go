@@ -28,10 +28,11 @@ import (
 // TODO: have config and args
 // it's much faster when we don't build the docker every time.
 var needtobuild = true
-var startTheOperator = false // this is now ../knotoperatorv1/make deploy
 
-var alsoDoLibra = false        // are deprecating libra due to excessive disk usage.
-var alsoStartMonitoring = true // once is enough //this is broken from being too old
+// var startTheOperator = false // this is now ../knotoperatorv1/make deploy
+
+var alsoDoLibra = false // are deprecating libra due to excessive disk usage.
+// var alsoStartMonitoring = true // once is enough //this is broken from being too old
 
 var buildReactAndCopy = true // todo: mount the react static files instead of baking them in the docker.
 // TODO: better. redirect to s3 bucket with the files in it.? does this work?
@@ -136,15 +137,15 @@ func main() {
 	// 	kubectl.K8s("kubectl apply -f -", sdata)
 	// }
 
-	if alsoStartMonitoring { //this is broken from being too old
+	// if alsoStartMonitoring { //this is broken from being too old
 
-		// kubectl.K("cd ../my-kube-prometheus;kubectl create -f manifests/setup")
-		// kubectl.K(`until kubectl get servicemonitors --all-namespaces ; do date; sleep 1; echo ""; done`)
-		// kubectl.K("cd ../my-kube-prometheus;kubectl apply -f manifests/")
+	// 	// kubectl.K("cd ../my-kube-prometheus;kubectl create -f manifests/setup")
+	// 	// kubectl.K(`until kubectl get servicemonitors --all-namespaces ; do date; sleep 1; echo ""; done`)
+	// 	// kubectl.K("cd ../my-kube-prometheus;kubectl apply -f manifests/")
 
-		// kubectl.K("kubectl apply -f knotfreemonitoring.yaml")
-	}
-	if needtobuild && strings.Contains(previousPodNames, "No resources found") == false {
+	// 	// kubectl.K("kubectl apply -f knotfreemonitoring.yaml")
+	// }
+	if needtobuild && !strings.Contains(previousPodNames, "No resources found") {
 		// delete the aides, and others
 		{
 			lines := strings.Split(previousPodNames2, "\n")
@@ -217,7 +218,6 @@ func main() {
 }
 
 func buildTheKnotFreeMain(registry string) {
-	//kubectl.K("cd ../../docs;bundle exec jekyll build")
 
 	if buildReactAndCopy {
 		val, err := kubectl.K8s("pwd", "")
@@ -232,34 +232,26 @@ func buildTheKnotFreeMain(registry string) {
 		kubectl.K("cd ../../../knotfree-net-homepage/ ; ./build_to_knotfree_docs.sh")
 	}
 
-	digest, _ := kubectl.K8s("docker inspect --format='{{.RepoDigests}}' "+registry+"/knotfreeserver", "")
-	fmt.Println("digest of knotfreeserver 1", digest)
+	// digest, _ := kubectl.K8s("docker inspect --format='{{.RepoDigests}}' "+registry+"/knotfreeserver", "")
+	// fmt.Println("digest of knotfreeserver 1", digest)
 	kubectl.K("cd ../..;docker build -t " + registry + "/knotfreeserver .")
-	digest, _ = kubectl.K8s("docker inspect --format='{{.RepoDigests}}' "+registry+"/knotfreeserver", "")
-	fmt.Println("digest of knotoperator 2", digest)
+	// digest, _ = kubectl.K8s("docker inspect --format='{{.RepoDigests}}' "+registry+"/knotfreeserver", "")
+	// fmt.Println("digest of knotoperator 2", digest)
 	kubectl.K("docker push " + registry + "/knotfreeserver")
-	digest, _ = kubectl.K8s("docker inspect --format='{{.RepoDigests}}' "+registry+"/knotfreeserver", "")
-	fmt.Println("digest of knotfreeserver 3", digest)
+	// digest, _ = kubectl.K8s("docker inspect --format='{{.RepoDigests}}' "+registry+"/knotfreeserver", "")
+	// fmt.Println("digest of knotfreeserver 3", digest)
 }
 
-func buildTheOperator(registry string) {
-	digest, _ := kubectl.K8s("docker inspect --format='{{.RepoDigests}}' "+registry+"/knotoperator", "")
-	fmt.Println("digest of knotoperator 1", digest)
-	//kubectl.K("cd ../;ls -lah")
-	// docker build --file knotoperator/Dockerfile .
-	kubectl.K("cd ../../;docker build --file knotoperator/Dockerfile -t " + registry + "/knotoperator .")
-	//kubectl.K("cd ../;docker build -t " + registry + "/knotoperator .")
-	digest, _ = kubectl.K8s("docker inspect --format='{{.RepoDigests}}' "+registry+"/knotoperator", "")
-	fmt.Println("digest of knotoperator 2", digest)
-	kubectl.K("docker push " + registry + "/knotoperator")
-	digest, _ = kubectl.K8s("docker inspect --format='{{.RepoDigests}}' "+registry+"/knotoperator", "")
-	fmt.Println("digest of knotoperator 3", digest)
-}
-
-func XXXbuildTheMonitor(registry string) {
-
-	kubectl.K("cd ../../;docker build -t  gcr.io/fair-theater-238820/monitor_pod .")
-	kubectl.K("cd ../../;docker push gcr.io/fair-theater-238820/monitor_pod")
-	kubectl.K("cd ../../;docker push gcr.io/fair-theater-238820/monitor_pod")
-
-}
+// func buildTheOperator(registry string) {
+// 	digest, _ := kubectl.K8s("docker inspect --format='{{.RepoDigests}}' "+registry+"/knotoperator", "")
+// 	fmt.Println("digest of knotoperator 1", digest)
+// 	//kubectl.K("cd ../;ls -lah")
+// 	// docker build --file knotoperator/Dockerfile .
+// 	kubectl.K("cd ../../;docker build --file knotoperator/Dockerfile -t " + registry + "/knotoperator .")
+// 	//kubectl.K("cd ../;docker build -t " + registry + "/knotoperator .")
+// 	digest, _ = kubectl.K8s("docker inspect --format='{{.RepoDigests}}' "+registry+"/knotoperator", "")
+// 	fmt.Println("digest of knotoperator 2", digest)
+// 	kubectl.K("docker push " + registry + "/knotoperator")
+// 	digest, _ = kubectl.K8s("docker inspect --format='{{.RepoDigests}}' "+registry+"/knotoperator", "")
+// 	fmt.Println("digest of knotoperator 3", digest)
+// }

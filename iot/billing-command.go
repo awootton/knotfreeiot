@@ -34,9 +34,6 @@ func serveBillingCommand(p *packets.Send, billingAccumulator *BillingAccumulator
 		reply = "billing_v.0.1.2"
 	} else if command == "get pubk" {
 		reply = "-none"
-
-	} else if command == "get pubk" {
-		reply = "-none"
 	} else if command == "get admin hint" {
 		reply = "-none"
 	} else { // if command == "help"

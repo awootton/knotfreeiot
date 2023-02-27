@@ -133,7 +133,7 @@ func processPublish(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *publ
 
 		} else {
 			// do the WriteDownstream
-			watchedTopic.expires = 20*60 + me.getTime() //20 min
+			watchedTopic.expires = 25*60 + me.getTime() //20 min
 			// this is where the typical packet comes
 			// fmt.Println("pub down", string(pubmsg.p.Payload))
 			pubMsgKey := pubmsg.ss.GetKey()
@@ -223,7 +223,7 @@ func processPublishDown(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *
 		// NO send upstream publish
 
 	} else {
-		watcheditem.expires = 20*60 + me.getTime() // 20 min
+		watcheditem.expires = 25*60 + me.getTime() // 25 min
 		it := watcheditem.Iterator()
 		for it.Next() {
 

@@ -1,4 +1,26 @@
 
+    dns-01 google gcloud setup 
+
+	export PROJECT_ID=fair-theater-238820
+
+	// already created error 
+	gcloud iam service-accounts create dns01-solver --display-name "dns01-solver"
+		Created service account [dns01-solver].
+
+	gcloud projects add-iam-policy-binding $PROJECT_ID \
+	   --member serviceAccount:dns01-solver@$PROJECT_ID.iam.gserviceaccount.com \
+	   --role roles/dns.admin
+
+	gcloud iam service-accounts keys create key.json \
+	   --iam-account dns01-solver@$PROJECT_ID.iam.gserviceaccount.com
+
+	kubectl create secret generic clouddns-dns01-solver-svc-acct \
+	   --from-file=key.json
+
+
+
+-------
+
 civo k8s 
 
 Server Version: version.Info{Major:"1", Minor:"22", GitVersion:"v1.22.11+k3s1", GitCommit:"bb0cdd929a960aade81e51911f98fdee44ebce4e", GitTreeState:"clean", BuildDate:"2022-06-27T22:14:54Z", GoVersion:"go1.16.10", Compiler:"gc", Platform:"linux/amd64"}
