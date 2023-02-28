@@ -1,9 +1,10 @@
-package main
+package monitor_pod
 
 import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"math"
 	"math/rand"
 	"net"
 	"os"
@@ -15,31 +16,7 @@ import (
 	"github.com/awootton/knotfreeiot/packets"
 	"github.com/awootton/knotfreeiot/tokens"
 	"golang.org/x/crypto/nacl/box"
-	// "golang.org/x/exp/maps" // TODO: get new version of go
 )
-
-func main() {
-
-	target_cluster := os.Getenv("TARGET_CLUSTER")
-	fmt.Println("target_cluster", target_cluster)
-
-	token := os.Getenv("TOKEN")
-	fmt.Println("token", token)
-
-	fmt.Println("version 3")
-
-	serveGetTime(token)
-
-	publishTestTopic(token)
-
-	for {
-		fmt.Println("in monitor_pod")
-		time.Sleep(600 * time.Second)
-	}
-}
-
-// var count = 0
-// var fail = 0
 
 // example:
 // [erase eeprom] +1 erase all the settings with code KILLMENOW
@@ -66,7 +43,9 @@ func main() {
 // [uptime] time since last reboot.
 // [version] mqtt5nano version
 
-type fauxContext struct {
+type FauxContext struct {
+	Topic string
+
 	password string
 	pubStr   string
 	privStr  string
@@ -79,12 +58,21 @@ type fauxContext struct {
 	adminPubStr2 string
 	//adminPrivStr2    string
 
-	topic string
-
 	dummyString string
 
 	fail  int
 	count int
+}
+
+var tempInF = 0.0
+
+func StartTempGetter() {
+	go func() {
+		for {
+			tempInF = 46.0 // fixme get real temp
+			time.Sleep(15 * time.Minute)
+		}
+	}()
 }
 
 type Command struct {
@@ -107,11 +95,9 @@ func MakeCommand(commandString string, description string,
 	return cmd
 }
 
-func serveGetTime(token string) { // use knotfree format
+func ServeGetTime(token string, c FauxContext) { // use knotfree format
 
 	target_cluster := os.Getenv("TARGET_CLUSTER")
-
-	c := &fauxContext{}
 
 	c.count = 0
 	c.fail = 0
@@ -141,6 +127,20 @@ func serveGetTime(token string) { // use knotfree format
 			sec := time.Now().UnixMilli() / 1000
 			secStr := strconv.FormatInt(sec, 10)
 			return secStr
+		}, commandMap)
+	MakeCommand("get c",
+		"temperature in C🔓", 0,
+		func(msg string, args []string) string {
+			tmp := (tempInF - 32) * 5 / 9
+			tmp = math.Floor(tmp*100) / 100.0
+			str := strconv.FormatFloat(tmp, 'f', 2, 64)
+			return str
+		}, commandMap)
+	MakeCommand("get f",
+		"temperature in F🔓", 0,
+		func(msg string, args []string) string {
+			str := strconv.FormatFloat(tempInF, 'f', 2, 64)
+			return str
 		}, commandMap)
 	MakeCommand("get random",
 		"returns a random integer", 0,
@@ -182,7 +182,7 @@ func serveGetTime(token string) { // use knotfree format
 	MakeCommand("get long name",
 		"the global name", 0,
 		func(msg string, args []string) string {
-			return c.topic
+			return c.Topic
 		}, commandMap)
 	MakeCommand("favicon.ico",
 		"", 0,
@@ -257,23 +257,23 @@ func serveGetTime(token string) { // use knotfree format
 				c.fail++
 				continue
 			}
-			c.topic = "get-unix-time"
+			/// c.topic = "get-unix-time"
 			subscribeCount := 0
 			go func() {
 				// contact expiration time is 20 min.
 				// resubscribe every 15 min to keep alive.
 				for {
 					if subscribeCount > 0 {
-						println("reSubscribing:" + c.topic)
+						println("reSubscribing:" + c.Topic)
 					} else {
-						println("Subscribing:" + c.topic)
+						println("Subscribing:" + c.Topic)
 					}
 
 					sub := &packets.Subscribe{}
-					sub.Address.FromString(c.topic)
+					sub.Address.FromString(c.Topic)
 					sub.Write(conn)
 					if err != nil {
-						println("Write topic failed:"+c.topic, err.Error())
+						println("Write topic failed:"+c.Topic, err.Error())
 						// conn.Close() // if it fails here it will also fail below and reset.
 						interval := time.Duration(100 + int(rand.Float32()*100))
 						time.Sleep(interval * time.Second)
@@ -296,7 +296,7 @@ func serveGetTime(token string) { // use knotfree format
 					break
 				}
 
-				sendme, err := digestPacket(p, c, commandMap)
+				sendme, err := digestPacket(p, &c, commandMap)
 				if err != nil {
 					break // continue
 				}
@@ -313,7 +313,7 @@ func serveGetTime(token string) { // use knotfree format
 }
 
 func digestPacket(p packets.Interface,
-	c *fauxContext,
+	c *FauxContext,
 	commandMap map[string]Command) (packets.Interface, error) {
 
 	// println("received:", p.String())
@@ -455,6 +455,7 @@ func digestPacket(p packets.Interface,
 	}
 
 	cmd, ok := commandMap["help"]
+	_ = ok
 
 	if hadError != "" {
 		reply = "Error: " + hadError
@@ -540,6 +541,9 @@ func digestPacket(p packets.Interface,
 		sealed := box.Seal(boxout, []byte(reply), nonce, adminPublicBytes, devicePrivateKey)
 
 		reply = "=" + base64.RawURLEncoding.EncodeToString(sealed)
+		if hadError != "" {
+			reply = "Error: " + hadError
+		}
 
 		fmt.Println("encrypted reply is ", reply, "nonce", string(nonc))
 	}
@@ -570,7 +574,7 @@ func digestPacket(p packets.Interface,
 
 var testtopicCount = 0
 
-func publishTestTopic(token string) { // use knotfree format
+func PublishTestTopic(token string) { // use knotfree format
 
 	target_cluster := os.Getenv("TARGET_CLUSTER")
 
@@ -652,57 +656,3 @@ var GreenSquare = []byte{137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 6
 
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
-// basura
-// if message == `get time` {
-// 	sec := time.Now().UnixMilli() / 1000
-// 	secStr := strconv.FormatInt(sec, 10)
-// 	reply = secStr
-// } else if message == `get random` {
-// 	tmp := rand.Uint32()
-// 	secStr := strconv.FormatInt(int64(tmp), 10)
-// 	reply = secStr
-// } else if message == `get count` {
-// 	countStr := strconv.FormatInt(int64(count), 10)
-// 	reply = countStr
-// 	needsEncryption = true
-// } else if message == `get fail` {
-// 	countStr := strconv.FormatInt(int64(fail), 10)
-// 	reply = countStr
-// 	needsEncryption = true
-// } else if message == `version` {
-// 	reply = "v0.1.2"
-// } else if message == "get pubk" {
-// 	reply = c.pubStr
-// } else if message == "get admin hint" {
-// 	reply = c.adminPubStr[0:8] + " " + c.adminPubStr2[0:8]
-// } else if message == "get short name" {
-// 	reply = c.topic
-// } else if message == "get long name" {
-// 	reply = c.topic
-// } else if message == "favicon.ico" {
-// 	reply = "favicon.ico"
-// 	count -= 1
-// } else if message == "get some text" {
-// 	reply = c.dummyString
-// } else if strings.HasPrefix(message, "set some text") {
-// 	s := message[len("set some text"):]
-// 	s = strings.Trim(s, " ")
-// 	c.dummyString = s
-// 	fmt.Println("dummy is set to ", s)
-// 	reply = "ok"
-// } else {
-// 	reply += "[get time] unix time in seconds\n"
-// 	reply += "[get count] how many served since reboot\n"
-// 	reply += "[get long name] global name\n"
-// 	reply += "[get short name] local name\n"
-// 	reply += "[get fail] how many requests were bad since reboot\n"
-// 	reply += "[get pubk] device public key 🔓\n"
-// 	reply += "[get admin hint] the first chars of the admin public keys🔓\n"
-// 	reply += "[get some text] return a string\n"
-// 	reply += "[set some text] +1 set string test\n"
-// 	reply += "[get random] returns a random integer\n"
-// 	reply += "[version] info on this device 🔓\n"
-// 	reply += "[help] lists all commands 🔓\n" // should this be encrypted?
-// }
-//}

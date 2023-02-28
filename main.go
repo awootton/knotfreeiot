@@ -120,7 +120,7 @@ func (api ApiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if isLocal(req) {
 		w.Header().Add("Access-Control-Allow-Origin", "http://localhost:3000")
 	} else {
-		w.Header().Add("Access-Control-Allow-Origin", "http://knotfree.io")
+		w.Header().Add("Access-Control-Allow-Origin", "*") // "http://knotfree.io")
 	}
 
 	// if req.RequestURI == "/api1/paypal-transaction-complete" {
@@ -149,7 +149,6 @@ func (api ApiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	// } else
 
 	const proxyApiPath = "/api1/rawgithubusercontentproxy/"
-
 
 	if strings.HasPrefix(req.RequestURI, proxyApiPath) {
 

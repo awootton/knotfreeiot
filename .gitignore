@@ -8,6 +8,8 @@
 # the react build is in here
 **/_site2
 
+docs/
+
 # Test binary, build with `go test -c`
 *.test
 
