@@ -5,7 +5,7 @@ import (
 	"os"
 	"time"
 
-	"knotfree.net/monitor_pod"
+	"monitor_pod"
 )
 
 func main() {
