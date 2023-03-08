@@ -15,6 +15,7 @@ COPY go.sum go.sum
 # and so that source changes don't invalidate our downloaded layer
 
 RUN go mod download
+RUN go get github.com/awootton/knotfreeiot
 
 # Copy the go source
 COPY main/main.go main/main.go

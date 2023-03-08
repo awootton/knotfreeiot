@@ -5,7 +5,7 @@ import (
 	"os"
 	"time"
 
-	"monitor_pod"
+	"github.com/awootton/knotfreeiot/monitor_pod"
 )
 
 func main() {
