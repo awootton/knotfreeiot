@@ -6,10 +6,10 @@ go 1.19
 //
 // replace github.com/awootton/knotfreeiot/monitor_pod => ./
 
-require (
-	github.com/awootton/knotfreeiot v0.1.7
-	golang.org/x/crypto v0.7.0
-)
+// require (
+
+// 	golang.org/x/crypto v0.7.0
+// )
 
 require (
 	cloud.google.com/go v0.110.0 // indirect
@@ -20,6 +20,7 @@ require (
 	cloud.google.com/go/longrunning v0.4.1 // indirect
 	cloud.google.com/go/storage v1.29.0 // indirect
 	firebase.google.com/go v3.13.0+incompatible // indirect
+	github.com/awootton/knotfreeiot v0.1.9 // indirect
 	github.com/awootton/libmqtt v0.2.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
@@ -42,6 +43,7 @@ require (
 	github.com/prometheus/common v0.37.0 // indirect
 	github.com/prometheus/procfs v0.8.0 // indirect
 	go.opencensus.io v0.24.0 // indirect
+	golang.org/x/crypto v0.0.0-20220926161630-eccd6366d1be // indirect
 	golang.org/x/net v0.8.0 // indirect
 	golang.org/x/oauth2 v0.6.0 // indirect
 	golang.org/x/sync v0.1.0 // indirect
