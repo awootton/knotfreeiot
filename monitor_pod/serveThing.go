@@ -62,6 +62,10 @@ type FauxContext struct {
 
 	fail  int
 	count int
+
+	CommandMap map[string]Command
+	Index      int
+	Token      string
 }
 
 var tempInF = 0.0
@@ -119,81 +123,79 @@ func ServeGetTime(token string, c FauxContext) { // use knotfree format
 
 	c.dummyString = "none"
 
-	commandMap := make(map[string]Command)
-
 	MakeCommand("get time",
 		"seconds since 1970🔓", 0,
 		func(msg string, args []string) string {
 			sec := time.Now().UnixMilli() / 1000
 			secStr := strconv.FormatInt(sec, 10)
 			return secStr
-		}, commandMap)
+		}, c.CommandMap)
 	MakeCommand("get c",
 		"temperature in C🔓", 0,
 		func(msg string, args []string) string {
 			tmp := (tempInF - 32) * 5 / 9
 			tmp = math.Floor(tmp*100) / 100.0
 			str := strconv.FormatFloat(tmp, 'f', 2, 64)
-			return str
-		}, commandMap)
+			return str + "°C"
+		}, c.CommandMap)
 	MakeCommand("get f",
 		"temperature in F🔓", 0,
 		func(msg string, args []string) string {
 			str := strconv.FormatFloat(tempInF, 'f', 2, 64)
-			return str
-		}, commandMap)
+			return str + "°F"
+		}, c.CommandMap)
 	MakeCommand("get random",
 		"returns a random integer", 0,
 		func(msg string, args []string) string {
 			tmp := rand.Uint32()
 			secStr := strconv.FormatInt(int64(tmp), 10)
 			return secStr
-		}, commandMap)
+		}, c.CommandMap)
 	MakeCommand("get count",
 		"how many served since reboot", 0,
 		func(msg string, args []string) string {
 			countStr := strconv.FormatInt(int64(c.count), 10)
 			return countStr
-		}, commandMap)
+		}, c.CommandMap)
 
 	MakeCommand("get fail",
 		"how many requests were bad since reboot", 0,
 		func(msg string, args []string) string {
 			secStr := strconv.FormatInt(int64(c.fail), 10)
 			return secStr
-		}, commandMap)
+		}, c.CommandMap)
 
 	MakeCommand("get pubk",
 		"device public key 🔓", 0,
 		func(msg string, args []string) string {
 			return c.pubStr
-		}, commandMap)
+		}, c.CommandMap)
 	MakeCommand("get admin hint",
 		"the first chars of the admin public keys🔓", 0,
 		func(msg string, args []string) string {
 			return c.adminPubStr[0:8] + " " + c.adminPubStr2[0:8]
-		}, commandMap)
+		}, c.CommandMap)
 
 	MakeCommand("get short name",
 		"the local name🔓", 0,
 		func(msg string, args []string) string {
 			return "time"
-		}, commandMap)
+		}, c.CommandMap)
 	MakeCommand("get long name",
 		"the global name", 0,
 		func(msg string, args []string) string {
 			return c.Topic
-		}, commandMap)
+		}, c.CommandMap)
 	MakeCommand("favicon.ico",
 		"", 0,
 		func(msg string, args []string) string {
 			return string(GreenSquare)
-		}, commandMap)
+		}, c.CommandMap)
 	MakeCommand("get some text",
 		"return the saved text", 0,
 		func(msg string, args []string) string {
 			return c.dummyString
-		}, commandMap)
+		}, c.CommandMap)
 	MakeCommand("set some text",
 		"save some text", 1,
 		func(msg string, args []string) string {
@@ -202,23 +204,23 @@ func ServeGetTime(token string, c FauxContext) { // use knotfree format
 			c.dummyString = s
 			fmt.Println("dummy is set to ", s)
 			return "ok"
-		}, commandMap)
+		}, c.CommandMap)
 	MakeCommand("version",
 		"info about this thing", 0,
 		func(msg string, args []string) string {
-			return "v0.1.4"
-		}, commandMap)
+			return "v0.1.5"
+		}, c.CommandMap)
 	MakeCommand("help",
 		"lists all commands. 🔓 means no encryption required", 0,
 		func(msg string, args []string) string {
 			s := ""
-			keys := make([]string, 0, len(commandMap)) //  maps.Keys(commandMap)
-			for k := range commandMap {
+			keys := make([]string, 0, len(c.CommandMap)) //  maps.Keys(c.CommandMap)
+			for k := range c.CommandMap {
 				keys = append(keys, k)
 			}
 			sort.Strings(keys)
 			for _, k := range keys {
-				command := commandMap[k]
+				command := c.CommandMap[k]
 				argCount := ""
 				if command.argCount > 0 {
 					argCount = " +" + strconv.FormatInt(int64(command.argCount), 10)
@@ -226,7 +228,7 @@ func ServeGetTime(token string, c FauxContext) { // use knotfree format
 				s += "[" + k + "]" + argCount + " " + command.description + "\n"
 			}
 			return s
-		}, commandMap)
+		}, c.CommandMap)
 
 	go func() {
 
@@ -296,7 +298,7 @@ func ServeGetTime(token string, c FauxContext) { // use knotfree format
 					break
 				}
 
-				sendme, err := digestPacket(p, &c, commandMap)
+				sendme, err := digestPacket(p, &c, c.CommandMap)
 				if err != nil {
 					break // continue
 				}
@@ -314,7 +316,7 @@ func ServeGetTime(token string, c FauxContext) { // use knotfree format
 
 func digestPacket(p packets.Interface,
 	c *FauxContext,
-	commandMap map[string]Command) (packets.Interface, error) {
+	CommandMap map[string]Command) (packets.Interface, error) {
 
 	// println("received:", p.String())
 	pub, ok := p.(*packets.Send)
@@ -454,7 +456,7 @@ func digestPacket(p packets.Interface,
 		}
 	}
 
-	cmd, ok := commandMap["help"]
+	cmd, ok := c.CommandMap["help"]
 	_ = ok
 
 	if hadError != "" {
@@ -465,10 +467,10 @@ func digestPacket(p packets.Interface,
 
 		// this doesn't work right with command with args
 		// like 'set some text abc'
-		cmd, ok = commandMap[message]
+		cmd, ok = c.CommandMap[message]
 		if !ok { // try harder
 			ok = false
-			for k, v := range commandMap {
+			for k, v := range c.CommandMap {
 				if strings.HasPrefix(message, k) {
 					cmd = v
 					ok = true
@@ -477,7 +479,7 @@ func digestPacket(p packets.Interface,
 			}
 		}
 		if !ok {
-			cmd = commandMap["help"]
+			cmd = c.CommandMap["help"]
 		}
 		if strings.Contains(cmd.description, "🔓") {
 			reply = cmd.execute(message, args)

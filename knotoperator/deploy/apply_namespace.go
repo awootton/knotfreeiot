@@ -62,7 +62,7 @@ func main() {
 	kubectl.K("kubectl create ns knotspace")
 	kubectl.K("kubectl config set-context --current --namespace=knotspace")
 
-	{
+	{ // make a new giant token, deploy the monitor_pod
 		tokens.LoadPrivateKeys("~/atw/privateKeys4.txt")
 		TOKEN := tokens.GetImpromptuGiantToken() // 256k connections is GiantX32
 

@@ -117,11 +117,13 @@ type ApiHandler struct {
 func (api ApiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	fmt.Println("ApiHandler ServeHTTP", req.RequestURI, req.Host)
-	if isLocal(req) {
-		w.Header().Add("Access-Control-Allow-Origin", "http://localhost:3000")
-	} else {
-		w.Header().Add("Access-Control-Allow-Origin", "*") // "http://knotfree.io")
-	}
+	// if isLocal(req) {
+	// 	w.Header().Add("Access-Control-Allow-Origin", "http://localhost:3000")
+	// } else {
+	// 	w.Header().Add("Access-Control-Allow-Origin", "*") // "http://knotfree.io")
+	// }
+
+	w.Header().Add("Access-Control-Allow-Origin", "*")
 
 	// if req.RequestURI == "/api1/paypal-transaction-complete" {
 
@@ -155,6 +157,9 @@ func (api ApiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		path := req.RequestURI[len(proxyApiPath):]
 
 		fmt.Println("proxy path", path)
+		if strings.HasSuffix(path, ".png") || strings.HasSuffix(path, ".jpg") {
+			w.Header().Set("Content-Type", "image/png")
+		}
 
 		resp, err := http.Get("https://raw.githubusercontent.com/" + path)
 		if err != nil {
@@ -186,11 +191,11 @@ func (api ApiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	} else if req.RequestURI == "/api1/getToken" {
 
-		if isLocal(req) {
-			w.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
-		} else {
-			w.Header().Set("Access-Control-Allow-Origin", "http://knotfree.io")
-		}
+		// if isLocal(req) {
+		// 	w.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
+		// } else {
+		// 	w.Header().Set("Access-Control-Allow-Origin", "http://knotfree.io")
+		// }
 		api.ServeMakeToken(w, req)
 
 	} else if req.RequestURI == "/api1/getPublicKey" {
@@ -201,7 +206,7 @@ func (api ApiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 		fmt.Println("serve /api1/getPublicKey ", sss)
 
-		w.Header().Set("Access-Control-Allow-Origin", "*")
+		//w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Write([]byte(sss))
 
 	} else if req.RequestURI == "/api1/getGiantPassword" {
@@ -212,7 +217,7 @@ func (api ApiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	} else if req.RequestURI == "/api1/help" {
 
-		w.Header().Set("Access-Control-Allow-Origin", "*")
+		//	w.Header().Set("Access-Control-Allow-Origin", "*")
 
 		sss := "/api1/getallstats\n"
 		sss += "/api1/getstats\n"

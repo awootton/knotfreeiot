@@ -1,6 +1,8 @@
 
     ## dns-01 google gcloud setup 
 
+	# google traefik google domains kubernetes letsencrypt
+
 	cd deploy
 
 	export PROJECT_ID=fair-theater-238820

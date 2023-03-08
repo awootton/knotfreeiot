@@ -1,5 +1,7 @@
 
-This one got deprecated. The new one is ../knotoperatorv1
+We still use this to do a deploy. Run apply_namespace.go 
+
+This operator got deprecated. The new one is ../knotoperatorv1
 
 see https://github.com/operator-framework/operator-sdk
 

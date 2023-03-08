@@ -17,10 +17,11 @@ COPY go.sum go.sum
 RUN go mod download
 
 # Copy the go source
-COPY main/main.go main.go
+COPY main/main.go main/main.go
+COPY serveThing.go serveThing.go
 
 # Build
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -o manager main.go
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -o manager main/main.go
 
 # later we: RUN /workspace/manager # see deploy.yaml
 RUN export GO111MODULE=on; go install 

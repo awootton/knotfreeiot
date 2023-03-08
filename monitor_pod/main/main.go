@@ -20,6 +20,9 @@ func main() {
 
 	c := monitor_pod.FauxContext{}
 	c.Topic = "get-unix-time"
+	c.CommandMap = make(map[string]monitor_pod.Command)
+	c.Index = 0
+	c.Token = token
 
 	monitor_pod.ServeGetTime(token, c)
 
