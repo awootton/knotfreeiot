@@ -22,7 +22,7 @@ spec:
       - name: golang
         imagePullPolicy: Always
         image: gcr.io/fair-theater-238820/monitor_pod 
-        command: ["/workspace/manager"] # ["sleep", "999999"] # ["/workspace/manager"]  # see the Dockerfile
+        command: ["/knotfreeiot/manager"] # ["sleep", "999999"] # ["/knotfreeiot/manager"]  # see the Dockerfile
         resources:
           limits:
             cpu: 125m  #INSERT_CPU_NEEDED_HERE was 500m
@@ -36,7 +36,7 @@ spec:
         - name: TARGET_CLUSTER
           value: "knotfree.io"
         - name: TOKEN
-          value: "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3MDk3OTIzNTIsImlzcyI6Il85c2giLCJqdGkiOiJseG5mZm8yNTNhaXQ3ZGJnYWFvNzdja3YiLCJpbiI6OTk2MTQ3Miwib3V0Ijo5OTYxNDcyLCJzdSI6NjU1MzYwMCwiY28iOjI2MjE0NCwidXJsIjoia25vdGZyZWUubmV0L21xdHQifQ.OrIF4Hn2Zvrr4eNXgmi256R4BmeeZKBHR1eo1nbTRBTikWJSMjcNLPUA0Xq6p-VJXSi0ALsD9NPOajJb4143DQ"
+          value: "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3MDk4MDE4MTksImlzcyI6Il85c2giLCJqdGkiOiJseG5mZm8yNTNhaXQ3ZGJnYWFvNzdja3YiLCJpbiI6OTk2MTQ3Miwib3V0Ijo5OTYxNDcyLCJzdSI6NjU1MzYwMCwiY28iOjI2MjE0NCwidXJsIjoia25vdGZyZWUubmV0L21xdHQifQ.JMpNYOzSkUZNvTh14kebyg5cpBkNGhLJDYuKCd-TzJqwmjd5Ujfp9Mt0Wg5ev4u6b-jE5gO0i9gIMQXyOljvBA"
         - name: MY_POD_IP
           valueFrom:
             fieldRef:

@@ -1,0 +1,6 @@
+
+
+# in the knotfreeiot dir:
+
+docker build -f DockerfileMonitor .
+

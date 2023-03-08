@@ -1,0 +1,33 @@
+
+# Build the manager binary
+FROM golang:1.19.0-buster
+
+# We can use the 32 bit version to save pointer space
+ENV GOARCH=386
+
+WORKDIR /knotfreeiot/
+
+COPY go.mod .
+COPY go.sum .
+
+RUN go mod download  && go mod verify
+
+# Copy the go source
+ADD . /knotfreeiot
+
+# DOCKER_BUILDKIT=0 docker build -f DockerfileMonitor . to debug
+
+RUN exec pwd
+RUN exec ls -lah 
+ 
+RUN rm main.go
+
+COPY monitor_pod/main/main.go main.go
+
+RUN export GO111MODULE=on; go install 
+
+# Build
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=386 go build -a -o manager main.go
+
+# later we: RUN /workspace/manager # see deploy.yaml
+# RUN export GO111MODULE=on; go install 

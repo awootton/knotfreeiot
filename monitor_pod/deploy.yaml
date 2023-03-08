@@ -22,7 +22,7 @@ spec:
       - name: golang
         imagePullPolicy: Always
         image: gcr.io/fair-theater-238820/monitor_pod 
-        command: ["/workspace/manager"] # ["sleep", "999999"] # ["/workspace/manager"]  # see the Dockerfile
+        command: ["/knotfreeiot/manager"] # ["sleep", "999999"] # ["/knotfreeiot/manager"]  # see the Dockerfile
         resources:
           limits:
             cpu: 125m  #INSERT_CPU_NEEDED_HERE was 500m

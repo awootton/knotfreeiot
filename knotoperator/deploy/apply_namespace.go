@@ -67,8 +67,8 @@ func main() {
 		TOKEN := tokens.GetImpromptuGiantToken() // 256k connections is GiantX32
 
 		// wtf? hangs kubectl.K("cd ../../monitor_pod;go mod tidy")
-		kubectl.K("cd ../../monitor_pod;docker build -t  gcr.io/fair-theater-238820/monitor_pod .")
-		kubectl.K("cd ../../monitor_pod;docker push gcr.io/fair-theater-238820/monitor_pod")
+		kubectl.K("cd ../../;docker build -f DockerfileMonitor -t  gcr.io/fair-theater-238820/monitor_pod .")
+		kubectl.K("cd ../../;docker push gcr.io/fair-theater-238820/monitor_pod")
 
 		data, _ := ioutil.ReadFile("../../monitor_pod/deploy.yaml")
 		sdata := strings.ReplaceAll(string(data), "__TARGET_CLUSTER__", TARGET_CLUSTER)
