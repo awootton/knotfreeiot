@@ -47,9 +47,9 @@ func processSubscribe(me *LookupTableStruct, bucket *subscribeBucket, submsg *su
 		if len(t) != 0 {                         // it's always 64 bytes binary
 			watchedTopic.jwtidAlias = string(t)
 		}
-		if watchedTopic.jwtidAlias == "123456" {
-			// fmt.Println("have 123456 in new watcher", me.myname)
-		}
+		// if watchedTopic.jwtidAlias == "123456" {
+		// 	fmt.Println("have 123456 in new watcher", me.myname)
+		// }
 		setWatcher(bucket, &submsg.topicHash, watchedTopic)
 		TopicsAdded.Inc()
 
@@ -93,12 +93,11 @@ func processSubscribe(me *LookupTableStruct, bucket *subscribeBucket, submsg *su
 				BucketCopy(stats, &ba.max)
 				watchedTopic.SetOption("bill", ba)
 			}
-		} else {
-			//fmt.Println("found BillingAccumulator", watchedTopic.name)
 		}
+		// else {
+		// 	//fmt.Println("found BillingAccumulator", watchedTopic.name)
+		// }
 		watchedTopic.expires = 60*60 + me.getTime()
-	} else {
-
 	}
 
 	watchedTopic.expires = 26*60 + me.getTime()
@@ -107,7 +106,7 @@ func processSubscribe(me *LookupTableStruct, bucket *subscribeBucket, submsg *su
 	val, ok = submsg.p.GetOption("IPv6")
 	if ok {
 		_, exists := watchedTopic.GetOption("IPv6")
-		if exists == false {
+		if !exists {
 			watchedTopic.SetOption("IPv6", val)
 		}
 	}
@@ -115,7 +114,7 @@ func processSubscribe(me *LookupTableStruct, bucket *subscribeBucket, submsg *su
 	val, ok = submsg.p.GetOption("misc")
 	if ok {
 		_, exists := watchedTopic.GetOption("misc")
-		if exists == false {
+		if !exists {
 			watchedTopic.SetOption("misc", val)
 		}
 	}
@@ -207,10 +206,10 @@ func heartBeatCallBack(me *LookupTableStruct, bucket *subscribeBucket, cmd *call
 	for h, watchedItem := range s {
 		expireAll := watchedItem.expires < cmd.now
 		// FIRST, scan all the contact references and schedule the stale ones for deleteion.
-		if expireAll {
-			// expire the whole subscription because it's dead for too long
-			//fmt.Println("expiring ALL", watchedItem.name)
-		}
+		// if expireAll {
+		// 	// expire the whole subscription because it's dead for too long
+		// 	fmt.Println("expiring ALL", watchedItem.name)
+		// }
 
 		it := watchedItem.Iterator()
 		for it.Next() {
@@ -252,7 +251,7 @@ func heartBeatCallBack(me *LookupTableStruct, bucket *subscribeBucket, cmd *call
 						key, item := it.KeyValue()
 						_ = key
 						ci := item.contactInterface
-						if me.checkForBadContact(ci, watchedItem) == false {
+						if !me.checkForBadContact(ci, watchedItem) {
 							ci.WriteDownstream(p)
 						}
 					}
@@ -262,9 +261,9 @@ func heartBeatCallBack(me *LookupTableStruct, bucket *subscribeBucket, cmd *call
 
 		// THIRD, we'll need to send out the topic usage-stats occasionally.
 		// from the guru only. For all topics that are not billing
-		if watchedItem.jwtidAlias == "123456" && !haveUpstream {
-			// fmt.Println("have 123456 in sub heart")
-		}
+		// if watchedItem.jwtidAlias == "123456" && !haveUpstream {
+		// 	mt.Println("have 123456 in sub heart")
+		// }
 		if len(watchedItem.jwtidAlias) > 0 && !haveUpstream {
 
 			if watchedItem.nextBillingTime < cmd.now {
@@ -301,7 +300,7 @@ func heartBeatCallBack(me *LookupTableStruct, bucket *subscribeBucket, cmd *call
 func processUnsubscribe(me *LookupTableStruct, bucket *subscribeBucket, unmsg *unsubscribeMessage) {
 
 	watchedTopic, ok := getWatcher(bucket, &unmsg.topicHash)
-	if ok == true {
+	if !ok {
 		if watchedTopic.permanent {
 			watchedTopic.remove(unmsg.ss.GetKey())
 			// don't delete the entry

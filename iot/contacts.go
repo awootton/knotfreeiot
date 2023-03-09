@@ -114,7 +114,7 @@ type ContactStructConfig struct {
 
 	lookup *LookupTableStruct // LookupTableInterface
 
-	address string // eg knotfreeserver:7009
+	//  address string // eg knotfreeserver:7009
 
 	Name string // for debug
 
@@ -153,6 +153,9 @@ func (config *ContactStructConfig) GetCe() *ClusterExecutive {
 
 // IsGuru exposes onfig.lookup.isGuru
 func (config *ContactStructConfig) IsGuru() bool {
+	if config == nil {
+		return false
+	}
 	if config.lookup == nil {
 		return false
 	}
@@ -177,7 +180,7 @@ func AddContactStruct(ss *ContactStruct, ssi ContactInterface, config *ContactSt
 
 	now := config.GetLookup().getTime()
 	ss.contactExpires = 20*60 + now // stale contacts expire in 20 min. contact timeout
-	fmt.Println("contactExpires 20 min")
+	// fmt.Println("contactExpires 20 min")
 
 	ss.nextBillingTime = now + 30 // 30 seconds to start with
 	ss.lastBillingTime = now
@@ -341,6 +344,7 @@ func (ss *ContactStruct) Close(err error) {
 		ss.config.listOfCi.Remove(ss.ele)
 		ss.config.listlock.Unlock()
 		ss.ele = nil
+		fmt.Println("unlinked contact")
 	}
 	ss.config = nil
 }
@@ -351,9 +355,9 @@ func (ss *ContactStruct) GetSequence() uint64 {
 }
 
 // SetSequence is
-func (ss *ContactStruct) setSequence(seq uint64) {
-	ss.key = HalfHash(ss.config.key.GetUint64() + seq*13)
-}
+// func (ss *ContactStruct) setSequence(seq uint64) {
+// 	ss.key = HalfHash(ss.config.key.GetUint64() + seq*13)
+// }
 
 // Len returns the count of the contacts.
 func (config *ContactStructConfig) Len() int {
@@ -460,7 +464,7 @@ func expectToken(ssi ContactInterface, p packets.Interface) error {
 			return makeErrorAndDisconnect(ssi, "expected Connect packet", nil)
 		}
 		b64Token, ok := connectPacket.GetOption("token")
-		if ok == false || b64Token == nil {
+		if !ok || b64Token == nil {
 			return makeErrorAndDisconnect(ssi, "expected token", nil)
 		}
 		trimmedToken, issuer, err := tokens.GetKnotFreePayload(string(b64Token))

@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"strings"
 	"sync"
@@ -70,10 +69,10 @@ func main() {
 		kubectl.K("cd ../../;docker build -f DockerfileMonitor -t  gcr.io/fair-theater-238820/monitor_pod .")
 		kubectl.K("cd ../../;docker push gcr.io/fair-theater-238820/monitor_pod")
 
-		data, _ := ioutil.ReadFile("../../monitor_pod/deploy.yaml")
+		data, _ := os.ReadFile("../../monitor_pod/deploy.yaml")
 		sdata := strings.ReplaceAll(string(data), "__TARGET_CLUSTER__", TARGET_CLUSTER)
 		sdata = strings.ReplaceAll(sdata, "__TOKEN__", TOKEN)
-		err := ioutil.WriteFile("dummy.yaml", []byte(sdata), 0644)
+		err := os.WriteFile("dummy.yaml", []byte(sdata), 0644)
 		if err != nil {
 			fmt.Println("fail flail 888")
 		}
@@ -126,7 +125,7 @@ func main() {
 	kubectl.K("kubectl create secret generic privatekeys4 --from-file=" + dir)
 
 	//kubectl.K("kubectl apply -f knotfreedeploy.yaml")
-	data, _ := ioutil.ReadFile("knotfreedeploy.yaml")
+	data, _ := os.ReadFile("knotfreedeploy.yaml")
 	sdata := strings.ReplaceAll(string(data), "gcr.io/fair-theater-238820", registry)
 	kubectl.K8s("kubectl apply -f -", sdata)
 

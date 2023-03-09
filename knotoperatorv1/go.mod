@@ -15,7 +15,7 @@ go 1.18
 // replace github.com/awootton/knotfreeiot/kubectl => ../kubectl
 
 require (
-	github.com/awootton/knotfreeiot v0.1.5
+	github.com/awootton/knotfreeiot v0.2.1
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.19.0
 	gomodules.xyz/jsonpatch/v2 v2.2.0
@@ -23,6 +23,11 @@ require (
 	k8s.io/apimachinery v0.25.0
 	k8s.io/client-go v0.25.0
 	sigs.k8s.io/controller-runtime v0.12.2
+)
+
+require (
+	github.com/awootton/libmqtt v0.2.0 // indirect
+	github.com/thei4t/libmqtt v0.9.9 // indirect
 )
 
 require (
@@ -93,7 +98,6 @@ require (
 	golang.org/x/sys v0.5.0 // indirect
 	golang.org/x/term v0.5.0 // indirect
 	golang.org/x/text v0.7.0 // indirect
-
 	golang.org/x/time v0.0.0-20220210224613-90d013bbcef8 // indirect
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 	google.golang.org/api v0.59.0 // indirect

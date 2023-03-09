@@ -99,7 +99,7 @@ func ConnectGuruToSuperAide(guru *Executive, aide *Executive) {
 	// lose the stale ones
 	for _, upc := range oldContacts {
 		_, found := theNamesThisTime[upc.name]
-		if found == false {
+		if !found {
 			upc.running = false
 			fmt.Println("forgetting upper router ", upc.name)
 			close(upc.up)
@@ -224,7 +224,7 @@ func (upc *upperChannel) dialGuru() {
 				p.Write(buff)
 				buff2 := bytes.NewBuffer(buff.Bytes())
 				p2, err := packets.ReadPacket(buff2)
-
+				_ = err
 				if contact.GetClosed() {
 					continue
 				}

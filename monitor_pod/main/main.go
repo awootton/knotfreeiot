@@ -24,6 +24,8 @@ func main() {
 	c.Index = 0
 	c.Token = token
 
+	monitor_pod.StartTempGetter()
+
 	monitor_pod.ServeGetTime(token, c)
 
 	monitor_pod.PublishTestTopic(token)

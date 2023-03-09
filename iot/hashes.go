@@ -26,9 +26,9 @@ import (
 
 // HashType will be the key
 // I'm increasing it to 20 2/2020 atw or 24 2/2021
-type notHashType struct {
-	bytes [24]byte
-}
+// type notHashType struct {
+// 	bytes [24]byte
+// }
 
 // HashTypeLen now it's 24 bytes long
 const HashTypeLen = 24
@@ -116,7 +116,6 @@ func (h *HashType) GetBytes(b []byte) {
 }
 
 // HalfHash represents
-//
 type HalfHash uint64
 
 // GetFractionalBits returns a slice of n bits. Values of n greater than 64 are not implemented.
@@ -131,7 +130,7 @@ func (h *HashType) GetFractionalBits(n int) int {
 	return 0
 }
 
-var hashstartkey *[]byte
+// var hashstartkey *[]byte
 
 // FromHashType init an existing hash from another - basically a copy
 func (h *HashType) FromHashType(src *HashType) {

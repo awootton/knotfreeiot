@@ -25,15 +25,19 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"os/signal"
 	"reflect"
+	"runtime"
+	"runtime/pprof"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/awootton/knotfreeiot/iot"
@@ -46,6 +50,51 @@ import (
 
 // Hint: add "127.0.0.1 knotfreeserver" to /etc/hosts
 func main() {
+
+	// f, err := os.Create("trace.out")
+	// if err != nil {
+	// 	log.Fatalf("failed to create trace output file: %v", err)
+	// }
+	// defer func() {
+	// 	if err := f.Close(); err != nil {
+	// 		log.Fatalf("failed to close trace file: %v", err)
+	// 	}
+	// }()
+
+	// if err := trace.Start(f); err != nil {
+	// 	log.Fatalf("failed to start trace: %v", err)
+	// }
+	// defer trace.Stop()
+
+	// f, err := os.Create("cpu.out")
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
+	// pprof.StartCPUProfile(f)
+	// defer pprof.StopCPUProfile()
+
+	// pprof.NewProfile("heap")
+
+	// go func() {
+	// 	log.Println(http.ListenAndServe("localhost:6060", nil))
+	// }()
+
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-c
+		fmt.Println("\r- Ctrl+C pressed in Terminal")
+		runtime.GC()
+		f, err := os.Create("heap.out")
+		if err != nil {
+			log.Fatal(err)
+		}
+		pprof.WriteHeapProfile(f)
+		f.Close()
+		//trace.Stop()
+		// pprof.StopCPUProfile()
+		os.Exit(0)
+	}()
 
 	tokens.LoadPublicKeys()
 
@@ -125,31 +174,6 @@ func (api ApiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	w.Header().Add("Access-Control-Allow-Origin", "*")
 
-	// if req.RequestURI == "/api1/paypal-transaction-complete" {
-
-	// 	w.Header().Set("Access-Control-Allow-Origin", "*")
-
-	// 	var buff1024 [1024]byte
-	// 	n, err := req.Body.Read(buff1024[:])
-	// 	buf := buff1024[:n]
-	// 	fmt.Println("paypal-transaction-complete request read body", string(buf), n, err)
-	// 	_ = buf
-	// 	// there's a facilitatorAccessToken  ??
-
-	// 	// FIXME: check with paypal that this actually happened.
-
-	// 	//make a 32x token
-	// 	tok, payload := mainhelpers.MakeMedium32cToken()
-
-	// 	ctx := req.Context()
-	// 	err = tokens.LogNewToken(ctx, &payload, string(buf))
-	// 	if err != nil {
-	// 		fmt.Println("ERROR logging token", err)
-	// 	}
-	// 	w.Write([]byte(tok))
-
-	// } else
-
 	const proxyApiPath = "/api1/rawgithubusercontentproxy/"
 
 	if strings.HasPrefix(req.RequestURI, proxyApiPath) {
@@ -167,7 +191,7 @@ func (api ApiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		}
 		defer resp.Body.Close()
 
-		body, err := ioutil.ReadAll(resp.Body)
+		body, err := io.ReadAll(resp.Body)
 		if err != nil {
 			w.Write([]byte("error " + err.Error()))
 		} else {
@@ -259,7 +283,7 @@ type RequestReplyStruct struct {
 
 var servedMap = map[string]*RequestReplyStruct{}
 
-func isLocal(r *http.Request) bool {
+func IsLocal(r *http.Request) bool {
 	fmt.Println("host is ", r.Host)
 	if os.Getenv("KNOT_KUNG_FOO") == "atw" {
 		return true
@@ -508,7 +532,7 @@ func (superMux *SuperMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 						//packetStruct.replyParts[packetIncomingIndex].buff = snd.Payload
 						currentPayload := snd.Payload
 
-						fmt.Println("have http reply packet #", packetIncomingIndex, "for ", firstLine)
+						// fmt.Println("have http reply packet #", packetIncomingIndex, "for ", firstLine)
 						if packetIncomingIndex == 0 {
 							headerEndBytes := []byte("\r\n\r\n")
 							headerPos := bytes.Index(snd.Payload, headerEndBytes)
@@ -531,7 +555,7 @@ func (superMux *SuperMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 								if err != nil {
 									fmt.Println("ERROR finding Content-Length", hpart[0:endPos])
 								}
-								fmt.Println("theLengthWeNeed is ", i)
+								// fmt.Println("theLengthWeNeed is ", i)
 								theLengthWeNeed = i + len(header) + 4
 
 								// we have to transfer the user options to the header
@@ -545,7 +569,8 @@ func (superMux *SuperMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 									k := keys[n]
 									v := bvalues[n]
 									values[n] = string(v)
-									fmt.Println("Options k v ", k, values[n])
+									// fmt.Println("Options k v ", k, values[n])
+									_ = k
 								}
 
 								// fmt.Println("headerStart  ", string(headerStart))
@@ -591,7 +616,7 @@ func (superMux *SuperMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 								}
 								// fmt.Println("headerStart  ", string(headerStart)+"\n\n")
 								currentPayload = append([]byte(headerStart), pastHeader...)
-								fmt.Println("new payload is ", string(currentPayload)+"\n\n")
+								// fmt.Println("new payload is ", string(currentPayload)+"\n\n")
 							}
 						}
 						packetStruct.replyParts[packetIncomingIndex].buff = currentPayload

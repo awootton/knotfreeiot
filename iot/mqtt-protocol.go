@@ -46,15 +46,15 @@ type mqttWsContact struct {
 
 func (cc *mqttWsContact) Close(err error) {
 	hadConfig := cc.GetConfig() != nil
-	ss := &cc.ContactStruct
-	fmt.Println("mqtt contact close")
-	ss.Close(err) // close my parent
 	if hadConfig {
 		dis := packets.Disconnect{}
 		dis.SetOption("error", []byte(err.Error()))
 		cc.WriteDownstream(&dis)
-		// we don't close the  cc.netDotTCPConn
+		// we don't close the  cc.netDotTCPConn, who does?
 	}
+	ss := &cc.ContactStruct
+	fmt.Println("mqtt contact close")
+	ss.Close(err) // close my parent
 }
 
 // MakeMqttExecutive is a thing like a server, not the exec
@@ -137,7 +137,7 @@ func mqttConnection(tcpConn *net.TCPConn, ex *Executive) {
 		if err != nil {
 			//connLogThing.Collect("se err " + err.Error())
 			if err.Error() != "EOF" {
-				fmt.Println("packets 1 read err", err, time.Now())
+				fmt.Println("packets libmqtt read err", err, time.Now())
 			} else {
 				fmt.Println("mqtt-protocol EOF close", err, time.Now())
 			}

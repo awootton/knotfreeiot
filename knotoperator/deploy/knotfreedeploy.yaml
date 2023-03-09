@@ -45,11 +45,11 @@ spec:
           name : prom
         resources:
           limits:
-            cpu: 750m  #INSERT_CPU_NEEDED_HERE was 500m
-            memory: 800Mi #INSERT_MEM_NEEDED_HERE was 800Mi
-          #requests:
-            #cpu: 250m  #INSERT_CPU_NEEDED_HERE
-            #memory: 800Mi #INSERT_MEM_NEEDED_HERE
+            cpu: 1000m   
+            memory: 1000Mi  
+          requests:
+            cpu: 500m   
+            memory: 500Mi 
         env:
         - name: NAME
           value: "knotfreeaide"

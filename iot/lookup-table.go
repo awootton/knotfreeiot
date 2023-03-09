@@ -72,8 +72,8 @@ type WatchedTopic struct {
 	jwtidAlias      string
 
 	permanent bool // keep it around always
-	single    bool // just the one subscriber
-	owned     bool // only one client allowed to post to this channel
+	Single    bool // just the one subscriber
+	Owned     bool // only one client allowed to post to this channel
 }
 
 type watcherItem struct {
@@ -385,10 +385,7 @@ func NewWithInt64Comparator() *redblacktree.Tree {
 // A grab bag of paranoid ideas about bad states.
 func (me *LookupTableStruct) checkForBadContact(badsock ContactInterface, pubstruct *WatchedTopic) bool {
 
-	if badsock.GetConfig() == nil {
-		return true
-	}
-	return false
+	return badsock.GetConfig() == nil
 }
 
 func getWatcher(bucket *subscribeBucket, h *HashType) (*WatchedTopic, bool) {
@@ -437,15 +434,15 @@ func init() {
 
 // utility routines for WatchedTopic put, get etc.
 
-func (wt *WatchedTopic) get(key HalfHash) (*watcherItem, bool) {
-	item, ok := wt.thetree.Get(uint64(key))
-	if ok {
-		item2, ok2 := item.(*watcherItem)
-		return item2, ok2
-	} else {
-		return nil, false
-	}
-}
+// func (wt *WatchedTopic) get(key HalfHash) (*watcherItem, bool) {
+// 	item, ok := wt.thetree.Get(uint64(key))
+// 	if ok {
+// 		item2, ok2 := item.(*watcherItem)
+// 		return item2, ok2
+// 	} else {
+// 		return nil, false
+// 	}
+// }
 
 func (wt *WatchedTopic) put(key HalfHash, item *watcherItem) {
 	//item := new(watcherItem)

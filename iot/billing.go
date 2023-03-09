@@ -91,7 +91,7 @@ type Stats struct {
 func (ba *BillingAccumulator) AddUsage(stats *tokens.KnotFreeContactStats, now uint32, deltat int) {
 
 	c := &ba.a[ba.i]
-	if c.Used == false {
+	if !c.Used {
 		// first time. init with some time. 60 min free
 		for i := 0; i < len(ba.a); i++ {
 			ba.a[i].Start = now - uint32(bucketSpanTime*(len(ba.a)-i))

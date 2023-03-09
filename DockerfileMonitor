@@ -1,6 +1,8 @@
 
 # Build the manager binary
-FROM golang:1.19.0-buster
+FROM golang:1.19.0-alpine
+
+RUN apk add lsof
 
 # We can use the 32 bit version to save pointer space
 ENV GOARCH=386

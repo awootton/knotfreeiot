@@ -2,10 +2,11 @@
 # docker build -t gcr.  io/fair-theater-238820/knotfreeserver .	
 # docker push gcr.   io/fair-theater-238820/knotfreeserver
 
-FROM golang:1.19.0-buster
-#FROM golang:1.17.0-stretch
-#FROM golang:1.12-alpine 
-# alpine is smaller by 200 MiB but is tragicially git free
+# bitnami/minideb:bullseye is a debian 11 image 78.5MB
+
+FROM golang:1.19.0-alpine
+
+RUN apk add lsof
 
 ENV PORT 8384 
 ENV PORT 1883

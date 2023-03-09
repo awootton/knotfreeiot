@@ -20,8 +20,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
+	"os/exec"
 	"runtime"
 	"strconv"
+	"strings"
 	"time"
 
 	"golang.org/x/crypto/nacl/box"
@@ -90,14 +93,14 @@ type ExecutiveLimits struct {
 type ExecutiveStats struct {
 	// four float32 :   in out su co
 	tokens.KnotFreeContactStats `json:"contactStats"`
-	Buffers                     float64 `json:"buf"`
-	Name                        string  `json:"name"`
-	HTTPAddress                 string  `json:"http"`
-	TCPAddress                  string  `json:"tcp"`
-	IsGuru                      bool    `json:"guru"`
-	Memory                      int64   `json:"mem"`
-
-	Limits *ExecutiveLimits `json:"limits"`
+	Buffers                     float64          `json:"buf"`
+	Name                        string           `json:"name"`
+	HTTPAddress                 string           `json:"http"`
+	TCPAddress                  string           `json:"tcp"`
+	IsGuru                      bool             `json:"guru"`
+	Memory                      int64            `json:"mem"`
+	OpenConnections             int              `json:"con"`
+	Limits                      *ExecutiveLimits `json:"limits"`
 }
 
 // ClusterStats is ExecutiveStats from everyone in the cluster.
@@ -566,39 +569,26 @@ func (ex *Executive) GetExecutiveStats() *ExecutiveStats {
 	subscriptions, queuefraction := ex.Looker.GetAllSubsCount()
 	_ = subscriptions
 
-	// // scan the contacts for byte rates
-	// contactCount := ex.Config.Len()
-	// inputs := int64(0)
-	// outputs := int64(0)
-	// times := int64(0)
-
-	// fixme: have stats call billingAccumulator on heartbeat.
-	// ex.Config.AccessContactsList(func(config *ContactStructConfig, listOfCi *list.List) {
-	// 	e := listOfCi.Front()
-	// 	for ; e != nil; e = e.Next() {
-	// 		cc, ok := e.Value.(ContactInterface)
-	// 		if !ok {
-	// 			fmt.Println("not a ci?")
-	// 		}
-	// 		in, out, dt := cc.GetRates(now)
-	// 		inputs += int64(in)
-	// 		outputs += int64(out)
-	// 		times += int64(dt)
-	// 	}
-	// })
-	// if times <= 0 {
-	// 	times = 1
-	// }
 	stats := &ExecutiveStats{}
-	//statsex := tokens.KnotFreeContactStats{}
+
 	ex.Billing.GetStats(now, &stats.KnotFreeContactStats)
 
 	stats.IsGuru = ex.isGuru
 
 	runtime.GC()
+	runtime.GC()
+	runtime.GC()
+	runtime.GC()
+	runtime.GC()
+	runtime.GC()
+	runtime.GC() // superstition much?
+	runtime.GC()
 	var gstats runtime.MemStats
 	runtime.ReadMemStats(&gstats)
-	stats.Memory = int64(gstats.HeapAlloc)
+	stats.Memory = int64(gstats.HeapAlloc) // is insane HeapAlloc too large to be meaningful?
+	fmt.Println("memory ", stats.Memory)
+
+	fmt.Println("HeapSys ", gstats.HeapSys)
 
 	stats.Input = stats.Input / ex.Limits.Input
 	stats.Output = stats.Output / ex.Limits.Output
@@ -611,6 +601,19 @@ func (ex *Executive) GetExecutiveStats() *ExecutiveStats {
 	stats.Name = ex.Name
 	stats.TCPAddress = ex.GetTCPAddress()
 	stats.HTTPAddress = ex.GetHTTPAddress()
+
+	pid := os.Getpid()
+	cmd := exec.Command("lsof", "-p", strconv.Itoa(pid))
+	//err := cmd.Run()
+	stdout, err := cmd.Output()
+	if err == nil {
+		parts := strings.Split(string(stdout), "\n")
+		fmt.Println("lsof len ", len(parts))
+		if err == nil {
+			stats.OpenConnections = len(parts)
+		}
+	}
+
 	return stats
 }
 
@@ -695,8 +698,6 @@ func (ex *Executive) GetMQTTAddress() string {
 
 // DeepCopyInto the slow way
 func (in *ExecutiveStats) DeepCopyInto(out *ExecutiveStats) {
-	if in == nil {
-	}
 	jbytes, err := json.Marshal(in)
 	_ = err
 	json.Unmarshal(jbytes, out)

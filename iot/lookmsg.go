@@ -33,7 +33,7 @@ func processLookup(me *LookupTableStruct, bucket *subscribeBucket, lookmsg *look
 
 	watcheditem, ok := getWatcher(bucket, &lookmsg.topicHash)
 	count := uint32(0) // people watching
-	if ok == false {
+	if !ok {
 		// nobody watching
 		lookReplyObject.Null = true
 	} else {
@@ -74,7 +74,7 @@ func processLookup(me *LookupTableStruct, bucket *subscribeBucket, lookmsg *look
 	//lookReplyObject.Count = int(count)
 	lookReplyObject.Node = nodeName
 	repl, err := json.Marshal(lookReplyObject)
-
+	_ = err
 	send.Payload = repl
 
 	val, ok := lookmsg.p.GetOption("debg")

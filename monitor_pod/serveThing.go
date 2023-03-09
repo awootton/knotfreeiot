@@ -68,7 +68,7 @@ type FauxContext struct {
 	Token      string
 }
 
-var tempInF = 0.0
+var tempInF = 46.0
 
 func StartTempGetter() {
 	go func() {
@@ -282,7 +282,7 @@ func ServeGetTime(token string, c FauxContext) { // use knotfree format
 						c.fail++
 						break // go to top?
 					}
-					time.Sleep(15 * time.Minute)
+					time.Sleep(15*time.Minute + time.Second*time.Duration(4*rand.Float32()))
 				}
 			}()
 

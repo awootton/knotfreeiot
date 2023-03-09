@@ -42,7 +42,7 @@ func processPublish(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *publ
 	}()
 
 	watchedTopic, ok := getWatcher(bucket, &pubmsg.topicHash)
-	if ok == false {
+	if !ok {
 		// nobody local is subscribing to this.
 		// push it up to the next level
 		missedPushes.Inc()
@@ -93,15 +93,16 @@ func processPublish(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *publ
 				err := json.Unmarshal(billstr, msg)
 				if err == nil {
 
-					if billingAccumulator.max.Subscriptions == 1 { // the test in billing_test
-						//fmt.Println("publish BillingAccumulator ADDING", msg)
-					}
+					// if billingAccumulator.max.Subscriptions == 1 { // the test in billing_test
+					// 	fmt.Println("publish BillingAccumulator ADDING", msg)
+					// }
 					now := me.getTime()
 					billingAccumulator.AddUsage(&msg.KnotFreeContactStats, now, deltat)
 
-				} else {
-					// statsUnmarshalFail.Inc()
 				}
+				//  else {
+				// 	statsUnmarshalFail.Inc()
+				// }
 			} else {
 				if !haveUpstream && !hasStats {
 					// it's billing but it's not add-stats
@@ -143,9 +144,9 @@ func processPublish(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *publ
 				key, item := it.KeyValue()
 				ci := item.contactInterface
 
-				if item.pub2self == true {
+				if !item.pub2self {
 					// everybody here gets the message right now
-					if me.checkForBadContact(ci, watchedTopic) == false {
+					if !me.checkForBadContact(ci, watchedTopic) {
 						ci.WriteDownstream(pubmsg.p)
 						sentMessages.Inc()
 						if wereSpecial {
@@ -156,7 +157,7 @@ func processPublish(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *publ
 					// we don't sent right back to
 					// who just sent it to us.
 					if key != pubMsgKey {
-						if me.checkForBadContact(ci, watchedTopic) == false {
+						if !me.checkForBadContact(ci, watchedTopic) {
 							ci.WriteDownstream(pubmsg.p)
 							sentMessages.Inc()
 						}
@@ -210,7 +211,7 @@ func processPublishDown(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *
 	}()
 
 	watcheditem, ok := getWatcher(bucket, &pubmsg.h) //bucket.mySubscriptions[pubmsg.h]
-	if ok == false {
+	if !ok {
 
 		SpecialPrint(&pubmsg.p.PacketCommon, func() {
 			//fmt.Println("special no publish possible this should not happen going down?", pubmsg.p.Address.String())
@@ -236,7 +237,7 @@ func processPublishDown(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *
 			//if key != pubmsg.h.GetHalfHash() {// why would these EVER not be ==
 			// always send to everyone
 			// need: system test watching for duplicates.
-			if me.checkForBadContact(ci, watcheditem) == false {
+			if !me.checkForBadContact(ci, watcheditem) {
 				ci.WriteDownstream(pubmsg.p)
 				sentMessages.Inc()
 				if wereSpecial {

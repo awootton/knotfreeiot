@@ -149,7 +149,7 @@ func (me *LookupTableStruct) SetUpstreamNames(names []string, addresses []string
 
 	for _, upc := range oldContacts {
 		_, found := theNamesThisTime[upc.name]
-		if found == false {
+		if !found {
 			upc.running = false
 			fmt.Println("forgetting upper router ", upc.name)
 			close(upc.up)

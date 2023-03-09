@@ -21,7 +21,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"reflect"
@@ -87,7 +86,7 @@ func (api apiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 		// todo: add security.
 
-		data, err := ioutil.ReadAll(req.Body)
+		data, err := io.ReadAll(req.Body)
 		if err != nil {
 			http.Error(w, "read error 2", 500)
 			API1PostGurusFail.Inc()
@@ -138,24 +137,28 @@ func MakeHTTPExecutive(ex *Executive, serverName string) *Executive {
 }
 
 func (cc *tcpContact) Close(err error) {
-	hadConfig := cc.GetConfig() != nil
+
+	if cc.netDotTCPConn != nil {
+		fmt.Println("close tcp ", cc.netDotTCPConn.RemoteAddr())
+		cc.netDotTCPConn.Close()
+		cc.netDotTCPConn = nil
+	}
+
+	// hadConfig := cc.GetConfig() != nil
+	// if hadConfig {
+	// 	dis := packets.Disconnect{}
+	// 	if err != nil {
+	// 		dis.SetOption("error", []byte(err.Error()))
+	// 	}
+	// 	cc.WriteDownstream(&dis) // can't write to closed socket
+	// }
 	ss := &cc.ContactStruct
 	ss.Close(err) // close my parent
-	if hadConfig {
-		dis := packets.Disconnect{}
-		if err != nil {
-			dis.SetOption("error", []byte(err.Error()))
-		}
-		cc.WriteDownstream(&dis)
-		if cc.netDotTCPConn != nil {
-			cc.netDotTCPConn.Close()
-		}
-	}
 }
 
 func (cc *tcpContact) WriteDownstream(packet packets.Interface) error {
 	//fmt.Println("received from above", packet, reflect.TypeOf(packet))
-	if cc.GetClosed() == false && cc.GetConfig().GetLookup().isGuru == false {
+	if !cc.GetClosed() && !cc.GetConfig().GetLookup().isGuru {
 		u := HasError(packet)
 		if u != nil {
 			u.Write(cc)
@@ -247,15 +250,16 @@ func handleConnection(tcpConn *net.TCPConn, ex *Executive) {
 		p, err := packets.ReadPacket(cc)
 		if err != nil {
 			//connLogThing.Collect("se err " + err.Error())
-			fmt.Println("packets 3 read err", err)
+			fmt.Println("packets KnotFree read err", err)
 			TCPServerPacketReadError.Inc()
 			cc.Close(err)
 			return
 		}
-		str := p.String()
-		if !strings.ContainsAny(str, "billing_stats_return_address_subscribe") {
-			fmt.Println("tcp got packet", p.String(), cc)
-		}
+		// str := p.String() // giant performance problem with p.String()
+		// if !strings.ContainsAny(str, "billing_stats_return_address_subscribe") {
+		// 	fmt.Println("tcp got packet", p.String(), cc)
+		// }
+
 		err = PushPacketUpFromBottom(cc, p)
 		if err != nil {
 			//connLogThing.Collect("se err " + err.Error())
@@ -324,7 +328,7 @@ func GetServerStats(addr string) (*ExecutiveStats, error) {
 
 	if err == nil && resp.StatusCode == 200 {
 
-		bytes, err := ioutil.ReadAll(resp.Body)
+		bytes, err := io.ReadAll(resp.Body)
 		if err != nil {
 			return stats, err
 		}
