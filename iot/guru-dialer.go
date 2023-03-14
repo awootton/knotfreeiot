@@ -93,7 +93,7 @@ func ConnectGuruToSuperAide(guru *Executive, aide *Executive) {
 			upc.down = make(chan packets.Interface, 128)
 			upc.ex = me.ex
 			router.channels[i] = upc
-			go upc.dialGuru()
+			go upc.dialGuru() // to super aide?
 		}
 	}
 	// lose the stale ones
@@ -127,6 +127,9 @@ func ConnectGuruToSuperAide(guru *Executive, aide *Executive) {
 
 		for _, bucket := range me.allTheSubscriptions {
 			command.wg.Add(1)
+			if len(bucket.incoming) >= cap(bucket.incoming) {
+				fmt.Println("error: bucket.incoming is full")
+			}
 			bucket.incoming <- &command
 		}
 		command.wg.Wait()
@@ -153,21 +156,20 @@ func (upc *upperChannel) dialGuru() {
 	upc.running = true
 	if isTCP {
 		// in prod:
-		fmt.Println("dialGuru dialGuruAndServe started with", upc.address)
+		fmt.Println("dialGuruAndServe started with", upc.address, upc.name)
 		for upc.running {
-
-			err := upc.dialGuruAndServe(upc.address)
+			err := upc.dialGuruAndServe()
 			if err != nil {
-				fmt.Println("dialGuru dialGuruAndServe err", upc.address, err)
+				fmt.Println("dialGuruAndServe returned err", err, upc.address, upc.name)
 			} else {
-				// there's always an error or else we'd still be in dialAideAndServe
-				fmt.Println("dialGuru dialGuruAndServe noerr", upc.address, err)
+				// there's always an error or else we'd still be in dialGureAndServe?
+				fmt.Println("dialGureAndServe returned noerr", upc.address, upc.name)
 			}
-			time.Sleep(time.Second * 5)
+			time.Sleep(time.Second * 1)
 		}
 
 	} else {
-		for upc.running {
+		for upc.running { // this is a debug version.
 
 			// the test we can find all the other nodes in the ce.
 			// or in GuruNameToConfigMap
@@ -302,94 +304,104 @@ func (upc *upperChannel) readFromPipe(m *myPipe) {
 			// 	m.readden = m.readden[len(s):]
 			// 	fmt.Println("rp", m)
 			// }
-
+			if len(upc.down) >= cap(upc.down) {
+				fmt.Println("readFromPipe channel full")
+			}
 			upc.down <- p
 		}
 	}
 }
 
-func (upc *upperChannel) dialGuruAndServe(address string) error {
+// is supposed to until upc.running is false or some error
+// if it fails then the caller (dialGuru) will restart it
+func (upc *upperChannel) dialGuruAndServe() error {
 
-	fmt.Println("top of dialGuruAndServe ", address, upc.name, " for ", upc.ex.Name)
+	var err error
+
+	upc.founderr = nil
+	upc.conn = nil
+
+	fmt.Println("starting/restarting dialGuruAndServe ", upc.address, upc.name, " for ", upc.ex.Name)
 
 	// todo: tell prometheius we're dialing
-	conn, err := net.DialTimeout("tcp", address, time.Duration(uint64(2*time.Second)))
+	upc.conn, err = net.DialTimeout("tcp", upc.address, time.Duration(uint64(2*time.Second)))
 	if err != nil {
-		fmt.Println("dial dialGuruAndServe fail", address, " with ", err)
+		fmt.Println("dial dialGuruAndServe fail", upc.address, upc.name, " with ", err)
 		TCPNameResolverFail2.Inc()
-		return nil
+		return err
 	}
 	// have conn.(*net.TCPConn)
 
 	TCPNameResolverConnected.Inc()
 
-	conn.(*net.TCPConn).SetNoDelay(true)
-	conn.(*net.TCPConn).SetWriteBuffer(4096)
+	upc.conn.(*net.TCPConn).SetNoDelay(true)
+	upc.conn.(*net.TCPConn).SetWriteBuffer(4096)
 
-	fmt.Println("dialGuruAndServe ready to ReadPacket from ", address)
+	fmt.Println("dialGuruAndServe ready to ReadPacket from ", upc.address, upc.name)
 
-	var founderr error
+	upc.down = nil // not used. wut?
 
-	upc.down = nil // not used
+	var mux sync.Mutex // needed?
+
+	connect := &packets.Connect{}
+	connect.SetOption("token", []byte(tokens.GetImpromptuGiantToken()))
+	mux.Lock()
+	err = connect.Write(upc.conn)
+	mux.Unlock()
+	if err != nil {
+		fmt.Println("dialGuruAndServe packets.Connect fail", upc.conn, err)
+		upc.conn.Close()
+		upc.founderr = err
+		return err
+	}
+
 	go func() {
-		for founderr == nil {
-			p, err := packets.ReadPacket(conn)
+		for upc.founderr == nil && upc.running {
+			time.Sleep(time.Second * 300)
+			p := &packets.Ping{}
+			if len(upc.up) >= cap(upc.up) {
+				fmt.Println("dialGuru channel full")
+			}
+			upc.up <- p
+		}
+	}()
+
+	// since we have a conn now...
+	go func() {
+		for upc.founderr == nil && upc.running {
+			p, err := packets.ReadPacket(upc.conn)
 			if err != nil {
-				fmt.Println("dialGuruAndServe readPacket err", p, err, address)
-				founderr = err
-				conn.Close()
+				fmt.Println("dialGuruAndServe readPacket err", p, err, upc.address, upc.name)
+				upc.founderr = err
+				upc.conn.Close()
 				return
 			}
 			//fmt.Println("not upc.down ", p)
 			err = PushDownFromTop(upc.ex.Looker, p)
 			if err != nil {
 				fmt.Println("dialGuruAndServe PushDownFromTop error ", err)
-				founderr = err
-				conn.Close()
+				upc.founderr = err
+				upc.conn.Close()
 				return
 			}
 		}
 	}()
 
-	upc.down = nil     // not used
-	var mux sync.Mutex // needed?
-
-	connect := &packets.Connect{}
-	connect.SetOption("token", []byte(tokens.GetImpromptuGiantToken()))
-	mux.Lock()
-	err = connect.Write(conn)
-	mux.Unlock()
-	if err != nil {
-		fmt.Println("write c fail", conn, err)
-		conn.Close()
-		founderr = err
-		return err
-	}
-
-	go func() {
-		for founderr == nil {
-			time.Sleep(time.Second)
-			p := &packets.Ping{}
-			upc.up <- p
+	for upc.founderr == nil && upc.running {
+		var err error
+		select {
+		case p := <-upc.up:
+			mux.Lock()
+			err = p.Write(upc.conn)
+			mux.Unlock()
+		case <-time.After(time.Millisecond * 100):
 		}
-	}()
-
-	for p := range upc.up {
-		mux.Lock()
-		err := p.Write(conn)
-		mux.Unlock()
-		//fmt.Println("L pushing to guru ", p)
-		if err != nil || founderr != nil {
-			if err == nil {
-				err = founderr
-			}
-			if founderr == nil {
-				founderr = err
-			}
-			fmt.Println("err L pushing to guru ", err)
-			conn.Close()
+		if err != nil {
+			upc.founderr = err
+			fmt.Println("dialGuruAndServe err pushing to guru ", err, upc.address, upc.name, upc.conn.RemoteAddr())
+			upc.conn.Close()
 			return err
 		}
 	}
-	return nil
+	return upc.founderr
 }

@@ -96,8 +96,9 @@ func TestSend(t *testing.T) {
 	}
 
 	uni, err := packets.ReadUniversal(&bb)
-
+	_ = uni
 	bytes, err := packets.UniversalToJSON(uni)
+	_ = bytes
 	got = string(bytes)
 	want = `[P,dest,source,some_data]`
 	if got != want {

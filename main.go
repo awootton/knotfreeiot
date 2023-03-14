@@ -35,6 +35,7 @@ import (
 	"reflect"
 	"runtime"
 	"runtime/pprof"
+	"runtime/trace"
 	"strconv"
 	"strings"
 	"syscall"
@@ -51,29 +52,13 @@ import (
 // Hint: add "127.0.0.1 knotfreeserver" to /etc/hosts
 func main() {
 
-	// f, err := os.Create("trace.out")
-	// if err != nil {
-	// 	log.Fatalf("failed to create trace output file: %v", err)
-	// }
-	// defer func() {
-	// 	if err := f.Close(); err != nil {
-	// 		log.Fatalf("failed to close trace file: %v", err)
-	// 	}
-	// }()
+	defer trace.Stop()
 
-	// if err := trace.Start(f); err != nil {
-	// 	log.Fatalf("failed to start trace: %v", err)
-	// }
-	// defer trace.Stop()
-
-	// f, err := os.Create("cpu.out")
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-	// pprof.StartCPUProfile(f)
-	// defer pprof.StopCPUProfile()
-
-	// pprof.NewProfile("heap")
+	f, err := os.Create("cpu.out")
+	if err != nil {
+		log.Fatal(err)
+	}
+	pprof.StartCPUProfile(f)
 
 	// go func() {
 	// 	log.Println(http.ListenAndServe("localhost:6060", nil))
@@ -89,6 +74,7 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
+		pprof.StopCPUProfile()
 		pprof.WriteHeapProfile(f)
 		f.Close()
 		//trace.Stop()
@@ -153,7 +139,7 @@ func main() {
 	ce := iot.MakeTCPMain(name, limits, *token, *isGuru)
 	startPublicServer(ce)
 	for {
-		time.Sleep(10000 * time.Second)
+		time.Sleep(999999999 * time.Second)
 	}
 }
 
@@ -281,7 +267,7 @@ type RequestReplyStruct struct {
 	replyParts      []pinfo
 }
 
-var servedMap = map[string]*RequestReplyStruct{}
+// var servedMap = map[string]*RequestReplyStruct{}
 
 func IsLocal(r *http.Request) bool {
 	fmt.Println("host is ", r.Host)
@@ -298,9 +284,25 @@ func (superMux *SuperMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	//fmt.Println("giant token ", tokens.GetImpromptuGiantToken())
 
-	fmt.Println("ServeHTTP from host ", r.Host)
+	// if !strings.Contains(r.Host, "knotfree.") {
+	// 	fmt.Println("unknown host ", r.Host)
+	// 	http.NotFound(w, r)
+	// 	return
+	// }
+
+	// fmt.Println("ServeHTTP from host ", r.Host)
+
+	if r.Host == "212.2.245.112:80" { // the ip address of knotfree.io
+		r.Host = "knotfree.io"
+	}
 
 	domainParts := strings.Split(r.Host, ".")
+	if len(domainParts) == 4 {
+		fmt.Println("unknown host ", r.Host)
+		http.NotFound(w, r)
+		return
+	}
+
 	// eg [knotfree net]
 	// eg [subdomain knotfree net]
 	// eg [subdomain knotfree io]
@@ -312,7 +314,7 @@ func (superMux *SuperMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if !isApiRequest && len(domainParts) > 2 && domainParts[0] != "www" {
 		// we have a subdomain
 		subDomain := domainParts[0]
-		fmt.Println("serving subdomain ", subDomain, "  with "+r.URL.String())
+		fmt.Println("serving subdomain ", subDomain, "  of "+r.Host+r.RequestURI)
 
 		// TODO: move this all to a method httpRequestContact (and todo: make that)
 
@@ -338,7 +340,7 @@ func (superMux *SuperMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// r.URL is "/"
 		// write the header to a buffer
 		firstLine := r.Method + " " + r.URL.String() + " " + r.Proto + "\n"
-		fmt.Println("first line", firstLine)
+		// fmt.Println("first line", firstLine[0:len(firstLine)-2])
 		buf := new(bytes.Buffer)
 		buf.WriteString(firstLine)
 		for key, val := range r.Header {
@@ -358,43 +360,43 @@ func (superMux *SuperMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		// now the whole original request packet is in buf
 
-		isCachable := strings.Contains(firstLine, "/static/") || strings.Contains(firstLine, "/images/")
-		haveAlready, ok := servedMap[firstLine]
-		if ok && isCachable {
+		// isCachable := strings.Contains(firstLine, "/static/") || strings.Contains(firstLine, "/images/")
+		// haveAlready, ok := servedMap[firstLine]
+		// if ok && isCachable {
 
-			size := 0
-			for _, databuf := range haveAlready.replyParts {
-				size += len(databuf.buff)
-			}
+		// 	size := 0
+		// 	for _, databuf := range haveAlready.replyParts {
+		// 		size += len(databuf.buff)
+		// 	}
 
-			fmt.Println("serving from cache ", firstLine, size)
+		// 	fmt.Println("serving from cache ", firstLine, size)
 
-			hj, ok := w.(http.Hijacker)
-			if !ok {
-				http.Error(w, "webserver doesn't support hijacking", http.StatusInternalServerError)
-				return
-			}
-			conn, responseBuffer, err := hj.Hijack()
-			if err != nil {
-				fmt.Println("hijack error  ", err)
-			}
-			defer func() {
-				fmt.Println("closing hijack socket with " + r.URL.String())
-				conn.Close()
-			}()
+		// 	hj, ok := w.(http.Hijacker)
+		// 	if !ok {
+		// 		http.Error(w, "webserver doesn't support hijacking", http.StatusInternalServerError)
+		// 		return
+		// 	}
+		// 	conn, responseBuffer, err := hj.Hijack()
+		// 	if err != nil {
+		// 		fmt.Println("hijack error  ", err)
+		// 	}
+		// 	defer func() {
+		// 		fmt.Println("closing hijack socket from cache " + r.URL.String() + "\n\n")
+		// 		conn.Close()
+		// 	}()
 
-			for i, databuf := range haveAlready.replyParts {
-				n, err := responseBuffer.Write(databuf.buff[:])
-				if err != nil {
-					fmt.Println("responseBuffer.Write ERROR ", firstLine[0:len(firstLine)-2])
-				}
-				_ = i
-				_ = n
-			}
-			return
-		}
+		// 	for i, databuf := range haveAlready.replyParts {
+		// 		n, err := responseBuffer.Write(databuf.buff[:])
+		// 		if err != nil {
+		// 			fmt.Println("responseBuffer.Write ERROR ", firstLine[0:len(firstLine)-2])
+		// 		}
+		// 		_ = i
+		// 		_ = n
+		// 	}
+		// 	return
+		// }
 
-		fmt.Println("http is request ", firstLine[0:len(firstLine)-2])
+		// fmt.Println("http is request ", firstLine[0:len(firstLine)-2])
 
 		pastWritesIndex := 0
 		packetStruct := &RequestReplyStruct{}
@@ -423,6 +425,7 @@ func (superMux *SuperMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), 500)
 			return
 		}
+		// fmt.Println("returned from connect ")
 		// subscribe
 		myRandomAddress := GetRandomB64String()
 		// fmt.Println("will be using myRandomAddress ", myRandomAddress)
@@ -436,7 +439,7 @@ func (superMux *SuperMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		// define a reader and a writer
 		gotDataChan := new(iot.ByteChan)
-		gotDataChan.TheChan = make(chan []byte, 1)
+		gotDataChan.TheChan = make(chan []byte, 128)
 		contact.SetWriter(gotDataChan)
 		// we don't need for the contact to read. We'll push directly
 
@@ -444,8 +447,23 @@ func (superMux *SuperMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			// stream it
 			fmt.Println("ERROR fixme: implement this streaming thing")
 		} else {
+
 			// just send it all at once in one Send
 			pub := packets.Send{}
+
+			// copy the options over
+			parts := strings.Split(firstLine, "?") // ie GET /get/c?debg=12345678 HTTP/1
+			if len(parts) > 1 {
+				parts = strings.Split(parts[1], " ")
+				parts = strings.Split(parts[0], "&")
+				for _, part := range parts {
+					kv := strings.Split(part, "=")
+					if len(kv) == 2 {
+						pub.SetOption(kv[0], []byte(kv[1]))
+					}
+				}
+			}
+
 			pub.Address.FromString(subDomain) // !!!!!
 			pub.Source = subs.Address
 			//fmt.Println(" our send addr is ", pub.Address.String())
@@ -454,7 +472,8 @@ func (superMux *SuperMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			//fmt.Println(" our return addr is ", pub.Source.String())
 			//pub.Payload = []byte("GET " + r.URL.String() + " HTTP/1.1\n\n")
 			pub.Payload = buf.Bytes()
-			//fmt.Println("payload ius ", string(pub.Payload))
+
+			// fmt.Println("publish  PushPacketUpFromBottom") // , string(pub.Payload))
 			err = iot.PushPacketUpFromBottom(contact, &pub)
 			_ = err
 		}
@@ -469,7 +488,7 @@ func (superMux *SuperMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			fmt.Println("hijack error  ", err)
 		}
 		defer func() {
-			fmt.Println("closing hijack socket with " + r.URL.String())
+			// fmt.Println("closing hijack socket " + r.URL.String() + "\n")
 			conn.Close()
 		}()
 
@@ -484,7 +503,7 @@ func (superMux *SuperMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					if somedata == nil {
 						running = false
 					}
-					fmt.Println("packet on gotDataChan.TheChan theLengthWeNeed= ", theLengthWeNeed)
+					// fmt.Println("packet on gotDataChan.TheChan theLengthWeNeed= ", theLengthWeNeed)
 					// var cmd packets.Interface.
 					cmd, err := packets.ReadPacket(bytes.NewReader(somedata))
 					if err != nil {
@@ -644,13 +663,15 @@ func (superMux *SuperMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 							if n != len(nextPi.buff) {
 								fmt.Println("writing len wanted, needed:", len(nextPi.buff), n)
 							}
-							fmt.Println("So far we have got", theAmountWeGot, " of ", theLengthWeNeed, "for", packetStruct.firstLine)
+							//fmt.Println("So far we have got", theAmountWeGot, " of ", theLengthWeNeed, "for", packetStruct.firstLine)
 							if theAmountWeGot >= theLengthWeNeed {
-								fmt.Println("looks like we made it ! :")
+								// fmt.Println("looks like we made it ! :")
 								responseBuffer.Flush()
 								running = false
 								// push a close packet or something
 								// close the connection -- below
+
+								fmt.Println("Request complete", packetStruct.firstLine)
 							}
 							//responseBuffer.Flush()
 						}
@@ -661,8 +682,8 @@ func (superMux *SuperMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 						w.Write([]byte("error got weird packet"))
 					}
 				// is this the only way to know that we're done??
-				case <-time.After(22 * time.Second):
-					errMsg := "timed out waiting for html reply " + firstLine
+				case <-time.After(15 * time.Second):
+					errMsg := "timed out waiting for html reply " + firstLine[0:len(firstLine)-2]
 					fmt.Println(errMsg)
 					// http.Error(w, errMsg, 500)
 					running = false
@@ -677,18 +698,18 @@ func (superMux *SuperMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			unsub.Address.FromString(myRandomAddress)
 			err = iot.PushPacketUpFromBottom(contact, &unsub)
 			_ = err
-			fmt.Println("contact normal close")
+			// fmt.Println("contact normal close")
 			contact.Close(errors.New("normal close"))
-			if isCachable {
-				size := 0
-				for _, databuf := range packetStruct.replyParts {
-					size += len(databuf.buff)
-				}
-				if size > 1500 {
-					fmt.Println("adding to cache ", firstLine, size)
-					servedMap[firstLine] = packetStruct
-				}
-			}
+			// if isCachable {
+			// 	size := 0
+			// 	for _, databuf := range packetStruct.replyParts {
+			// 		size += len(databuf.buff)
+			// 	}
+			// 	if size > 1500 {
+			// 		fmt.Println("adding to cache ", firstLine, size)
+			// 		servedMap[firstLine] = packetStruct
+			// 	}
+			// }
 		}
 	} else {
 		// it's not a subdomain pass it to the api.
@@ -733,21 +754,9 @@ func startPublicServer(ce *iot.ClusterExecutive) {
 	staticStuffHandler := webHandler{ce,
 		http.FileServer(http.Dir("./docs"))} // FIXME: points to gotohere static assets (a react build)
 
-	//supermux.sub.Handle("/api1/", ApiHandler{ce})
-	//supermux.sub.Handle("/help", ApiHandler{ce})
 	supermux.sub.Handle("/mqtt", wsAPIHandler{ce})
 
-	// remote, err := url.Parse("https://github.com")
-	// if err != nil {
-	// 	fmt.Printf("error parsing url: %v", err)
-	// }
-	// proxy := httputil.NewSingleHostReverseProxy(remote)
-	// supermux.sub.Handle("/proxy", &ProxyHandler{proxy})
-
 	supermux.sub.Handle("/", ApiHandler{ce, staticStuffHandler})
-	// moved to webHandler:
-	// fs := http.FileServer(http.Dir("./docs/_site"))
-	// supermux.sub.Handle("/", fs)
 
 	s := &http.Server{
 		Addr:           ":8085",
@@ -762,59 +771,6 @@ func startPublicServer(ce *iot.ClusterExecutive) {
 		_ = err
 		fmt.Println("ListenAndServe 8085 returned !!!!!  arrrrg", err)
 	}(s)
-
-	// see dns-sd -B _mqtt._tcp
-	// this is NOT working.
-	// I don't even know how it would ever work.
-	// how would we open a port to 5353 if it's already open?
-	// lsof -Pn -i4 | grep 5353
-	// returns
-	// Google      530 awootton  236u  IPv4 0x7453d2bfa091be27      0t0  UDP *:5353
-	// so wtf?
-
-	//Setup our service export
-
-	// fmt.Println("starting mDns")
-	// host, _ := os.Hostname()
-	// info := []string{"Knotfree mqtt service"}
-	// srvc := "_mqtt._tcp"
-	// domain := "local."
-	// hostname := ""
-	// service, _ := mdns.NewMDNSService(host, srvc, domain, hostname, 1883, nil, info)
-
-	// fmt.Println("mDns HostName", service.HostName)
-	// fmt.Println("mDns Service", service.Service)
-	// fmt.Println("mDns IPs", service.IPs)
-	// server, _ := mdns.NewServer(&mdns.Config{Zone: service})
-	// _ = server
-
-	// defer func() {
-	// 	server.Shutdown()
-	// 	fmt.Println("mDns shutdown")
-	// }()
-
-	// this don't work
-	//let's check what's avail
-	// Make a channel for results and start listening
-	// entriesCh := make(chan *mdns.ServiceEntry, 4)
-	// go func() {
-	// 	for entry := range entriesCh {
-	// 		fmt.Printf("Got new entry: %v\n", entry)
-	// 	}
-	// }()
-
-	// // Start the lookup
-	// //  need params.DisableIPv6 = true
-	// //mdns.Lookup("_mqtt._tcp", entriesCh)
-	// //close(entriesCh)
-
-	// params := mdns.DefaultParams("_mqtt._tcp")
-	// params.Entries = entriesCh
-	// params.DisableIPv6 = true
-	// something := mdns.Query(params)
-	// _ = something
-	// fmt.Println("mdns.Query err", something)
-
 }
 
 func startPublicServer9102(ce *iot.ClusterExecutive) {
@@ -893,12 +849,6 @@ func startPublicServer9090(ce *iot.ClusterExecutive) {
 	}(s)
 
 }
-
-// func xxx_unused_copyIO(src, dest net.Conn) {
-// 	defer src.Close()
-// 	defer dest.Close()
-// 	io.Copy(src, dest)
-// }
 
 var upgrader = websocket.Upgrader{}
 
@@ -1016,29 +966,6 @@ func (api ApiHandler) ServeMakeToken(w http.ResponseWriter, req *http.Request) {
 
 		// not using the payload . we always hand out Tiny4
 
-		// payload := tokenRequest.Payload // can we not use the request payload?
-		// // we only need variable sizes when collcecting money
-		// payload := tokens.KnotFreeTokenPayload{}
-		// payload.Connections = 4 // TODO: move into standard x-small token
-		// // 30 days
-		// payload.ExpirationTime = uint32(time.Now().Unix() + 60*60*24*30)
-
-		// payload.Input = 32 * 4  // TODO: move into standard x-small token
-		// payload.Output = 32 * 4 // TODO: move into standard x-small token
-
-		// payload.Issuer = "_9sh"
-		// payload.JWTID = tokens.GetRandomB64String()
-		// nonce := payload.JWTID
-
-		// // targetSite := "knotfree.net" // which is mapped to localhost by /etc/hosts
-		// // if os.Getenv("KNOT_KUNG_FOO") == "atw" {
-		// // 	targetSite = "knotfree0.com"
-		// // }
-
-		// payload.Subscriptions = 10 // TODO: move into standard x-small token DONE, is tokens.Tinyx4
-
-		//  Host:"building_bob_bottomline_boldness.knotfree2.com:8085"
-
 		payload := tokens.KnotFreeTokenPayload{}
 
 		payload.Issuer = "_9sh"
@@ -1052,8 +979,6 @@ func (api ApiHandler) ServeMakeToken(w http.ResponseWriter, req *http.Request) {
 		parts := strings.Split(req.Host, ".")
 		partslen := len(parts)
 		if partslen < 2 {
-			//http.Error(w, "expected at least 2 parts in Host "+req.Host, 500)
-			//return
 			parts = strings.Split("local.localhost", ".")
 			partslen = len(parts)
 		}

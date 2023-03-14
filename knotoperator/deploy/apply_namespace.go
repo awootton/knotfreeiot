@@ -33,7 +33,7 @@ var needtobuild = true
 var alsoDoLibra = false // are deprecating libra due to excessive disk usage.
 // var alsoStartMonitoring = true // once is enough //this is broken from being too old
 
-var buildReactAndCopy = true // todo: mount the react static files instead of baking them in the docker.
+var buildReactAndCopy = false // todo: mount the react static files instead of baking them in the docker.
 // TODO: better. redirect to s3 bucket with the files in it.? does this work?
 
 var TARGET_CLUSTER = "knotfree.io" // for monitor pod
@@ -61,7 +61,7 @@ func main() {
 	kubectl.K("kubectl create ns knotspace")
 	kubectl.K("kubectl config set-context --current --namespace=knotspace")
 
-	{ // make a new giant token, deploy the monitor_pod
+	if false { // make a new giant token, deploy the monitor_pod
 		tokens.LoadPrivateKeys("~/atw/privateKeys4.txt")
 		TOKEN := tokens.GetImpromptuGiantToken() // 256k connections is GiantX32
 

@@ -124,11 +124,10 @@ func processSubscribe(me *LookupTableStruct, bucket *subscribeBucket, submsg *su
 	subs := submsg.p
 	box_bytes2, ok1 := subs.GetOption("reserved")
 	pubk, ok2 := subs.GetOption("pubk")
-	//tokn, _ := subs.GetOption("tokn")
 	nonce, ok3 := subs.GetOption("nonce")
 	if ok1 && ok2 && ok3 {
 
-		fmt.Println("setting permanent node=", me.ex.Name)
+		fmt.Println("Subscribe setting permanent node=", me.ex.Name)
 
 		hadError := ""
 
@@ -184,6 +183,9 @@ func processSubscribe(me *LookupTableStruct, bucket *subscribeBucket, submsg *su
 	} else {
 		// this is the important part:  add the caller to the set
 		subMsgKey := submsg.ss.GetKey()
+		SpecialPrint(&submsg.p.PacketCommon, func() {
+			fmt.Println("Subscribe remembering contact ", wi.contactInterface, " in ", me.ex.Name)
+		})
 		watchedTopic.put(subMsgKey, wi)
 	}
 
@@ -195,6 +197,9 @@ func processSubscribe(me *LookupTableStruct, bucket *subscribeBucket, submsg *su
 	}
 }
 
+// heartBeatCallBack is for this one bucket and we will ierate over all the subscriptions
+// and expire the ones that are too old. we will also iterate over all the contacts and
+// expire the ones that are closed.
 func heartBeatCallBack(me *LookupTableStruct, bucket *subscribeBucket, cmd *callBackCommand) {
 
 	haveUpstream := len(me.upstreamRouter.channels) != 0
@@ -202,31 +207,62 @@ func heartBeatCallBack(me *LookupTableStruct, bucket *subscribeBucket, cmd *call
 	//fmt.Println("Heartbeat for sub ", me.myname)
 	defer cmd.wg.Done()
 	// we don't delete them here and now. We queue up Unsubscribe packets.
+	// which is a problem because we are blocking the looker loop on this bucket and if
+	// we process too many unsubs we will block the looker loop and even the heartbeat will stall.
 	s := bucket.mySubscriptions
+
+	emptyBuckets := make([]*WatchedTopic, 0, 10)
+
+	channelToAnyAideMessages := make([]packets.Interface, 0, 10)
+
 	for h, watchedItem := range s {
+
+		if watchedItem.getSize() == 0 {
+			emptyBuckets = append(emptyBuckets, watchedItem)
+			continue
+		}
+
 		expireAll := watchedItem.expires < cmd.now
+
 		// FIRST, scan all the contact references and schedule the stale ones for deleteion.
 		// if expireAll {
 		// 	// expire the whole subscription because it's dead for too long
 		// 	fmt.Println("expiring ALL", watchedItem.name)
 		// }
 
+		unsubsNeeded := make([]ContactInterface, 0, 10)
+
 		it := watchedItem.Iterator()
 		for it.Next() {
 			key, item := it.KeyValue()
+			// also clean up the closed ones.
 			if expireAll || item.contactInterface.GetClosed() {
 
-				//fmt.Println("expiring subscription", watchedItem.name)
+				// fmt.Println("Subscribe heartbeat expiring subscription", watchedItem.name)
 
-				p := new(packets.Unsubscribe)
-				p.Address.Type = packets.BinaryAddress
-				p.Address.Bytes = new([24]byte)[:]
-				watchedItem.name.GetBytes(p.Address.Bytes)
-				me.sendUnsubscribeMessage(item.contactInterface, p)
+				// p := new(packets.Unsubscribe)
+				// p.Address.Type = packets.BinaryAddress
+				// p.Address.Bytes = new([24]byte)[:]
+				// watchedItem.name.GetBytes(p.Address.Bytes)
+				// // me.sendUnsubscribeMessage(item.contactInterface, p)
+				unsubsNeeded = append(unsubsNeeded, item.contactInterface) // collect them now
 			}
 			_ = key
 		}
 		_ = h
+
+		go func() {
+			for _, contact := range unsubsNeeded {
+				// p := new(packets.Unsubscribe)
+				// p.Address.Type = packets.BinaryAddress
+				// p.Address.Bytes = new([24]byte)[:]
+				// watchedItem.name.GetBytes(p.Address.Bytes)
+				// me.sendUnsubscribeMessage(contact, p)
+				// don't send an upsub. Just delete them Now
+				watchedItem.remove(contact.GetKey())
+			}
+		}()
+
 		// SECOND, check if this is a billing topic
 		// if it's billing and it's over limits then write 'error Send' down.
 		billingAccumulator, ok := watchedItem.IsBilling()
@@ -289,18 +325,42 @@ func heartBeatCallBack(me *LookupTableStruct, bucket *subscribeBucket, cmd *call
 				p.SetOption("stats-deltat", []byte(strconv.FormatInt(int64(deltaTime), 10)))
 				// publish a "add-stats" command to billing topic
 				// fmt.Println(" push to channelToAnyAide ", p)
-				me.ex.channelToAnyAide <- p
+				// if len(me.ex.channelToAnyAide) >= cap(me.ex.channelToAnyAide) {
+				// 	fmt.Println("Subscribe channelToAnyAide channel is full")
+				// }
+				// me.ex.channelToAnyAide <- p
+				channelToAnyAideMessages = append(channelToAnyAideMessages, p)
 
 				me.ex.Billing.AddUsage(&msg.KnotFreeContactStats, cmd.now, int(deltaTime))
 			}
 		}
 	}
+
+	// the http serve to a thing generates many of these.
+	for _, emptyBucket := range emptyBuckets {
+		// fmt.Println("Subscribe deleting entire empty bucket", emptyBucket.name)
+		delete(bucket.mySubscriptions, emptyBucket.name) // the name is the hash
+		// we have to send an unsubscribe to the upstream
+		unmsg := new(packets.Unsubscribe)
+		unmsg.Address.Type = packets.BinaryAddress
+		unmsg.Address.Bytes = new([24]byte)[:]
+		emptyBucket.name.GetBytes(unmsg.Address.Bytes)
+		err := bucket.looker.PushUp(unmsg, emptyBucket.name)
+		if err != nil {
+			fmt.Println("Subscribe heartbeat unsub  PushUp error", err)
+		}
+	}
+	go func() {
+		for _, p := range channelToAnyAideMessages {
+			me.ex.channelToAnyAide <- p
+		}
+	}()
 }
 
 func processUnsubscribe(me *LookupTableStruct, bucket *subscribeBucket, unmsg *unsubscribeMessage) {
 
 	watchedTopic, ok := getWatcher(bucket, &unmsg.topicHash)
-	if !ok {
+	if ok {
 		if watchedTopic.permanent {
 			watchedTopic.remove(unmsg.ss.GetKey())
 			// don't delete the entry

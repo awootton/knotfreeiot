@@ -91,24 +91,38 @@ func (me *LookupTableStruct) PushUp(p packets.Interface, h HashType) error {
 
 	router := me.upstreamRouter
 	//if me.isGuru || router.maglev == nil {
-	if me.isGuru {
-		// what if there is no up?
-		router = me.upstreamRouter // for debug
-	}
+	//if me.isGuru {
+	// what if there is no up?
+	// fmt.Println("me.isGuru pushing up ", me.myname)
+	// return ?
+	//}
 	if router.maglev == nil {
 		// some of us don't have superiors so no pushup
 		// unless we have a superior cluster in which case there's
 		// just the one upper channel trying to go up.
 		// FIXME: FATAL
+		fmt.Println("ERROR router.maglev == nil in PushUp for ", me.myname)
 		return nil
 	}
 	if len(router.channels) == 0 {
 		// can't pushup to no channels
+		if !me.isGuru {
+			fmt.Println("ERROR len(router.channels) == 0 in PushUp for ", me.myname)
+		}
 		return nil
 	}
 	upc := router.getUpperChannel(h.GetUint64())
 	if upc != nil {
-		//fmt.Println("upc pushing up from ", me.ex.Name, " to ", upc.name, p)
+
+		if !upc.running || upc.founderr != nil || upc.conn == nil {
+			fmt.Println("upc.running == false or founderr or conn==nil in PushUp for ", me.myname)
+		}
+		SpecialPrint(&packets.PacketCommon{}, func() {
+			fmt.Println("upc pushing up from ", me.ex.Name, " to ", upc.name, p)
+		})
+		if len(upc.up) >= cap(upc.up) {
+			fmt.Println("me.ex.channelToAnyAide channel full")
+		}
 		upc.up <- p
 
 	} else {
@@ -150,9 +164,10 @@ func NewLookupTable(projectedTopicCount int, aname string, isGuru bool, getTime 
 		// 	me.allTheSubscriptions[i].mySubscriptions[j] = make(map[HashType]*watchedTopic, portion)
 		// }
 		me.allTheSubscriptions[i].mySubscriptions = make(map[HashType]*WatchedTopic, projectedTopicCount/me.theBucketsSize)
-		tmp := make(chan interface{}, 32)
+		tmp := make(chan interface{}, 256)
 		me.allTheSubscriptions[i].incoming = tmp
 		me.allTheSubscriptions[i].looker = me
+		me.allTheSubscriptions[i].index = i
 		go me.allTheSubscriptions[i].processMessages(me)
 	}
 	me.upstreamRouter = new(upstreamRouterStruct)
@@ -174,7 +189,12 @@ func (me *LookupTableStruct) sendSubscriptionMessage(ss ContactInterface, p *pac
 	msg.topicHash.InitFromBytes(p.Address.Bytes)
 	i := msg.topicHash.GetFractionalBits(me.theBucketsSizeLog2) // is 4. The first 4 bits of the hash.
 	b := me.allTheSubscriptions[i]
+	// fmt.Println("sendSubscriptionMessage pushing #", b.index, len(b.incoming))
+	if len(b.incoming) >= cap(b.incoming) {
+		fmt.Println("sendSubscriptionMessage channel full")
+	}
 	b.incoming <- &msg
+	// fmt.Println("sendSubscriptionMessage pushed to q")
 }
 
 // SendUnsubscribeMessage will create a message object, copy pointers to it so it'll own them now, and queue the message.
@@ -187,6 +207,9 @@ func (me *LookupTableStruct) sendUnsubscribeMessage(ss ContactInterface, p *pack
 	msg.topicHash.InitFromBytes(p.Address.Bytes)
 	i := msg.topicHash.GetFractionalBits(me.theBucketsSizeLog2)
 	b := me.allTheSubscriptions[i]
+	if len(b.incoming) >= cap(b.incoming) {
+		fmt.Println("sendUnsubscribeMessage channel full")
+	}
 	b.incoming <- &msg
 }
 
@@ -200,6 +223,9 @@ func (me *LookupTableStruct) sendLookupMessage(ss ContactInterface, p *packets.L
 	msg.topicHash.InitFromBytes(p.Address.Bytes)
 	i := msg.topicHash.GetFractionalBits(me.theBucketsSizeLog2)
 	b := me.allTheSubscriptions[i]
+	if len(b.incoming) >= cap(b.incoming) {
+		fmt.Println("sendLookupMessage channel full")
+	}
 	b.incoming <- &msg
 }
 
@@ -213,6 +239,9 @@ func (me *LookupTableStruct) sendPublishMessageDown(p *packets.Send) {
 	msg.h.InitFromBytes(p.Address.Bytes)
 	i := msg.h.GetFractionalBits(me.theBucketsSizeLog2)
 	b := me.allTheSubscriptions[i]
+	if len(b.incoming) >= cap(b.incoming) {
+		fmt.Println("sendPublishMessageDown channel full")
+	}
 	b.incoming <- &msg
 }
 
@@ -226,34 +255,11 @@ func (me *LookupTableStruct) sendSubscriptionMessageDown(p *packets.Subscribe) {
 	msg.h.InitFromBytes(p.Address.Bytes)
 	i := msg.h.GetFractionalBits(me.theBucketsSizeLog2)
 	b := me.allTheSubscriptions[i]
+	if len(b.incoming) >= cap(b.incoming) {
+		fmt.Println("sendSubscriptionMessageDown channel full")
+	}
 	b.incoming <- &msg
 }
-
-// SendUnsubscribeMessage will create a message object, copy pointers to it so it'll own them now, and queue the message.
-// func (me *LookupTableStruct) sendUnsubscribeMessageDown(p *packets.Unsubscribe) {
-
-// 	msg := unsubscribeMessageDown{}
-// 	//msg.ss = ss
-// 	msg.p = p
-// 	p.Address.EnsureAddressIsBinary()
-// 	msg.h.InitFromBytes(p.Address.Bytes)
-// 	i := msg.h.GetFractionalBits(me.theBucketsSizeLog2)
-// 	b := me.allTheSubscriptions[i]
-// 	b.incoming <- &msg
-// }
-
-// SendUnsubscribeMessage will create a message object, copy pointers to it so it'll own them now, and queue the message.
-// func (me *LookupTableStruct) sendLookupMessageDown(p *packets.Lookup) {
-
-// 	msg := lookupMessageDown{}
-// 	//msg.ss = ss
-// 	msg.p = p
-// 	p.Address.EnsureAddressIsBinary()
-// 	msg.h.InitFromBytes(p.Address.Bytes)
-// 	i := msg.h.GetFractionalBits(me.theBucketsSizeLog2)
-// 	b := me.allTheSubscriptions[i]
-// 	b.incoming <- &msg
-// }
 
 // SendPublishMessage will create a message object, copy pointers to it so it'll own them now, and queue the message.
 func (me *LookupTableStruct) sendPublishMessage(ss ContactInterface, p *packets.Send) {
@@ -265,6 +271,9 @@ func (me *LookupTableStruct) sendPublishMessage(ss ContactInterface, p *packets.
 	msg.topicHash.InitFromBytes(p.Address.Bytes)
 	i := msg.topicHash.GetFractionalBits(me.theBucketsSizeLog2)
 	b := me.allTheSubscriptions[i]
+	if len(b.incoming) >= cap(b.incoming) {
+		fmt.Println("sendPublishMessage channel full")
+	}
 	b.incoming <- &msg
 }
 
@@ -289,6 +298,11 @@ func (bucket *subscribeBucket) processMessages(me *LookupTableStruct) {
 
 	for {
 		msg := <-bucket.incoming // wait right here
+
+		// if reflect.TypeOf(msg) != reflect.TypeOf(&callBackCommand{}) {
+		// 	fmt.Println("have processMessages ", reflect.TypeOf(msg), "#", bucket.index)
+		// }
+
 		switch v := msg.(type) {
 
 		case *subscriptionMessage:
@@ -309,8 +323,10 @@ func (bucket *subscribeBucket) processMessages(me *LookupTableStruct) {
 		// case *unsubscribeMessageDown:
 		// 	processUnsubscribeDown(me, bucket, v)
 		case *callBackCommand:
+			// fmt.Println("callback in", bucket.index)
 			cbc := msg.(*callBackCommand)
 			cbc.callback(me, bucket, cbc)
+			// fmt.Println("callback out", bucket.index)
 
 		default:
 			// no match. do nothing. panic?
@@ -318,6 +334,7 @@ func (bucket *subscribeBucket) processMessages(me *LookupTableStruct) {
 			fatalMessups.Inc()
 		}
 	}
+	// fmt.Println("FATAL processMessages exited loop")
 }
 
 type baseMessage struct {
@@ -375,6 +392,7 @@ type subscribeBucket struct {
 	mySubscriptions map[HashType]*WatchedTopic //[64]map[HashType]*watchedTopic
 	incoming        chan interface{}
 	looker          *LookupTableStruct
+	index           int
 }
 
 // NewWithInt64Comparator for HalfHash
@@ -384,7 +402,6 @@ func NewWithInt64Comparator() *redblacktree.Tree {
 
 // A grab bag of paranoid ideas about bad states.
 func (me *LookupTableStruct) checkForBadContact(badsock ContactInterface, pubstruct *WatchedTopic) bool {
-
 	return badsock.GetConfig() == nil
 }
 
@@ -417,6 +434,9 @@ func (me *LookupTableStruct) Heartbeat(now uint32) {
 
 	for _, bucket := range me.allTheSubscriptions {
 		command.wg.Add(1)
+		if len(bucket.incoming) >= cap(bucket.incoming) {
+			fmt.Println("Heartbeat channel full")
+		}
 		bucket.incoming <- &command
 	}
 	command.wg.Wait() // should we wait?
@@ -564,6 +584,9 @@ func (me *LookupTableStruct) FlushMarkerAndWait() {
 	command.callback = flushMarkerCallback
 	for _, bucket := range me.allTheSubscriptions {
 		command.wg.Add(1)
+		if len(bucket.incoming) >= cap(bucket.incoming) {
+			fmt.Println("FlushMarkerAndWait channel full")
+		}
 		bucket.incoming <- &command
 	}
 	command.wg.Wait()

@@ -30,4 +30,6 @@ RUN go mod download  && go mod verify
 ADD . /knotfreeiot
 
 # later we: RUN /go/bin/linux_386/knotfreeiot # see knotfreedeploy.yaml
-RUN export GO111MODULE=on; go install 
+#  RUN export GO111MODULE=on; go install 
+
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=386 go build -a -o manager main.go

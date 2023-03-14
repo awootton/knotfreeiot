@@ -1,63 +1,28 @@
-// Copyright 2019,2020,2021 Alan Tracey Wootton
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
 package iot
 
 import (
 	"fmt"
+	"net"
 	"sync"
 
 	"github.com/awootton/knotfreeiot/packets"
 	"github.com/dgryski/go-maglev"
 )
 
-// this file is a bit of a grab bag.
-
-// DevNull has it's uses.
-type DevNull struct {
-}
-
-func (null *DevNull) Read(b []byte) (int, error) {
-	return len(b), nil
-}
-
-func (null *DevNull) Write(b []byte) (int, error) {
-	return len(b), nil
-}
-
-type ByteChan struct {
-	TheChan chan []byte
-}
-
-// this is a packet in bytes
-func (bc *ByteChan) Write(b []byte) (int, error) {
-	bc.TheChan <- b
-	// fmt.Println(" ByteChan has ", string(b))
-	return len(b), nil
-}
-
 // upperChannel represents the 'upper' version of a contact.
 // Unlike their numerous lower bretheren they have buffers.
 
 type upperChannel struct {
 	name    string
-	address string // as in tcp ip:port
+	address string // as in tcp ip:port of a guru
 	up      chan packets.Interface
 	down    chan packets.Interface
-	running bool
-	ex      *Executive
+
+	ex *Executive
+
+	running  bool
+	founderr error
+	conn     net.Conn
 }
 
 // upstreamRouterStruct is maybe virtual in the future
@@ -77,7 +42,7 @@ func (router *upstreamRouterStruct) getUpperChannel(h uint64) *upperChannel {
 	defer router.mux.Unlock()
 	index := router.maglev.Lookup(h)
 	if index >= len(router.channels) {
-		fmt.Println("oops oops oops oops oops oops ")
+		fmt.Println("ERROR index >= len(router.channels) panic ")
 	}
 	c := router.channels[index]
 	return c
@@ -89,7 +54,8 @@ func (router *upstreamRouterStruct) getUpperChannel(h uint64) *upperChannel {
 // addresses are like: 10.244.0.149:8384
 func (me *LookupTableStruct) SetUpstreamNames(names []string, addresses []string) {
 
-	// don't block on anything.
+	// this is really a function on upstreamRouter:upstreamRouterStruct
+
 	router := me.upstreamRouter
 	router.mux.Lock()
 	defer router.mux.Unlock()
@@ -99,24 +65,33 @@ func (me *LookupTableStruct) SetUpstreamNames(names []string, addresses []string
 		return
 	}
 
+	hadChange := false
 	if len(names) == len(router.channels) {
+		// incoming (names) vs existing (router.channels)
 		for i, c := range router.channels {
 			if names[i] != c.name {
-				return // no changes
+				hadChange = true
 			}
 		}
+	} else {
+		hadChange = true
+	}
+	if !hadChange {
+		fmt.Println("SetUpstreamNames no change")
+		return
 	}
 	// maybe some more verifications?
+	fmt.Println("SetUpstreamNames changed from ", router.channels, " to ", names)
 
 	if me.isGuru {
-		me.setGuruUpstreamNames(names)
+		me.setGuruUpstreamNames(names) // recalc the maglev
 		return
 	}
 
-	// we're an aide.
+	// we know we are an aide.
 	oldContacts := router.channels
 
-	router.channels = make([]*upperChannel, len(names))
+	router.channels = make([]*upperChannel, len(names)) // whole new list for channels
 	theNamesThisTime := make(map[string]string, len(names))
 
 	// iterate the names passed in.
@@ -154,6 +129,7 @@ func (me *LookupTableStruct) SetUpstreamNames(names []string, addresses []string
 			fmt.Println("forgetting upper router ", upc.name)
 			close(upc.up)
 			close(upc.down)
+			upc.conn.Close()
 			delete(router.name2channel, upc.name)
 		}
 	}
@@ -177,6 +153,9 @@ func (me *LookupTableStruct) SetUpstreamNames(names []string, addresses []string
 
 		for _, bucket := range me.allTheSubscriptions {
 			command.wg.Add(1)
+			if len(bucket.incoming) == cap(bucket.incoming) {
+				fmt.Println("SetUpstreamNames channel full")
+			}
 			bucket.incoming <- &command
 		}
 		command.wg.Wait()
@@ -215,8 +194,52 @@ func (me *LookupTableStruct) setGuruUpstreamNames(names []string) {
 
 		for _, bucket := range me.allTheSubscriptions {
 			command.wg.Add(1)
+			if len(bucket.incoming) == cap(bucket.incoming) {
+				fmt.Println("setGuruUpstreamNames channel full")
+			}
 			bucket.incoming <- &command
 		}
 		command.wg.Wait()
 	}()
 }
+
+// DevNull has it's uses.
+type DevNull struct {
+}
+
+func (null *DevNull) Read(b []byte) (int, error) {
+	return len(b), nil
+}
+
+func (null *DevNull) Write(b []byte) (int, error) {
+	return len(b), nil
+}
+
+type ByteChan struct {
+	TheChan chan []byte
+}
+
+// this is a packet in bytes
+func (bc *ByteChan) Write(b []byte) (int, error) {
+	if len(bc.TheChan) == cap(bc.TheChan) {
+		fmt.Println("ByteChan channel full")
+	}
+	bc.TheChan <- b
+	// fmt.Println(" ByteChan has ", string(b))
+	return len(b), nil
+}
+
+// Copyright 2019,2020,2021,2023 Alan Tracey Wootton
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <http://www.gnu.org/licenses/>.

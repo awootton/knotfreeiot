@@ -26,10 +26,8 @@ RUN rm main.go
 
 COPY monitor_pod/main/main.go main.go
 
-RUN export GO111MODULE=on; go install 
+# RUN export GO111MODULE=on; go install 
 
 # Build
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=386 go build -a -o manager main.go
 
-# later we: RUN /workspace/manager # see deploy.yaml
-# RUN export GO111MODULE=on; go install 

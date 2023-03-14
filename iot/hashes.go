@@ -16,11 +16,11 @@
 package iot
 
 import (
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/binary"
 	"fmt"
-	"math/rand"
 	"strconv"
 )
 

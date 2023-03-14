@@ -19,6 +19,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"strings"
+
+	"github.com/awootton/knotfreeiot/packets"
 )
 
 func processPublish(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *publishMessage) {
@@ -30,7 +33,19 @@ func processPublish(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *publ
 	})
 
 	if wereSpecial {
-		log := fmt.Sprintln("processPublish ", pubmsg.p.Address.String(), " in ", me.ex.Name, " from:", pubmsg.ss.GetKey())
+		payloadStr := string(pubmsg.p.Payload)
+		chop := 100
+		if len(payloadStr) < chop {
+			chop = len(payloadStr)
+		}
+		iii := strings.Index(payloadStr, "\n")
+		if iii != -1 {
+			chop = iii
+		}
+		payloadStr = payloadStr[:chop]
+		log := fmt.Sprintln("processPublish to", pubmsg.p.Address.String(),
+			" in ", me.ex.Name, " from:", pubmsg.ss.GetKey(),
+			" with ", payloadStr)
 		logs = append(logs, log)
 		str := fmt.Sprint(pubmsg.ss.GetKey())
 		_ = str
@@ -108,6 +123,9 @@ func processPublish(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *publ
 					// it's billing but it's not add-stats
 
 					gotsend := serveBillingCommand(pubmsg.p, billingAccumulator, me.getTime())
+					if len(me.ex.channelToAnyAide) >= cap(me.ex.channelToAnyAide) {
+						fmt.Println("serveBillingCommand channelToAnyAide channel is full")
+					}
 					me.ex.channelToAnyAide <- &gotsend
 
 					// command := string(pubmsg.p.Payload)
@@ -133,6 +151,7 @@ func processPublish(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *publ
 			watchedTopic.expires = 60*60 + me.getTime() // one hour
 
 		} else {
+			badContacts := make([]ContactInterface, 0)
 			// do the WriteDownstream
 			watchedTopic.expires = 25*60 + me.getTime() //20 min
 			// this is where the typical packet comes
@@ -152,30 +171,36 @@ func processPublish(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *publ
 						if wereSpecial {
 							logs = append(logs, fmt.Sprintln("    WriteDownstream to", ci.GetKey(), " in ", me.ex.Name))
 						}
+					} else {
+						if wereSpecial {
+							logs = append(logs, fmt.Sprintln("    haveBadContact 1 ", ci.GetKey(), " in ", me.ex.Name, "bad"))
+						}
 					}
 				} else {
-					// we don't sent right back to
-					// who just sent it to us.
+					// we don't sent right back to ourselves.
 					if key != pubMsgKey {
 						if !me.checkForBadContact(ci, watchedTopic) {
 							ci.WriteDownstream(pubmsg.p)
 							sentMessages.Inc()
-						}
-						if wereSpecial {
-							logs = append(logs, fmt.Sprintln("    WriteDownstream2 to", ci.GetKey(), " in ", me.ex.Name, "on"))
+							if wereSpecial {
+								logs = append(logs, fmt.Sprintln("    WriteDownstream2 ", ci.GetKey(), " in ", me.ex.Name, "on"))
+							}
+						} else {
+							// can't we just delete it right now?
+							// we're in the interator so no: watchedTopic.remove(ci.GetKey())
+							badContacts = append(badContacts, ci)
+							if wereSpecial {
+								logs = append(logs, fmt.Sprintln("    haveBadContact 2", ci.GetKey(), " in ", me.ex.Name, "bad"))
+							}
 						}
 					}
 				}
-
-				//_, selfReturn := pubmsg.p.GetOption("toself")
-				// //	if selfReturn || key != pubMsgKey
-				// {
-				// 	if me.checkForBadContact(ci, watchedItem) == false {
-				// 		//fmt.Println("pub to contact", string(pubmsg.p.Address.String()), string(pubmsg.p.Payload), " in ", me.ex.Name)
-				// 		ci.WriteDownstream(pubmsg.p)
-				// 		sentMessages.Inc()
-				// 	}
-				// }
+			}
+			for _, ci := range badContacts {
+				//if wereSpecial {
+				// boring fmt.Println("Publish removing bad contact", ci.GetKey(), " in ", me.ex.Name)
+				//}
+				watchedTopic.remove(ci.GetKey())
 			}
 		}
 		//pubmsg.p.DeleteOption("toself")
@@ -186,7 +211,7 @@ func processPublish(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *publ
 		if err != nil {
 			// what? we're sad? todo: man up
 			// we should die and reconnect
-			fmt.Println("FIXME tws0000000")
+			fmt.Println("FIXME tws0000000 error")
 			// sendPushUpFail.Inc()
 		}
 	}
@@ -198,7 +223,7 @@ func processPublishDown(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *
 	var logs []string
 	wereSpecial := false
 	SpecialPrint(&pubmsg.p.PacketCommon, func() {
-		//fmt.Println("processPublishDown ", pubmsg.p.Address.String(), " in ", me.ex.Name)
+		fmt.Println("processPublishDown ", pubmsg.p.Address.String(), " in ", me.ex.Name)
 		wereSpecial = true
 	})
 	if wereSpecial {
@@ -213,13 +238,22 @@ func processPublishDown(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *
 	watcheditem, ok := getWatcher(bucket, &pubmsg.h) //bucket.mySubscriptions[pubmsg.h]
 	if !ok {
 
-		SpecialPrint(&pubmsg.p.PacketCommon, func() {
-			//fmt.Println("special no publish possible this should not happen going down?", pubmsg.p.Address.String())
-		})
-		fmt.Println("no publish possible this should not happen going down?", pubmsg.p.Address.String(), " in ", me.ex.Name)
-		// no publish possible !
-		// it's sad really when someone sends messages to nobody.
-		// this should not happen going down !
+		// SpecialPrint(&pubmsg.p.PacketCommon, func() {
+		// 	//fmt.Println("special no publish possible this should not happen going down?", pubmsg.p.Address.String())
+		// })
+		// fmt.Println("Publish no publish possible this should not happen going down?", pubmsg.p.Address.String(), " in ", me.ex.Name)
+
+		// there was an unsub but our parent doesnt know we should not be subscribing.
+		// we should send an unsub to our parent
+
+		unsub := packets.Unsubscribe{}
+		unsub.Address = pubmsg.p.Address
+		unsub.Address.EnsureAddressIsBinary()
+
+		err := bucket.looker.PushUp(&unsub, pubmsg.h)
+		if err != nil {
+			fmt.Println("error PushUp in processPublishDown ", err)
+		}
 		missedPushes.Inc()
 		// NO send upstream publish
 

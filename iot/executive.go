@@ -25,6 +25,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"golang.org/x/crypto/nacl/box"
@@ -53,6 +54,9 @@ type Executive struct {
 	getTime func() uint32
 
 	Limits *ExecutiveLimits
+
+	// do we need a mutex for changing Stats ?
+	statsmu sync.Mutex
 
 	ClusterStats *ClusterStats // All the stats
 
@@ -116,10 +120,10 @@ type ClusterStats struct {
 var TestLimits = ExecutiveLimits{}
 
 func init() {
-	TestLimits.Connections = 1000 // 16
+	TestLimits.Connections = 10 // 16
 	TestLimits.Input = 100
 	TestLimits.Output = 100
-	TestLimits.Subscriptions = 5000 // 64
+	TestLimits.Subscriptions = 100 // 64
 }
 
 // MakeSimplestCluster is just for testing as k8s doesn't work like this.
@@ -214,9 +218,23 @@ func MakeSimplestCluster(timegetter func() uint32, isTCP bool, aideCount int, su
 func MakeTCPMain(name string, limits *ExecutiveLimits, token string, isGuru bool) *ClusterExecutive {
 
 	isTCP := true
-	timegetter := func() uint32 {
+
+	startTime := time.Now().Unix()
+
+	// for testing, fails to work - delete me
+	timegetterFastForward := func() uint32 {
+		delta := time.Now().Unix() - startTime
+		delta *= 4
+		return uint32(startTime + delta)
+	}
+
+	timegetterReal := func() uint32 {
 		return uint32(time.Now().Unix())
 	}
+	_ = timegetterReal
+	_ = timegetterFastForward
+
+	timegetter := timegetterReal
 
 	ce := &ClusterExecutive{}
 	ce.isTCP = isTCP
@@ -576,19 +594,12 @@ func (ex *Executive) GetExecutiveStats() *ExecutiveStats {
 	stats.IsGuru = ex.isGuru
 
 	runtime.GC()
-	runtime.GC()
-	runtime.GC()
-	runtime.GC()
-	runtime.GC()
-	runtime.GC()
-	runtime.GC() // superstition much?
-	runtime.GC()
 	var gstats runtime.MemStats
 	runtime.ReadMemStats(&gstats)
 	stats.Memory = int64(gstats.HeapAlloc) // is insane HeapAlloc too large to be meaningful?
-	fmt.Println("memory ", stats.Memory)
+	// fmt.Println("memory ", stats.Memory)
 
-	fmt.Println("HeapSys ", gstats.HeapSys)
+	// fmt.Println("HeapSys ", gstats.HeapSys)
 
 	stats.Input = stats.Input / ex.Limits.Input
 	stats.Output = stats.Output / ex.Limits.Output
@@ -608,7 +619,7 @@ func (ex *Executive) GetExecutiveStats() *ExecutiveStats {
 	stdout, err := cmd.Output()
 	if err == nil {
 		parts := strings.Split(string(stdout), "\n")
-		fmt.Println("lsof len ", len(parts))
+		// fmt.Println("lsof len ", len(parts))
 		if err == nil {
 			stats.OpenConnections = len(parts)
 		}
@@ -619,6 +630,8 @@ func (ex *Executive) GetExecutiveStats() *ExecutiveStats {
 
 // Heartbeat one per 10 sec.
 func (ex *Executive) Heartbeat(now uint32) {
+
+	fmt.Println("Heartbeat Executive ", ex.Name, ex.httpAddress)
 
 	connectionsTotal.Set(float64(ex.Config.Len()))
 	subscriptions, queuefraction := ex.Looker.GetAllSubsCount()
@@ -790,9 +803,6 @@ func (ex *Executive) WaitForActions() {
 
 func SpecialPrint(p *packets.PacketCommon, fn func()) {
 	val, ok := p.GetOption("debg")
-	if len(string(val)) > 0 {
-		fmt.Println("SpecialPrint ", string(val))
-	}
 	if ok && (string(val) == "[12345678]" || string(val) == "12345678") {
 		fn()
 	}

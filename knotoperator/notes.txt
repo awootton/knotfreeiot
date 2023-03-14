@@ -21,6 +21,13 @@
 	kubectl create secret generic clouddns-dns01-solver-svc-acct \
 	   --from-file=key.json
 
+--------
+
+also 
+
+kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+
+
 
 -------
 

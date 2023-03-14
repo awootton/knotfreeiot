@@ -336,7 +336,7 @@ func (config *ContactStructConfig) GetLookup() *LookupTableStruct {
 // needs to be overridden
 func (ss *ContactStruct) Close(err error) {
 
-	if ss.ele != nil && ss.config != nil {
+	if ss.ele != nil && ss.config != nil && ss.config.listOfCi != nil {
 
 		ss.sendBillingInfo(ss.config.lookup.getTime())
 
@@ -344,7 +344,7 @@ func (ss *ContactStruct) Close(err error) {
 		ss.config.listOfCi.Remove(ss.ele)
 		ss.config.listlock.Unlock()
 		ss.ele = nil
-		fmt.Println("unlinked contact")
+		// I had a panic at the remove so I'm checking for config.listOfCi
 	}
 	ss.config = nil
 }

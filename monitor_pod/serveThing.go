@@ -202,7 +202,6 @@ func ServeGetTime(token string, c FauxContext) { // use knotfree format
 			s := msg[len("set some text"):]
 			s = strings.Trim(s, " ")
 			c.dummyString = s
-			fmt.Println("dummy is set to ", s)
 			return "ok"
 		}, c.CommandMap)
 	MakeCommand("version",
@@ -232,11 +231,14 @@ func ServeGetTime(token string, c FauxContext) { // use knotfree format
 
 	go func() {
 
+		subscribeCount := 0
+
 		for { // forever
+
 			servAddr := target_cluster + ":8384"
 			tcpAddr, err := net.ResolveTCPAddr("tcp", servAddr)
 			if err != nil {
-				println("ResolveTCPAddr failed:", err.Error())
+				println("Monitor ResolveTCPAddr failed:", err.Error())
 				c.fail++
 				time.Sleep(10 * time.Second)
 				continue
@@ -244,7 +246,7 @@ func ServeGetTime(token string, c FauxContext) { // use knotfree format
 			println("Dialing ")
 			conn, err := net.DialTCP("tcp", nil, tcpAddr)
 			if err != nil {
-				println("Dial failed:", err.Error())
+				println("Monitor Dial failed:", err.Error())
 				time.Sleep(10 * time.Second)
 				c.fail++
 				continue
@@ -253,45 +255,49 @@ func ServeGetTime(token string, c FauxContext) { // use knotfree format
 			connect.SetOption("token", []byte(token))
 			err = connect.Write(conn)
 			if err != nil {
-				println("Write C to server failed:", err.Error())
+				println("Monitor Write C to server failed:", err.Error())
 				conn.Close()
 				time.Sleep(10 * time.Second)
 				c.fail++
 				continue
 			}
-			/// c.topic = "get-unix-time"
-			subscribeCount := 0
-			go func() {
-				// contact expiration time is 20 min.
-				// resubscribe every 15 min to keep alive.
-				for {
-					if subscribeCount > 0 {
-						println("reSubscribing:" + c.Topic)
-					} else {
-						println("Subscribing:" + c.Topic)
-					}
 
-					sub := &packets.Subscribe{}
-					sub.Address.FromString(c.Topic)
-					sub.Write(conn)
-					if err != nil {
-						println("Write topic failed:"+c.Topic, err.Error())
-						// conn.Close() // if it fails here it will also fail below and reset.
-						interval := time.Duration(100 + int(rand.Float32()*100))
-						time.Sleep(interval * time.Second)
-						c.fail++
-						break // go to top?
+			if subscribeCount == 0 {
+				go func() {
+					// expiration time is 20 min.
+					// resubscribe every 15 min to keep alive.
+					for {
+						if subscribeCount > 0 {
+							println("Monitor reSubscribing:" + c.Topic)
+						} else {
+							println("Monitor Subscribing:" + c.Topic)
+						}
+						subscribeCount++
+
+						err := Subscribe(&c, conn)
+						if err != nil {
+							conn.Close()
+							c.fail++
+						}
+
+						time.Sleep(15*time.Minute + time.Second*time.Duration(4*rand.Float32()))
 					}
-					time.Sleep(15*time.Minute + time.Second*time.Duration(4*rand.Float32()))
+				}()
+			} else {
+				err := Subscribe(&c, conn)
+				if err != nil {
+					conn.Close()
+					time.Sleep(10 * time.Second)
+					c.fail++
 				}
-			}()
+			}
 
-			fmt.Println("connected and subscribed and waiting..")
+			fmt.Println("Monitor connected and subscribed and waiting..")
 			// receive cmd and respond loop
 			for {
 				p, err := packets.ReadPacket(conn) // blocks
 				if err != nil {
-					println("client err:", err.Error())
+					println("Monitor client err:", err.Error())
 					conn.Close()
 					c.fail++
 					time.Sleep(10 * time.Second)
@@ -300,11 +306,20 @@ func ServeGetTime(token string, c FauxContext) { // use knotfree format
 
 				sendme, err := digestPacket(p, &c, c.CommandMap)
 				if err != nil {
+					println("Monitor digestPacket err:", err)
 					break // continue
 				}
+
+				pub, ok := sendme.(*packets.Send)
+				if ok {
+					SpecialPrint(&pub.PacketCommon, func() {
+						fmt.Println("Monitor serveThing reply ", strings.Split(string(pub.Payload), "\n")[0])
+					})
+				}
+
 				err = sendme.Write(conn)
 				if err != nil {
-					println("send err:", err)
+					println("Monitor send err:", err)
 					c.fail++
 					break
 				}
@@ -314,6 +329,22 @@ func ServeGetTime(token string, c FauxContext) { // use knotfree format
 	}()
 }
 
+func Subscribe(c *FauxContext, conn net.Conn) error {
+	sub := &packets.Subscribe{}
+	sub.Address.FromString(c.Topic)
+	err := sub.Write(conn)
+	sub.SetOption("debg", []byte("12345678"))
+	if err != nil {
+		println("Monitor write topic failed:"+c.Topic, err.Error())
+		// conn.Close() // if it fails here it will also fail below and reset.
+		interval := time.Duration(100 + int(rand.Float32()*100))
+		time.Sleep(interval * time.Second)
+		c.fail++
+		return err // go to top?
+	}
+	return nil
+}
+
 func digestPacket(p packets.Interface,
 	c *FauxContext,
 	CommandMap map[string]Command) (packets.Interface, error) {
@@ -321,17 +352,21 @@ func digestPacket(p packets.Interface,
 	// println("received:", p.String())
 	pub, ok := p.(*packets.Send)
 	if !ok {
-		println("expected a send aka publish:", p.String())
+		println("Monitor expected a send aka publish:", p.String())
 		c.fail++
 		// time.Sleep(10 * time.Second)
-		return nil, errors.New("expected a send aka publish")
+		return nil, errors.New("monitor expected a send aka publish")
 	}
-	//fmt.Println("to ", string(pub.Address.String()))
-	//fmt.Println("from ", string(pub.Source.String()))
 
 	message := string(pub.Payload)
 	// n, _ := pub.GetOption("nonce")
 	// println("get-unix-time got:", message, string(n))
+	SpecialPrint(&pub.PacketCommon, func() {
+		fmt.Println("Monitor to ", string(pub.Address.String()))
+		fmt.Println("Monitor from ", string(pub.Source.String()))
+		parts := strings.Split(message, "\n")
+		println("Monitor ", c.Topic, " got ", parts[0])
+	})
 
 	isHttp := false
 	if strings.HasPrefix(message, `GET /`) {
@@ -339,13 +374,13 @@ func digestPacket(p packets.Interface,
 		lines := strings.Split(message, "\n")
 		if len(lines) < 1 {
 			c.fail++
-			return nil, errors.New("bad http request")
+			return nil, errors.New("monitor bad http request")
 		}
 		getline := lines[0]
 		getparts := strings.Split(getline, " ")
 		if len(getparts) != 3 {
 			c.fail++
-			return nil, errors.New("expected 3 parts to http request")
+			return nil, errors.New("monitor expected 3 parts to http request")
 		}
 		// now we passed the headers
 		message = getparts[1]
@@ -357,7 +392,7 @@ func digestPacket(p packets.Interface,
 				argparts2 := strings.Split(arg, "=")
 				if len(argparts2) != 2 {
 					c.fail++
-					return nil, errors.New("expected 2 parts to arg")
+					return nil, errors.New("monitor expected 2 parts to arg")
 				}
 				argname := argparts2[0]
 				argvalue := argparts2[1]
@@ -371,7 +406,9 @@ func digestPacket(p packets.Interface,
 		message = mparts[0]
 		message = strings.ReplaceAll(message, "/", " ")
 		message = strings.Trim(message, " ")
-		fmt.Println("http command is ", message)
+		SpecialPrint(&pub.PacketCommon, func() {
+			fmt.Println("Monitor http command is ", strings.Split(message, "\n")[0])
+		})
 	}
 
 	reply := ""
@@ -383,7 +420,7 @@ func digestPacket(p packets.Interface,
 		nonc, ok := pub.GetOption("nonc")
 		admn, ok2 := pub.GetOption("admn")
 		if nonc == nil || !ok || admn == nil || !ok2 {
-			hadError = "no nonce or no admn"
+			hadError = "Monitor no nonce or no admn"
 			c.fail++
 		} else {
 
@@ -398,7 +435,7 @@ func digestPacket(p packets.Interface,
 			} else if strings.HasPrefix(c.adminPubStr2, string(admn)) {
 				adminPublic = c.adminPubStr2
 			} else {
-				hadError = "no matching admin key found"
+				hadError = "Monitor no matching admin key found"
 				c.fail++
 			}
 
@@ -422,7 +459,7 @@ func digestPacket(p packets.Interface,
 			openbuffer := make([]byte, 0, (len(messageBytes))) // - box.Overhead
 			opened, ok := box.Open(openbuffer, messageBytes, nonce, adminPublicBytes, devicePrivateKey)
 			if !ok {
-				hadError = "failed to decrypt"
+				hadError = "Monitor failed to decrypt"
 				c.fail++
 			} else {
 				message = string(opened)
@@ -430,7 +467,7 @@ func digestPacket(p packets.Interface,
 				if len(mparts) > 1 {
 					timestamp, err := strconv.ParseInt(mparts[1], 10, 64)
 					if err != nil {
-						hadError = "bad timestamp"
+						hadError = "Monitor bad timestamp"
 						c.fail++
 					} else {
 						now := time.Now().Unix()
@@ -439,16 +476,19 @@ func digestPacket(p packets.Interface,
 							diff = -diff
 						}
 						if diff > 30 {
-							hadError = "timestamp too old"
+							hadError = "Monitor timestamp too old"
 							c.fail++
 						}
 					}
 					message = mparts[0]
 					message = strings.ReplaceAll(message, "/", " ")
-					fmt.Println("decrypted command is ", message)
+					//fmt.Println("decrypted command is ", message)
+					SpecialPrint(&pub.PacketCommon, func() {
+						fmt.Println("Monitor decrypted command is ", strings.Split(message, "\n")[0])
+					})
 
 				} else {
-					hadError = "missing timestamp"
+					hadError = "Monitor missing timestamp"
 					c.fail++
 				}
 				hadEncryption = true
@@ -460,7 +500,7 @@ func digestPacket(p packets.Interface,
 	_ = ok
 
 	if hadError != "" {
-		reply = "Error: " + hadError
+		reply = "Monitor Error: " + hadError
 	} else {
 
 		args := make([]string, 0, 10)
@@ -485,7 +525,7 @@ func digestPacket(p packets.Interface,
 			reply = cmd.execute(message, args)
 		} else {
 			if !hadEncryption {
-				reply = "Error: this command requires encryption"
+				reply = "Monitor Error: this command requires encryption"
 				c.fail++
 			} else {
 				reply = cmd.execute(message, args)
@@ -494,7 +534,7 @@ func digestPacket(p packets.Interface,
 	}
 	nonc, ok := pub.GetOption("nonc")
 	if nonc == nil || !ok {
-		hadError = "Error: no nonce"
+		hadError = "Monitor Error: no nonce"
 	}
 
 	if hadError == "" && !strings.Contains(cmd.description, "🔓") {
@@ -502,7 +542,7 @@ func digestPacket(p packets.Interface,
 
 		admn, ok2 := pub.GetOption("admn")
 		if admn == nil || !ok2 {
-			hadError = "Error: no admn"
+			hadError = "Monitor Error: no admn"
 		}
 
 		nonce := new([24]byte)
@@ -546,8 +586,9 @@ func digestPacket(p packets.Interface,
 		if hadError != "" {
 			reply = "Error: " + hadError
 		}
-
-		fmt.Println("encrypted reply is ", reply, "nonce", string(nonc))
+		SpecialPrint(&pub.PacketCommon, func() {
+			fmt.Println("Monitor encrypted reply is ", reply, "nonce", string(nonc))
+		})
 	}
 
 	if isHttp {
@@ -634,6 +675,13 @@ func PublishTestTopic(token string) { // use knotfree format
 			time.Sleep(10 * time.Second)
 		}
 	}()
+}
+
+func SpecialPrint(p *packets.PacketCommon, fn func()) {
+	val, ok := p.GetOption("debg")
+	if ok && (string(val) == "[12345678]" || string(val) == "12345678") {
+		fn()
+	}
 }
 
 // it's a green square PNG.

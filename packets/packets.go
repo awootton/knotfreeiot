@@ -787,6 +787,7 @@ func ReadArrayOfByteArray(reader io.Reader) ([][]byte, error) {
 	// }
 
 	if total >= 8000000 { // atw 4/2021
+		// this should panic
 		return nil, errors.New("Packet too long for this reality")
 	}
 

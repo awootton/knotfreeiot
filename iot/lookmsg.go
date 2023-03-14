@@ -82,6 +82,9 @@ func processLookup(me *LookupTableStruct, bucket *subscribeBucket, lookmsg *look
 		send.SetOption("debg", val)
 	}
 
+	if len(me.ex.channelToAnyAide) >= cap(me.ex.channelToAnyAide) {
+		fmt.Println("me.ex.channelToAnyAide channel full")
+	}
 	me.ex.channelToAnyAide <- &send
 
 	SpecialPrint(&lookmsg.p.PacketCommon, func() {

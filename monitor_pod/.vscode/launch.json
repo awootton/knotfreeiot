@@ -11,8 +11,24 @@
             "request": "launch",
             "mode": "auto",
             "program": "main/main.go",
-            "env": { "TARGET_CLUSTER" : "knotlocal.com",
-                "TOKEN": "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3MDc1OTY3OTksImlzcyI6Il85c2giLCJqdGkiOiJzZHZhdzN6MjhvOGJ4cXNxNmZ3b3p4M2giLCJpbiI6MTIxNiwib3V0IjoxMjE2LCJzdSI6ODAwLCJjbyI6MzIsInVybCI6Imtub3RmcmVlLmRvZzo4MDg1L21xdHQifQ.OpDTwK3ubUfHkOQK1qmsCpbBb84oTFRoXZ53QShTjw_czpcClQX7rCdEtW5VuP8M0rUJGsT5pb3OcbWYGwliAQ" },
+            "env": {
+                "TARGET_CLUSTER": "knotlocal.com",
+                "TOKEN": "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3MDc1OTY3OTksImlzcyI6Il85c2giLCJqdGkiOiJzZHZhdzN6MjhvOGJ4cXNxNmZ3b3p4M2giLCJpbiI6MTIxNiwib3V0IjoxMjE2LCJzdSI6ODAwLCJjbyI6MzIsInVybCI6Imtub3RmcmVlLmRvZzo4MDg1L21xdHQifQ.OpDTwK3ubUfHkOQK1qmsCpbBb84oTFRoXZ53QShTjw_czpcClQX7rCdEtW5VuP8M0rUJGsT5pb3OcbWYGwliAQ"
+            },
+        },
+        {
+            "name": "deploy ",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "main/main.go",
+            "args": [
+                "deploy"
+            ],
+            "env": {
+                "TARGET_CLUSTER": "knotfree.io",
+                "TOKEN": "xxxx"
+            },
         }
     ]
 }

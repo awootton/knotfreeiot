@@ -22,7 +22,7 @@ spec:
       - name: golang
         imagePullPolicy: Always
         image: gcr.io/fair-theater-238820/knotfreeserver 
-        command: ["/go/bin/linux_386/knotfreeiot"] 
+        command: ["/knotfreeiot/manager"] # ["sleep","9999999"] # ["/go/bin/linux_386/knotfreeiot"] 
         #args: ["--nano"]
         ports:
         - containerPort: 8384

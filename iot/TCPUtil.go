@@ -73,18 +73,19 @@ func (api apiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			API1PostGurusFail.Inc()
 			return
 		}
-		fmt.Println("/api2/set SetUpstreamNames len=", len(args.Names))
+	
 		API1PostGurus.Inc()
 		if len(args.Names) > 0 && len(args.Names) == len(args.Addresses) {
+			fmt.Println("SetUpstreamNames ", args.Names, args.Addresses, api.ex.Name, api.ex.tcpAddress)
 			api.ex.Looker.SetUpstreamNames(args.Names, args.Addresses)
 		} else {
-			fmt.Println("bad names sent", args.Names, args.Addresses, args)
+			fmt.Println("SetUpstreamNames bad names sent", args.Names, args.Addresses, args)
 		}
 		//fmt.Println("/api2/set done")
 
 	} else if req.RequestURI == "/api2/clusterstats" { // POST
 
-		// todo: add security.
+		// todo: add security. no - just keep port 8080 unavailable to the world
 
 		data, err := io.ReadAll(req.Body)
 		if err != nil {
@@ -99,13 +100,22 @@ func (api apiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			API1PostGurusFail.Inc()
 			return
 		}
-		statsstr, error := json.Marshal(stats)
-		fmt.Println("have new clusterstats ")
-		_ = statsstr
+		//statsstr, error := json.Marshal(stats)// I can't read this mess
+		// fmt.Println("have new clusterstats ", stats)
+		//_ = statsstr
 		//fmt.Println("have new clusterstats", string(statsstr))
-		_ = error
+		// _ = error
+
+		str := ""
+		for _, stat := range stats.Stats {
+			str += stat.Name + " " + stat.TCPAddress + "  "
+		}
+		// fmt.Println("have new clusterstats: ", str)
+
+		api.ex.statsmu.Lock()
 		api.ex.ClusterStats = stats
 		api.ex.ClusterStatsString = string(data)
+		api.ex.statsmu.Unlock()
 
 	} else {
 		http.NotFound(w, req)
@@ -211,7 +221,7 @@ func handleConnection(tcpConn *net.TCPConn, ex *Executive) {
 	//srvrLogThing.Collect("Conn Accept")
 	TCPServerConnAccept.Inc() // <-- like this
 
-	fmt.Println("KF native contact add")
+	fmt.Println("KF native contact add, ", tcpConn.RemoteAddr())
 
 	cc := localMakeTCPContact(ex.Config, tcpConn)
 	defer func() {
@@ -240,7 +250,7 @@ func handleConnection(tcpConn *net.TCPConn, ex *Executive) {
 		} else {
 			err := cc.netDotTCPConn.SetDeadline(time.Now().Add(20 * time.Minute))
 			if err != nil {
-				fmt.Println("deadline err 4", err)
+				fmt.Println("deadline err 4", err, tcpConn.RemoteAddr())
 				cc.Close(err)
 				return // quit, close the sock, be forgotten
 			}
@@ -250,7 +260,7 @@ func handleConnection(tcpConn *net.TCPConn, ex *Executive) {
 		p, err := packets.ReadPacket(cc)
 		if err != nil {
 			//connLogThing.Collect("se err " + err.Error())
-			fmt.Println("packets KnotFree read err", err)
+			fmt.Println("packets KnotFree read err", err, tcpConn.RemoteAddr())
 			TCPServerPacketReadError.Inc()
 			cc.Close(err)
 			return
@@ -263,7 +273,7 @@ func handleConnection(tcpConn *net.TCPConn, ex *Executive) {
 		err = PushPacketUpFromBottom(cc, p)
 		if err != nil {
 			//connLogThing.Collect("se err " + err.Error())
-			fmt.Println("iot.push err", err)
+			fmt.Println("iot.push err", err, tcpConn.RemoteAddr())
 			TCPServerIotPushEror.Inc()
 			cc.Close(err)
 			return
