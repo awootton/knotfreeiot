@@ -16,13 +16,10 @@
 package main
 
 import (
-	"bytes"
-	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -32,17 +29,15 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
-	"reflect"
 	"runtime"
 	"runtime/pprof"
 	"runtime/trace"
-	"strconv"
 	"strings"
 	"syscall"
 	"time"
 
 	"github.com/awootton/knotfreeiot/iot"
-	"github.com/awootton/knotfreeiot/packets"
+	"github.com/awootton/knotfreeiot/mainhelpers"
 	"github.com/awootton/knotfreeiot/tokens"
 	"github.com/gorilla/websocket"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -152,11 +147,6 @@ type ApiHandler struct {
 func (api ApiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	fmt.Println("ApiHandler ServeHTTP", req.RequestURI, req.Host)
-	// if isLocal(req) {
-	// 	w.Header().Add("Access-Control-Allow-Origin", "http://localhost:3000")
-	// } else {
-	// 	w.Header().Add("Access-Control-Allow-Origin", "*") // "http://knotfree.io")
-	// }
 
 	w.Header().Add("Access-Control-Allow-Origin", "*")
 
@@ -245,27 +235,21 @@ func (api ApiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func GetRandomB64String() string {
-	var tmp [18]byte
-	rand.Read(tmp[:])
-	return base64.RawURLEncoding.EncodeToString(tmp[:])
-}
-
 type SuperMux struct {
 	ce *iot.ClusterExecutive
 	//super,
 	sub *http.ServeMux
 }
 
-type pinfo struct {
-	// these are the reply buffers
-	buff []byte
-}
-type RequestReplyStruct struct {
-	originalRequest []byte
-	firstLine       string
-	replyParts      []pinfo
-}
+// type pinfo struct {
+// 	// these are the reply buffers
+// 	buff []byte
+// }
+// type RequestReplyStruct struct {
+// 	originalRequest []byte
+// 	firstLine       string
+// 	replyParts      []pinfo
+// }
 
 // var servedMap = map[string]*RequestReplyStruct{}
 
@@ -314,403 +298,413 @@ func (superMux *SuperMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if !isApiRequest && len(domainParts) > 2 && domainParts[0] != "www" {
 		// we have a subdomain
 		subDomain := domainParts[0]
-		fmt.Println("serving subdomain ", subDomain, "  of "+r.Host+r.RequestURI)
+
+		mainhelpers.HandleHttpSubdomainRequest(w, r, superMux.ce.Aides[0], subDomain)
 
 		// TODO: move this all to a method httpRequestContact (and todo: make that)
 
 		// we need the whole original http req as a []byte
 
-		clen := r.ContentLength
-		if clen > 63*1024 {
-			fmt.Println("http packet too long ")
-			http.Error(w, "http packet too long ", 500)
-			return
-		}
-		theBody := make([]byte, clen)
-		if clen > 0 {
-			n, err := r.Body.Read(theBody)
-			if err != nil || (n != int(clen)) {
-
-				http.Error(w, "http content read fail ", 500)
-				return
-			}
-		}
-		//fmt.Println("http header ", r.Header) // it's a map with Cookie
-		// r.RequtURI is "/"
-		// r.URL is "/"
-		// write the header to a buffer
-		firstLine := r.Method + " " + r.URL.String() + " " + r.Proto + "\n"
-		// fmt.Println("first line", firstLine[0:len(firstLine)-2])
-		buf := new(bytes.Buffer)
-		buf.WriteString(firstLine)
-		for key, val := range r.Header {
-			if key == "Cookie" {
-				continue // don't pass the cookie
-			}
-			for i := 0; i < len(val); i++ {
-				tmp := key + ": " + val[i] + "\r\n"
-				buf.WriteString(tmp)
-			}
-		}
-		buf.WriteString("\r\n")
-		// write the body to a buffer
-		n, err := buf.Write(theBody)
-		if err != nil || (n != len(theBody)) {
-			http.Error(w, "http theBody write ", 500)
-		}
-		// now the whole original request packet is in buf
-
-		// isCachable := strings.Contains(firstLine, "/static/") || strings.Contains(firstLine, "/images/")
-		// haveAlready, ok := servedMap[firstLine]
-		// if ok && isCachable {
-
-		// 	size := 0
-		// 	for _, databuf := range haveAlready.replyParts {
-		// 		size += len(databuf.buff)
-		// 	}
-
-		// 	fmt.Println("serving from cache ", firstLine, size)
-
-		// 	hj, ok := w.(http.Hijacker)
-		// 	if !ok {
-		// 		http.Error(w, "webserver doesn't support hijacking", http.StatusInternalServerError)
-		// 		return
-		// 	}
-		// 	conn, responseBuffer, err := hj.Hijack()
-		// 	if err != nil {
-		// 		fmt.Println("hijack error  ", err)
-		// 	}
-		// 	defer func() {
-		// 		fmt.Println("closing hijack socket from cache " + r.URL.String() + "\n\n")
-		// 		conn.Close()
-		// 	}()
-
-		// 	for i, databuf := range haveAlready.replyParts {
-		// 		n, err := responseBuffer.Write(databuf.buff[:])
-		// 		if err != nil {
-		// 			fmt.Println("responseBuffer.Write ERROR ", firstLine[0:len(firstLine)-2])
-		// 		}
-		// 		_ = i
-		// 		_ = n
-		// 	}
+		// clen := r.ContentLength
+		// if clen > 63*1024 {
+		// 	fmt.Println("http packet too long ")
+		// 	http.Error(w, "http packet too long ", 500)
 		// 	return
 		// }
+		// theBody := make([]byte, clen)
+		// if clen > 0 {
+		// 	n, err := r.Body.Read(theBody)
+		// 	if err != nil || (n != int(clen)) {
 
-		// fmt.Println("http is request ", firstLine[0:len(firstLine)-2])
+		// 		http.Error(w, "http content read fail ", 500)
+		// 		return
+		// 	}
+		// }
+		// isDebg := false
 
-		pastWritesIndex := 0
-		packetStruct := &RequestReplyStruct{}
+		// //fmt.Println("http header ", r.Header) // it's a map with Cookie
+		// // r.RequtURI is "/"
+		// // r.URL is "/"
+		// // write the header to a buffer
+		// firstLine := r.Method + " " + r.URL.String() + " " + r.Proto + "\n"
+		// // fmt.Println("first line", firstLine[0:len(firstLine)-2])
+		// if strings.Contains(firstLine, "debg=12345678") {
+		// 	isDebg = true
+		// 	fmt.Println("first line", firstLine[0:len(firstLine)-2])
+		// }
+		// buf := new(bytes.Buffer)
+		// buf.WriteString(firstLine)
+		// for key, val := range r.Header {
+		// 	if key == "Cookie" {
+		// 		continue // don't pass the cookie
+		// 	}
+		// 	for i := 0; i < len(val); i++ {
+		// 		tmp := key + ": " + val[i] + "\r\n"
+		// 		buf.WriteString(tmp)
+		// 	}
+		// }
+		// buf.WriteString("\r\n")
+		// // write the body to a buffer
+		// n, err := buf.Write(theBody)
+		// if err != nil || (n != len(theBody)) {
+		// 	http.Error(w, "http theBody write ", 500)
+		// }
+		// // now the whole original request packet is in buf
 
-		packetStruct.originalRequest = buf.Bytes()
-		packetStruct.firstLine = firstLine[0 : len(firstLine)-2]
+		// // isCachable := strings.Contains(firstLine, "/static/") || strings.Contains(firstLine, "/images/")
+		// // haveAlready, ok := servedMap[firstLine]
+		// // if ok && isCachable {
 
-		// we need to make a contact
-		// make a reply address
-		// serialize the request
-		// publish it.
-		// wait for the response and put that into the w http.ResponseWriter
-		// copy over the response headers
-		// unsub the reply address
-		// close the contact.
+		// // 	size := 0
+		// // 	for _, databuf := range haveAlready.replyParts {
+		// // 		size += len(databuf.buff)
+		// // 	}
 
-		contact := &iot.ContactStruct{}
-		iot.AddContactStruct(contact, contact, superMux.ce.Aides[0].Config)
-		//contact.SetExpires(contact.contactExpires + 60*60*24*365*10) // in 10 years
+		// // 	fmt.Println("serving from cache ", firstLine, size)
 
-		connect := packets.Connect{}
-		connect.SetOption("token", []byte(tokens.GetImpromptuGiantToken()))
-		err = iot.PushPacketUpFromBottom(contact, &connect)
-		if err != nil {
-			fmt.Println("connect problems subdomain dial conn ", err)
-			http.Error(w, err.Error(), 500)
-			return
-		}
-		// fmt.Println("returned from connect ")
-		// subscribe
-		myRandomAddress := GetRandomB64String()
-		// fmt.Println("will be using myRandomAddress ", myRandomAddress)
-		// just for test: myRandomAddress = "atwdummytest9999999"
-		subs := packets.Subscribe{}
-		subs.Address.FromString(myRandomAddress)
-		subs.Address.EnsureAddressIsBinary()
-		//fmt.Println(" our return addr will be ", subs.Address.String())
-		err = iot.PushPacketUpFromBottom(contact, &subs)
-		_ = err
+		// // 	hj, ok := w.(http.Hijacker)
+		// // 	if !ok {
+		// // 		http.Error(w, "webserver doesn't support hijacking", http.StatusInternalServerError)
+		// // 		return
+		// // 	}
+		// // 	conn, responseBuffer, err := hj.Hijack()
+		// // 	if err != nil {
+		// // 		fmt.Println("hijack error  ", err)
+		// // 	}
+		// // 	defer func() {
+		// // 		fmt.Println("closing hijack socket from cache " + r.URL.String() + "\n\n")
+		// // 		conn.Close()
+		// // 	}()
 
-		// define a reader and a writer
-		gotDataChan := new(iot.ByteChan)
-		gotDataChan.TheChan = make(chan []byte, 128)
-		contact.SetWriter(gotDataChan)
-		// we don't need for the contact to read. We'll push directly
+		// // 	for i, databuf := range haveAlready.replyParts {
+		// // 		n, err := responseBuffer.Write(databuf.buff[:])
+		// // 		if err != nil {
+		// // 			fmt.Println("responseBuffer.Write ERROR ", firstLine[0:len(firstLine)-2])
+		// // 		}
+		// // 		_ = i
+		// // 		_ = n
+		// // 	}
+		// // 	return
+		// // }
 
-		if buf.Len() > 60*1024 {
-			// stream it
-			fmt.Println("ERROR fixme: implement this streaming thing")
-		} else {
+		// // fmt.Println("http is request ", firstLine[0:len(firstLine)-2])
 
-			// just send it all at once in one Send
-			pub := packets.Send{}
+		// pastWritesIndex := 0
+		// packetStruct := &RequestReplyStruct{}
 
-			// copy the options over
-			parts := strings.Split(firstLine, "?") // ie GET /get/c?debg=12345678 HTTP/1
-			if len(parts) > 1 {
-				parts = strings.Split(parts[1], " ")
-				parts = strings.Split(parts[0], "&")
-				for _, part := range parts {
-					kv := strings.Split(part, "=")
-					if len(kv) == 2 {
-						pub.SetOption(kv[0], []byte(kv[1]))
-					}
-				}
-			}
+		// packetStruct.originalRequest = buf.Bytes()
+		// packetStruct.firstLine = firstLine[0 : len(firstLine)-2]
 
-			pub.Address.FromString(subDomain) // !!!!!
-			pub.Source = subs.Address
-			//fmt.Println(" our send addr is ", pub.Address.String())
-			pub.Address.EnsureAddressIsBinary()
-			//fmt.Println(" our send addr is ", pub.Address.String())
-			//fmt.Println(" our return addr is ", pub.Source.String())
-			//pub.Payload = []byte("GET " + r.URL.String() + " HTTP/1.1\n\n")
-			pub.Payload = buf.Bytes()
+		// // we need to make a contact
+		// // make a reply address
+		// // serialize the request
+		// // publish it.
+		// // wait for the response and put that into the w http.ResponseWriter
+		// // copy over the response headers
+		// // unsub the reply address
+		// // close the contact.
 
-			// fmt.Println("publish  PushPacketUpFromBottom") // , string(pub.Payload))
-			err = iot.PushPacketUpFromBottom(contact, &pub)
-			_ = err
-		}
+		// contact := &iot.ContactStruct{}
+		// iot.AddContactStruct(contact, contact, superMux.ce.Aides[0].Config)
+		// //contact.SetExpires(contact.contactExpires + 60*60*24*365*10) // in 10 years
 
-		hj, ok := w.(http.Hijacker)
-		if !ok {
-			http.Error(w, "webserver doesn't support hijacking", http.StatusInternalServerError)
-			return
-		}
-		conn, responseBuffer, err := hj.Hijack()
-		if err != nil {
-			fmt.Println("hijack error  ", err)
-		}
-		defer func() {
-			// fmt.Println("closing hijack socket " + r.URL.String() + "\n")
-			conn.Close()
-		}()
+		// connect := packets.Connect{}
+		// connect.SetOption("token", []byte(tokens.GetImpromptuGiantToken()))
+		// if isDebg {
+		// 	connect.SetOption("debg", []byte("12345678"))
+		// }
+		// err = iot.PushPacketUpFromBottom(contact, &connect)
+		// if err != nil {
+		// 	fmt.Println("connect problems subdomain dial conn ", err)
+		// 	http.Error(w, err.Error(), 500)
+		// 	return
+		// }
+		// // fmt.Println("returned from connect ")
+		// // subscribe
+		// myRandomAddress := GetRandomB64String()
+		// // fmt.Println("will be using myRandomAddress ", myRandomAddress)
+		// // just for test: myRandomAddress = "atwdummytest9999999"
+		// subs := packets.Subscribe{}
+		// subs.Address.FromString(myRandomAddress)
+		// subs.Address.EnsureAddressIsBinary()
+		// //fmt.Println(" our return addr will be ", subs.Address.String())
+		// if isDebg {
+		// 	subs.SetOption("debg", []byte("12345678"))
+		// }
+		// err = iot.PushPacketUpFromBottom(contact, &subs)
+		// _ = err
 
-		{ // The Receive-a-packet loop
-			running := true
-			//hadHeader := false
-			theLengthWeNeed := 0
-			theAmountWeGot := 0
-			for running { // data := range gotDataChan {
-				select {
-				case somedata := <-gotDataChan.TheChan:
-					if somedata == nil {
-						running = false
-					}
-					// fmt.Println("packet on gotDataChan.TheChan theLengthWeNeed= ", theLengthWeNeed)
-					// var cmd packets.Interface.
-					cmd, err := packets.ReadPacket(bytes.NewReader(somedata))
-					if err != nil {
-						fmt.Println("packet parse problem with gotDataChan  ", err)
-						http.Error(w, err.Error(), 500)
-						return
-					}
-					//keys, values := cmd.GetOptionKeys()   TODO: clean this up
-					//fmt.Println("packet user keys ", keys, values)
+		// // define a reader and a writer
+		// gotDataChan := new(iot.ByteChan)
+		// gotDataChan.TheChan = make(chan []byte, 128)
+		// contact.SetWriter(gotDataChan)
+		// // we don't need for the contact to read. We'll push directly
 
-					switch v := cmd.(type) {
-					case *packets.Send:
-						snd := v //cmd.(*packets.Send)
-						// end := 32
-						// if end > len(snd.Payload) {
-						// 	end = len(snd.Payload)
-						// }
-						packetCountStr, ok := snd.GetOption("of")
-						if ok {
-							fmt.Println("packet count total= ", packetCountStr)
-							// we have the last packet.
-							running = false
-							break
-						}
-						packetCountStr, ok = snd.GetOption("indx")
-						if !ok {
-							packetCountStr = []byte("0")
-						}
-						if packetCountStr[0] == '[' { // some idiot wrapped it in []
-							packetCountStr = packetCountStr[1:]
-						}
-						if packetCountStr[len(packetCountStr)-1] == ']' {
-							packetCountStr = packetCountStr[0 : len(packetCountStr)-1]
-						}
-						packetIncomingIndex, _ := strconv.Atoi(string(packetCountStr))
-						//fmt.Println("packet count is ", packetCount)
-						//if packetCount != packetsReceived {
-						//	fmt.Println("we seem to have lost a PACKET:", packetCount, packetsReceived)
-						//} pastWritesIndex
-						// pad out the buffer
-						for packetIncomingIndex >= len(packetStruct.replyParts) {
-							pi := &pinfo{}
-							packetStruct.replyParts = append(packetStruct.replyParts, *pi)
-						}
-						//packetStruct.replyParts[packetIncomingIndex].buff = snd.Payload
-						currentPayload := snd.Payload
+		// if buf.Len() > 60*1024 {
+		// 	// stream it
+		// 	fmt.Println("ERROR fixme: implement this streaming thing")
+		// } else {
 
-						// fmt.Println("have http reply packet #", packetIncomingIndex, "for ", firstLine)
-						if packetIncomingIndex == 0 {
-							headerEndBytes := []byte("\r\n\r\n")
-							headerPos := bytes.Index(snd.Payload, headerEndBytes)
-							if headerPos <= 0 {
-								fmt.Println("no header was found in first packet")
-							} else {
-								// parse the header
-								header := snd.Payload[0:headerPos]
-								clStr := "Content-Length:"
-								clPos := bytes.Index(header, []byte(clStr))
-								if clPos <= 0 {
-									fmt.Println("no Content-Length was found in first packet")
-								}
-								hpart := header[clPos+len(clStr):]
-								lineEndBytes := []byte("\r\n")
-								endPos := bytes.Index(hpart, lineEndBytes)
-								//fmt.Println("is this a number? ", hpart[0:endPos])
-								cldigits := string(hpart[0:endPos])
-								i, err := strconv.Atoi(strings.Trim(cldigits, " "))
-								if err != nil {
-									fmt.Println("ERROR finding Content-Length", hpart[0:endPos])
-								}
-								// fmt.Println("theLengthWeNeed is ", i)
-								theLengthWeNeed = i + len(header) + 4
+		// 	// just send it all at once in one Send
+		// 	pub := packets.Send{}
 
-								// we have to transfer the user options to the header
-								// we insert the options onto the currentPayload
-								// split the currentPayload into header and the rest
-								headerStart := string(currentPayload[0:int(headerPos)]) // force a copy
-								pastHeader := currentPayload[int(headerPos):]           // contains the \r\n\r\n, might contain some body
-								keys, bvalues := snd.GetOptionKeys()
-								values := make([]string, len(keys))
-								for n := 0; n < len(keys); n++ {
-									k := keys[n]
-									v := bvalues[n]
-									values[n] = string(v)
-									// fmt.Println("Options k v ", k, values[n])
-									_ = k
-								}
+		// 	// copy the options over
+		// 	parts := strings.Split(firstLine, "?") // ie GET /get/c?debg=12345678 HTTP/1
+		// 	if len(parts) > 1 {
+		// 		parts = strings.Split(parts[1], " ")
+		// 		parts = strings.Split(parts[0], "&")
+		// 		for _, part := range parts {
+		// 			kv := strings.Split(part, "=")
+		// 			if len(kv) == 2 {
+		// 				pub.SetOption(kv[0], []byte(kv[1]))
+		// 			}
+		// 		}
+		// 	}
+		// 	got, ok := pub.GetOption("debg")
+		// 	if ok && string(got) == "12345678" {
+		// 		isDebg = true
+		// 	}
 
-								// fmt.Println("headerStart  ", string(headerStart))
-								// fmt.Println("pastHeader  ", string(pastHeader))
-								if len(keys) > 0 {
-									headerStart += "\r\n"
-									theLengthWeNeed += 2
-								}
-								// fmt.Println("headerStart 2 ", string(headerStart)+"\n\n")
-								for i := 0; i < len(keys); i++ {
-									k := keys[i]
-									v := values[i]
+		// 	pub.Address.FromString(subDomain) // !!!!!
+		// 	pub.Source = subs.Address
+		// 	//fmt.Println(" our send addr is ", pub.Address.String())
+		// 	pub.Address.EnsureAddressIsBinary()
+		// 	//fmt.Println(" our send addr is ", pub.Address.String())
+		// 	//fmt.Println(" our return addr is ", pub.Source.String())
+		// 	//pub.Payload = []byte("GET " + r.URL.String() + " HTTP/1.1\n\n")
+		// 	pub.Payload = buf.Bytes()
 
-									// for n := 0; n < len(keys); n++ {
-									// 	kk := keys[n]
-									// 	vv := values[n]
-									// //	fmt.Println("Options k v ", kk, string(vv))
-									// }
+		// 	// fmt.Println("publish  PushPacketUpFromBottom") // , string(pub.Payload))
+		// 	err = iot.PushPacketUpFromBottom(contact, &pub)
+		// 	_ = err
+		// }
 
-									// fmt.Println("adding ", k, ":", string(v))
-									headerStart += k
-									theLengthWeNeed += len(k)
-									//fmt.Println("headerStart 3 ", string(headerStart)+"\n\n")
-									headerStart += ": "
-									theLengthWeNeed += 2
-									//fmt.Println("headerStart 4 ", string(headerStart)+"\n\n")
+		// hj, ok := w.(http.Hijacker)
+		// if !ok {
+		// 	http.Error(w, "webserver doesn't support hijacking", http.StatusInternalServerError)
+		// 	return
+		// }
+		// conn, responseBuffer, err := hj.Hijack()
+		// if err != nil {
+		// 	fmt.Println("hijack error  ", err)
+		// }
+		// defer func() {
+		// 	// fmt.Println("closing hijack socket " + r.URL.String() + "\n")
+		// 	conn.Close()
+		// }()
 
-									// for n := 0; n < len(keys); n++ {
-									// 	kk := keys[n]
-									// 	vv := values[n]
-									// 	fmt.Println("Options k v ", kk, string(vv))
-									// }
+		// { // The Receive-a-packet loop
+		// 	running := true
+		// 	//hadHeader := false
+		// 	theLengthWeNeed := 0
+		// 	theAmountWeGot := 0
+		// 	for running { // data := range gotDataChan {
+		// 		select {
+		// 		case somedata := <-gotDataChan.TheChan:
+		// 			if somedata == nil {
+		// 				running = false
+		// 			}
+		// 			// fmt.Println("packet on gotDataChan.TheChan theLengthWeNeed= ", theLengthWeNeed)
+		// 			// var cmd packets.Interface.
+		// 			cmd, err := packets.ReadPacket(bytes.NewReader(somedata))
+		// 			if err != nil {
+		// 				fmt.Println("packet parse problem with gotDataChan  ", err)
+		// 				http.Error(w, err.Error(), 500)
+		// 				return
+		// 			}
+		// 			//keys, values := cmd.GetOptionKeys()   TODO: clean this up
+		// 			//fmt.Println("packet user keys ", keys, values)
 
-									// fmt.Println("addingvalue  ", string(values[i])+"\n\n")
-									headerStart += v
-									theLengthWeNeed += len(v)
-									//fmt.Println("headerStart 5 ", string(headerStart)+"\n\n")
-									if i < len(keys)-1 {
-										headerStart += "\r\n"
-										theLengthWeNeed += 2
-									}
-									// fmt.Println("headerStart 6 ", string(headerStart)+"\n\n")
-								}
-								// fmt.Println("headerStart  ", string(headerStart)+"\n\n")
-								currentPayload = append([]byte(headerStart), pastHeader...)
-								// fmt.Println("new payload is ", string(currentPayload)+"\n\n")
-							}
-						}
-						packetStruct.replyParts[packetIncomingIndex].buff = currentPayload
+		// 			switch v := cmd.(type) {
+		// 			case *packets.Send:
+		// 				snd := v //cmd.(*packets.Send)
+		// 				// end := 32
+		// 				// if end > len(snd.Payload) {
+		// 				// 	end = len(snd.Payload)
+		// 				// }
+		// 				packetCountStr, ok := snd.GetOption("of")
+		// 				if ok {
+		// 					fmt.Println("packet count total= ", packetCountStr)
+		// 					// we have the last packet.
+		// 					running = false
+		// 					break
+		// 				}
+		// 				packetCountStr, ok = snd.GetOption("indx")
+		// 				if !ok {
+		// 					packetCountStr = []byte("0")
+		// 				}
+		// 				if packetCountStr[0] == '[' { // some idiot wrapped it in []
+		// 					packetCountStr = packetCountStr[1:]
+		// 				}
+		// 				if packetCountStr[len(packetCountStr)-1] == ']' {
+		// 					packetCountStr = packetCountStr[0 : len(packetCountStr)-1]
+		// 				}
+		// 				packetIncomingIndex, _ := strconv.Atoi(string(packetCountStr))
+		// 				//fmt.Println("packet count is ", packetCount)
+		// 				//if packetCount != packetsReceived {
+		// 				//	fmt.Println("we seem to have lost a PACKET:", packetCount, packetsReceived)
+		// 				//} pastWritesIndex
+		// 				// pad out the buffer
+		// 				for packetIncomingIndex >= len(packetStruct.replyParts) {
+		// 					pi := &pinfo{}
+		// 					packetStruct.replyParts = append(packetStruct.replyParts, *pi)
+		// 				}
+		// 				//packetStruct.replyParts[packetIncomingIndex].buff = snd.Payload
+		// 				currentPayload := snd.Payload
 
-						for { // loop over packetlist stuff we can write
-							if pastWritesIndex >= len(packetStruct.replyParts) {
-								break // at the end
-							}
-							nextPi := packetStruct.replyParts[pastWritesIndex]
+		// 				// fmt.Println("have http reply packet #", packetIncomingIndex, "for ", firstLine)
+		// 				if packetIncomingIndex == 0 {
+		// 					headerEndBytes := []byte("\r\n\r\n")
+		// 					headerPos := bytes.Index(snd.Payload, headerEndBytes)
+		// 					if headerPos <= 0 {
+		// 						fmt.Println("no header was found in first packet")
+		// 					} else {
+		// 						// parse the header
+		// 						header := snd.Payload[0:headerPos]
+		// 						clStr := "Content-Length:"
+		// 						clPos := bytes.Index(header, []byte(clStr))
+		// 						if clPos <= 0 {
+		// 							fmt.Println("no Content-Length was found in first packet")
+		// 						}
+		// 						hpart := header[clPos+len(clStr):]
+		// 						lineEndBytes := []byte("\r\n")
+		// 						endPos := bytes.Index(hpart, lineEndBytes)
+		// 						//fmt.Println("is this a number? ", hpart[0:endPos])
+		// 						cldigits := string(hpart[0:endPos])
+		// 						i, err := strconv.Atoi(strings.Trim(cldigits, " "))
+		// 						if err != nil {
+		// 							fmt.Println("ERROR finding Content-Length", hpart[0:endPos])
+		// 						}
+		// 						// fmt.Println("theLengthWeNeed is ", i)
+		// 						theLengthWeNeed = i + len(header) + 4
 
-							// end := 32
-							// if len(nextPi.buff) < end {
-							// 	end = len(nextPi.buff)
-							// }
+		// 						// we have to transfer the user options to the header
+		// 						// we insert the options onto the currentPayload
+		// 						// split the currentPayload into header and the rest
+		// 						headerStart := string(currentPayload[0:int(headerPos)]) // force a copy
+		// 						pastHeader := currentPayload[int(headerPos):]           // contains the \r\n\r\n, might contain some body
+		// 						keys, bvalues := snd.GetOptionKeys()
+		// 						values := make([]string, len(keys))
+		// 						for n := 0; n < len(keys); n++ {
+		// 							k := keys[n]
+		// 							v := bvalues[n]
+		// 							values[n] = string(v)
+		// 							// fmt.Println("Options k v ", k, values[n])
+		// 							_ = k
+		// 						}
 
-							//fmt.Println("got a reply payload packet index ", pastWritesIndex, "d=", string(nextPi.buff[0:end]))
-							n, err := responseBuffer.Write(nextPi.buff)
-							pastWritesIndex += 1
-							theAmountWeGot += len(nextPi.buff)
-							if err != nil {
-								fmt.Println("got a reply write err:", err)
-								running = false
-								break
-							}
-							if n != len(nextPi.buff) {
-								fmt.Println("writing len wanted, needed:", len(nextPi.buff), n)
-							}
-							//fmt.Println("So far we have got", theAmountWeGot, " of ", theLengthWeNeed, "for", packetStruct.firstLine)
-							if theAmountWeGot >= theLengthWeNeed {
-								// fmt.Println("looks like we made it ! :")
-								responseBuffer.Flush()
-								running = false
-								// push a close packet or something
-								// close the connection -- below
+		// 						// fmt.Println("headerStart  ", string(headerStart))
+		// 						// fmt.Println("pastHeader  ", string(pastHeader))
+		// 						if len(keys) > 0 {
+		// 							headerStart += "\r\n"
+		// 							theLengthWeNeed += 2
+		// 						}
+		// 						// fmt.Println("headerStart 2 ", string(headerStart)+"\n\n")
+		// 						for i := 0; i < len(keys); i++ {
+		// 							k := keys[i]
+		// 							v := values[i]
 
-								fmt.Println("Request complete", packetStruct.firstLine)
-							}
-							//responseBuffer.Flush()
-						}
+		// 							// fmt.Println("adding ", k, ":", string(v))
+		// 							headerStart += k
+		// 							theLengthWeNeed += len(k)
+		// 							//fmt.Println("headerStart 3 ", string(headerStart)+"\n\n")
+		// 							headerStart += ": "
+		// 							theLengthWeNeed += 2
+		// 							//fmt.Println("headerStart 4 ", string(headerStart)+"\n\n")
 
-					default:
-						// no match. do nothing. panic?
-						fmt.Println("got weird packet instead of publish ", reflect.TypeOf(cmd))
-						w.Write([]byte("error got weird packet"))
-					}
-				// is this the only way to know that we're done??
-				case <-time.After(15 * time.Second):
-					errMsg := "timed out waiting for html reply " + firstLine[0:len(firstLine)-2]
-					fmt.Println(errMsg)
-					// http.Error(w, errMsg, 500)
-					running = false
-				}
-			}
+		// 							// fmt.Println("addingvalue  ", string(values[i])+"\n\n")
+		// 							headerStart += v
+		// 							theLengthWeNeed += len(v)
+		// 							//fmt.Println("headerStart 5 ", string(headerStart)+"\n\n")
+		// 							if i < len(keys)-1 {
+		// 								headerStart += "\r\n"
+		// 								theLengthWeNeed += 2
+		// 							}
+		// 							// fmt.Println("headerStart 6 ", string(headerStart)+"\n\n")
+		// 						}
+		// 						// fmt.Println("headerStart  ", string(headerStart)+"\n\n")
+		// 						currentPayload = append([]byte(headerStart), pastHeader...)
+		// 						// fmt.Println("new payload is ", string(currentPayload)+"\n\n")
+		// 					}
+		// 				}
+		// 				packetStruct.replyParts[packetIncomingIndex].buff = currentPayload
 
-			//fmt.Println("closing html write ")
-			responseBuffer.Flush()
-			// un sub
-			// close the contact
-			unsub := packets.Unsubscribe{}
-			unsub.Address.FromString(myRandomAddress)
-			err = iot.PushPacketUpFromBottom(contact, &unsub)
-			_ = err
-			// fmt.Println("contact normal close")
-			contact.Close(errors.New("normal close"))
-			// if isCachable {
-			// 	size := 0
-			// 	for _, databuf := range packetStruct.replyParts {
-			// 		size += len(databuf.buff)
-			// 	}
-			// 	if size > 1500 {
-			// 		fmt.Println("adding to cache ", firstLine, size)
-			// 		servedMap[firstLine] = packetStruct
-			// 	}
-			// }
-		}
+		// 				for { // loop over packetlist stuff we can write
+		// 					if pastWritesIndex >= len(packetStruct.replyParts) {
+		// 						break // at the end
+		// 					}
+		// 					nextPi := packetStruct.replyParts[pastWritesIndex]
+
+		// 					// end := 32
+		// 					// if len(nextPi.buff) < end {
+		// 					// 	end = len(nextPi.buff)
+		// 					// }
+
+		// 					if isDebg {
+		// 						fmt.Println(contact.GetKey().Sig(), " got a reply payload packet index ", pastWritesIndex)
+		// 					}
+		// 					n, err := responseBuffer.Write(nextPi.buff)
+		// 					pastWritesIndex += 1
+		// 					theAmountWeGot += len(nextPi.buff)
+		// 					if err != nil {
+		// 						fmt.Println("got a reply write err:", err)
+		// 						running = false
+		// 						break
+		// 					}
+		// 					if n != len(nextPi.buff) {
+		// 						fmt.Println("writing len wanted, needed:", len(nextPi.buff), n)
+		// 					}
+		// 					//fmt.Println("So far we have got", theAmountWeGot, " of ", theLengthWeNeed, "for", packetStruct.firstLine)
+		// 					if theAmountWeGot >= theLengthWeNeed {
+		// 						// fmt.Println("looks like we made it ! :")
+		// 						responseBuffer.Flush()
+		// 						running = false
+		// 						// push a close packet or something
+		// 						// close the connection -- below
+
+		// 						fmt.Println("Request complete", packetStruct.firstLine)
+		// 					}
+		// 					//responseBuffer.Flush()
+		// 				}
+
+		// 			default:
+		// 				// no match. do nothing. panic?
+		// 				fmt.Println("got weird packet instead of publish ", reflect.TypeOf(cmd))
+		// 				w.Write([]byte("error got weird packet"))
+		// 			}
+		// 		// is this the only way to know that we're done??
+		// 		case <-time.After(15 * time.Second):
+		// 			errMsg := "timed out waiting for html reply " + firstLine[0:len(firstLine)-2]
+		// 			fmt.Println(errMsg)
+		// 			// http.Error(w, errMsg, 500)
+		// 			running = false
+		// 		}
+		// 	}
+
+		// 	//fmt.Println("closing html write ")
+		// 	responseBuffer.Flush()
+		// 	// un sub
+		// 	// close the contact
+		// 	unsub := packets.Unsubscribe{}
+		// 	unsub.Address.FromString(myRandomAddress)
+		// 	if isDebg {
+		// 		unsub.SetOption("debg", []byte("12345678"))
+		// 	}
+		// 	err = iot.PushPacketUpFromBottom(contact, &unsub)
+		// 	_ = err
+		// 	// fmt.Println("contact normal close")
+		// 	contact.Close(errors.New("normal close"))
+		// 	// if isCachable {
+		// 	// 	size := 0
+		// 	// 	for _, databuf := range packetStruct.replyParts {
+		// 	// 		size += len(databuf.buff)
+		// 	// 	}
+		// 	// 	if size > 1500 {
+		// 	// 		fmt.Println("adding to cache ", firstLine, size)
+		// 	// 		servedMap[firstLine] = packetStruct
+		// 	// 	}
+		// 	// }
+		// }
 	} else {
 		// it's not a subdomain pass it to the api.
 		superMux.sub.ServeHTTP(w, r)

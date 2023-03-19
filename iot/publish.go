@@ -19,45 +19,42 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
-	"strings"
 
 	"github.com/awootton/knotfreeiot/packets"
 )
 
 func processPublish(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *publishMessage) {
 
-	var logs []string // collect them up and write them all at once.
 	wereSpecial := false
 	SpecialPrint(&pubmsg.p.PacketCommon, func() {
 		wereSpecial = true
 	})
 
 	if wereSpecial {
-		payloadStr := string(pubmsg.p.Payload)
-		chop := 100
-		if len(payloadStr) < chop {
-			chop = len(payloadStr)
-		}
-		iii := strings.Index(payloadStr, "\n")
-		if iii != -1 {
-			chop = iii
-		}
-		payloadStr = payloadStr[:chop]
-		log := fmt.Sprintln("processPublish to", pubmsg.p.Address.String(),
-			" in ", me.ex.Name, " from:", pubmsg.ss.GetKey(),
-			" with ", payloadStr)
-		logs = append(logs, log)
-		str := fmt.Sprint(pubmsg.ss.GetKey())
-		_ = str
+		// payloadStr := string(pubmsg.p.Payload)
+		// chop := 100
+		// if len(payloadStr) < chop {
+		// 	chop = len(payloadStr)
+		// }
+		// iii := strings.Index(payloadStr, "\n")
+		// if iii != -1 {
+		// 	chop = iii
+		// }
+		// payloadStr = payloadStr[:chop]
+		fmt.Println("processPublish top con=", pubmsg.ss.GetKey().Sig(), " to:", pubmsg.p.Sig())
 	}
-	defer func() {
-		for _, log := range logs {
-			fmt.Print(log)
-		}
-	}()
 
 	watchedTopic, ok := getWatcher(bucket, &pubmsg.topicHash)
 	if !ok {
+		// if wereSpecial {
+		// 	// these are normal fmt.Println("processPublish getWatcher found nothing for con=", pubmsg.ss.GetKey().Sig(), " p:", pubmsg.p.Sig())
+		// } else {
+		// 	haveUpstream := len(me.upstreamRouter.channels) != 0
+		// 	if !haveUpstream {
+		// 		fmt.Println("processPublish getWatcher found nothing for con=", pubmsg.ss.GetKey().Sig(), " p:", pubmsg.p.Sig())
+		// 	}
+		// }
+
 		// nobody local is subscribing to this.
 		// push it up to the next level
 		missedPushes.Inc()
@@ -127,25 +124,6 @@ func processPublish(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *publ
 						fmt.Println("serveBillingCommand channelToAnyAide channel is full")
 					}
 					me.ex.channelToAnyAide <- &gotsend
-
-					// command := string(pubmsg.p.Payload)
-					// fmt.Println(" billing channel has command", command)
-					// if command == "get stats" {
-					// 	current := &tokens.KnotFreeContactStats{}
-					// 	billingAccumulator.GetStats(me.getTime(), current)
-					// 	bytes, err := json.Marshal(current)
-					// 	if err != nil {
-					// 		fmt.Println("error fail marshal KnotFreeContactStats really !?!", err)
-					// 	} else {
-					// 		// fmt.Println("have billing stats", string(bytes))
-					// 		pub := packets.Send{}
-					// 		pub.Address = pubmsg.p.Source
-					// 		pub.Payload = bytes
-					// 		pub.Source = pubmsg.p.Address
-					// 		pub.CopyOptions(&pubmsg.p.PacketCommon)
-					// 		me.ex.channelToAnyAide <- &pub
-					// 	}
-					// }
 				}
 			}
 			watchedTopic.expires = 60*60 + me.getTime() // one hour
@@ -156,6 +134,9 @@ func processPublish(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *publ
 			watchedTopic.expires = 25*60 + me.getTime() //20 min
 			// this is where the typical packet comes
 			// fmt.Println("pub down", string(pubmsg.p.Payload))
+			if wereSpecial && watchedTopic.thetree.Size() == 0 {
+				fmt.Println("processPublish getWatcher found topic but no subs con=", pubmsg.ss.GetKey().Sig(), " p:", pubmsg.p.Sig())
+			}
 			pubMsgKey := pubmsg.ss.GetKey()
 			it := watchedTopic.Iterator()
 			for it.Next() {
@@ -169,44 +150,47 @@ func processPublish(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *publ
 						ci.WriteDownstream(pubmsg.p)
 						sentMessages.Inc()
 						if wereSpecial {
-							logs = append(logs, fmt.Sprintln("    WriteDownstream to", ci.GetKey(), " in ", me.ex.Name))
+							fmt.Println("    WriteDownstream con=", ci.GetKey().Sig(), " ", pubmsg.p.Sig())
 						}
 					} else {
 						if wereSpecial {
-							logs = append(logs, fmt.Sprintln("    haveBadContact 1 ", ci.GetKey(), " in ", me.ex.Name, "bad"))
+							fmt.Println("    haveBadContact ", ci.GetKey().Sig(), " ", pubmsg.p.Sig())
 						}
 					}
 				} else {
-					// we don't sent right back to ourselves.
+					// we don't sent right back to ourselves. this is the typical case
 					if key != pubMsgKey {
 						if !me.checkForBadContact(ci, watchedTopic) {
+							if wereSpecial {
+								fmt.Println("    WriteDownstream2 ", ci.GetKey().Sig(), " ", pubmsg.p.Sig())
+							}
 							ci.WriteDownstream(pubmsg.p)
 							sentMessages.Inc()
-							if wereSpecial {
-								logs = append(logs, fmt.Sprintln("    WriteDownstream2 ", ci.GetKey(), " in ", me.ex.Name, "on"))
-							}
 						} else {
 							// can't we just delete it right now?
 							// we're in the interator so no: watchedTopic.remove(ci.GetKey())
-							badContacts = append(badContacts, ci)
+
 							if wereSpecial {
-								logs = append(logs, fmt.Sprintln("    haveBadContact 2", ci.GetKey(), " in ", me.ex.Name, "bad"))
+								fmt.Println("    haveBadContact2", ci.GetKey().Sig(), " ", pubmsg.p.Sig())
 							}
+							// what if we don't ??
+							badContacts = append(badContacts, ci)
+							// ci.WriteDownstream(pubmsg.p)
 						}
 					}
 				}
 			}
 			for _, ci := range badContacts {
-				//if wereSpecial {
-				// boring fmt.Println("Publish removing bad contact", ci.GetKey(), " in ", me.ex.Name)
-				//}
+				if wereSpecial {
+					fmt.Println("Publish removing bad contact", ci.GetKey().Sig(), " sub:", pubmsg.ss.GetKey().Sig())
+				}
 				watchedTopic.remove(ci.GetKey())
 			}
 		}
-		//pubmsg.p.DeleteOption("toself")
 
-		//fmt.Println("pub PushUp", string(pubmsg.p.Address), string(pubmsg.p.Payload), " in ", me.ex.Name)
-
+		if wereSpecial {
+			fmt.Println("pub PushUp con=", pubmsg.ss.GetKey().Sig(), pubmsg.p.Sig())
+		}
 		err := bucket.looker.PushUp(pubmsg.p, pubmsg.topicHash)
 		if err != nil {
 			// what? we're sad? todo: man up
@@ -220,20 +204,11 @@ func processPublish(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *publ
 
 func processPublishDown(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *publishMessageDown) {
 
-	var logs []string
 	wereSpecial := false
 	SpecialPrint(&pubmsg.p.PacketCommon, func() {
-		fmt.Println("processPublishDown ", pubmsg.p.Address.String(), " in ", me.ex.Name)
+		fmt.Println("processPublishDown ", pubmsg.p.Sig())
 		wereSpecial = true
 	})
-	if wereSpecial {
-		logs = append(logs, fmt.Sprintln("processPublishDown ", pubmsg.p.Address.String(), " in ", me.ex.Name))
-	}
-	defer func() {
-		for _, log := range logs {
-			fmt.Print(log)
-		}
-	}()
 
 	watcheditem, ok := getWatcher(bucket, &pubmsg.h) //bucket.mySubscriptions[pubmsg.h]
 	if !ok {
@@ -246,6 +221,10 @@ func processPublishDown(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *
 		// there was an unsub but our parent doesnt know we should not be subscribing.
 		// we should send an unsub to our parent
 
+		if wereSpecial {
+			fmt.Println("processPublishDown no watcher, unsub in parent", pubmsg.p.Address.Sig())
+		}
+
 		unsub := packets.Unsubscribe{}
 		unsub.Address = pubmsg.p.Address
 		unsub.Address.EnsureAddressIsBinary()
@@ -255,10 +234,12 @@ func processPublishDown(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *
 			fmt.Println("error PushUp in processPublishDown ", err)
 		}
 		missedPushes.Inc()
-		// NO send upstream publish
 
 	} else {
 		watcheditem.expires = 25*60 + me.getTime() // 25 min
+		if wereSpecial && watcheditem.thetree.Size() == 0 {
+			fmt.Println("processPublishDown getWatcher found topic but no subs ", " p:", pubmsg.p.Sig())
+		}
 		it := watcheditem.Iterator()
 		for it.Next() {
 
@@ -272,10 +253,14 @@ func processPublishDown(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *
 			// always send to everyone
 			// need: system test watching for duplicates.
 			if !me.checkForBadContact(ci, watcheditem) {
+				if wereSpecial {
+					fmt.Println("    processPublishDown WriteDownstream3 to con:", ci.GetKey().Sig(), " pub:", pubmsg.p.Sig())
+				}
 				ci.WriteDownstream(pubmsg.p)
 				sentMessages.Inc()
+			} else {
 				if wereSpecial {
-					logs = append(logs, fmt.Sprintln("    WriteDownstream3 to", ci.GetKey(), " in ", me.ex.Name, "on", ci.GetKey()))
+					fmt.Println("    processPublishDown haveBadContact to con:", ci.GetKey().Sig(), " pub:", pubmsg.p.Sig())
 				}
 			}
 		}

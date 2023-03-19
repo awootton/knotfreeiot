@@ -136,12 +136,12 @@ var (
 	)
 
 	//topicsTotal is
-	topicsTotal = promauto.NewGauge(
-		prometheus.GaugeOpts{
-			Name: "topics_total",
-			Help: "Total topic subscribed.",
-		},
-	)
+	// topicsTotal = promauto.NewGauge(
+	// 	prometheus.GaugeOpts{
+	// 		Name: "topics_total",
+	// 		Help: "Total topic subscribed.",
+	// 	},
+	// )
 
 	//connectionsTotal is
 	connectionsTotal = promauto.NewGauge(
@@ -152,12 +152,12 @@ var (
 	)
 
 	//qFullness is normally 0
-	qFullness = promauto.NewGauge(
-		prometheus.GaugeOpts{
-			Name: "q_percent_total",
-			Help: "Usage of queues.",
-		},
-	)
+	// qFullness = promauto.NewGauge(
+	// 	prometheus.GaugeOpts{
+	// 		Name: "q_percent_total",
+	// 		Help: "Usage of queues.",
+	// 	},
+	// )
 
 	heartbeatLookerDuration = prometheus.NewHistogram(prometheus.HistogramOpts{
 		Name:    "heartbeat_looker_seconds",

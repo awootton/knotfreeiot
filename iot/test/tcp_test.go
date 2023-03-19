@@ -17,10 +17,12 @@ package iot_test
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/awootton/knotfreeiot/iot"
+	"github.com/awootton/knotfreeiot/packets"
 	"github.com/awootton/knotfreeiot/tokens"
 )
 
@@ -145,7 +147,12 @@ func TestSimpleText(t *testing.T) {
 
 	WaitForActions(guru)
 
-	got = readLine(sock2)
+	for {
+		got = readLine(sock2)
+		if !strings.HasPrefix(got, "[S,") { // ignore the subscription message suback
+			break
+		}
+	}
 	want = `[P,=1CHKeHF6q1WLMSylXwB0gRs-VVKJvEiH,ra,some_test_hello2]`
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
@@ -202,7 +209,12 @@ func TestSimpleExecutive(t *testing.T) {
 
 	WaitForActions(guru)
 
-	p = readSocket(sock2)
+	for {
+		p = readSocket(sock2)
+		if _, ok := p.(*packets.Subscribe); !ok { // ignore the subscription message suback
+			break
+		}
+	}
 	got = fmt.Sprint(p)
 	want = `[P,sock2channel,bbcc,some_test_hello3]`
 	if got != want {

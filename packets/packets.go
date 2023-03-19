@@ -40,6 +40,7 @@ type Interface interface {
 	//
 	ToJSON() ([]byte, error) // for debugging and String() etc.
 	String() string
+	Sig() string
 
 	GetOption(key string) ([]byte, bool)
 
@@ -119,7 +120,6 @@ func (address *AddressUnion) FromBytes(bytes []byte) {
 	}
 	a.Type = Utf8Address
 	a.Bytes = bytes // and not more
-	return
 }
 
 // ToString is for display purposes. It will need to convert the binary type to base64
@@ -152,6 +152,15 @@ func (address *AddressUnion) ToBytes() []byte {
 	b.WriteByte(byte(address.Type))
 	b.Write(address.Bytes)
 	return (b.Bytes())
+}
+func (address *AddressUnion) Sig() string {
+	address.EnsureAddressIsBinary()
+	b := make([]byte, 3)
+	l := len(address.Bytes)
+	b[0] = byte(address.Bytes[l-3])
+	b[1] = byte(address.Bytes[l-2])
+	b[2] = byte(address.Bytes[l-1])
+	return base64.RawURLEncoding.EncodeToString(b[:])
 }
 
 // EnsureAddressIsBinary looks at the type and then
@@ -285,7 +294,7 @@ There is a max of 255 strings total per packet.
 
 */
 
-// CommandType is usually ascii
+// CommandType is ascii
 type CommandType rune
 
 // Universal is the wire representation.
@@ -630,6 +639,41 @@ func (p *Lookup) String() string {
 	return string(b)
 }
 
+// Sig means signature and is a short version of String()
+
+func (str *Universal) Sig() string {
+	return str.String()
+}
+
+func (p *Send) Sig() string {
+	return "send to:" + p.Address.Sig() + " frm:" + p.Source.Sig() + " with:" + strings.Split(string(p.Payload), "\n")[0]
+}
+
+func (p *Subscribe) Sig() string {
+	return "sub to:" + p.Address.Sig()
+}
+
+func (p *Unsubscribe) Sig() string {
+	return "unsub to:" + p.Address.Sig()
+}
+
+func (p *Connect) Sig() string {
+	return "connect"
+}
+
+func (p *Disconnect) Sig() string {
+	return "Disconnect"
+}
+
+func (p *Ping) Sig() string {
+	return "ping"
+}
+
+func (p *Lookup) Sig() string {
+	return "Lookup :" + p.Address.Sig() + " frm:" + p.Source.Sig()
+
+}
+
 // Write implements a marshal operation.
 func (p *Subscribe) Write(writer io.Writer) error {
 	if p.backingUniversal == nil {
@@ -738,6 +782,9 @@ func ReadUniversal(reader io.Reader) (*Universal, error) {
 	// read array of byte arrays
 	str.Args, err = ReadArrayOfByteArray(reader)
 	_ = n
+	if err != nil {
+		fmt.Println("ReadUniversal got error", err, "type:", rune(str.Cmd))
+	}
 	return &str, err
 }
 
@@ -788,6 +835,10 @@ func ReadArrayOfByteArray(reader io.Reader) ([][]byte, error) {
 
 	if total >= 8000000 { // atw 4/2021
 		// this should panic
+		fmt.Println("Packet too long error ", total)
+		for i := 0; i < int(argsLen); i++ {
+			fmt.Println("Packet strlen ", lengths[i])
+		}
 		return nil, errors.New("Packet too long for this reality")
 	}
 

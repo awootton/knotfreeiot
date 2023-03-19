@@ -1,4 +1,4 @@
-// Copyright 2019,2020,2021 Alan Tracey Wootton
+// Copyright 2019,2020,2021-2023 Alan Tracey Wootton
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -29,113 +29,6 @@ import (
 	"github.com/awootton/knotfreeiot/tokens"
 	"github.com/dgryski/go-maglev"
 )
-
-// ConnectGuruToSuperAide for testing a cluster with a supercluster
-// we need channels from guru to aide.
-func ConnectGuruToSuperAide(guru *Executive, aide *Executive) {
-
-	me := *guru.Looker // *LookupTableStruct
-
-	names := []string{aide.Name}
-	addresses := []string{"noaddr"}
-
-	GuruNameToConfigMap[aide.Name] = aide // for lookup later
-
-	//guru.Looker.SetUpstreamNames(names, addresses)
-
-	// don't block on anything.
-	router := me.upstreamRouter
-	router.mux.Lock()
-	defer router.mux.Unlock()
-
-	if len(names) != len(addresses) {
-		fmt.Println("error len(names) != len(addresses) panic")
-		return
-	}
-
-	if len(names) == len(router.channels) {
-		for i, c := range router.channels {
-			if names[i] != c.name {
-				return // no changes
-			}
-		}
-	}
-	// maybe some more verifications?
-
-	// if me.isGuru {
-	// 	me.setGuruUpstreamNames(names)
-	// 	return
-	// }
-
-	// we're a guru.
-	oldContacts := router.channels
-
-	router.channels = make([]*upperChannel, len(names))
-	theNamesThisTime := make(map[string]string, len(names))
-
-	// iterate the names passed in.
-	// constuct a new list. populate it with existing upc
-	// when possible
-
-	for i, name := range names {
-		address := addresses[i]
-		theNamesThisTime[name] = address
-
-		upc, found := router.name2channel[name]
-		if found && upc.running {
-			router.channels[i] = upc
-		} else {
-			fmt.Println("starting upper router from ", me.ex.Name, " to ", name)
-			upc = &upperChannel{}
-			upc.name = name
-			upc.address = address
-			upc.up = make(chan packets.Interface, 1280)
-			upc.down = make(chan packets.Interface, 128)
-			upc.ex = me.ex
-			router.channels[i] = upc
-			go upc.dialGuru() // to super aide?
-		}
-	}
-	// lose the stale ones
-	for _, upc := range oldContacts {
-		_, found := theNamesThisTime[upc.name]
-		if !found {
-			upc.running = false
-			fmt.Println("forgetting upper router ", upc.name)
-			close(upc.up)
-			close(upc.down)
-			delete(router.name2channel, upc.name)
-		}
-	}
-
-	router.previousmaglev = router.maglev
-	maglevsize := maglev.SmallM
-	if DEBUG {
-		maglevsize = 97
-	}
-	router.maglev = maglev.New(names, uint64(maglevsize))
-	// order subscriptions to be forwarded to the new UpContact.
-
-	// iterate all the subscriptions and push up (again) the ones that have been remapped.
-	// iterate all subscriptions and delete the ones that don't map here anymore.
-	// note that this will need to push up to the g u r u through the conn
-	// just defined and it can BLOCK until the conn completes.
-	// we must watch those buffers and not block here.
-	go func() {
-		command := callBackCommand{}
-		command.callback = reSubscribeRemappedTopics
-
-		for _, bucket := range me.allTheSubscriptions {
-			command.wg.Add(1)
-			if len(bucket.incoming) >= cap(bucket.incoming) {
-				fmt.Println("error: bucket.incoming is full")
-			}
-			bucket.incoming <- &command
-		}
-		command.wg.Wait()
-	}()
-
-}
 
 // dialGuru is used to connect an aide to a guru.
 // if it's tcp then we open sockets and connect them to the channel
@@ -222,11 +115,14 @@ func (upc *upperChannel) dialGuru() {
 
 				//fmt.Println("UPC pushing to guru ", p)
 				// needs to be cloned because it's still also in aide
+
 				buff := &bytes.Buffer{}
 				p.Write(buff)
 				buff2 := bytes.NewBuffer(buff.Bytes())
 				p2, err := packets.ReadPacket(buff2)
-				_ = err
+				if err != nil {
+					_ = err
+				}
 				if contact.GetClosed() {
 					continue
 				}
@@ -339,7 +235,7 @@ func (upc *upperChannel) dialGuruAndServe() error {
 
 	fmt.Println("dialGuruAndServe ready to ReadPacket from ", upc.address, upc.name)
 
-	upc.down = nil // not used. wut?
+	upc.down = nil // not used. wut? messages are pushed up directly to tcp
 
 	var mux sync.Mutex // needed?
 
@@ -356,6 +252,18 @@ func (upc *upperChannel) dialGuruAndServe() error {
 	}
 
 	go func() {
+		command := callBackCommand{}
+		command.callback = reSubscribeMyTopics
+		command.index = upc.index
+
+		for _, bucket := range upc.ex.Looker.allTheSubscriptions {
+			command.wg.Add(1)
+			bucket.incoming <- &command
+		}
+		command.wg.Wait()
+	}()
+
+	go func() {
 		for upc.founderr == nil && upc.running {
 			time.Sleep(time.Second * 300)
 			p := &packets.Ping{}
@@ -369,14 +277,17 @@ func (upc *upperChannel) dialGuruAndServe() error {
 	// since we have a conn now...
 	go func() {
 		for upc.founderr == nil && upc.running {
-			p, err := packets.ReadPacket(upc.conn)
+			p, err := packets.ReadPacket(upc.conn) // guru sent this down to us
 			if err != nil {
 				fmt.Println("dialGuruAndServe readPacket err", p, err, upc.address, upc.name)
 				upc.founderr = err
 				upc.conn.Close()
 				return
 			}
-			//fmt.Println("not upc.down ", p)
+			got, ok := p.GetOption("debg")
+			if ok && string(got) == "12345678" {
+				fmt.Println("dialguru receive", p.Sig())
+			}
 			err = PushDownFromTop(upc.ex.Looker, p)
 			if err != nil {
 				fmt.Println("dialGuruAndServe PushDownFromTop error ", err)
@@ -404,4 +315,112 @@ func (upc *upperChannel) dialGuruAndServe() error {
 		}
 	}
 	return upc.founderr
+}
+
+// ConnectGuruToSuperAide for testing a cluster with a supercluster
+// we need channels from guru to aide.
+func ConnectGuruToSuperAide(guru *Executive, aide *Executive) {
+
+	me := *guru.Looker // *LookupTableStruct
+
+	names := []string{aide.Name}
+	addresses := []string{"noaddr"}
+
+	GuruNameToConfigMap[aide.Name] = aide // for lookup later
+
+	//guru.Looker.SetUpstreamNames(names, addresses)
+
+	// don't block on anything.
+	router := me.upstreamRouter
+	router.mux.Lock()
+	defer router.mux.Unlock()
+
+	if len(names) != len(addresses) {
+		fmt.Println("error len(names) != len(addresses) panic")
+		return
+	}
+
+	if len(names) == len(router.channels) {
+		for i, c := range router.channels {
+			if names[i] != c.name {
+				return // no changes
+			}
+		}
+	}
+	// maybe some more verifications?
+
+	// if me.isGuru {
+	// 	me.setGuruUpstreamNames(names)
+	// 	return
+	// }
+
+	// we're a guru.
+	oldContacts := router.channels
+
+	router.channels = make([]*upperChannel, len(names))
+	theNamesThisTime := make(map[string]string, len(names))
+
+	// iterate the names passed in.
+	// constuct a new list. populate it with existing upc
+	// when possible
+
+	for i, name := range names {
+		address := addresses[i]
+		theNamesThisTime[name] = address
+
+		upc, found := router.name2channel[name]
+		if found && upc.running {
+			router.channels[i] = upc
+		} else {
+			fmt.Println("starting upper router from ", me.ex.Name, " to ", name)
+			upc = &upperChannel{}
+			upc.name = name
+			upc.address = address
+			upc.up = make(chan packets.Interface, 1280)
+			upc.down = make(chan packets.Interface, 128)
+			upc.ex = me.ex
+			upc.index = i
+			router.channels[i] = upc
+			go upc.dialGuru() // to super aide?
+		}
+	}
+	// lose the stale ones
+	for _, upc := range oldContacts {
+		_, found := theNamesThisTime[upc.name]
+		if !found {
+			upc.running = false
+			fmt.Println("forgetting upper router ", upc.name)
+			close(upc.up)
+			close(upc.down)
+			delete(router.name2channel, upc.name)
+		}
+	}
+
+	router.previousmaglev = router.maglev
+	maglevsize := maglev.SmallM
+	if DEBUG {
+		maglevsize = 97
+	}
+	router.maglev = maglev.New(names, uint64(maglevsize))
+	// order subscriptions to be forwarded to the new UpContact.
+
+	// iterate all the subscriptions and push up (again) the ones that have been remapped.
+	// iterate all subscriptions and delete the ones that don't map here anymore.
+	// note that this will need to push up to the g u r u through the conn
+	// just defined and it can BLOCK until the conn completes.
+	// we must watch those buffers and not block here.
+	go func() {
+		command := callBackCommand{}
+		command.callback = reSubscribeRemappedTopics
+
+		for _, bucket := range me.allTheSubscriptions {
+			command.wg.Add(1)
+			if len(bucket.incoming) >= cap(bucket.incoming) {
+				fmt.Println("error: bucket.incoming is full")
+			}
+			bucket.incoming <- &command
+		}
+		command.wg.Wait()
+	}()
+
 }

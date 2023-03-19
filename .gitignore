@@ -10,6 +10,8 @@
 
 docs/
 
+monitor_pod/main/dummy.yaml
+
 # Test binary, build with `go test -c`
 *.test
 

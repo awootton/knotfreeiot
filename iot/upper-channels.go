@@ -23,6 +23,8 @@ type upperChannel struct {
 	running  bool
 	founderr error
 	conn     net.Conn
+
+	index int // the index in the upstream channels.
 }
 
 // upstreamRouterStruct is maybe virtual in the future
@@ -62,7 +64,8 @@ func (me *LookupTableStruct) SetUpstreamNames(names []string, addresses []string
 
 	if len(names) != len(addresses) {
 		fmt.Println("error len(names) != len(addresses) panic")
-		return
+		panic("error len(names) != len(addresses) panic")
+		// return
 	}
 
 	hadChange := false
@@ -77,7 +80,7 @@ func (me *LookupTableStruct) SetUpstreamNames(names []string, addresses []string
 		hadChange = true
 	}
 	if !hadChange {
-		fmt.Println("SetUpstreamNames no change")
+		// fmt.Println("SetUpstreamNames no change")
 		return
 	}
 	// maybe some more verifications?
@@ -113,6 +116,7 @@ func (me *LookupTableStruct) SetUpstreamNames(names []string, addresses []string
 			upc.up = make(chan packets.Interface, 1280)
 			upc.down = make(chan packets.Interface, 128)
 			upc.ex = me.ex
+			upc.index = i
 			router.channels[i] = upc
 			go upc.dialGuru()
 		}
@@ -150,7 +154,6 @@ func (me *LookupTableStruct) SetUpstreamNames(names []string, addresses []string
 	go func() {
 		command := callBackCommand{}
 		command.callback = reSubscribeRemappedTopics
-
 		for _, bucket := range me.allTheSubscriptions {
 			command.wg.Add(1)
 			if len(bucket.incoming) == cap(bucket.incoming) {
@@ -191,6 +194,8 @@ func (me *LookupTableStruct) setGuruUpstreamNames(names []string) {
 		command := callBackCommand{}
 		command.callback = guruDeleteRemappedAndGoneTopics
 		command.index = myindex
+
+		fmt.Println("guruDeleteRemappedAndGoneTopics", myindex)
 
 		for _, bucket := range me.allTheSubscriptions {
 			command.wg.Add(1)

@@ -146,7 +146,8 @@ func (ex *Executive) dialAideAndServe() {
 	name := ""
 	count := 0
 	address := ""
-	wasStarted := false
+
+	startReader := make(chan bool)
 
 	dialAideAndServeInvoked++
 
@@ -154,7 +155,6 @@ func (ex *Executive) dialAideAndServe() {
 
 	go func() {
 		for {
-			wasStarted = false
 			for index == -1 {
 				index, name, address = getTheIndex(ex)
 			}
@@ -178,7 +178,7 @@ func (ex *Executive) dialAideAndServe() {
 				continue                           // back to top
 			}
 
-			wasStarted = true
+			startReader <- true
 
 			add := conn.(*net.TCPConn).LocalAddr().String()
 			fmt.Println("dialAideAndServe tcp ", add)
@@ -244,33 +244,37 @@ func (ex *Executive) dialAideAndServe() {
 	}()
 
 	go func() { // keep it alive timeout is 20 min
-		time.Sleep(5 * time.Minute)
-		p := &packets.Ping{}
-		// do we care if this blocks?
-		if len(ex.channelToAnyAide) >= cap(ex.channelToAnyAide) {
-			fmt.Println("dialAideAndServe channel full error")
+		for {
+			time.Sleep(15 * time.Minute)
+			p := &packets.Ping{}
+			// do we care if this blocks?
+			if len(ex.channelToAnyAide)*3 >= cap(ex.channelToAnyAide)*4 {
+				fmt.Println("dialAideAndServe channel full error")
+				time.Sleep(1 * time.Millisecond)
+			}
+			ex.channelToAnyAide <- p
 		}
-		ex.channelToAnyAide <- p
 	}()
 
 	go func() {
 		count := 0
+		<-startReader
 		for {
-			for conn == nil || !wasStarted {
-				time.Sleep(100 * time.Millisecond)
-			}
+			// for !wasStarted {
+			// 	time.Sleep(100 * time.Millisecond)
+			// }
 			p, err := packets.ReadPacket(conn)
 			if err != nil {
 				// if err.Error() == "EOF" { // this is what i'm seeing.
 				// }
-				if wasStarted {
-					fmt.Println("dialAideAndServe packets.ReadPacket error ", err, count, address)
-					conn.Close()
-					conn = nil
-					index = -1
-
-				}
+				//if wasStarted {
+				fmt.Println("dialAideAndServe packets.ReadPacket error ", err, count, address)
+				conn.Close()
+				conn = nil
+				index = -1
+				//}
 				time.Sleep(100 * time.Millisecond)
+				return
 			}
 			_ = p // drop it on the floor
 		}

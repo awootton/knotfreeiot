@@ -40,7 +40,7 @@ When the publish.go gets the stats message we do a GetBilling() (aka GetOption("
 
 Later, in the heartbeat of lookup, we check if it's a billing topic and if we're 'over' our maximums.
 If over then we construct a send with the option "error" as the message. We send it *down* like a
-normal publish. WriteDownstream(..)
+normal publish.WriteDownstream(..)
 
 Then, in all the implementations of WriteDownstream check for error and make a disconnect packet if needed.
 See HasError()

@@ -73,10 +73,10 @@ func (api apiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			API1PostGurusFail.Inc()
 			return
 		}
-	
+
 		API1PostGurus.Inc()
 		if len(args.Names) > 0 && len(args.Names) == len(args.Addresses) {
-			fmt.Println("SetUpstreamNames ", args.Names, args.Addresses, api.ex.Name, api.ex.tcpAddress)
+			// fmt.Println("SetUpstreamNames ", args.Names, args.Addresses, api.ex.Name, api.ex.tcpAddress)
 			api.ex.Looker.SetUpstreamNames(args.Names, args.Addresses)
 		} else {
 			fmt.Println("SetUpstreamNames bad names sent", args.Names, args.Addresses, args)
@@ -110,7 +110,7 @@ func (api apiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		for _, stat := range stats.Stats {
 			str += stat.Name + " " + stat.TCPAddress + "  "
 		}
-		// fmt.Println("have new clusterstats: ", str)
+		// fmt.Println("Postclusterstats : ", str)
 
 		api.ex.statsmu.Lock()
 		api.ex.ClusterStats = stats
@@ -147,44 +147,51 @@ func MakeHTTPExecutive(ex *Executive, serverName string) *Executive {
 }
 
 func (cc *tcpContact) Close(err error) {
-
+	// do we need a mutex here?
 	if cc.netDotTCPConn != nil {
-		fmt.Println("close tcp ", cc.netDotTCPConn.RemoteAddr())
+		//fmt.Println("close tcp ", cc.netDotTCPConn.RemoteAddr())
 		cc.netDotTCPConn.Close()
 		cc.netDotTCPConn = nil
 	}
-
-	// hadConfig := cc.GetConfig() != nil
-	// if hadConfig {
-	// 	dis := packets.Disconnect{}
-	// 	if err != nil {
-	// 		dis.SetOption("error", []byte(err.Error()))
-	// 	}
-	// 	cc.WriteDownstream(&dis) // can't write to closed socket
-	// }
 	ss := &cc.ContactStruct
-	ss.Close(err) // close my parent
+	ss.Close(err) // close my parent too
+}
+
+func (cc *tcpContact) GetClosed() bool {
+	return cc.ContactStruct.GetClosed()
+
+	// return cc.netDotTCPConn == nil ||
 }
 
 func (cc *tcpContact) WriteDownstream(packet packets.Interface) error {
+
+	if cc.GetClosed() {
+		return errors.New("tcpContact closed and can't writeDownstream")
+	}
+	got, ok := packet.GetOption("debg")
+	if ok && string(got) == "12345678" {
+		fmt.Println("tcpContact WriteDownstream con=", cc.GetKey().Sig(), packet.Sig())
+	}
+	cc.writechan <- packet
+
 	//fmt.Println("received from above", packet, reflect.TypeOf(packet))
-	if !cc.GetClosed() && !cc.GetConfig().GetLookup().isGuru {
-		u := HasError(packet)
-		if u != nil {
-			u.Write(cc)
-			cc.Close(errors.New(u.String()))
-			return errors.New(u.String()) // ?
-		}
-	}
-	err := packet.Write(cc)
-	if err != nil {
-		cc.Close(err)
-	}
-	return err
+	// if !cc.GetClosed() && !cc.GetConfig().lookup.isGuru {
+	// 	u := HasError(packet)
+	// 	if u != nil {
+	// 		u.Write(cc)
+	// 		cc.Close(errors.New(u.String()))
+	// 		return errors.New(u.String()) // ?
+	// 	}
+	// }
+	// err := packet.Write(cc)
+	// if err != nil {
+	// 	cc.Close(err)
+	// }
+	return nil
 }
 
 func (cc *tcpContact) WriteUpstream(cmd packets.Interface) error {
-	fmt.Println("FIXME tcp received from below dead code", cmd, reflect.TypeOf(cmd))
+	fmt.Println("FIXME tcp received from below dead code ERROR delete me", cmd, reflect.TypeOf(cmd))
 	err := cmd.Write(cc)
 	if err != nil {
 		cc.Close(err)
@@ -193,7 +200,7 @@ func (cc *tcpContact) WriteUpstream(cmd packets.Interface) error {
 }
 
 func listenForPacketsConnect(ex *Executive, name string) {
-	fmt.Println("knotfree server starting", name)
+	fmt.Println("knotfree native server starting", name, ex.GetTCPAddress())
 	ln, err := net.Listen("tcp", name)
 	if err != nil {
 		// handle error
@@ -248,11 +255,11 @@ func handleConnection(tcpConn *net.TCPConn, ex *Executive) {
 				return // quit, close the sock, be forgotten
 			}
 		} else {
-			err := cc.netDotTCPConn.SetDeadline(time.Now().Add(20 * time.Minute))
+			err := cc.netDotTCPConn.SetDeadline(time.Now().Add(15 * time.Minute))
 			if err != nil {
 				fmt.Println("deadline err 4", err, tcpConn.RemoteAddr())
 				cc.Close(err)
-				return // quit, close the sock, be forgotten
+				return // quit, close the sock, be forgotten, start over
 			}
 		}
 		//fmt.Println("waiting for packet")
@@ -260,7 +267,7 @@ func handleConnection(tcpConn *net.TCPConn, ex *Executive) {
 		p, err := packets.ReadPacket(cc)
 		if err != nil {
 			//connLogThing.Collect("se err " + err.Error())
-			fmt.Println("packets KnotFree read err", err, tcpConn.RemoteAddr())
+			fmt.Println("packets KnotFree native read err", err, tcpConn.RemoteAddr())
 			TCPServerPacketReadError.Inc()
 			cc.Close(err)
 			return

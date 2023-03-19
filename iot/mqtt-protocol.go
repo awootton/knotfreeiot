@@ -253,7 +253,7 @@ func MQTTHandlePacket(cc *mqttContact, control libmqtt.Packet) {
 			}
 		}
 		timeStr := strconv.Itoa(int(time.Now().Unix()))
-		// write an ack
+		// write an ack. TODO: make the suback actuall come from the subs coming down from the cluster
 		suback := &libmqtt.SubAckPacket{
 			Props: &libmqtt.SubAckProps{
 				Reason:    "",
@@ -297,6 +297,7 @@ func MQTTHandlePacket(cc *mqttContact, control libmqtt.Packet) {
 func (cc *mqttContact) WriteDownstream(p packets.Interface) error {
 
 	// need packet switch here. like push
+	// this probably also needs a channel
 
 	switch v := p.(type) {
 	case *packets.Connect:
@@ -314,13 +315,13 @@ func (cc *mqttContact) WriteDownstream(p packets.Interface) error {
 		//mq.ProtoVersion = cc.protoVersion
 		return cc.writeLibPacket(mq, cc) // mq.WriteTo(cc)
 	case *packets.Subscribe:
-		fmt.Println("cant happen3")
-		mq := &libmqtt.SubscribePacket{}
+		// this happns now fmt.Println("cant happen3")
+		// mq := &libmqtt.SubscribePacket{}
 		//mq.MessageType = mqttpackets.Subscribe
 		//mq.Topics = []string{string(v.Address)}
 		//	mq.ProtoVersion = cc.protoVersion
-		err := cc.writeLibPacket(mq, cc) //mq.WriteTo(cc)
-		return err
+		// err := nil // cc.writeLibPacket(mq, cc) //mq.WriteTo(cc)
+		return nil // FIXME: mae these into subakc packets
 
 	case *packets.Unsubscribe:
 		fmt.Println("cant happen4")

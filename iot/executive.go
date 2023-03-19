@@ -634,9 +634,11 @@ func (ex *Executive) Heartbeat(now uint32) {
 	fmt.Println("Heartbeat Executive ", ex.Name, ex.httpAddress)
 
 	connectionsTotal.Set(float64(ex.Config.Len()))
-	subscriptions, queuefraction := ex.Looker.GetAllSubsCount()
-	topicsTotal.Set(float64(subscriptions))
-	qFullness.Set(float64(queuefraction))
+
+	// this would require a lock or else pushing into the incoming q
+	// subscriptions, queuefraction := ex.Looker.GetAllSubsCount()
+	// topicsTotal.Set(float64(subscriptions))
+	// qFullness.Set(float64(queuefraction))
 
 	ex.Looker.Heartbeat(now)
 
