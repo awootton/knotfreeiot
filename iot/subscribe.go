@@ -284,7 +284,7 @@ func heartBeatCallBack(me *LookupTableStruct, bucket *subscribeBucket, cmd *call
 
 	s := bucket.mySubscriptions
 
-	emptyBuckets := make([]*WatchedTopic, 0, 10)
+	emptyTopics := make([]*WatchedTopic, 0, 10)
 
 	channelToAnyAideMessages := make([]packets.Interface, 0, 10)
 
@@ -292,7 +292,7 @@ func heartBeatCallBack(me *LookupTableStruct, bucket *subscribeBucket, cmd *call
 
 		if watchedItem.getSize() == 0 {
 			// fmt.Println("Subscribe heartbeat expiring whole bucket", watchedItem.name.Sig())
-			emptyBuckets = append(emptyBuckets, watchedItem)
+			emptyTopics = append(emptyTopics, watchedItem)
 			continue
 		}
 
@@ -333,11 +333,15 @@ func heartBeatCallBack(me *LookupTableStruct, bucket *subscribeBucket, cmd *call
 
 		// SECOND, check if this is a billing topic
 		// if it's billing and it's over limits then write 'error Send' down.
+
+		// we don't need to do this in rea time do we?
 		billingAccumulator, ok := watchedItem.IsBilling()
 		if ok {
-			if expireAll {
-				setWatcher(bucket, &h, nil) // kill it now
-			} else {
+			// wtf. we cand't kill a watcher in the middle of a watcher iterator
+			// if expireAll {
+			// 	setWatcher(bucket, &h, nil) // kill it now<-NO, we'll do it later.
+			// } else
+			go func() {
 				now := me.getTime()
 				good, msg := billingAccumulator.AreUnderMax(now)
 				if !good {
@@ -360,52 +364,56 @@ func heartBeatCallBack(me *LookupTableStruct, bucket *subscribeBucket, cmd *call
 						}
 					}
 				}
-			}
+			}()
 		}
-
 		// THIRD, we'll need to send out the topic usage-stats occasionally.
 		// from the guru only. For all topics that are not billing
 		if len(watchedItem.jwtidAlias) > 0 && !haveUpstream {
-
 			if watchedItem.nextBillingTime < cmd.now {
+				// again, we can't do this right now.
+				go func(watchedItem *WatchedTopic) {
+					deltaTime := watchedItem.nextBillingTime - watchedItem.lastBillingTime
+					watchedItem.lastBillingTime = watchedItem.nextBillingTime
+					watchedItem.nextBillingTime += 60 // 60 secs after first time
 
-				deltaTime := watchedItem.nextBillingTime - watchedItem.lastBillingTime
-				watchedItem.lastBillingTime = watchedItem.nextBillingTime
-				watchedItem.nextBillingTime += 60 // 60 secs after first time
+					msg := &Stats{}
 
-				msg := &Stats{}
+					msg.Subscriptions = float64(deltaTime) // means one per sec, one per min ... one. Q: is 300?
 
-				msg.Subscriptions = float64(deltaTime) // means one per sec, one per min ... one. Q: is 300?
+					// fmt.Println("sending subscribe deltat", deltaTime, "from ", me.myname)
 
-				// fmt.Println("sending subscribe deltat", deltaTime, "from ", me.myname)
+					p := &packets.Send{}
+					p.Address.FromString(watchedItem.jwtidAlias)
+					p.Source.FromString("billing_stats_return_address_subscribe") // doesn't exist. use "ping" ?
+					str, err := json.Marshal(msg)
+					if err != nil {
+						fmt.Println(" break fast ")
+					}
+					p.SetOption("add-stats", str)
+					p.SetOption("stats-deltat", []byte(strconv.FormatInt(int64(deltaTime), 10)))
+					// publish a "add-stats" command to billing topic
+					// me.ex.channelToAnyAide <- p
+					channelToAnyAideMessages = append(channelToAnyAideMessages, p)
 
-				p := &packets.Send{}
-				p.Address.FromString(watchedItem.jwtidAlias)
-				p.Source.FromString("billing_stats_return_address_subscribe") // doesn't exist. use "ping" ?
-				str, err := json.Marshal(msg)
-				if err != nil {
-					fmt.Println(" break fast ")
-				}
-				p.SetOption("add-stats", str)
-				p.SetOption("stats-deltat", []byte(strconv.FormatInt(int64(deltaTime), 10)))
-				// publish a "add-stats" command to billing topic
-				// me.ex.channelToAnyAide <- p
-				channelToAnyAideMessages = append(channelToAnyAideMessages, p)
-
-				me.ex.Billing.AddUsage(&msg.KnotFreeContactStats, cmd.now, int(deltaTime))
+					me.ex.Billing.AddUsage(&msg.KnotFreeContactStats, cmd.now, int(deltaTime))
+				}(watchedItem)
 			}
+		}
+		// they may have lost some items above
+		if watchedItem.getSize() == 0 {
+			emptyTopics = append(emptyTopics, watchedItem)
 		}
 	}
 
 	// the http serve to a thing generates many of these.
 	// we have to do this async
-	for _, emptyBucket := range emptyBuckets {
+	for _, emptyBucket := range emptyTopics {
 		// fmt.Println("Subscribe deleting entire empty bucket", emptyBucket.name)
 		delete(bucket.mySubscriptions, emptyBucket.name) // the name is the hash
 	}
 	// async. we never know when PushUp might block
 	go func() {
-		for _, emptyBucket := range emptyBuckets {
+		for _, emptyBucket := range emptyTopics {
 			// we have to send an unsubscribe to the upstream
 			// can we watch for when the channel get's a little full?
 			unmsg := new(packets.Unsubscribe)
@@ -421,7 +429,7 @@ func heartBeatCallBack(me *LookupTableStruct, bucket *subscribeBucket, cmd *call
 			msg.topicHash.InitFromBytes(unmsg.Address.Bytes)
 			i := msg.topicHash.GetFractionalBits(me.theBucketsSizeLog2) // is 4. The first 4 bits of the hash.
 			b := me.allTheSubscriptions[i]
-			if len(b.incoming)*3 > cap(b.incoming)*4 {
+			if len(b.incoming)*4 > cap(b.incoming)*3 {
 				time.Sleep(time.Millisecond) // low priority
 			}
 			err := bucket.looker.PushUp(unmsg, emptyBucket.name)
@@ -432,7 +440,7 @@ func heartBeatCallBack(me *LookupTableStruct, bucket *subscribeBucket, cmd *call
 	}()
 	go func() {
 		for _, p := range channelToAnyAideMessages {
-			if len(me.ex.channelToAnyAide)*3 > cap(me.ex.channelToAnyAide)*4 {
+			if len(me.ex.channelToAnyAide)*4 > cap(me.ex.channelToAnyAide)*3 {
 				time.Sleep(time.Millisecond)
 			}
 			me.ex.channelToAnyAide <- p

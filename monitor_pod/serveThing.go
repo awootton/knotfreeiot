@@ -119,12 +119,12 @@ func ServeGetTime(token string, c *ThingContext) { // use knotfree format
 			servAddr := target_cluster + ":8384"
 			tcpAddr, err := net.ResolveTCPAddr("tcp", servAddr)
 			if err != nil {
-				println("had ResolveTCPAddr failed:", err.Error())
+				println("had ResolveTCPAddr failed:", c.Topic, err.Error())
 				c.fail++
 				time.Sleep(10 * time.Second)
 				continue // to connect loop
 			}
-			println("Dialing ")
+			println("Dialing ", c.Topic)
 			conn, err := net.DialTCP("tcp", nil, tcpAddr)
 			if err != nil {
 				println("dial failed:", err.Error())
@@ -139,7 +139,7 @@ func ServeGetTime(token string, c *ThingContext) { // use knotfree format
 			}
 			err = connect.Write(conn)
 			if err != nil {
-				println("write C to server failed:", err.Error())
+				println("write C to server failed:", c.Topic, err.Error())
 				conn.Close()
 				time.Sleep(10 * time.Second)
 				c.fail++
@@ -168,7 +168,6 @@ func ServeGetTime(token string, c *ThingContext) { // use knotfree format
 						println("subscribing resubscribe timeout:" + c.Topic)
 					case res := <-quitSubscribeLoop:
 						_ = res
-						println("subscribing QUIT SubscribeLoop:" + c.Topic)
 						return
 					}
 				}
@@ -179,7 +178,7 @@ func ServeGetTime(token string, c *ThingContext) { // use knotfree format
 			for { // read cmd and respond loop
 				p, err := packets.ReadPacket(conn) // blocks
 				if err != nil {
-					println("client err:", err.Error())
+					println("client err:", c.Topic, err.Error())
 					conn.Close()
 					c.fail++
 					quitSubscribeLoop <- true
@@ -188,13 +187,13 @@ func ServeGetTime(token string, c *ThingContext) { // use knotfree format
 				}
 				if _, ok := p.(*packets.Subscribe); ok {
 					// this is the suback and is normal
-					fmt.Println("have suback", p.Sig())
+					fmt.Println("have suback", c.Topic, p.Sig())
 					continue
 				}
 
 				sendme, err := digestPacket(p, c, c.CommandMap)
 				if err != nil {
-					println("digestPacket err:", err)
+					println("digestPacket err:", c.Topic, err)
 					conn.Close()
 					c.fail++
 					quitSubscribeLoop <- true
@@ -204,13 +203,13 @@ func ServeGetTime(token string, c *ThingContext) { // use knotfree format
 				pub, ok := sendme.(*packets.Send)
 				if ok {
 					SpecialPrint(&pub.PacketCommon, func() {
-						fmt.Println("serveThing reply ", strings.Split(string(pub.Payload), "\n")[0])
+						fmt.Println("serveThing reply ", c.Topic, strings.Split(string(pub.Payload), "\n")[0])
 					})
 				}
 
 				err = sendme.Write(conn)
 				if err != nil {
-					println("send err:", err)
+					println("send err:", c.Topic, err)
 					conn.Close()
 					c.fail++
 					quitSubscribeLoop <- true
@@ -248,10 +247,10 @@ func digestPacket(p packets.Interface,
 	// println("received:", p.String())
 	pub, ok := p.(*packets.Send)
 	if !ok {
-		println("expected a send aka publish:", p.Sig())
+		println("expected a send aka publish:", c.Topic, p.Sig())
 		c.fail++
 		time.Sleep(1 * time.Second)
-		return nil, errors.New("expected a send aka publish")
+		return nil, errors.New("expected a send aka publish" + c.Topic)
 	}
 
 	message := string(pub.Payload)
@@ -267,13 +266,13 @@ func digestPacket(p packets.Interface,
 		lines := strings.Split(message, "\n")
 		if len(lines) < 1 {
 			c.fail++
-			return nil, errors.New("bad http request")
+			return nil, errors.New("bad http request" + c.Topic)
 		}
 		getline := lines[0]
 		getparts := strings.Split(getline, " ")
 		if len(getparts) != 3 {
 			c.fail++
-			return nil, errors.New("expected 3 parts to http request")
+			return nil, errors.New("expected 3 parts to http request " + c.Topic)
 		}
 		// now we passed the headers
 		message = getparts[1]
@@ -285,7 +284,7 @@ func digestPacket(p packets.Interface,
 				argparts2 := strings.Split(arg, "=")
 				if len(argparts2) != 2 {
 					c.fail++
-					return nil, errors.New("expected 2 parts to arg")
+					return nil, errors.New("expected 2 parts to arg " + c.Topic + " " + arg + "")
 				}
 				argname := argparts2[0]
 				argvalue := argparts2[1]
@@ -328,7 +327,7 @@ func digestPacket(p packets.Interface,
 			} else if strings.HasPrefix(c.adminPubStr2, string(admn)) {
 				adminPublic = c.adminPubStr2
 			} else {
-				hadError = "no matching admin key found"
+				hadError = "no matching admin key found" + c.Topic
 				c.fail++
 			}
 
@@ -480,7 +479,7 @@ func digestPacket(p packets.Interface,
 			reply = "Error: " + hadError
 		}
 		SpecialPrint(&pub.PacketCommon, func() {
-			fmt.Println("encrypted reply is ", reply, "nonce", string(nonc))
+			fmt.Println("encrypted reply is ", c.Topic, reply, "nonce", string(nonc))
 		})
 	}
 

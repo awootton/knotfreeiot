@@ -142,7 +142,9 @@ var dialAideAndServeInvoked int
 
 func (ex *Executive) dialAideAndServe() {
 
+	// TODO: do this with channels and not these racey vars
 	index := -1
+
 	name := ""
 	count := 0
 	address := ""
@@ -234,7 +236,9 @@ func (ex *Executive) dialAideAndServe() {
 				err := p.Write(conn)
 				if err != nil {
 					fmt.Println("dialAideAndServe write error", conn, err)
-					conn.Close()
+					if conn != nil {
+						conn.Close()
+					}
 					index = -1
 					conn = nil
 					break
@@ -248,7 +252,7 @@ func (ex *Executive) dialAideAndServe() {
 			time.Sleep(15 * time.Minute)
 			p := &packets.Ping{}
 			// do we care if this blocks?
-			if len(ex.channelToAnyAide)*3 >= cap(ex.channelToAnyAide)*4 {
+			if len(ex.channelToAnyAide)*4 >= cap(ex.channelToAnyAide)*3 {
 				fmt.Println("dialAideAndServe channel full error")
 				time.Sleep(1 * time.Millisecond)
 			}
@@ -263,8 +267,14 @@ func (ex *Executive) dialAideAndServe() {
 			// for !wasStarted {
 			// 	time.Sleep(100 * time.Millisecond)
 			// }
+			if conn == nil {
+				index = -1
+				break
+			}
 			p, err := packets.ReadPacket(conn)
 			if err != nil {
+				if err.Error() == "EOF" {
+				}
 				// if err.Error() == "EOF" { // this is what i'm seeing.
 				// }
 				//if wasStarted {

@@ -17,7 +17,7 @@ ENV PORT 9090
 ENV PORT 3100
 
 # We can use the 32 bit version to save pointer space
-ENV GOARCH=386
+# ENV GOARCH=386
 
 WORKDIR /knotfreeiot/
 
@@ -29,7 +29,5 @@ RUN go mod download  && go mod verify
 # and then add the code
 ADD . /knotfreeiot
 
-# later we: RUN /go/bin/linux_386/knotfreeiot # see knotfreedeploy.yaml
-#  RUN export GO111MODULE=on; go install 
-
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=386 go build -a -o manager main.go
+# RUN CGO_ENABLED=0 GOOS=linux GOARCH=386 go build -a -o manager main.go
+RUN CGO_ENABLED=0 GOOS=linux go build -a -o manager main.go

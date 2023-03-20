@@ -246,6 +246,7 @@ func handleConnection(tcpConn *net.TCPConn, ex *Executive) {
 	}
 	// we might just for over the range of the handler input channel?
 	for ex.IAmBadError == nil {
+
 		// SetReadDeadline
 		if cc.GetToken() == nil {
 			err := cc.netDotTCPConn.SetDeadline(time.Now().Add(2 * time.Second))
@@ -255,17 +256,22 @@ func handleConnection(tcpConn *net.TCPConn, ex *Executive) {
 				return // quit, close the sock, be forgotten
 			}
 		} else {
-			err := cc.netDotTCPConn.SetDeadline(time.Now().Add(15 * time.Minute))
+			err := cc.netDotTCPConn.SetDeadline(time.Now().Add(30 * time.Minute))
 			if err != nil {
 				fmt.Println("deadline err 4", err, tcpConn.RemoteAddr())
 				cc.Close(err)
 				return // quit, close the sock, be forgotten, start over
 			}
 		}
+
 		//fmt.Println("waiting for packet")
 
 		p, err := packets.ReadPacket(cc)
 		if err != nil {
+			// if strings.Contains(err.Error(), "i/o timeout") { nobody goes 30 min without saying something.
+			// 	fmt.Println("packets KnotFree native timeout")
+			// 	continue
+			// }
 			//connLogThing.Collect("se err " + err.Error())
 			fmt.Println("packets KnotFree native read err", err, tcpConn.RemoteAddr())
 			TCPServerPacketReadError.Inc()

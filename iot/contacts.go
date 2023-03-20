@@ -614,6 +614,7 @@ func expectToken(ssi ContactInterface, p packets.Interface) error {
 			sub.Address.FromString(id) // the billing channel real name JWTID
 			// fmt.Println("contact subscribing to ", ssi.GetToken().JWTID)
 			sub.SetOption("statsmax", billstr)
+			sub.SetOption("noack", []byte("1"))
 			PushPacketUpFromBottom(ssi, &sub)
 		}
 		return nil

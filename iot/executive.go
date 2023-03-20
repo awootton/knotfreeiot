@@ -290,11 +290,14 @@ func NewExecutive(sizeEstimate int, aname string, timegetter func() uint32, isGu
 	ex.ClusterStatsString = "none-yet"
 	ex.ce = ce
 
-	if sizeEstimate > 1000 {
-		ex.channelToAnyAide = make(chan packets.Interface, 10)
-	} else {
-		ex.channelToAnyAide = make(chan packets.Interface, 1024)
-	}
+	// why should the channel get behind?
+	ex.channelToAnyAide = make(chan packets.Interface, 1024)
+
+	// if sizeEstimate > 1000 {
+	// 	ex.channelToAnyAide = make(chan packets.Interface, 10)
+	// } else {
+	// 	ex.channelToAnyAide = make(chan packets.Interface, 1024)
+	// }
 	look.ex = ex
 
 	// start with some stats - just me.
@@ -631,7 +634,7 @@ func (ex *Executive) GetExecutiveStats() *ExecutiveStats {
 // Heartbeat one per 10 sec.
 func (ex *Executive) Heartbeat(now uint32) {
 
-	fmt.Println("Heartbeat Executive ", ex.Name, ex.httpAddress)
+	fmt.Println("Heartbeat Executive ", ex.tcpAddress)
 
 	connectionsTotal.Set(float64(ex.Config.Len()))
 

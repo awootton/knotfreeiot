@@ -217,7 +217,7 @@ func (upc *upperChannel) dialGuruAndServe() error {
 	upc.founderr = nil
 	upc.conn = nil
 
-	fmt.Println("starting/restarting dialGuruAndServe ", upc.address, upc.name, " for ", upc.ex.Name)
+	fmt.Println("starting/restarting dialGuruAndServe ", upc.address, upc.name, " for ", upc.index)
 
 	// todo: tell prometheius we're dialing
 	upc.conn, err = net.DialTimeout("tcp", upc.address, time.Duration(uint64(2*time.Second)))
@@ -258,6 +258,9 @@ func (upc *upperChannel) dialGuruAndServe() error {
 
 		for _, bucket := range upc.ex.Looker.allTheSubscriptions {
 			command.wg.Add(1)
+			if len(bucket.incoming)*4 >= cap(bucket.incoming)*3 {
+				fmt.Println("dialGuru bucket.incoming channel full", bucket.index)
+			}
 			bucket.incoming <- &command
 		}
 		command.wg.Wait()
@@ -267,7 +270,7 @@ func (upc *upperChannel) dialGuruAndServe() error {
 		for upc.founderr == nil && upc.running {
 			time.Sleep(time.Second * 300)
 			p := &packets.Ping{}
-			if len(upc.up) >= cap(upc.up) {
+			if len(upc.up)*4 >= cap(upc.up)*3 {
 				fmt.Println("dialGuru channel full")
 			}
 			upc.up <- p
@@ -319,6 +322,7 @@ func (upc *upperChannel) dialGuruAndServe() error {
 
 // ConnectGuruToSuperAide for testing a cluster with a supercluster
 // we need channels from guru to aide.
+// you can be sure that this needs work.
 func ConnectGuruToSuperAide(guru *Executive, aide *Executive) {
 
 	me := *guru.Looker // *LookupTableStruct
@@ -415,8 +419,8 @@ func ConnectGuruToSuperAide(guru *Executive, aide *Executive) {
 
 		for _, bucket := range me.allTheSubscriptions {
 			command.wg.Add(1)
-			if len(bucket.incoming) >= cap(bucket.incoming) {
-				fmt.Println("error: bucket.incoming is full")
+			if len(bucket.incoming)*4 >= cap(bucket.incoming)*3 {
+				fmt.Println("super aide bucket.incoming is full error")
 			}
 			bucket.incoming <- &command
 		}

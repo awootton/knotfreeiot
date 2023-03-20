@@ -199,7 +199,7 @@ func (me *LookupTableStruct) setGuruUpstreamNames(names []string) {
 
 		for _, bucket := range me.allTheSubscriptions {
 			command.wg.Add(1)
-			if len(bucket.incoming) == cap(bucket.incoming) {
+			if len(bucket.incoming)*4 == cap(bucket.incoming)*3 {
 				fmt.Println("setGuruUpstreamNames channel full")
 			}
 			bucket.incoming <- &command

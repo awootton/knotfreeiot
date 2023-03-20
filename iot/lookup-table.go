@@ -164,7 +164,7 @@ func NewLookupTable(projectedTopicCount int, aname string, isGuru bool, getTime 
 		// 	me.allTheSubscriptions[i].mySubscriptions[j] = make(map[HashType]*watchedTopic, portion)
 		// }
 		me.allTheSubscriptions[i].mySubscriptions = make(map[HashType]*WatchedTopic, projectedTopicCount/me.theBucketsSize)
-		tmp := make(chan interface{}, 8192)
+		tmp := make(chan interface{}, 256)
 		me.allTheSubscriptions[i].incoming = tmp
 		me.allTheSubscriptions[i].looker = me
 		me.allTheSubscriptions[i].index = i
@@ -315,7 +315,7 @@ func (me *LookupTableStruct) GetAllSubsCount() (int, float64) {
 		for _, bucket := range me.allTheSubscriptions {
 			countingCB.wg.Add(1)
 			if len(bucket.incoming) >= cap(bucket.incoming) {
-				fmt.Println("error: bucket.incoming is full")
+				fmt.Println("error: getallsubs bucket.incoming is full")
 			}
 			bucket.incoming <- &countingCB
 		}
@@ -333,7 +333,7 @@ func (me *LookupTableStruct) GetAllSubsCount() (int, float64) {
 }
 
 // TODO: implement a pool of the incoming types.
-// what is this for?
+
 func (bucket *subscribeBucket) processMessages(me *LookupTableStruct) {
 
 	for {
@@ -476,8 +476,8 @@ func (me *LookupTableStruct) Heartbeat(now uint32) {
 	go func() {
 		for _, bucket := range me.allTheSubscriptions {
 			command.wg.Add(1)
-			if len(bucket.incoming) >= cap(bucket.incoming) {
-				fmt.Println("Heartbeat channel full")
+			if len(bucket.incoming)*4 >= cap(bucket.incoming)*3 {
+				fmt.Println("Heartbeat channel full", bucket.index)
 			}
 			bucket.incoming <- &command
 		}
