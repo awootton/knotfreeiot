@@ -3,7 +3,7 @@ package iot
 import (
 	"fmt"
 	"net"
-	"sync"
+	"time"
 
 	"github.com/awootton/knotfreeiot/packets"
 	"github.com/dgryski/go-maglev"
@@ -35,13 +35,14 @@ type upstreamRouterStruct struct {
 	maglev         *maglev.Table
 	previousmaglev *maglev.Table
 	name2channel   map[string]*upperChannel
-	mux            sync.Mutex
+	// mux            sync.Mutex
 }
 
 // getUpperChannel returns which upperChannel to handle i
+// we do this constantly so it needs to be fast.
 func (router *upstreamRouterStruct) getUpperChannel(h uint64) *upperChannel {
-	router.mux.Lock()
-	defer router.mux.Unlock()
+	// router.mux.Lock()
+	// defer router.mux.Unlock()
 	index := router.maglev.Lookup(h)
 	if index >= len(router.channels) {
 		fmt.Println("ERROR index >= len(router.channels) panic ")
@@ -59,8 +60,8 @@ func (me *LookupTableStruct) SetUpstreamNames(names []string, addresses []string
 	// this is really a function on upstreamRouter:upstreamRouterStruct
 
 	router := me.upstreamRouter
-	router.mux.Lock()
-	defer router.mux.Unlock()
+	// router.mux.Lock()
+	// defer router.mux.Unlock()
 
 	if len(names) != len(addresses) {
 		fmt.Println("error len(names) != len(addresses) panic")
@@ -109,7 +110,7 @@ func (me *LookupTableStruct) SetUpstreamNames(names []string, addresses []string
 		if found && upc.running {
 			router.channels[i] = upc
 		} else {
-			fmt.Println("starting upper router from ", me.ex.Name, " to ", name)
+			fmt.Println("SetUpstreamNames starting upper router from ", me.ex.Name, " to ", name)
 			upc = &upperChannel{}
 			upc.name = name
 			upc.address = address
@@ -151,7 +152,8 @@ func (me *LookupTableStruct) SetUpstreamNames(names []string, addresses []string
 	// note that this will need to push up to the guru through the conn
 	// just defined and it can BLOCK until the conn completes.
 	// we must watch those buffers and not block here.
-	go func() {
+	done := make(chan bool)
+	go func(done chan bool) {
 		command := callBackCommand{}
 		command.callback = reSubscribeRemappedTopics
 		for _, bucket := range me.allTheSubscriptions {
@@ -162,7 +164,15 @@ func (me *LookupTableStruct) SetUpstreamNames(names []string, addresses []string
 			bucket.incoming <- &command
 		}
 		command.wg.Wait()
-	}()
+		done <- true
+	}(done)
+
+	select {
+	case <-done:
+		fmt.Println("SetUpstreamNames done")
+	case <-time.After(5 * time.Second):
+		fmt.Println("SetUpstreamNames timeout")
+	}
 
 }
 

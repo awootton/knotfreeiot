@@ -17,7 +17,6 @@
 package iot
 
 import (
-	"bytes"
 	"container/list"
 	"encoding/json"
 	"errors"
@@ -216,10 +215,9 @@ func AddContactStruct(ss *ContactStruct, ssi ContactInterface, config *ContactSt
 				if writeChanUnhooked {
 					break
 				}
-				// all at once
-				buff := &bytes.Buffer{}
-				p.Write(buff)
-				_, err := ss.Write(buff.Bytes())
+
+				err := p.Write(ss)
+
 				if err != nil {
 					if ss.IsSpecial {
 						fmt.Println("writechan error closing now", ss.GetKey().Sig(), err)
@@ -499,6 +497,8 @@ func (ss *ContactStruct) GetToken() *tokens.KnotFreeTokenPayload {
 func (ss *ContactStruct) SetToken(t *tokens.KnotFreeTokenPayload) {
 	// do we need the cruft?
 	// need to keep this because it's the billing topic: t.JWTID
+	ss.writeAccessMutex.Lock()
+	defer ss.writeAccessMutex.Unlock()
 	t.URL = ""
 	t.Issuer = ""
 	ss.token = t
@@ -675,24 +675,28 @@ func (ss *ContactStruct) SetWriter(w io.Writer) {
 
 func (ss *ContactStruct) sendBillingInfo(now uint32) {
 
+	ss.writeAccessMutex.Lock()
 	config := ss.config
-	if ss.token == nil || ss.GetClosed() {
+	tok := ss.token
+	isclosed := ss.isClosed
+	ss.writeAccessMutex.Unlock()
+
+	if config == nil || tok == nil || isclosed {
 		return
 	}
+
+	ss.writeAccessMutex.Lock()
 
 	deltaTime := ss.nextBillingTime - ss.lastBillingTime
 	ss.lastBillingTime = ss.nextBillingTime
 	ss.nextBillingTime += 60 // 60 secs after first time
-
-	// fmt.Println("delta t", deltaTime, ss.String())
-
-	ss.writeAccessMutex.Lock()
 	msg := &Stats{}
 	msg.Input = float64(ss.input)
 	ss.input -= int(msg.Input) // todo: atomic?
 	msg.Output = float64(ss.output)
 	ss.output -= int(msg.Output)         // todo: atomic?
 	msg.Connections = float64(deltaTime) // means one per sec, one per min ... one
+
 	ss.writeAccessMutex.Unlock()
 
 	// also send to exec
@@ -714,7 +718,7 @@ func (ss *ContactStruct) sendBillingInfo(now uint32) {
 
 	// don't bill a billing subscripton for the guru.
 
-	if !ss.GetConfig().IsGuru() {
+	if !config.IsGuru() {
 		doSetExpires := false
 		err = PushPacketUpFromBottom2(ss, p, doSetExpires)
 	}
@@ -728,20 +732,27 @@ func (ss *ContactStruct) sendBillingInfo(now uint32) {
 // 50/60 times it'll do nothing.
 func (ss *ContactStruct) Heartbeat(now uint32) {
 
+	ss.writeAccessMutex.Lock()
+	config := ss.config
+	nextBillingTime := ss.nextBillingTime
+	token := ss.token
+	expires := ss.contactExpires
+	ss.writeAccessMutex.Unlock()
+
 	//fmt.Println("contact heartbeat ", ss.GetKey())
-	if ss.token == nil {
+	if token == nil {
 		// it's not even started yet.
 		return
 	}
 
 	// Guru clients don't bill. ? FIXME:
-	if ss.nextBillingTime < now { // && !ss.GetConfig().IsGuru() {
+	if nextBillingTime < now { // && !ss.GetConfig().IsGuru() {
 
 		ss.sendBillingInfo(now)
 
 	}
-	if !ss.GetConfig().IsGuru() {
-		if ss.GetExpires() < now {
+	if !config.IsGuru() {
+		if expires < now {
 			fmt.Println("contact timed out in heartbeat")
 			ss.Close(errors.New("timed out in heartbeat "))
 		}

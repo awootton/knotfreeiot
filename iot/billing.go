@@ -18,6 +18,7 @@ package iot
 import (
 	"fmt"
 	"math"
+	"sync"
 
 	"github.com/awootton/knotfreeiot/tokens"
 )
@@ -73,6 +74,8 @@ type BillingAccumulator struct {
 	max tokens.KnotFreeContactStats
 
 	name string
+
+	mux sync.Mutex
 }
 
 // StatsWithTime
@@ -90,6 +93,8 @@ type Stats struct {
 // AddUsage accumulates the stats into the BillingAccumulator
 func (ba *BillingAccumulator) AddUsage(stats *tokens.KnotFreeContactStats, now uint32, deltat int) {
 
+	ba.mux.Lock()
+	defer ba.mux.Unlock()
 	c := &ba.a[ba.i]
 	if !c.Used {
 		// first time. init with some time. 60 min free
@@ -137,6 +142,7 @@ func (ba *BillingAccumulator) AddUsage(stats *tokens.KnotFreeContactStats, now u
 // AreUnderMax returns if the stats are under the limits and, if not true,
 // returns a message about it.
 func (ba *BillingAccumulator) AreUnderMax(now uint32) (bool, string) {
+
 	weGood := true
 	why := ""
 	current := tokens.KnotFreeContactStats{}
@@ -279,6 +285,9 @@ func (ba *BillingAccumulator) GetSubscriptions(now uint32) float64 {
 // GetStats calcs them all at once into dest.
 // dest should be zeroed before calling.
 func (ba *BillingAccumulator) GetStats(now uint32, dest *tokens.KnotFreeContactStats) {
+
+	ba.mux.Lock()
+	defer ba.mux.Unlock()
 
 	times := float64(0)
 	tmpnow := now

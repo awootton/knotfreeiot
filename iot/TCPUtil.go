@@ -244,6 +244,9 @@ func handleConnection(tcpConn *net.TCPConn, ex *Executive) {
 		fmt.Println("setup err", err)
 		return
 	}
+
+	defer fmt.Println("KF native contact QUIT, ", tcpConn.RemoteAddr())
+
 	// we might just for over the range of the handler input channel?
 	for ex.IAmBadError == nil {
 
@@ -251,37 +254,31 @@ func handleConnection(tcpConn *net.TCPConn, ex *Executive) {
 		if cc.GetToken() == nil {
 			err := cc.netDotTCPConn.SetDeadline(time.Now().Add(2 * time.Second))
 			if err != nil {
-				fmt.Println("deadline err 3", err)
+				fmt.Println("KF native contact deadline err 3", err)
 				cc.Close(err)
 				return // quit, close the sock, be forgotten
 			}
 		} else {
 			err := cc.netDotTCPConn.SetDeadline(time.Now().Add(30 * time.Minute))
 			if err != nil {
-				fmt.Println("deadline err 4", err, tcpConn.RemoteAddr())
+				fmt.Println("KF native contact deadline err 4", err, tcpConn.RemoteAddr())
 				cc.Close(err)
 				return // quit, close the sock, be forgotten, start over
 			}
 		}
 
-		//fmt.Println("waiting for packet")
+		// fmt.Println("KF native contact waiting for packet con=", cc.GetKey().Sig())
 
 		p, err := packets.ReadPacket(cc)
 		if err != nil {
-			// if strings.Contains(err.Error(), "i/o timeout") { nobody goes 30 min without saying something.
-			// 	fmt.Println("packets KnotFree native timeout")
-			// 	continue
-			// }
 			//connLogThing.Collect("se err " + err.Error())
-			fmt.Println("packets KnotFree native read err", err, tcpConn.RemoteAddr())
+			fmt.Println("KF native contact read err", cc.key.Sig(), err, tcpConn.RemoteAddr(), ex.isGuru)
 			TCPServerPacketReadError.Inc()
 			cc.Close(err)
 			return
 		}
-		// str := p.String() // giant performance problem with p.String()
-		// if !strings.ContainsAny(str, "billing_stats_return_address_subscribe") {
-		// 	fmt.Println("tcp got packet", p.String(), cc)
-		// }
+
+		//fmt.Println("KF native contact got packet con=", cc.GetKey().Sig(), p.Sig())
 
 		err = PushPacketUpFromBottom(cc, p)
 		if err != nil {

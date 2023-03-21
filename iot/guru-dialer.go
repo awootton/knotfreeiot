@@ -56,7 +56,7 @@ func (upc *upperChannel) dialGuru() {
 				fmt.Println("dialGuruAndServe returned err", err, upc.address, upc.name)
 			} else {
 				// there's always an error or else we'd still be in dialGureAndServe?
-				fmt.Println("dialGureAndServe returned noerr", upc.address, upc.name)
+				fmt.Println("dialGuruAndServe returned noerr", upc.address, upc.name)
 			}
 			time.Sleep(time.Second * 1)
 		}
@@ -79,7 +79,7 @@ func (upc *upperChannel) dialGuru() {
 			contact.SetExpires(contact.contactExpires + 60*60*24*365*10) // in 10 years
 
 			defer func() {
-				fmt.Println("guru-dialer finished")
+				fmt.Println("dialGuruAndServe FINISHED")
 				contact.Close(errors.New("finished"))
 			}()
 
@@ -230,10 +230,11 @@ func (upc *upperChannel) dialGuruAndServe() error {
 
 	TCPNameResolverConnected.Inc()
 
-	upc.conn.(*net.TCPConn).SetNoDelay(true)
-	upc.conn.(*net.TCPConn).SetWriteBuffer(4096)
+	tcpconn := upc.conn.(*net.TCPConn)
+	tcpconn.SetNoDelay(true)
+	tcpconn.SetWriteBuffer(4096)
 
-	fmt.Println("dialGuruAndServe ready to ReadPacket from ", upc.address, upc.name)
+	fmt.Println("dialGuruAndServe ready to ReadPacket from ", upc.address, upc.name, tcpconn.LocalAddr())
 
 	upc.down = nil // not used. wut? messages are pushed up directly to tcp
 
@@ -251,20 +252,22 @@ func (upc *upperChannel) dialGuruAndServe() error {
 		return err
 	}
 
-	go func() {
-		command := callBackCommand{}
-		command.callback = reSubscribeMyTopics
-		command.index = upc.index
+	//	go func()
+	// {
+	command := callBackCommand{}
+	command.callback = reSubscribeMyTopics
+	command.index = upc.index
 
-		for _, bucket := range upc.ex.Looker.allTheSubscriptions {
-			command.wg.Add(1)
-			if len(bucket.incoming)*4 >= cap(bucket.incoming)*3 {
-				fmt.Println("dialGuru bucket.incoming channel full", bucket.index)
-			}
-			bucket.incoming <- &command
+	for _, bucket := range upc.ex.Looker.allTheSubscriptions {
+		command.wg.Add(1)
+		if len(bucket.incoming)*4 >= cap(bucket.incoming)*3 {
+			fmt.Println("dialGuru bucket.incoming channel full", bucket.index)
 		}
-		command.wg.Wait()
-	}()
+		bucket.incoming <- &command
+	}
+	command.wg.Wait()
+	//	}()
+	fmt.Println("dialGuruAndServe finished pushing subscriptions", upc.address, upc.name)
 
 	go func() {
 		for upc.founderr == nil && upc.running {
@@ -305,10 +308,14 @@ func (upc *upperChannel) dialGuruAndServe() error {
 		var err error
 		select {
 		case p := <-upc.up:
-			mux.Lock()
+			//fmt.Println("dialGuruAndServe pushing to guru ", p.Sig())
+
 			err = p.Write(upc.conn)
-			mux.Unlock()
+
+			//fmt.Println("dialGuruAndServe pushed to guru ", p.Sig())
 		case <-time.After(time.Millisecond * 100):
+			//fmt.Println("dialGuruAndServe timeout")
+			// check the upc.founderr and upc.running
 		}
 		if err != nil {
 			upc.founderr = err
@@ -317,6 +324,7 @@ func (upc *upperChannel) dialGuruAndServe() error {
 			return err
 		}
 	}
+	fmt.Println("dialGuruAndServe exiting ", upc.address, upc.name, upc.conn.RemoteAddr())
 	return upc.founderr
 }
 
@@ -336,8 +344,8 @@ func ConnectGuruToSuperAide(guru *Executive, aide *Executive) {
 
 	// don't block on anything.
 	router := me.upstreamRouter
-	router.mux.Lock()
-	defer router.mux.Unlock()
+	// router.mux.Lock()
+	// defer router.mux.Unlock()
 
 	if len(names) != len(addresses) {
 		fmt.Println("error len(names) != len(addresses) panic")
@@ -376,7 +384,7 @@ func ConnectGuruToSuperAide(guru *Executive, aide *Executive) {
 		if found && upc.running {
 			router.channels[i] = upc
 		} else {
-			fmt.Println("starting upper router from ", me.ex.Name, " to ", name)
+			fmt.Println("starting dialGuru from ", me.ex.Name, " to ", name)
 			upc = &upperChannel{}
 			upc.name = name
 			upc.address = address

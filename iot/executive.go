@@ -634,7 +634,7 @@ func (ex *Executive) GetExecutiveStats() *ExecutiveStats {
 // Heartbeat one per 10 sec.
 func (ex *Executive) Heartbeat(now uint32) {
 
-	fmt.Println("Heartbeat Executive ", ex.tcpAddress)
+	fmt.Println("Heartbeat Executive ", ex.Name, ex.tcpAddress)
 
 	connectionsTotal.Set(float64(ex.Config.Len()))
 
@@ -645,15 +645,20 @@ func (ex *Executive) Heartbeat(now uint32) {
 
 	ex.Looker.Heartbeat(now)
 
+	// fmt.Println("Heartbeat Executive Looker done", ex.Name, ex.tcpAddress)
+
 	timer := prometheus.NewTimer(heartbeatContactsDuration)
 	defer timer.ObserveDuration()
 
+	//fmt.Println("Heartbeat copy clients", ex.Name)
+
 	contactList := ex.Config.GetContactsListCopy()
 
-	// fmt.Println("Heartbeat clients", len(contactList))
+	//fmt.Println("Heartbeat clients", len(contactList), ex.Name)
 	for _, ci := range contactList {
 		ci.Heartbeat(now)
 	}
+	//fmt.Println("Heartbeat clients DONE", len(contactList), ex.Name)
 }
 
 // Heartbeat everyone when testing

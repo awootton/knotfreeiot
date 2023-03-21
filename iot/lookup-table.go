@@ -312,19 +312,27 @@ func (me *LookupTableStruct) GetAllSubsCount() (int, float64) {
 	// 	totalCapacity += cap(bucket.incoming)
 	// }
 	go func() {
+		fullestBucketSize := -1
+		fullestBucket := -1
 		for _, bucket := range me.allTheSubscriptions {
 			countingCB.wg.Add(1)
-			if len(bucket.incoming) >= cap(bucket.incoming) {
-				fmt.Println("error: getallsubs bucket.incoming is full")
+			if len(bucket.incoming)*4 >= cap(bucket.incoming)*3 {
+				fmt.Println("error: GetAllSubsCount bucket.incoming is full", bucket.index)
+			}
+			if len(bucket.incoming) > fullestBucketSize {
+				fullestBucketSize = len(bucket.incoming)
+				fullestBucket = bucket.index
 			}
 			bucket.incoming <- &countingCB
 		}
+		_ = fullestBucket
+		// fmt.Println("GetAllSubsCount biggest bucket is ", fullestBucket, " with ", fullestBucketSize, " items")
 		countingCB.wg.Wait()
 		done <- true
 	}()
 	select {
 	case <-done:
-	case <-time.After(1 * time.Second):
+	case <-time.After(2 * time.Second):
 		fmt.Println("timeout in GetAllSubsCount ")
 	}
 

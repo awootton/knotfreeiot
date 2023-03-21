@@ -392,8 +392,8 @@ func heartBeatCallBack(me *LookupTableStruct, bucket *subscribeBucket, cmd *call
 					p.SetOption("add-stats", str)
 					p.SetOption("stats-deltat", []byte(strconv.FormatInt(int64(deltaTime), 10)))
 					// publish a "add-stats" command to billing topic
-					// me.ex.channelToAnyAide <- p
-					channelToAnyAideMessages = append(channelToAnyAideMessages, p)
+					me.ex.channelToAnyAide <- p
+					// channelToAnyAideMessages = append(channelToAnyAideMessages, p)
 
 					me.ex.Billing.AddUsage(&msg.KnotFreeContactStats, cmd.now, int(deltaTime))
 				}(watchedItem)

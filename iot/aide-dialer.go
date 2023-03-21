@@ -273,8 +273,6 @@ func (ex *Executive) dialAideAndServe() {
 			}
 			p, err := packets.ReadPacket(conn)
 			if err != nil {
-				if err.Error() == "EOF" {
-				}
 				// if err.Error() == "EOF" { // this is what i'm seeing.
 				// }
 				//if wasStarted {

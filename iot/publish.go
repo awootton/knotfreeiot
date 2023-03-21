@@ -31,29 +31,11 @@ func processPublish(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *publ
 	})
 
 	if wereSpecial {
-		// payloadStr := string(pubmsg.p.Payload)
-		// chop := 100
-		// if len(payloadStr) < chop {
-		// 	chop = len(payloadStr)
-		// }
-		// iii := strings.Index(payloadStr, "\n")
-		// if iii != -1 {
-		// 	chop = iii
-		// }
-		// payloadStr = payloadStr[:chop]
 		fmt.Println("processPublish top con=", pubmsg.ss.GetKey().Sig(), " to:", pubmsg.p.Sig())
 	}
 
 	watchedTopic, ok := getWatcher(bucket, &pubmsg.topicHash)
 	if !ok {
-		// if wereSpecial {
-		// 	// these are normal fmt.Println("processPublish getWatcher found nothing for con=", pubmsg.ss.GetKey().Sig(), " p:", pubmsg.p.Sig())
-		// } else {
-		// 	haveUpstream := len(me.upstreamRouter.channels) != 0
-		// 	if !haveUpstream {
-		// 		fmt.Println("processPublish getWatcher found nothing for con=", pubmsg.ss.GetKey().Sig(), " p:", pubmsg.p.Sig())
-		// 	}
-		// }
 
 		// nobody local is subscribing to this.
 		// push it up to the next level

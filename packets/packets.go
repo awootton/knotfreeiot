@@ -443,6 +443,10 @@ func (p *Unsubscribe) Fill(str *Universal) error {
 func (p *Send) Fill(str *Universal) error {
 
 	if len(str.Args) < 3 {
+		// fmt.Println("too few args for Send", str.Cmd)
+		// for _, a := range str.Args {
+		// 	fmt.Println("arg", a)
+		// }
 		return errors.New("too few args for Send")
 	}
 	p.Address.FromBytes(str.Args[0])

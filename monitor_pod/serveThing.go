@@ -158,10 +158,8 @@ func ServeGetTime(token string, c *ThingContext) { // use knotfree format
 					err := Subscribe(c, conn) // how do we know the conn is any good?
 					if err != nil {
 						println("subscribing ERROR:"+c.Topic, err)
-						conn.Close()
+						conn.Close() // we should get a ReadPacket error asap
 						c.fail++
-						time.Sleep(10 * time.Second)
-						continue
 					}
 					select {
 					case <-time.After(14*time.Minute + time.Minute*time.Duration(4*rand.Float32())):
@@ -178,7 +176,7 @@ func ServeGetTime(token string, c *ThingContext) { // use knotfree format
 			for { // read cmd and respond loop
 				p, err := packets.ReadPacket(conn) // blocks
 				if err != nil {
-					println("client err:", c.Topic, err.Error())
+					println("ReadPacket client err:", c.Topic, err.Error())
 					conn.Close()
 					c.fail++
 					quitSubscribeLoop <- true
