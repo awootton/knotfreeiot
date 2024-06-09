@@ -10,13 +10,12 @@ import (
 	"time"
 
 	"github.com/awootton/knotfreeiot/iot"
-	"github.com/awootton/knotfreeiot/mainhelpers"
 	"github.com/awootton/knotfreeiot/tokens"
 )
 
 func main() {
 
-	var err error
+	// var err error
 
 	// f, err := os.Create("cpu.out")
 	// if err != nil {
@@ -39,7 +38,7 @@ func main() {
 
 	isTCP := true
 	// launch a guru
-	aideCount := 0
+	aideCount := 1
 	ce := iot.MakeSimplestCluster(getTime, isTCP, aideCount, "")
 
 	theGuru := ce.Gurus[0]
@@ -52,40 +51,37 @@ func main() {
 	tenKstats := tokens.GetTokenTenKStatsAndPrice()
 	var mainLimits = &iot.ExecutiveLimits{}
 	mainLimits.KnotFreeContactStats = tenKstats.Stats
-	limits := mainLimits
+	// limits := mainLimits
 
-	token := tokens.GetImpromptuGiantToken()
-	isGuru := false
-	ce2 := iot.MakeTCPMain("aide-0", limits, token, isGuru)
-	mainhelpers.StartPublicServer(ce2) // this will heartbeat the theAide
+	// token := tokens.GetImpromptuGiantToken()
+	// isGuru := false
+	// ce2 := iot.MakeTCPMain("aide-0", limits, token, isGuru)
+	// iot.StartPublicServer(ce2) // this will heartbeat the theAide
 
-	theAide := ce2.Aides[0]
+	theAide := ce.Aides[0]
 	fmt.Println("theAide tcp", theAide.GetTCPAddress())   // 8384
 	fmt.Println("theAide http", theAide.GetHTTPAddress()) // 8080
 
 	time.Sleep(1 * time.Second)
 
-	guruList := []string{theGuru.Name}
-	guruAddress := []string{theGuru.GetTCPAddress()}
+	// guruList := []string{theGuru.Name}
+	// guruAddress := []string{theGuru.GetTCPAddress()}
 
-	err = iot.PostUpstreamNames(guruList, guruAddress, theGuru.GetHTTPAddress())
-	checkerr(err)
-	err = iot.PostUpstreamNames(guruList, guruAddress, theAide.GetHTTPAddress())
-	checkerr(err)
+	// err = iot.PostUpstreamNames(guruList, guruAddress, theGuru.GetHTTPAddress())
+	// checkerr(err)
+	// err = iot.PostUpstreamNames(guruList, guruAddress, theAide.GetHTTPAddress())
+	// checkerr(err)
 
 	for {
-		theGuru.Heartbeat(getTime())
+		now := getTime()
+		theGuru.Heartbeat(now)
 		time.Sleep(10 * time.Second)
 	}
-
-	// sent Set
-
 	// fmt.Println("the bottom of the world!")
-
 }
 
-func checkerr(err error) {
-	if err != nil {
-		fmt.Println("error", err)
-	}
-}
+// func checkerr(err error) {
+// 	if err != nil {
+// 		fmt.Println("error", err)
+// 	}
+// }

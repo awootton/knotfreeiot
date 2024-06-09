@@ -34,7 +34,7 @@ func processSubscribe(me *LookupTableStruct, bucket *subscribeBucket, submsg *su
 
 	wereSpecial := false
 	SpecialPrint(&submsg.p.PacketCommon, func() {
-		fmt.Println("processSubscribe top con= ", submsg.ss.GetKey().Sig(), submsg.p.Sig())
+		fmt.Println(me.ex.Name, "processSubscribe top con= ", submsg.ss.GetKey().Sig(), submsg.p.Sig())
 		wereSpecial = true
 	})
 
@@ -108,11 +108,11 @@ func processSubscribe(me *LookupTableStruct, bucket *subscribeBucket, submsg *su
 	watchedTopic.expires = 26*60 + me.getTime()
 
 	// only the first subscriber can set the IPv6 address that lookup can return.
-	val, ok = submsg.p.GetOption("IPv6")
+	val, ok = submsg.p.GetOption("AAAA")
 	if ok {
-		_, exists := watchedTopic.GetOption("IPv6")
+		_, exists := watchedTopic.GetOption("AAAA")
 		if !exists {
-			watchedTopic.SetOption("IPv6", val)
+			watchedTopic.SetOption("AAAA", val)
 		}
 	}
 
@@ -132,7 +132,7 @@ func processSubscribe(me *LookupTableStruct, bucket *subscribeBucket, submsg *su
 	nonce, ok3 := subs.GetOption("nonce")
 	if ok1 && ok2 && ok3 {
 
-		fmt.Println("Subscribe setting permanent node=", me.ex.Name)
+		fmt.Println(me.ex.Name, "Subscribe setting permanent node=", me.ex.Name)
 
 		hadError := ""
 
@@ -192,18 +192,18 @@ func processSubscribe(me *LookupTableStruct, bucket *subscribeBucket, submsg *su
 		// }
 		contactKey := submsg.ss.GetKey()
 		if wereSpecial {
-			fmt.Println("Subscribe remembering con= ", submsg.ss.GetKey().Sig(), " for ", submsg.p.Sig())
+			fmt.Println(me.ex.Name, "Subscribe remembering con= ", submsg.ss.GetKey().Sig(), " for ", submsg.p.Sig())
 		}
 		// do we exist already?
 		foundWi, exists := watchedTopic.get(contactKey)
 		if exists {
 			if wereSpecial {
-				fmt.Println("Subscribe already exists", contactKey.Sig(), " for ", submsg.p.Sig())
+				fmt.Println(me.ex.Name, "Subscribe already exists", contactKey.Sig(), " for ", submsg.p.Sig())
 			}
 			_ = foundWi
 		} else {
 			if wereSpecial {
-				fmt.Println("Subscribe adding new contact:", contactKey.Sig(), " for", submsg.p.Sig())
+				fmt.Println(me.ex.Name, "Subscribe adding new contact:", contactKey.Sig(), " for", submsg.p.Sig())
 			}
 			watchedTopic.put(contactKey, wi)
 		}
@@ -216,7 +216,7 @@ func processSubscribe(me *LookupTableStruct, bucket *subscribeBucket, submsg *su
 		_, ok := submsg.p.GetOption("noack")
 		if !ok {
 			if wereSpecial {
-				fmt.Println("Subscribe writing down:", submsg.ss.GetKey().Sig(), " for", submsg.p.Sig())
+				fmt.Println(me.ex.Name, "Subscribe writing down:", submsg.ss.GetKey().Sig(), " for", submsg.p.Sig())
 			}
 			submsg.ss.WriteDownstream(submsg.p) // subs going down are suback's
 		}
@@ -226,9 +226,17 @@ func processSubscribe(me *LookupTableStruct, bucket *subscribeBucket, submsg *su
 		// there's a case when we are local and just running an aide.
 		if noUpstream {
 			if wereSpecial {
-				fmt.Println("Subscribe noUpstream writing down:", submsg.ss.GetKey().Sig(), " for", submsg.p.Sig())
+				fmt.Println(me.ex.Name, "Subscribe noUpstream writing down:", submsg.ss.GetKey().Sig(), " for", submsg.p.Sig())
 			}
+			// if bucket.index == 49 {
+			// 	fmt.Println("subscribe noUpstream writing down TOP for bucket 49")
+			// }
+
 			submsg.ss.WriteDownstream(submsg.p) // subs going down are suback's
+
+			// if bucket.index == 49 {
+			// 	fmt.Println("subscribe noUpstream writing down DONE for bucket 49")
+			// }
 		}
 	}
 
@@ -262,7 +270,7 @@ func processSubscribeDown(me *LookupTableStruct, bucket *subscribeBucket, submsg
 			_ = key
 
 			if wereSpecial {
-				fmt.Println("processSubscribeDown sending con= ", ci.GetKey().Sig(), submsg.p.Sig())
+				fmt.Println(me.ex.Name, "processSubscribeDown sending con= ", ci.GetKey().Sig(), submsg.p.Sig())
 			}
 
 			if !me.checkForBadContact(ci, watcheditem) {
@@ -280,7 +288,14 @@ func heartBeatCallBack(me *LookupTableStruct, bucket *subscribeBucket, cmd *call
 
 	haveUpstream := len(me.upstreamRouter.channels) != 0
 
-	defer cmd.wg.Done()
+	defer func() {
+		cmd.wg.Done()
+		cmd.donemap[bucket.index] = 1
+	}()
+
+	// if bucket.index == 49 {
+	// 	fmt.Println("heartbeat TOP for bucket 49")
+	// }
 
 	s := bucket.mySubscriptions
 
@@ -310,7 +325,7 @@ func heartBeatCallBack(me *LookupTableStruct, bucket *subscribeBucket, cmd *call
 		for it.Next() {
 			key, item := it.KeyValue()
 			// also clean up the closed ones.
-			if expireAll || item.contactInterface.GetClosed() {
+			if expireAll || item.contactInterface.IsClosed() {
 
 				// if expireAll {
 				// 	fmt.Println("Subscribe heartbeat expiring all sub=", watchedItem.name.Sig(), " con=", item.contactInterface.GetKey().Sig())
@@ -391,8 +406,7 @@ func heartBeatCallBack(me *LookupTableStruct, bucket *subscribeBucket, cmd *call
 					}
 					p.SetOption("add-stats", str)
 					p.SetOption("stats-deltat", []byte(strconv.FormatInt(int64(deltaTime), 10)))
-					// publish a "add-stats" command to billing topic
-					me.ex.channelToAnyAide <- p
+					// publish a "add-stats" command to billing topicget					me.ex.channelToAnyAide <- p
 					// channelToAnyAideMessages = append(channelToAnyAideMessages, p)
 
 					me.ex.Billing.AddUsage(&msg.KnotFreeContactStats, cmd.now, int(deltaTime))
@@ -405,12 +419,21 @@ func heartBeatCallBack(me *LookupTableStruct, bucket *subscribeBucket, cmd *call
 		}
 	}
 
+	// if bucket.index == 49 {
+	// 	fmt.Println("heartbeat after watchedItems for bucket 49")
+	// }
+
 	// the http serve to a thing generates many of these.
 	// we have to do this async
 	for _, emptyBucket := range emptyTopics {
 		// fmt.Println("Subscribe deleting entire empty bucket", emptyBucket.name)
 		delete(bucket.mySubscriptions, emptyBucket.name) // the name is the hash
 	}
+
+	// if bucket.index == 49 {
+	// 	fmt.Println("heartbeat after deletes for bucket 49")
+	// }
+
 	// async. we never know when PushUp might block
 	go func() {
 		for _, emptyBucket := range emptyTopics {
@@ -438,6 +461,11 @@ func heartBeatCallBack(me *LookupTableStruct, bucket *subscribeBucket, cmd *call
 			}
 		}
 	}()
+
+	// if bucket.index == 49 {
+	// 	fmt.Println("heartbeat after starting unsubs for bucket 49")
+	// }
+
 	go func() {
 		for _, p := range channelToAnyAideMessages {
 			if len(me.ex.channelToAnyAide)*4 > cap(me.ex.channelToAnyAide)*3 {
@@ -446,10 +474,16 @@ func heartBeatCallBack(me *LookupTableStruct, bucket *subscribeBucket, cmd *call
 			me.ex.channelToAnyAide <- p
 		}
 	}()
+
+	// if bucket.index == 49 {
+	// 	fmt.Println("heartbeat DONE for bucket 49")
+	// }
+
 }
 
 func processUnsubscribe(me *LookupTableStruct, bucket *subscribeBucket, unmsg *unsubscribeMessage) {
 
+	_ = me
 	SpecialPrint(&unmsg.p.PacketCommon, func() {
 		fmt.Println("processUnsubscribe con= ", unmsg.ss.GetKey().Sig(), "add ", unmsg.p.Sig())
 	})

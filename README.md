@@ -2,6 +2,8 @@
 ![knotfree knot](/KnotFreeKnot256cropped.png)
  # knotfree.net
 
+See example projects: https://wootton.substack.com/
+
 ## What
 
 This is the source code to a publish/subscribe (pubsub) service running at [knotfree.net](https://knotfree.net).
@@ -17,6 +19,11 @@ Services include:
 [^1]: See example below.
 
 [^2]: See example in ```monitor_pod/main.go``` and definition in ```packets/packets.go```
+
+There is a frontend running at knotfree.net and the source code for that is at https://github.com/awootton/knotfree-net-homepage
+There is C++ for Arduino which is the embedded code for microcontrollers that completes an IOT stack. This is at https://github.com/awootton/mqtt5nano
+
+Doncumentation is in the knotfreeiot wiki here: https://github.com/awootton/knotfreeiot/wiki
 
 ## Why
 

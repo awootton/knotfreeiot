@@ -167,10 +167,11 @@ func (a HalfHash) String() string {
 	return strconv.FormatUint(uint64(a), 16)
 }
 
+// Sig returns the base64 of the low 3 bytes. It's a 'signature' for debugging.
 func (a HalfHash) Sig() string {
 	var bytes [3]byte
-	bytes[0] = byte(uint32(a) & 0xff)
+	bytes[0] = (byte(uint32(a)>>16) & 0xff)
 	bytes[1] = (byte(uint32(a)>>8) & 0xff)
-	bytes[2] = (byte(uint32(a)>>16) & 0xff)
+	bytes[2] = byte(uint32(a) & 0xff)
 	return base64.RawURLEncoding.EncodeToString(bytes[:])
 }

@@ -86,7 +86,7 @@ func (cc *textContact) WriteDownstream(packet packets.Interface) error {
 		bytes := []byte(text + "\n")
 		_, err := cc.Write(bytes)
 		if err != nil {
-			cc.Close(err)
+			cc.DoClose(err)
 		}
 		return err
 	}
@@ -101,7 +101,7 @@ func (cc *textContact) WriteDownstream(packet packets.Interface) error {
 	//fmt.Println("writing down ", string(bytes))
 	_, err := cc.Write(bytes)
 	if err != nil {
-		cc.Close(err)
+		cc.DoClose(err)
 	}
 	return err
 }
@@ -116,7 +116,7 @@ func textServer(ex *Executive, name string) {
 		fmt.Println("server didnt' start ", err)
 		return
 	}
-	for ex.IAmBadError == nil {
+	for !ex.IsClosed() {
 		//fmt.Println("Server listening")
 		tmpconn, err := ln.Accept()
 		if err != nil {
@@ -135,7 +135,7 @@ func textConnection(tcpConn *net.TCPConn, ex *Executive) {
 	lineReader := bufio.NewReader(tcpConn)
 
 	cc := localMakeTextContact(ex.Config, tcpConn)
-	defer cc.Close(nil)
+	defer cc.DoClose(nil)
 
 	// connLogThing.Collect("new connection") FIXME: all the connLogThing become prometheus
 
@@ -145,8 +145,8 @@ func textConnection(tcpConn *net.TCPConn, ex *Executive) {
 		fmt.Println("setup err", err)
 		return
 	}
-	for ex.IAmBadError == nil {
-		if cc.GetClosed() {
+	for !ex.IsClosed() {
+		if cc.IsClosed() {
 			return
 		}
 		if cc.GetToken() == nil {
@@ -155,7 +155,7 @@ func textConnection(tcpConn *net.TCPConn, ex *Executive) {
 			if err != nil {
 				//connLogThing.Collect("server err2 " + err.Error())
 				fmt.Println("set deadline err1", err)
-				cc.Close(err)
+				cc.DoClose(err)
 				return // quit, close the sock, be forgotten
 			}
 		} else {
@@ -164,7 +164,7 @@ func textConnection(tcpConn *net.TCPConn, ex *Executive) {
 			if err != nil {
 				//connLogThing.Collect("server err2 " + err.Error())
 				fmt.Println("set deadline err2", err)
-				cc.Close(err)
+				cc.DoClose(err)
 				return // quit, close the sock, be forgotten
 			}
 		}
@@ -182,7 +182,7 @@ func textConnection(tcpConn *net.TCPConn, ex *Executive) {
 			if err.Error() != "EOF" {
 				fmt.Println("packets 2 read err", err)
 			}
-			cc.Close(err)
+			cc.DoClose(err)
 			return
 		}
 		p, err := Text2Packet(str)
@@ -190,7 +190,7 @@ func textConnection(tcpConn *net.TCPConn, ex *Executive) {
 			//connLogThing.Collect("se err " + err.Error())
 			fmt.Println("packets 3 read err", err)
 			// should we write 'man' page and keep going?
-			cc.Close(err)
+			cc.DoClose(err)
 			return
 		}
 		//fmt.Println("t got packet", p)
@@ -198,7 +198,7 @@ func textConnection(tcpConn *net.TCPConn, ex *Executive) {
 		if err != nil {
 			//connLogThing.Collect("se err " + err.Error())
 			fmt.Println("text.push err", err)
-			cc.Close(err)
+			cc.DoClose(err)
 			return
 		}
 	}

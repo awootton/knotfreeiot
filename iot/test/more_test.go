@@ -20,16 +20,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"reflect"
 	"strconv"
 	"testing"
 
 	"github.com/awootton/knotfreeiot/iot"
-	"github.com/awootton/knotfreeiot/packets"
 	"github.com/awootton/knotfreeiot/tokens"
 )
 
-func fixmeTestGrowGurus(t *testing.T) {
+func XxxxTestGrowGurus(t *testing.T) {
 
 	tokens.LoadPublicKeys()
 
@@ -59,9 +57,9 @@ func fixmeTestGrowGurus(t *testing.T) {
 	ce.WaitForActions()
 
 	c1test := c1.(*testContact)
-	got, _ = c1test.getResultAsString()
+	got, _ = c1test.popResultAsString()
 	c2test := c2.(*testContact)
-	got, _ = c2test.getResultAsString()
+	got, _ = c2test.popResultAsString()
 
 	c1test.SetExpires(2000000000)
 	c2test.SetExpires(2000000000)
@@ -102,26 +100,26 @@ func fixmeTestGrowGurus(t *testing.T) {
 		SendText(c2, command) // publish to c1 from c2
 	}
 	WaitForActions(ce.Aides[0])
-	got, _ = c1test.getResultAsString()
+	got, _ = c1test.popResultAsString()
 	for i := 0; i < subsStressSize; i++ {
 
 		got = "none"
 		want = "a_test_message"
-		p := c1test.mostRecent
-		if len(p) != 0 && reflect.TypeOf(p[0]) == reflect.TypeOf(&packets.Send{}) {
-			send := p[0].(*packets.Send)
-			got = string(send.Payload)
-		} else {
-			fmt.Println("expected Send, got ", p)
-		}
-		if len(c1test.mostRecent) > 0 {
-			//fmt.Println("popping", c1test.mostRecent[0])
-			c1test.mostRecent = c1test.mostRecent[1:]
-		}
-		if got != want {
-			fmt.Println("no most recent", i)
-			t.Errorf("got %v, want %v", got, want)
-		}
+		//p := c1test.mostRecent
+		// if len(p) != 0 && reflect.TypeOf(p[0]) == reflect.TypeOf(&packets.Send{}) {
+		// 	send := p[0].(*packets.Send)
+		// 	got = string(send.Payload)
+		// } else {
+		// 	fmt.Println("expected Send, got ", p)
+		// }
+		// if len(c1test.mostRecent) > 0 {
+		// 	//fmt.Println("popping", c1test.mostRecent[0])
+		// 	c1test.mostRecent = c1test.mostRecent[1:]
+		// }
+		// if got != want {
+		// 	fmt.Println("no most recent", i)
+		// 	t.Errorf("got %v, want %v", got, want)
+		// }
 	}
 
 	// delete a subscription a minute and see what happens.
@@ -171,7 +169,7 @@ func atw_fixme_TestGrowAides(t *testing.T) {
 	ce.WaitForActions()
 	ce.WaitForActions()
 
-	c1 := getNewContactFromSlackestAide(ce, tokens.Test32xToken)
+	c1 := getNewContactFromSlackestAide(ce, string(tokens.Get32xTokenLocal()))
 	c1.(*testContact).index = 0
 	allContacts = append(allContacts, c1.(*testContact))
 	c1.SetExpires(2000000000) //localtime + 60*60) // 1580000000
@@ -200,7 +198,7 @@ func atw_fixme_TestGrowAides(t *testing.T) {
 	// add a contact a minute and see what happens.
 	// contacts will start timing out
 	for i := 0; i < contactStressSize; i++ {
-		ci := getNewContactFromSlackestAide(ce, tokens.Test32xToken)
+		ci := getNewContactFromSlackestAide(ce, string(tokens.Get32xTokenLocal()))
 		allContacts = append(allContacts, ci.(*testContact))
 		index := len(allContacts)
 		ci.(*testContact).index = index
@@ -261,17 +259,17 @@ func atw_fixme_TestGrowAides(t *testing.T) {
 		got = "none"
 		index := cc.index
 		want = fmt.Sprintf("a_test_message_%v", index)
-		p := cc.mostRecent
-		if len(p) != 0 && reflect.TypeOf(p[0]) == reflect.TypeOf(&packets.Send{}) {
-			send := p[0].(*packets.Send)
-			got = string(send.Payload)
-		} else {
-			fmt.Println("expected Send, got ", reflect.TypeOf(p), p)
-		}
-		if len(cc.mostRecent) > 0 {
-			//fmt.Println("popping", cc.mostRecent[0])
-			cc.mostRecent = cc.mostRecent[:0]
-		}
+		// p := cc.mostRecent
+		// if len(p) != 0 && reflect.TypeOf(p[0]) == reflect.TypeOf(&packets.Send{}) {
+		// 	send := p[0].(*packets.Send)
+		// 	got = string(send.Payload)
+		// } else {
+		// 	fmt.Println("expected Send, got ", reflect.TypeOf(p), p)
+		// }
+		// if len(cc.mostRecent) > 0 {
+		// 	//fmt.Println("popping", cc.mostRecent[0])
+		// 	cc.mostRecent = cc.mostRecent[:0]
+		// }
 
 		if got != want {
 			t.Errorf("got %v, want %v", got, want)
@@ -290,10 +288,11 @@ func atw_fixme_TestGrowAides(t *testing.T) {
 		ce.Aides[len(ce.Aides)-1] = nil         // Erase last element (write zero value).
 		ce.Aides = ce.Aides[:len(ce.Aides)-1]   // shorten list
 
-		minion.IAmBadError = errors.New("killed by test")
+		// fix  me set closed minion.Do = errors.New("killed by test")
+		minion.DoClose()
 		contactList := minion.Config.GetContactsListCopy() // copy list because can't call close while there's a lock
 		for _, cc := range contactList {
-			cc.Close(errors.New("test close"))
+			cc.DoClose(errors.New("test close"))
 		}
 		// what else ??
 
@@ -331,16 +330,16 @@ func atw_fixme_TestGrowAides(t *testing.T) {
 		index := cc.index
 		got = "none"
 		want = "a_test_message2_" + strconv.FormatInt(int64(index), 10)
-		p := cc.mostRecent
-		if len(p) != 0 && reflect.TypeOf(p[0]) == reflect.TypeOf(&packets.Send{}) {
-			send := p[0].(*packets.Send)
-			got = string(send.Payload)
-		} else {
-			fmt.Println("i expected Send, got ", cc.mostRecent, want)
-		}
-		if len(cc.mostRecent) > 0 {
-			cc.mostRecent = cc.mostRecent[1:]
-		}
+		// p := cc.mostRecent
+		// if len(p) != 0 && reflect.TypeOf(p[0]) == reflect.TypeOf(&packets.Send{}) {
+		// 	send := p[0].(*packets.Send)
+		// 	got = string(send.Payload)
+		// } else {
+		// 	fmt.Println("i expected Send, got ", cc.mostRecent, want)
+		// }
+		// if len(cc.mostRecent) > 0 {
+		// 	cc.mostRecent = cc.mostRecent[1:]
+		// }
 		if got != want {
 			fmt.Println("i no most recent", index, cc)
 			t.Errorf("got %v, want %v", got, want)

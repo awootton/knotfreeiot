@@ -1,3 +1,59 @@
+-----  broken and switched to squarespace notes May the fourth '24:
+
+	Final notes:  Copy acme from google DNS to squarespace over and over 
+		Then it worked.
+
+
+	See: https://www.youtube.com/watch?v=G4CmbYL9UPg
+
+	# not using gcloud now.
+
+	at squarespace.com change the nameservers to square ones
+
+	# have: bcm2uowuipzx CNAME gv-iya46vlnm72bix.dv.googlehosted.com
+	# and:  _acme-challenge.knotfree.net	text = "o2XLQDz1ovOrWgHArPQCNB0DSMDwRC4-6uqOeKJxUwM"
+
+	nslookup -type=TXT _acme-challenge.knotfree.net
+		# ok
+	nslookup -type=CNAME bcm2uowuipzx.knotfree.net
+		# no answer
+
+	
+	export PROJECT_ID=fair-theater-238820
+
+	gcloud iam service-accounts keys create key.json \
+	   --iam-account dns01-solver@$PROJECT_ID.iam.gserviceaccount.com
+
+	kk delete secret                 clouddns-dns01-solver-svc-acct
+	kk delete secret -n default      clouddns-dns01-solver-svc-acct
+	kk delete secret -n cert-manager clouddns-dns01-solver-svc-acct	
+
+	kubectl create secret generic clouddns-dns01-solver-svc-acct \
+	   --from-file=key.json
+
+	kubectl create secret generic -n default clouddns-dns01-solver-svc-acct \
+	   --from-file=key.json
+
+	kubectl create secret generic -n cert-manager clouddns-dns01-solver-svc-acct \
+	   --from-file=key.json
+
+	   # copy the _acme-challenge.knotfree.net. from console cloud domains  to squarespace
+	   # the new one is xxx  
+
+	nslookup -type=TXT _acme-challenge.knotfree.net #  wait for value to change?
+	nslookup -debug -type=TXT _acme-challenge.knotfree.net ns-cloud-a1.googledomains.com
+
+	dig knotfree.net @ns-cloud-a1.googledomains.com
+
+	see: kubectl describe certificate
+
+	dig @ns-cloud-a1.googledomains.com knotfree.net soa 
+	dig @ns-cloud-a1.googledomains.com -t txt knotfree.net
+
+
+-----  end broken and switched to squarespace notes:
+
+----- older notes: 
 
     ## dns-01 google gcloud setup 
 
@@ -7,10 +63,11 @@
 
 	export PROJECT_ID=fair-theater-238820
 
-	// already created error 
 	gcloud iam service-accounts create dns01-solver --display-name "dns01-solver"
-		Created service account [dns01-solver].
+		
+		Created service account [dns01-solver] or already created error : Service account dns01-solver already exists within project projects/fair-theater-238820.
 
+	export PROJECT_ID=fair-theater-238820
 	gcloud projects add-iam-policy-binding $PROJECT_ID \
 	   --member serviceAccount:dns01-solver@$PROJECT_ID.iam.gserviceaccount.com \
 	   --role roles/dns.admin
@@ -21,13 +78,19 @@
 	kubectl create secret generic clouddns-dns01-solver-svc-acct \
 	   --from-file=key.json
 
+	kubectl create secret generic -n default clouddns-dns01-solver-svc-acct \
+	   --from-file=key.json
+
+	kubectl create secret generic -n cert-manager clouddns-dns01-solver-svc-acct \
+	   --from-file=key.json
+
+	   copy the _acme-challenge.knotfree.net. from console cloud domains  to google domains
+
 --------
 
 also 
 
 kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
-
-
 
 -------
 

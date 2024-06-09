@@ -91,12 +91,6 @@ type watcherItem struct {
 func (me *LookupTableStruct) PushUp(p packets.Interface, h HashType) error {
 
 	router := me.upstreamRouter
-	//if me.isGuru || router.maglev == nil {
-	//if me.isGuru {
-	// what if there is no up?
-	// fmt.Println("me.isGuru pushing up ", me.myname)
-	// return ?
-	//}
 	if router.maglev == nil {
 		// some of us don't have superiors so no pushup
 		// unless we have a superior cluster in which case there's
@@ -191,7 +185,15 @@ func (me *LookupTableStruct) sendSubscriptionMessage(ss ContactInterface, p *pac
 	b := me.allTheSubscriptions[i]
 	// fmt.Println("sendSubscriptionMessage pushing #", b.index, len(b.incoming))
 	if len(b.incoming) >= cap(b.incoming) {
-		fmt.Println("sendSubscriptionMessage channel full")
+		fmt.Println("sendSubscriptionMessage channel full", i)
+		for item := range b.incoming {
+			cb, ok := item.(*callBackCommand)
+			if ok {
+				fmt.Println("sendSubscriptionMessage callback ", cb.name)
+			} else {
+				fmt.Println("sendSubscriptionMessage type ", reflect.TypeOf(item))
+			}
+		}
 	}
 	b.incoming <- &msg
 	// fmt.Println("sendSubscriptionMessage pushed to q")
@@ -281,6 +283,7 @@ func (me *LookupTableStruct) sendPublishMessage(ss ContactInterface, p *packets.
 type countingCallBackCmd struct {
 	callBackCommand
 	count         int
+	totalCount    int
 	totalCapacity int
 	qdepth        int
 	mut           sync.Mutex
@@ -290,6 +293,14 @@ func (cb *countingCallBackCmd) Run(me *LookupTableStruct, bucket *subscribeBucke
 	defer cb.wg.Done()
 	cb.mut.Lock()
 	cb.count += len(bucket.mySubscriptions)
+	cb.totalCount += len(bucket.mySubscriptions)
+	// TODO: check for types of subscriptions eg billing vs topis
+	for _, wt := range bucket.mySubscriptions {
+		_, is := wt.IsBilling()
+		if is {
+			cb.count--
+		}
+	}
 	cb.qdepth += len(bucket.incoming)
 	cb.totalCapacity += cap(bucket.incoming)
 	defer cb.mut.Unlock()
@@ -299,18 +310,10 @@ func (cb *countingCallBackCmd) Run(me *LookupTableStruct, bucket *subscribeBucke
 // average depth of the channels.
 // It's not right. It needs a lock or something.
 func (me *LookupTableStruct) GetAllSubsCount() (int, float64) {
-	// count := 0
-	// totalCapacity := 0
-	// qdepth := 0
-	countingCB := countingCallBackCmd{}
 
+	countingCB := countingCallBackCmd{}
 	done := make(chan bool)
 
-	// for _, bucket := range me.allTheSubscriptions {
-	// 	count += len(bucket.mySubscriptions)
-	// 	qdepth += len(bucket.incoming)
-	// 	totalCapacity += cap(bucket.incoming)
-	// }
 	go func() {
 		fullestBucketSize := -1
 		fullestBucket := -1
@@ -346,6 +349,10 @@ func (bucket *subscribeBucket) processMessages(me *LookupTableStruct) {
 
 	for {
 		msg := <-bucket.incoming // wait right here
+
+		// if bucket.index == 49 {
+		// 	fmt.Println("have processMessages ", reflect.TypeOf(msg), "bucket", bucket.index)
+		// }
 
 		// if reflect.TypeOf(msg) != reflect.TypeOf(&callBackCommand{}) {
 		// 	fmt.Println("have processMessages ", reflect.TypeOf(msg), "#", bucket.index)
@@ -451,7 +458,8 @@ func NewWithInt64Comparator() *redblacktree.Tree {
 
 // A grab bag of paranoid ideas about bad states. Returns true if the contact is bad.
 func (me *LookupTableStruct) checkForBadContact(badsock ContactInterface, pubstruct *WatchedTopic) bool {
-	return badsock.GetConfig() == nil
+	_ = pubstruct
+	return badsock.IsClosed() //.GetConfig() == nil
 }
 
 func getWatcher(bucket *subscribeBucket, h *HashType) (*WatchedTopic, bool) {
@@ -480,6 +488,8 @@ func (me *LookupTableStruct) Heartbeat(now uint32) {
 	command := callBackCommand{}
 	command.callback = heartBeatCallBack
 	command.now = now
+	command.name = "heartBeatCallBack"
+	command.donemap = make([]byte, me.theBucketsSize)
 	isDone := make(chan bool)
 	go func() {
 		for _, bucket := range me.allTheSubscriptions {
@@ -495,7 +505,13 @@ func (me *LookupTableStruct) Heartbeat(now uint32) {
 	select {
 	case <-isDone:
 	case <-time.After(1 * time.Second):
-		fmt.Println("LookupTableStruct Heartbeat timeout")
+		fmt.Println("LookupTableStruct Heartbeat timeout ERROR")
+		for _, bucket := range me.allTheSubscriptions {
+			if command.donemap[bucket.index] == 0 {
+				fmt.Print(" bucket=", bucket.index, len(bucket.incoming))
+			}
+		}
+		fmt.Println()
 	}
 	// fmt.Println("LookupTableStruct Heartbeat DONE")
 }
@@ -651,6 +667,7 @@ func (wt *WatchedTopic) SetOption(key string, val interface{}) {
 func (me *LookupTableStruct) FlushMarkerAndWait() {
 
 	command := callBackCommand{}
+	command.name = "FlushMarkerAndWait"
 	command.callback = flushMarkerCallback
 	for _, bucket := range me.allTheSubscriptions {
 		command.wg.Add(1)
@@ -673,10 +690,12 @@ type CallBackInterface interface {
 // see countingCallBackCmd for a more modern example
 type callBackCommand struct { // todo make interface
 	index int
+	name  string
 	wg    sync.WaitGroup
 	// expires  uint32
 	now      uint32
 	callback func(me *LookupTableStruct, bucket *subscribeBucket, cmd *callBackCommand)
+	donemap  []byte
 }
 
 func (cb *callBackCommand) Run(me *LookupTableStruct, bucket *subscribeBucket) {

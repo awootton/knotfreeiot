@@ -24,7 +24,7 @@ import (
 	"github.com/awootton/knotfreeiot/tokens"
 )
 
-func not_TestDialTCP(t *testing.T) {
+func Xnot_TestDialTCP(t *testing.T) {
 
 	aTestDial1(t, true)
 

@@ -42,7 +42,7 @@ func TestSubscriptionOverrun(t *testing.T) {
 	// it will post every 5 minutes for an hour and then go quiet.
 	// it should get closed.
 
-	allContacts := make([]*testContact, 0)
+	// allContacts := make([]*testContact, 0)
 
 	// make cluster with 1 guru and 1 aides.
 	// don't call operate or it will lose an aide.
@@ -51,7 +51,7 @@ func TestSubscriptionOverrun(t *testing.T) {
 	aide1 := ce.Aides[0]
 
 	c1 := getNewContactFromAide(aide1, sampleToken1)
-	allContacts = append(allContacts, c1.(*testContact))
+	// llContacts = append(allContacts, c1.(*testContact))
 	c1.SetExpires(localtime + 60*60*60) // an hour
 
 	// c2 := getNewContactFromAide(aide1, sampleToken1)
@@ -77,7 +77,7 @@ func TestSubscriptionOverrun(t *testing.T) {
 			ce.WaitForActions()
 		}
 		c1.SetExpires(localtime + 60*60) // an hour
-		got, ok = c1.(*testContact).getResultAsString()
+		got, ok = c1.(*testContact).popResultAsString()
 		if ok {
 			fmt.Println("got", got)
 			break
@@ -85,7 +85,7 @@ func TestSubscriptionOverrun(t *testing.T) {
 	}
 	if got == "" {
 		IterateAndWait(t, func() bool {
-			got, ok := c1.(*testContact).getResultAsString()
+			got, ok := c1.(*testContact).popResultAsString()
 			fmt.Println("c1 got", got)
 			return ok
 		}, "timed out waiting for TestSubscriptionOverrun result")
@@ -93,7 +93,7 @@ func TestSubscriptionOverrun(t *testing.T) {
 	fmt.Println("got", got)
 	fmt.Println("subscriptions. aide1", aide1.GetExecutiveStats().Subscriptions*float64(aide1.GetExecutiveStats().Limits.Subscriptions))
 
-	got, _ = c1.(*testContact).getResultAsString()
+	got, _ = c1.(*testContact).popResultAsString()
 	want = `[P,=jZae727K08KaOmKSgOaGzww_XVqGr_PK,ping," BILLING ERROR 2.9 subscriptions > 2",error," BILLING ERROR 2.9 subscriptions > 2"]`
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
@@ -118,7 +118,7 @@ func TestContactTimeout(t *testing.T) {
 	// it will post every 5 minutes for an hour and then go quiet.
 	// it should get closed.
 
-	allContacts := make([]*testContact, 0)
+	// allContacts := make([]*testContact, 0)
 
 	// make cluster with 1 guru and 2 aides.
 	// don't call operate or it will lose an aide.
@@ -127,7 +127,7 @@ func TestContactTimeout(t *testing.T) {
 	aide1 := ce.Aides[0]
 
 	c1 := getNewContactFromAide(aide1, sampleToken1)
-	allContacts = append(allContacts, c1.(*testContact))
+	// allContacts = append(allContacts, c1.(*testContact))
 	SendText(c1, "S "+c1.String()) // subscribe to my name
 
 	c1.(*testContact).doNotReconnect = true
@@ -209,7 +209,7 @@ func TestConnectionsOver(t *testing.T) {
 	// we'll make 3 and then forward time for 20 min and all the contacts will get dropped because
 	// they have violated the terms of the token.
 
-	allContacts := make([]*testContact, 0)
+	// allContacts := make([]*testContact, 0)
 
 	// mnake cluster with 1 guru and 2 aides.
 	// don't call operate or it will lose an aide.
@@ -221,7 +221,7 @@ func TestConnectionsOver(t *testing.T) {
 	ce.WaitForActions()
 
 	c1 := getNewContactFromAide(aide1, sampleToken1)
-	allContacts = append(allContacts, c1.(*testContact))
+	// allContacts = append(allContacts, c1.(*testContact))
 	SendText(c1, "S "+c1.String()) // subscribe to my name
 
 	c1.(*testContact).doNotReconnect = true
@@ -235,15 +235,15 @@ func TestConnectionsOver(t *testing.T) {
 	got = fmt.Sprint("topics collected ", ce.GetSubsCount())
 	want = "topics collected 7"
 	if got != want {
-		// t.Errorf("got %v, want %v", got, want)
+		t.Errorf("got %v, want %v", got, want)
 	}
 
 	c2 := getNewContactFromAide(aide2, sampleToken1)
-	allContacts = append(allContacts, c2.(*testContact))
+	// allContacts = append(allContacts, c2.(*testContact))
 	SendText(c2, "S "+c1.String()) // subscribe to my name
 
 	c3 := getNewContactFromAide(aide2, sampleToken1)
-	allContacts = append(allContacts, c3.(*testContact))
+	// allContacts = append(allContacts, c3.(*testContact))
 	SendText(c3, "S "+c3.String()) // subscribe to my name
 
 	c2.(*testContact).doNotReconnect = true
@@ -272,10 +272,11 @@ func TestConnectionsOver(t *testing.T) {
 	got += fmt.Sprint(" contacts aide2 ", aide2.GetExecutiveStats().Connections*float64(aide2.GetExecutiveStats().Limits.Connections))
 	want = "contacts aide1 3 contacts aide2 0"
 	if got != want {
-		// unreliable because of 	t.Errorf("got %v, want %v", got, want)
+		// unreliable because of
+		t.Errorf("got %v, want %v", got, want)
 	}
 	// note the packet in the q of c3 describes the error.
-	got = fmt.Sprint(c3.(*testContact).getResultAsString())
+	got = fmt.Sprint(c3.(*testContact).popResultAsString())
 	//fmt.Println(got)
 	want = `[P,=jZae727K08KaOmKSgOaGzww_XVqGr_PK,ping," BILLING ERROR 1.66 connections > 1",error," BILLING ERROR 1.66 connections > 1"]true`
 	//fmt.Println(want)

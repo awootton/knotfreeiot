@@ -24,29 +24,22 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
-	"runtime/trace"
 	"syscall"
 	"time"
 
+	"net/http"
+	_ "net/http/pprof"
+
 	"github.com/awootton/knotfreeiot/iot"
-	"github.com/awootton/knotfreeiot/mainhelpers"
 	"github.com/awootton/knotfreeiot/tokens"
 )
 
 // Hint: add "127.0.0.1 knotfreeserver" to /etc/hosts
 func main() {
 
-	defer trace.Stop()
-
-	// f, err := os.Create("cpu.out")
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-	// pprof.StartCPUProfile(f)
-
-	// go func() {
-	// 	log.Println(http.ListenAndServe("localhost:6060", nil))
-	// }()
+	go func() {
+		log.Println(http.ListenAndServe("localhost:6060", nil))
+	}()
 
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
@@ -54,15 +47,6 @@ func main() {
 		<-c
 		fmt.Println("\r- Ctrl+C pressed in Terminal")
 		runtime.GC()
-		f, err := os.Create("heap.out")
-		if err != nil {
-			log.Fatal(err)
-		}
-		// pprof.StopCPUProfile()
-		// pprof.WriteHeapProfile(f)
-		f.Close()
-		//trace.Stop()
-		// pprof.StopCPUProfile()
 		os.Exit(0)
 	}()
 
@@ -121,7 +105,7 @@ func main() {
 	}
 
 	ce := iot.MakeTCPMain(name, limits, *token, *isGuru)
-	mainhelpers.StartPublicServer(ce)
+	iot.StartPublicServer(ce)
 	for {
 		time.Sleep(999999999 * time.Second)
 	}

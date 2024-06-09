@@ -40,7 +40,7 @@ func TestMakeRandomPhrase(t *testing.T) {
 }
 
 func xxxTestMassageWordList(t *testing.T) {
-
+	_ = t
 	path, err := os.Getwd()
 	if err != nil {
 		fmt.Println(err)
@@ -48,7 +48,7 @@ func xxxTestMassageWordList(t *testing.T) {
 	fmt.Println(path)
 
 	// we're in 'tests/'
-	dat, err := ioutil.ReadFile("../words-table-before.txt")
+	dat, err := os.ReadFile("../words-table-before.txt")
 	if err != nil {
 		fmt.Println("problem reading file")
 	}
@@ -115,23 +115,23 @@ func TestFind(t *testing.T) {
 	// if len(datparts) < 64 {
 	// 	t.Errorf("got %v, want %v", len(datparts), 64)
 	// }
-	tmp := strings.Trim(tokens.PublicKeys, " \n")
+	tmp := strings.Trim(tokens.GetPublicKeys(), " \n")
 	datparts := strings.Split(tmp, "\n")
-	for i, part := range datparts {
+	// for i, part := range datparts {
 
-		part = strings.ReplaceAll(part, "/", "_") // std to url encoding
-		part = strings.ReplaceAll(part, "+", "-") // std to url encoding
+	// 	part = strings.ReplaceAll(part, "/", "_") // std to url encoding
+	// 	part = strings.ReplaceAll(part, "+", "-") // std to url encoding
 
-		if i >= 64 {
-			break
-		}
-		prefix := part[0:4]
-		bytes, err := base64.RawURLEncoding.DecodeString(part)
-		if err != nil {
-			fmt.Println("fail 2")
-		}
-		tokens.SavePublicKey(prefix, string(bytes))
-	}
+	// 	if i >= 64 {
+	// 		break
+	// 	}
+	// 	prefix := part[0:4]
+	// 	bytes, err := base64.RawURLEncoding.DecodeString(part)
+	// 	if err != nil {
+	// 		fmt.Println("fail 2")
+	// 	}
+	// 	tokens.SavePublicKey(prefix, string(bytes))
+	// }
 
 	for i, part := range datparts {
 		if i >= 64 {
@@ -202,9 +202,9 @@ func TestKnotEncode(t *testing.T) {
 	// p.Subscriptions = 2
 	// p.Connections = 2
 
-	if os.Getenv("KUBE_EDITOR") == "atom --wait" { // ie this is my workstation
-		p.Issuer = "_9sh"
-		bytes, err := tokens.MakeToken(p, []byte(getRemotePublic("_9sh")))
+	if os.Getenv("KUBE_EDITOR") == "atom --wait" { // ie this is my workstation TODO: change this to a flag or something
+		p.Issuer = tokens.GetPrivateKeyPrefix(0)                             //"_9sh"
+		bytes, err := tokens.MakeToken(p, []byte(getRemotePublic(p.Issuer))) //  _9sh
 		if err != nil {
 			t.Error("have error tokens.MakeToken", err)
 		}
@@ -415,6 +415,7 @@ func ExampleZeroReader() {
 
 // we used this ONCE. It's NOT a test.
 func xxxxTest1(t *testing.T) {
+	_ = t
 	ExampleZeroReader()
 
 	public, private, _ := ed25519.GenerateKey(rand.Reader)
@@ -585,48 +586,48 @@ func BenchmarkCheckToken2(b *testing.B) {
 }
 
 func xxxxnot_TestMakeTok2(t *testing.T) {
-
+	_ = t
 	tokens.LoadPublicKeys()
 
 	tokens.LoadPrivateKeys("~/atw/privateKeys4.txt")
-	signingKey := tokens.GetPrivateKey("_9sh")
+	signingKey := tokens.GetPrivateKeyWhole(0)
 
 	payload := GetSampleTokenPayload(starttime)
-	payload.Issuer = "_9sh"
+	payload.Issuer = tokens.GetPrivateKeyPrefix(0) //"_9sh"
 
 	tok, err := tokens.MakeToken(payload, []byte(signingKey))
 	fmt.Println("TestMakeTok2 is ", base64.RawURLEncoding.EncodeToString(tok), err)
 
-	_, ok := tokens.VerifyToken(tok, []byte(tokens.FindPublicKey("_9sh")))
+	_, ok := tokens.VerifyToken(tok, []byte(tokens.FindPublicKey(tokens.GetPrivateKeyPrefix(0)))) // "_9sh"
 
 	fmt.Println("OK", ok)
 
 }
 
-func xxxxnot_TestMakeToken1connection(t *testing.T) {
-
+func Xxxxnot_TestMakeToken1connection(t *testing.T) {
+	_ = t
 	tokens.LoadPublicKeys()
 
 	tokens.LoadPrivateKeys("~/atw/privateKeys4.txt")
-	signingKey := tokens.GetPrivateKey("_9sh")
+	signingKey := tokens.GetPrivateKeyWhole(0)
 
 	payload := GetSampleTokenPayload(uint32(time.Now().Unix()))
 	payload.Connections = 1
 	payload.Subscriptions = 1
-	payload.Issuer = "_9sh"
+	payload.Issuer = tokens.GetPrivateKeyPrefix(0) //"_9sh"
 
 	tok, err := tokens.MakeToken(payload, []byte(signingKey))
 	fmt.Println("TestMakeToken1connection token is", string(tok))
 	//fmt.Println("TestMakeToken1connection is ", base64.RawURLEncoding.EncodeToString(tok), err)
 	_ = err
-	_, ok := tokens.VerifyToken(tok, []byte(tokens.FindPublicKey("_9sh")))
+	_, ok := tokens.VerifyToken(tok, []byte(tokens.FindPublicKey(tokens.GetPrivateKeyPrefix(0)))) //"_9sh")))
 
 	fmt.Println("OK", ok)
 }
 
 // can't LoadPrivateKeys in test
 func not_TestBox(t *testing.T) {
-
+	_ = t
 	counter := &tokens.CountReader{}
 
 	// client
@@ -640,11 +641,11 @@ func not_TestBox(t *testing.T) {
 	tokens.LoadPublicKeys()
 
 	tokens.LoadPrivateKeys("~/atw/privateKeys4.txt")
-	signingKey := tokens.GetPrivateKey("_9sh")
+	signingKey := tokens.GetPrivateKeyWhole(0)
 
-	payload := GetSampleTokenPayload(starttime) // is TinyX2 for 2 connections
-	payload.Issuer = "_9sh"
-	payload.JWTID = tokens.GetRandomB36String() // has len = 24
+	payload := GetSampleTokenPayload(starttime)    // is TinyX2 for 2 connections
+	payload.Issuer = tokens.GetPrivateKeyPrefix(0) //"_9sh"
+	payload.JWTID = tokens.GetRandomB36String()    // has len = 24
 
 	tok, err := tokens.MakeToken(payload, []byte(signingKey))
 	fmt.Println("TestBox tok is ", base64.RawURLEncoding.EncodeToString(tok), err)

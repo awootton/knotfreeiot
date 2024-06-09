@@ -34,9 +34,11 @@ func main() {
 	c.CommandMap = make(map[string]monitor_pod.Command)
 	c.Index = 0
 	c.Token = token
-	c.IsSpecial = true
+	c.LogMeVerbose = os.Getenv("TARGET_CLUSTER") == "knotfree.com" // aka localhost
 
-	monitor_pod.StartTempGetter()
+	c.Host = os.Getenv("TARGET_CLUSTER") + ":8384" // + ":8384"
+
+	fmt.Println("monitor main c.Host", c.Host)
 
 	monitor_pod.ServeGetTime(token, &c)
 
@@ -64,7 +66,6 @@ func Deploy(TARGET_CLUSTER string) {
 		fmt.Println("fail flail 888")
 	}
 	kubectl.K("kubectl apply -f dummy.yaml")
-
 }
 
 // Copyright 2022,2023 Alan Tracey Wootton

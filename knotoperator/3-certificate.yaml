@@ -1,0 +1,12 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: wildcard
+spec:
+  dnsNames:
+  - knotfree.net
+  - "*.knotfree.net" # Populate with the domain name followed by an asterisk symbol. ? what?
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+  secretName: wildcard-tls

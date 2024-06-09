@@ -44,7 +44,7 @@ type testContact struct {
 
 	//downMessages chan packets.Interface
 
-	mostRecent []packets.Interface
+	mostRecent chan (packets.Interface)
 
 	doNotReconnect bool
 
@@ -56,14 +56,13 @@ type testContact struct {
 func makeTestContact(config *iot.ContactStructConfig, token string) iot.ContactInterface {
 
 	acontact := testContact{}
-	//acontact.downMessages = make(chan packets.Interface, 100)
-	acontact.mostRecent = make([]packets.Interface, 0, 100)
+	acontact.mostRecent = make(chan (packets.Interface), 1000)
 
 	acontact.SetReader(&iot.DevNull{})
 	acontact.SetWriter(&iot.DevNull{})
 
 	if len(token) == 0 {
-		token = tokens.Test32xToken //GetImpromptuGiantToken()
+		token = string(tokens.Get32xTokenLocal()) //GetImpromptuGiantToken()
 	}
 
 	// go func(cc *testContact) {
@@ -111,35 +110,42 @@ func (cc *testContact) Close(err error) {
 	dis := packets.Disconnect{}
 	dis.SetOption("error", []byte(err.Error()))
 	cc.WriteDownstream(&dis)
-
 	ss := &cc.ContactStruct
-	ss.Close(err)
+	ss.DoClose(err)
 }
 
-func (cc *testContact) getResultsCount() int {
+func (cc *testContact) getResultsCount() int { // who does this?
 	return len(cc.mostRecent)
 }
 
-func (cc *testContact) getResultAsString() (string, bool) {
-	if len(cc.mostRecent) == 0 {
-		return "no message received", false
-	}
-	return cc.mostRecent[0].String(), true
-}
+// func (cc *testContact) XXgetResultAsString() (string, bool) {
+// 	if len(cc.mostRecent) == 0 {
+// 		return "no message received", false
+// 	}
+// 	return cc.mostRecent[0].String(), true
+// }
 
 func (cc *testContact) popResultAsString() (string, bool) {
-	val, ok := cc.getResultAsString()
-	if ok {
-		cc.mostRecent = cc.mostRecent[1:]
+
+	select {
+	case thing := <-cc.mostRecent:
+		return thing.String(), true
+	case t := <-time.After(time.Millisecond * 1000):
+		_ = t
+		return "no message received ", false
 	}
-	return val, ok
+	// val, ok := cc.getResultAsString()
+	// if ok {
+	// 	cc.mostRecent = cc.mostRecent[1:]
+	// }
+	// return val, ok
 }
 
 // write from the bottom of a node going down through the contact.
 // and since this is test it ends up in an array: mostRecent
 func (cc *testContact) WriteDownstream(packet packets.Interface) error {
 
-	if cc.GetClosed() {
+	if cc.IsClosed() {
 		return nil
 	}
 	send, isSend := packet.(*packets.Send)
@@ -149,14 +155,16 @@ func (cc *testContact) WriteDownstream(packet packets.Interface) error {
 	text := packet.String()
 	cc.IncOutput(len(text))
 
-	//fmt.Println("APPENDING to mostRecent", text)
+	fmt.Println(cc.index, "APPENDING to mostRecent", text)
 
-	cc.mostRecent = append(cc.mostRecent, packet)
+	// cc.mostRecent = append(cc.mostRecent, packet) //use stream instead of array
+	cc.mostRecent <- packet
 
-	if cc.GetClosed() == false && cc.GetConfig().IsGuru() == false { // fixme: ignore them only if jwtid doesn't match.
+	if cc.IsClosed() == false && cc.GetConfig().IsGuru() == false { // fixme: ignore them only if jwtid doesn't match.
 		u := iot.HasError(packet)
 		if u != nil {
-			cc.mostRecent = append(cc.mostRecent, u)
+			// cc.mostRecent = append(cc.mostRecent, u)
+			cc.mostRecent <- u
 		}
 	}
 	return nil
@@ -168,7 +176,7 @@ func (cc *testContact) WriteUpstream(cmd packets.Interface) error {
 	return errors.New("Only upper contacts get WriteUpstream")
 }
 
-func readCounter(m prometheus.Counter) float64 {
+func ReadCounter(m prometheus.Counter) float64 {
 	pb := &dto.Metric{}
 	m.Write(pb)
 	return pb.GetCounter().GetValue()
@@ -240,7 +248,7 @@ func openConnectedSocket(name string, t *testing.T, token string) *net.TCPConn {
 	}
 
 	if len(token) == 0 {
-		token = tokens.Test32xToken
+		token = string(tokens.Get32xTokenLocal())
 	}
 
 	connect := packets.Connect{}

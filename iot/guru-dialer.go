@@ -62,7 +62,7 @@ func (upc *upperChannel) dialGuru() {
 		}
 
 	} else {
-		for upc.running { // this is a debug version.
+		for upc.running { // this is a debug version. delete this
 
 			// the test we can find all the other nodes in the ce.
 			// or in GuruNameToConfigMap
@@ -72,7 +72,7 @@ func (upc *upperChannel) dialGuru() {
 			}
 			guru := config.Looker.ex // the ex of the guru
 
-			token := tokens.Test32xToken //GetImpromptuGiantToken()
+			token := tokens.GetImpromptuGiantToken() //Test32xToken
 			contact := &ContactStruct{}
 			AddContactStruct(contact, contact, guru.Config) // force contact to guru
 
@@ -80,7 +80,7 @@ func (upc *upperChannel) dialGuru() {
 
 			defer func() {
 				fmt.Println("dialGuruAndServe FINISHED")
-				contact.Close(errors.New("finished"))
+				contact.DoClose(errors.New("finished"))
 			}()
 
 			fmt.Println("upc start from ", upc.ex.Name, " to ", guru.Name)
@@ -123,7 +123,7 @@ func (upc *upperChannel) dialGuru() {
 				if err != nil {
 					_ = err
 				}
-				if contact.GetClosed() {
+				if contact.IsClosed() {
 					continue
 				}
 				err = PushPacketUpFromBottom(contact, p2)

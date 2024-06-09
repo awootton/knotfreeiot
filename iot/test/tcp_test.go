@@ -27,7 +27,7 @@ import (
 )
 
 // tcp needs tokens and keys are not avail for CI
-func fixme_TestTwoTierTcp(t *testing.T) {
+func TestTwoTierTcp(t *testing.T) {
 
 	tokens.LoadPublicKeys()
 	got := ""
@@ -49,8 +49,8 @@ func fixme_TestTwoTierTcp(t *testing.T) {
 	fmt.Println("guru stats", sss)
 
 	n := sss.Subscriptions * float64(ce.Gurus[0].Limits.Subscriptions)
-	if n != 1.0 {
-		// t.Errorf("got %v, want %v", n, 1.0)
+	if n != 0 {
+		t.Errorf("got %v, want %v", n, 1.0)
 	}
 
 	sock1 := openPlainSocket(ce.Aides[0].GetTextAddress(), t)
@@ -133,7 +133,7 @@ func TestSimpleText(t *testing.T) {
 	sock1.SetNoDelay(true)
 	sock2.SetNoDelay(true)
 
-	connectStr := "C token " + `'` + tokens.Test32xToken + `'` + "\n"
+	connectStr := "C token " + `'` + string(tokens.Get32xTokenLocal()) + `'` + "\n"
 	sock1.Write([]byte(connectStr))
 	sock2.Write([]byte(connectStr))
 

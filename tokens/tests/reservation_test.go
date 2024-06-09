@@ -33,7 +33,7 @@ func TestCalcTokenPrice_TinyX4(t *testing.T) {
 	fmt.Println("TinyX4 for a year is ", price.Price*12) // 0.048 or about 50 cents per decade.
 }
 
-func fixme_TestMakeReservation(t *testing.T) {
+func Fixme_TestMakeReservation(t *testing.T) {
 
 	tokens.LoadPublicKeys()
 	tokens.LoadPrivateKeys("~/atw/privateKeys4.txt")
@@ -58,7 +58,7 @@ func fixme_TestMakeReservation(t *testing.T) {
 	payload.JWTID = "thePublicKeyOfTheOwner"
 	payload.Name = "dummy2"
 
-	privKey := tokens.GetPrivateKey(payload.Issuer)
+	privKey := tokens.GetPrivateKeyMatching(payload.Issuer)
 	tokBytes, err := tokens.MakeNameToken(payload, []byte(privKey))
 	if err != nil {
 		t.Errorf("got %v, want %v", "nil", "something else")
@@ -74,6 +74,7 @@ func fixme_TestMakeReservation(t *testing.T) {
 	comments[1] = payload
 	comments[2] = string(tokBytes)
 	returnval, err := json.Marshal(comments)
+	check(err)
 	returnval = []byte(strings.ReplaceAll(string(returnval), `"`, ``))
 	returnval = []byte(strings.ReplaceAll(string(returnval), ` `, `_`))
 
@@ -119,5 +120,12 @@ func TestFindsrr(t *testing.T) {
 	want = "yRst5ig1Zf1iYVvI0q0LltjU8gmT-9ZZBKWijosq2Vg"
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
+	}
+}
+
+func check(err error) {
+	if err != nil {
+		// panic(err)
+		fmt.Println("check error ", err)
 	}
 }

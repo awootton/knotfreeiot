@@ -25,7 +25,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	mathrand "math/rand"
 	"os"
 	"sort"
@@ -38,7 +37,22 @@ import (
 	"golang.org/x/crypto/curve25519"
 )
 
-const Test32xToken = "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJleHAiOjE2OTc5NjAyNjQsImlzcyI6Il85c2giLCJqdGkiOiI5cTM0cy01MXJaWHlCdElSN0pqMDVoVFEiLCJpbiI6MTAyNCwib3V0IjoxMDI0LCJzdSI6MjAsImNvIjoyMCwidXJsIjoia25vdGZyZWUubmV0In0.CbFh2xsrwixf0i0IOknjNEy_Sh_wB3QysYm1xV4pPTA9QEPvZDoUIwggGFHPsmWbP0WzC47TVbCSPJahE-SNBg"
+var aTest32xToken = []byte("")
+
+func GetTest32xToken() []byte {
+	if len(aTest32xToken) != 0 {
+		return aTest32xToken
+	}
+	LoadPrivateKeys("~/atw/privateKeys4.txt")
+
+	payload := GetSampleTokenFromStats(uint32(time.Now().Unix()), "knotfree.dog:8085/mqtt", GetTokenStatsAndPrice(Medium).Stats) // is localhost in my /etc/hosts
+
+	signingKey := GetPrivateKeyWhole(0)
+	bytes, err := MakeToken(payload, []byte(signingKey))
+	_ = err
+	aTest32xToken = bytes
+	return bytes
+}
 
 // KnotFreeTokenPayload is our JWT 'claims'.
 type KnotFreeTokenPayload struct {
@@ -100,6 +114,26 @@ func VerifyToken(ticket []byte, publicKey []byte) (*KnotFreeTokenPayload, bool) 
 	}
 	_ = hd
 	return &payload, true
+}
+
+// just parseout the payload. Only for testing.
+func ParseTokenNoVerify(toke []byte) *KnotFreeTokenPayload {
+
+	payload := KnotFreeTokenPayload{}
+
+	parts := strings.Split(string(toke), ".")
+	if len(parts) != 3 {
+		return &KnotFreeTokenPayload{}
+	}
+	claimsPlain, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		return &KnotFreeTokenPayload{}
+	}
+	err = json.Unmarshal(claimsPlain, &payload)
+	if err != nil {
+		return &KnotFreeTokenPayload{}
+	}
+	return &payload
 }
 
 // SubscriptionNameReservationPayload is our JWT 'claims'.
@@ -259,6 +293,8 @@ func SavePublicKey(key string, publicKey string) {
 // FindPublicKey is
 func FindPublicKey(thekey string) string {
 
+	LoadPublicKeys()
+
 	if thekey == "1iVt" { // TODO: make better blacklist
 		return ""
 	}
@@ -303,11 +339,28 @@ var knownPrivateKeys = make(map[string]string)
 var kpkSync sync.Mutex
 var knownPrivateKeyPrefixes []string
 
-// GetPrivateKey is
-func GetPrivateKey(first4 string) string {
+// GetPrivateKey will return the Nth private key from the list of known private keys.
+func GetPrivateKeyWhole(n int) string {
+	LoadPrivateKeys("~/atw/privateKeys4.txt")
 	kpkSync.Lock()
 	defer kpkSync.Unlock()
-	return knownPrivateKeys[first4]
+	prefix := knownPrivateKeyPrefixes[n][0:4]
+	return knownPrivateKeys[prefix]
+}
+
+func GetPrivateKeyPrefix(n int) string {
+	LoadPrivateKeys("~/atw/privateKeys4.txt")
+	kpkSync.Lock()
+	defer kpkSync.Unlock()
+	prefix := knownPrivateKeyPrefixes[n][0:4]
+	return prefix
+}
+
+func GetPrivateKeyMatching(prefix string) string {
+	LoadPrivateKeys("~/atw/privateKeys4.txt")
+	kpkSync.Lock()
+	defer kpkSync.Unlock()
+	return knownPrivateKeys[prefix]
 }
 
 // LoadPrivateKeys is
@@ -321,7 +374,7 @@ func LoadPrivateKeys(fname string) error {
 	defer kpkSync.Unlock()
 	home, _ := os.UserHomeDir()
 	fname = strings.Replace(fname, "~", home, 1)
-	data, err := ioutil.ReadFile(fname)
+	data, err := os.ReadFile(fname)
 	if err != nil {
 		fmt.Println("pk read file err", fname, err)
 		return err
@@ -460,7 +513,7 @@ func parseString(in []byte) (out, rest []byte, ok bool) {
 // GetSampleBigToken is used for testing. 256k connections is GiantX32
 func GetSampleBigToken(startTime uint32, serviceUrl string) *KnotFreeTokenPayload {
 	p := &KnotFreeTokenPayload{}
-	p.Issuer = "_9sh"                             // first 4 from public
+	p.Issuer = GetPrivateKeyPrefix(0)             // "_9sh"                             // first 4 from public
 	p.ExpirationTime = startTime + 60*60*24*(365) // year
 	p.JWTID = GetRandomB36String()
 
@@ -477,7 +530,7 @@ func GetSampleBigToken(startTime uint32, serviceUrl string) *KnotFreeTokenPayloa
 // GetSampleTokenFromStats is used for testing.
 func GetSampleTokenFromStats(startTime uint32, serviceUrl string, stats KnotFreeContactStats) *KnotFreeTokenPayload {
 	p := &KnotFreeTokenPayload{}
-	p.Issuer = "_9sh"                             // first 4 from public
+	p.Issuer = GetPrivateKeyPrefix(0)             //"_9sh"                             // first 4 from public
 	p.ExpirationTime = startTime + 60*60*24*(365) // year
 	p.JWTID = GetRandomB36String()
 
@@ -488,6 +541,7 @@ func GetSampleTokenFromStats(startTime uint32, serviceUrl string, stats KnotFree
 }
 
 var giantToken = ""
+var mediumToken = ""
 
 // GetImpromptuGiantToken is GiantX32 256k connections is GiantX32
 func GetImpromptuGiantToken() string {
@@ -498,7 +552,7 @@ func GetImpromptuGiantToken() string {
 	LoadPrivateKeys("~/atw/privateKeys4.txt")
 
 	payload := GetSampleBigToken(uint32(time.Now().Unix()), "knotfree.net/mqtt")
-	signingKey := GetPrivateKey("_9sh")
+	signingKey := GetPrivateKeyWhole(0)
 	bbb, err := MakeToken(payload, []byte(signingKey))
 	if err != nil {
 		fmt.Println("GetImpromptuGiantToken", err)
@@ -509,10 +563,14 @@ func GetImpromptuGiantToken() string {
 
 func GetImpromptuGiantTokenLocal() string {
 
+	if len(giantToken) != 0 {
+		return giantToken
+	}
+
 	LoadPrivateKeys("~/atw/privateKeys4.txt")
 
 	payload := GetSampleBigToken(uint32(time.Now().Unix()), "knotfree.dog:8085/mqtt") // is localhost in my /etc/hosts
-	signingKey := GetPrivateKey("_9sh")
+	signingKey := GetPrivateKeyWhole(0)
 	bbb, err := MakeToken(payload, []byte(signingKey))
 	if err != nil {
 		fmt.Println("GetImpromptuGiantToken", err)
@@ -521,18 +579,22 @@ func GetImpromptuGiantTokenLocal() string {
 	return giantToken
 }
 
-func Get32xTokenLocal() string {
+func Get32xTokenLocal() []byte {
+
+	if len(aTest32xToken) != 0 {
+		return aTest32xToken
+	}
 
 	LoadPrivateKeys("~/atw/privateKeys4.txt")
 
 	payload := GetSampleTokenFromStats(uint32(time.Now().Unix()), "knotfree.dog:8085/mqtt", GetTokenStatsAndPrice(Medium).Stats) // is localhost in my /etc/hosts
-	signingKey := GetPrivateKey("_9sh")
+	signingKey := GetPrivateKeyWhole(0)
 	bbb, err := MakeToken(payload, []byte(signingKey))
 	if err != nil {
 		fmt.Println("Get32xTokenLocal", err)
 	}
-	giantToken = string(bbb)
-	return giantToken
+	aTest32xToken = bbb
+	return aTest32xToken
 }
 
 // GetRandomB64String returns 18 bytes or 18 * 8 = 144 bits of randomness aka 24 bytes
@@ -562,10 +624,16 @@ func LoadPublicKeys() {
 		return // just do this once
 	}
 
-	tmp := strings.Trim(PublicKeys, " \n")
+	allThePublicKeysInUniverse = append(allThePublicKeysInUniverse, "dummy")
+
+	tmp := strings.Trim(GetPublicKeys(), " \n")
 	parts := strings.Split(tmp, "\n")
 
 	for _, s := range parts {
+
+		if len(s) < 4 {
+			continue
+		}
 
 		s = strings.ReplaceAll(s, "/", "_") // std to url encoding
 		s = strings.ReplaceAll(s, "+", "-") // std to url encoding
@@ -578,6 +646,7 @@ func LoadPublicKeys() {
 		bytes, _ := base64.RawURLEncoding.DecodeString(s)
 		SavePublicKey(front, string(bytes))
 	}
+	allThePublicKeysInUniverse = allThePublicKeysInUniverse[1:]
 }
 
 var StrangerSecretPhrase string = "dummy-dummy-dummy-dummy-dummy-dummy-dummy-dummy-dummy-dummy-dummy"

@@ -64,7 +64,7 @@ type Executive struct {
 
 	Billing BillingAccumulator
 
-	IAmBadError error // if something happened to simply ruin us and we're quitting.
+	closeChannel chan interface{} // if something happened to simply ruin us and we're quitting.
 
 	channelToAnyAide chan packets.Interface
 
@@ -81,6 +81,8 @@ type ClusterExecutive struct {
 	currentAddressList []string
 	isTCP              bool
 	currentPort        int
+
+	timegetter func() uint32
 
 	PublicKeyTemp  *[32]byte //curve25519.PublicKey // temporary to this run not ed25519
 	PrivateKeyTemp *[32]byte //curve25519.PrivateKey
@@ -127,7 +129,7 @@ func init() {
 }
 
 // MakeSimplestCluster is just for testing as k8s doesn't work like this.
-// can't work in CI
+// And, can't work in CI
 func MakeSimplestCluster(timegetter func() uint32, isTCP bool, aideCount int, suffix string) *ClusterExecutive {
 
 	GuruNameToConfigMap = make(map[string]*Executive)
@@ -137,8 +139,9 @@ func MakeSimplestCluster(timegetter func() uint32, isTCP bool, aideCount int, su
 	if isTCP {
 		ce.currentPort = 9000
 	}
+	ce.timegetter = timegetter
 
-	secret := tokens.GetPrivateKey("_9sh") // it's actually binary
+	secret := tokens.GetPrivateKeyWhole(0) // it's actually binary
 	r := bytes.NewReader([]byte(secret))
 	pub, priv, c := box.GenerateKey(r) // rand.Reader) //was ed25519.GenerateKey(rand.Reader)
 	ce.PublicKeyTemp = pub
@@ -176,12 +179,17 @@ func MakeSimplestCluster(timegetter func() uint32, isTCP bool, aideCount int, su
 		if isTCP {
 			aide1.httpAddress = ce.GetNextAddress()
 			aide1.tcpAddress = ce.GetNextAddress()
+			if i == 0 {
+				aide1.tcpAddress = "localhost:8384"
+			}
 			aide1.textAddress = ce.GetNextAddress()
 			aide1.mqttAddress = ce.GetNextAddress()
 			MakeTCPExecutive(aide1, aide1.tcpAddress)
 			MakeTextExecutive(aide1, aide1.textAddress)
 			MakeHTTPExecutive(aide1, aide1.httpAddress)
 			// FIXME : MakeMQTTExecutive
+
+			// add API to aide
 		}
 		go aide1.DialContactToAnyAide(isTCP, ce)
 	}
@@ -189,17 +197,20 @@ func MakeSimplestCluster(timegetter func() uint32, isTCP bool, aideCount int, su
 	go guru0.DialContactToAnyAide(isTCP, ce)
 
 	if isTCP {
+
+		StartPublicServer(ce)
+
 		// don't cheat: send these by http
 		if len(ce.Gurus) > 0 {
 			err := PostUpstreamNames(ce.currentGuruList, ce.currentAddressList, ce.Gurus[0].httpAddress)
 			if err != nil {
-				fmt.Println("post fail1")
+				fmt.Println("post fail1", err)
 			}
 		}
 		for _, aide := range ce.Aides {
 			err := PostUpstreamNames(ce.currentGuruList, ce.currentAddressList, aide.httpAddress)
 			if err != nil {
-				fmt.Println("post fail2")
+				fmt.Println("post fail2", err)
 			}
 		}
 	} else {
@@ -219,28 +230,16 @@ func MakeTCPMain(name string, limits *ExecutiveLimits, token string, isGuru bool
 
 	isTCP := true
 
-	startTime := time.Now().Unix()
-
-	// for testing, fails to work - delete me
-	timegetterFastForward := func() uint32 {
-		delta := time.Now().Unix() - startTime
-		delta *= 4
-		return uint32(startTime + delta)
-	}
-
 	timegetterReal := func() uint32 {
 		return uint32(time.Now().Unix())
 	}
-	_ = timegetterReal
-	_ = timegetterFastForward
-
-	timegetter := timegetterReal
 
 	ce := &ClusterExecutive{}
 	ce.isTCP = isTCP
+	ce.timegetter = timegetterReal
 
 	// we should derive this from the current priv jwt ed25519 secret
-	secret := tokens.GetPrivateKey("_9sh") // it's actually binary
+	secret := tokens.GetPrivateKeyWhole(0) // it's actually binary
 	r := bytes.NewReader([]byte(secret))
 	a, b, c := box.GenerateKey(r) // rand.Reader) //was ed25519.GenerateKey(rand.Reader)
 	ce.PublicKeyTemp = a
@@ -251,7 +250,7 @@ func MakeTCPMain(name string, limits *ExecutiveLimits, token string, isGuru bool
 
 	ce.limits = limits
 
-	aide1 := NewExecutive(1024*1024, name, timegetter, isGuru, ce)
+	aide1 := NewExecutive(1024*1024, name, timegetterReal, isGuru, ce)
 	aide1.Limits = limits
 	aide1.Config.ce = ce
 	ce.Aides = append(ce.Aides, aide1)
@@ -494,11 +493,8 @@ func (ce *ClusterExecutive) Operate() {
 			// close them all
 			fmt.Println("executive closing all contacts")
 			for _, cc := range contactList {
-				cc.Close(errors.New("routine maintainance a1"))
+				cc.DoClose(errors.New("routine maintainance a1"))
 			}
-			//for _, cc := range minion.Looker.upstreamRouter.contacts {
-			//	cc.Close(errors.New("routine maintainance a2"))
-			//}
 			for _, ex := range ce.Gurus {
 				ex.Looker.FlushMarkerAndWait()
 			}
@@ -556,7 +552,7 @@ func (ce *ClusterExecutive) Operate() {
 			// we need to wait?
 			fmt.Println("executive closing all contacts2")
 			for _, cc := range contactList {
-				cc.Close(errors.New("routine maintainance g1"))
+				cc.DoClose(errors.New("routine maintainance g1"))
 			}
 			// for _, cc := range minion.Looker.upstreamRouter.contacts {
 			// 	cc.Close(errors.New("routine maintainance g2"))
@@ -571,6 +567,19 @@ func (ce *ClusterExecutive) Operate() {
 
 		}
 	}
+}
+
+func (ex *Executive) IsClosed() bool {
+	select {
+	case <-ex.closeChannel:
+		return true
+	default:
+		return false
+	}
+}
+
+func (ex *Executive) DoClose() {
+	close(ex.closeChannel)
 }
 
 // GetSubsCount returns a count of how many names it's remembering.
@@ -623,9 +632,9 @@ func (ex *Executive) GetExecutiveStats() *ExecutiveStats {
 	if err == nil {
 		parts := strings.Split(string(stdout), "\n")
 		// fmt.Println("lsof len ", len(parts))
-		if err == nil {
-			stats.OpenConnections = len(parts)
-		}
+		//if err == nil {
+		stats.OpenConnections = len(parts)
+		//}
 	}
 
 	return stats
@@ -634,31 +643,50 @@ func (ex *Executive) GetExecutiveStats() *ExecutiveStats {
 // Heartbeat one per 10 sec.
 func (ex *Executive) Heartbeat(now uint32) {
 
-	fmt.Println("Heartbeat Executive ", ex.Name, ex.tcpAddress)
+	log := make([]string, 10)
 
-	connectionsTotal.Set(float64(ex.Config.Len()))
+	isDone := make(chan interface{})
+	go func() {
+		defer func() { isDone <- true }()
+		fmt.Println("Heartbeat Executive START", ex.Name, ex.tcpAddress)
+		log = append(log, "START")
+		connectionsTotal.Set(float64(ex.Config.Len()))
 
-	// this would require a lock or else pushing into the incoming q
-	// subscriptions, queuefraction := ex.Looker.GetAllSubsCount()
-	// topicsTotal.Set(float64(subscriptions))
-	// qFullness.Set(float64(queuefraction))
+		// this would require a lock or else pushing into the incoming q
+		// subscriptions, queuefraction := ex.Looker.GetAllSubsCount()
+		// topicsTotal.Set(float64(subscriptions))
+		// qFullness.Set(float64(queuefraction))
+		// fmt.Println("Heartbeat Executive LOOKER", ex.Name, ex.tcpAddress)
 
-	ex.Looker.Heartbeat(now)
+		ex.Looker.Heartbeat(now)
+		log = append(log, "Looker done")
+		// fmt.Println("Heartbeat Executive Looker done", ex.Name, ex.tcpAddress)
 
-	// fmt.Println("Heartbeat Executive Looker done", ex.Name, ex.tcpAddress)
+		timer := prometheus.NewTimer(heartbeatContactsDuration)
+		defer timer.ObserveDuration()
 
-	timer := prometheus.NewTimer(heartbeatContactsDuration)
-	defer timer.ObserveDuration()
+		//fmt.Println("Heartbeat copy clients", ex.Name)
+		// fmt.Println("Heartbeat Executive CONTACTS getcopy", ex.Name, ex.tcpAddress)
+		log = append(log, "copy")
+		contactList := ex.Config.GetContactsListCopy() // could be 20k contacts!
 
-	//fmt.Println("Heartbeat copy clients", ex.Name)
+		// fmt.Println("Heartbeat Executive CONTACTS", ex.Name, ex.tcpAddress)
 
-	contactList := ex.Config.GetContactsListCopy()
-
-	//fmt.Println("Heartbeat clients", len(contactList), ex.Name)
-	for _, ci := range contactList {
-		ci.Heartbeat(now)
+		//fmt.Println("Heartbeat clients", len(contactList), ex.Name)
+		log = append(log, "clients")
+		for _, ci := range contactList {
+			// fmt.Println("Heartbeat client TOP", ci.GetKey().Sig())
+			ci.Heartbeat(now)
+			// fmt.Println("Heartbeat client DONE", ci.GetKey().Sig())
+		}
+		log = append(log, "done")
+	}()
+	select {
+	case <-isDone:
+	case <-time.After(5 * time.Second):
+		fmt.Println("Heartbeat Executive timeout ERROR", ex.Name, log) // this is fatal. we're stuck.
 	}
-	//fmt.Println("Heartbeat clients DONE", len(contactList), ex.Name)
+	fmt.Println("Heartbeat Executive DONE", ex.Name)
 }
 
 // Heartbeat everyone when testing
@@ -806,8 +834,7 @@ func (ex *Executive) WaitForActions() {
 
 	if ex != nil {
 		ex.Looker.FlushMarkerAndWait()
-		// can we flush the lower and upper contacts too ?
-		// TODO:
+		// TODO: can we flush the lower and upper contacts too ?
 	}
 }
 

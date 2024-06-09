@@ -35,6 +35,7 @@ import (
 type tcpContact struct {
 	ContactStruct
 	netDotTCPConn *net.TCPConn
+	// bufferedWriter *bufio.Writer
 }
 
 // MakeTCPExecutive is a thing like a server, not the exec
@@ -45,7 +46,7 @@ func MakeTCPExecutive(ex *Executive, serverName string) *Executive {
 	return ex
 }
 
-type apiHandler struct {
+type apiHandler struct { // lose this?
 	ex *Executive
 }
 
@@ -100,18 +101,10 @@ func (api apiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			API1PostGurusFail.Inc()
 			return
 		}
-		//statsstr, error := json.Marshal(stats)// I can't read this mess
-		// fmt.Println("have new clusterstats ", stats)
-		//_ = statsstr
-		//fmt.Println("have new clusterstats", string(statsstr))
-		// _ = error
-
 		str := ""
 		for _, stat := range stats.Stats {
 			str += stat.Name + " " + stat.TCPAddress + "  "
 		}
-		// fmt.Println("Postclusterstats : ", str)
-
 		api.ex.statsmu.Lock()
 		api.ex.ClusterStats = stats
 		api.ex.ClusterStatsString = string(data)
@@ -146,33 +139,62 @@ func MakeHTTPExecutive(ex *Executive, serverName string) *Executive {
 	return ex
 }
 
-func (cc *tcpContact) Close(err error) {
+func (cc *tcpContact) DoClosingWork(err error) {
 	// do we need a mutex here?
+	// No, it is only called from the one place and only once
 	if cc.netDotTCPConn != nil {
 		//fmt.Println("close tcp ", cc.netDotTCPConn.RemoteAddr())
 		cc.netDotTCPConn.Close()
 		cc.netDotTCPConn = nil
 	}
 	ss := &cc.ContactStruct
-	ss.Close(err) // close my parent too
+	ss.DoClosingWork(err) // close my parent too
 }
 
-func (cc *tcpContact) GetClosed() bool {
-	return cc.ContactStruct.GetClosed()
-
-	// return cc.netDotTCPConn == nil ||
+func (cc *tcpContact) IsClosed() bool {
+	return cc.ContactStruct.IsClosed()
 }
 
 func (cc *tcpContact) WriteDownstream(packet packets.Interface) error {
 
-	if cc.GetClosed() {
+	if cc.IsClosed() {
 		return errors.New("tcpContact closed and can't writeDownstream")
 	}
 	got, ok := packet.GetOption("debg")
 	if ok && string(got) == "12345678" {
 		fmt.Println("tcpContact WriteDownstream con=", cc.GetKey().Sig(), packet.Sig())
 	}
-	cc.writechan <- packet
+	var goterr error
+	// var wg sync.WaitGroup we don't need to wait. It's in the Q and that's enough.
+	// wg.Add(1)
+	cc.commands <- ContactCommander{
+		who: "tcp WriteDownstream",
+		fn: func(ss *ContactStruct) {
+			//defer wg.Done()
+			u := HasError(packet)
+			if u != nil {
+				fmt.Println("tcpContact ERROR write disconnect con=", cc.GetKey().Sig(), packet.Sig())
+				u.Write(cc) // write disconnect
+				cc.DoClose(errors.New(u.String()))
+				goterr = errors.New(u.String())
+			} else {
+				if cc.netDotTCPConn == nil {
+					return
+				}
+				// this must not block, otherwise the whole channel gets stuck.
+				goterr = packet.Write(cc)
+				// when do we flush?
+				// if goterr == nil {
+				// 	go func() {
+				// 		time.Sleep(1 * time.Millisecond) // ?
+				// 		cc.bufferedWriter.Flush()
+				// 	}()
+				// }
+			}
+		},
+	}
+	// wg.Wait()
+	return goterr
 
 	//fmt.Println("received from above", packet, reflect.TypeOf(packet))
 	// if !cc.GetClosed() && !cc.GetConfig().lookup.isGuru {
@@ -187,14 +209,14 @@ func (cc *tcpContact) WriteDownstream(packet packets.Interface) error {
 	// if err != nil {
 	// 	cc.Close(err)
 	// }
-	return nil
+	// return nil
 }
 
 func (cc *tcpContact) WriteUpstream(cmd packets.Interface) error {
 	fmt.Println("FIXME tcp received from below dead code ERROR delete me", cmd, reflect.TypeOf(cmd))
 	err := cmd.Write(cc)
 	if err != nil {
-		cc.Close(err)
+		cc.DoClose(err)
 	}
 	return err
 }
@@ -233,7 +255,7 @@ func handleConnection(tcpConn *net.TCPConn, ex *Executive) {
 	cc := localMakeTCPContact(ex.Config, tcpConn)
 	defer func() {
 		fmt.Println("handleConnection exit close")
-		cc.Close(nil)
+		cc.DoClose(nil)
 	}()
 
 	TCPServerNewConnection.Inc()
@@ -248,21 +270,21 @@ func handleConnection(tcpConn *net.TCPConn, ex *Executive) {
 	defer fmt.Println("KF native contact QUIT, ", tcpConn.RemoteAddr())
 
 	// we might just for over the range of the handler input channel?
-	for ex.IAmBadError == nil {
+	for !ex.IsClosed() {
 
 		// SetReadDeadline
 		if cc.GetToken() == nil {
 			err := cc.netDotTCPConn.SetDeadline(time.Now().Add(2 * time.Second))
 			if err != nil {
 				fmt.Println("KF native contact deadline err 3", err)
-				cc.Close(err)
+				cc.DoClose(err)
 				return // quit, close the sock, be forgotten
 			}
 		} else {
 			err := cc.netDotTCPConn.SetDeadline(time.Now().Add(30 * time.Minute))
 			if err != nil {
 				fmt.Println("KF native contact deadline err 4", err, tcpConn.RemoteAddr())
-				cc.Close(err)
+				cc.DoClose(err)
 				return // quit, close the sock, be forgotten, start over
 			}
 		}
@@ -274,7 +296,7 @@ func handleConnection(tcpConn *net.TCPConn, ex *Executive) {
 			//connLogThing.Collect("se err " + err.Error())
 			fmt.Println("KF native contact read err", cc.key.Sig(), err, tcpConn.RemoteAddr(), ex.isGuru)
 			TCPServerPacketReadError.Inc()
-			cc.Close(err)
+			cc.DoClose(err)
 			return
 		}
 
@@ -285,7 +307,7 @@ func handleConnection(tcpConn *net.TCPConn, ex *Executive) {
 			//connLogThing.Collect("se err " + err.Error())
 			fmt.Println("iot.push err", err, tcpConn.RemoteAddr())
 			TCPServerIotPushEror.Inc()
-			cc.Close(err)
+			cc.DoClose(err)
 			return
 		}
 	}
@@ -326,7 +348,8 @@ func localMakeTCPContact(config *ContactStructConfig, tcpConn *net.TCPConn) *tcp
 	AddContactStruct(&contact1.ContactStruct, &contact1, config)
 	contact1.netDotTCPConn = tcpConn
 	contact1.realReader = tcpConn
-	contact1.realWriter = tcpConn
+	// contact1.bufferedWriter = bufio.NewWriter(tcpConn)
+	contact1.realWriter = tcpConn // contact1.bufferedWriter // don't forget to flush
 
 	return &contact1
 }
@@ -421,25 +444,25 @@ func PostClusterStats(stats *ClusterStats, addr string) error {
 }
 
 // ByteCountingReader keeps track of how much was read.
-type ByteCountingReader struct {
-	count      int
-	realReader io.Reader
-}
+// type ByteCountingReader struct {
+// 	count      int
+// 	realReader io.Reader
+// }
 
-func (bcr *ByteCountingReader) Read(p []byte) (int, error) {
-	n, err := bcr.realReader.Read(p)
-	bcr.count += n
-	return n, err
-}
+// func (bcr *ByteCountingReader) Read(p []byte) (int, error) {
+// 	n, err := bcr.realReader.Read(p)
+// 	bcr.count += n
+// 	return n, err
+// }
 
-// ByteCountingWriter keeps track of how much was written.
-type ByteCountingWriter struct {
-	count      int
-	realWriter io.Writer
-}
+// // ByteCountingWriter keeps track of how much was written.
+// type ByteCountingWriter struct {
+// 	count      int
+// 	realWriter io.Writer
+// }
 
-func (bcw *ByteCountingWriter) Write(p []byte) (int, error) {
-	n, err := bcw.realWriter.Write(p)
-	bcw.count += n
-	return n, err
-}
+// func (bcw *ByteCountingWriter) Write(p []byte) (int, error) {
+// 	n, err := bcw.realWriter.Write(p)
+// 	bcw.count += n
+// 	return n, err
+// }

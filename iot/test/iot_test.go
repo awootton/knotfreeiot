@@ -17,16 +17,28 @@ package iot_test
 
 import (
 	"fmt"
+	"log"
+	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/awootton/knotfreeiot/iot"
 	"github.com/awootton/knotfreeiot/packets"
 	"github.com/awootton/knotfreeiot/tokens"
+
+	_ "net/http/pprof"
 )
 
 func TestTwoLevel(t *testing.T) {
 
+	go func() {
+		log.Println(http.ListenAndServe("localhost:6060", nil))
+	}()
+
 	tokens.LoadPublicKeys()
+
+	atoken := tokens.GetTest32xToken()
+	atokenStruct := tokens.ParseTokenNoVerify(atoken)
 
 	got := ""
 	want := ""
@@ -61,8 +73,9 @@ func TestTwoLevel(t *testing.T) {
 
 	// note that they are in *different* lookups so normally they could not communicate but here we have a guru.
 
+	// connect
 	connect := packets.Connect{}
-	connect.SetOption("token", []byte(tokens.Test32xToken))
+	connect.SetOption("token", atoken)
 	iot.PushPacketUpFromBottom(contact1, &connect)
 	iot.PushPacketUpFromBottom(contact2, &connect)
 
@@ -76,20 +89,22 @@ func TestTwoLevel(t *testing.T) {
 	WaitForActions(aide2)
 	WaitForActions(guru0)
 
-	got, _ = contact1.(*testContact).getResultAsString()
-	want = "no message received"
+	got, _ = contact1.(*testContact).popResultAsString()
+	got = strings.Replace(got, atokenStruct.JWTID, "xxxx", 1)
+	want = "[S,=ygRnE97Kfx0usxBqx5cygy4enA1eojeR,jwtidAlias,xxxx,pub2self,0]" //"no message received"
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
 	}
 
-	val := readCounter(iot.TopicsAdded)
-	got = fmt.Sprint("topics collected ", val)
+	// val := readCounter(iot.TopicsAdded)
+	// got = fmt.Sprint("topics collected ", val)
+	// _ = got
 	count, fract := guru0.GetSubsCount()
 	_ = fract
 	got = fmt.Sprint("topics collected ", count)
-	want = "topics collected 3"
+	want = "topics collected 1"
 	if got != want {
-		// todo fix these won't hold still. t.Errorf("got %v, want %v", got, want)
+		t.Errorf("got %v, want %v", got, want)
 	}
 	sendmessage := packets.Send{}
 	sendmessage.Address.FromString("contact1 address")
@@ -103,7 +118,7 @@ func TestTwoLevel(t *testing.T) {
 	WaitForActions(aide2)
 	WaitForActions(guru0)
 
-	got, _ = contact1.(*testContact).getResultAsString()
+	got, _ = contact1.(*testContact).popResultAsString()
 	want = `[P,=ygRnE97Kfx0usxBqx5cygy4enA1eojeR,"contact2 address","can you hear me now?"]`
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
@@ -121,8 +136,8 @@ func TestTwoLevel(t *testing.T) {
 	WaitForActions(aide2)
 	WaitForActions(guru0)
 
-	got, _ = contact1.(*testContact).getResultAsString()
-	want = `[P,=ygRnE97Kfx0usxBqx5cygy4enA1eojeR,"contact2 address","can you hear me now?"]`
+	got, _ = contact1.(*testContact).popResultAsString()
+	want = `[P,=ygRnE97Kfx0usxBqx5cygy4enA1eojeR,"contact2 address","how about now?"]`
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
 	}
@@ -162,7 +177,7 @@ func TestSend(t *testing.T) {
 	contact2 := makeTestContact(guru.Config, "")
 
 	connect := packets.Connect{}
-	connect.SetOption("token", []byte(tokens.Test32xToken))
+	connect.SetOption("token", []byte(tokens.GetTest32xToken()))
 	iot.PushPacketUpFromBottom(contact1, &connect)
 	iot.PushPacketUpFromBottom(contact2, &connect)
 
@@ -170,29 +185,39 @@ func TestSend(t *testing.T) {
 	subs := packets.Subscribe{}
 	subs.Address.FromString("contact1_address")
 	err = iot.PushPacketUpFromBottom(contact1, &subs)
+	_ = err
+
 	subs = packets.Subscribe{}
 	subs.Address.FromString("contact2_address")
 	err = iot.PushPacketUpFromBottom(contact2, &subs)
 
-	got, _ = contact1.(*testContact).getResultAsString()
-	want = "no message received"
+	WaitForActions(guru)
+
+	// expect 2 sub acks
+	got, _ = contact1.(*testContact).popResultAsString()
+	want = "[S,=BAvjRqi8ESrF4XpR4ASFuojhyAOA_bpf,pub2self,0]"
+	if got != want {
+		t.Errorf("got %v, want %v", got, want)
+	}
+	got, _ = contact2.(*testContact).popResultAsString()
+	want = "[S,=BAvjRqi8ESrF4XpR4ASFuojhyAOA_bpf,pub2self,0]"
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
 	}
 
 	//WaitForActions(guru)
-	IterateAndWait(t, func() bool {
-		WaitForActions(guru)
-		cval := readCounter(iot.TopicsAdded)
-		return cval > 2
-	}, "timed out waiting for topics collected to be 3")
+	// IterateAndWait(t, func() bool {
+	// 	WaitForActions(guru)
+	// 	cval := readCounter(iot.TopicsAdded)
+	// 	return cval > 2
+	// }, "timed out waiting for topics collected to be 3")
 
-	val := readCounter(iot.TopicsAdded)
-	got = fmt.Sprint("topics collected ", val)
+	// val := readCounter(iot.TopicsAdded)
+	// got = fmt.Sprint("topics collected ", val)
 	count, fract := guru.GetSubsCount()
 	_ = fract
 	got = fmt.Sprint("topics collected ", count)
-	want = "topics collected 3" //
+	want = "topics collected 2" //
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
 	}
@@ -208,7 +233,7 @@ func TestSend(t *testing.T) {
 
 	//"[P,=AMwu23hGtbsMhhqkKVsPgsWJ/PwPCFd24Q,contact2_address,"hello, ...+17 more"
 
-	got, _ = contact1.(*testContact).getResultAsString()
+	got, _ = contact1.(*testContact).popResultAsString()
 	want = `[P,=zC7beEa1uwyGGqQpWw-CxYn8_A8IV3bh,contact2_address,"hello, can you hear me"]`
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)

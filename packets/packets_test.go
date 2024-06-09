@@ -87,7 +87,7 @@ func TestSend(t *testing.T) {
 
 	var bb bytes.Buffer
 	err := (&cmd).Write(&bb)
-	_ = err
+	check(err)
 
 	got = hex.EncodeToString(bb.Bytes())
 	want = "500304060964657374736f75726365736f6d655f64617461" // P followed by 3 strings
@@ -96,9 +96,9 @@ func TestSend(t *testing.T) {
 	}
 
 	uni, err := packets.ReadUniversal(&bb)
-	_ = uni
+	check(err)
 	bytes, err := packets.UniversalToJSON(uni)
-	_ = bytes
+	check(err)
 	got = string(bytes)
 	want = `[P,dest,source,some_data]`
 	if got != want {
@@ -115,7 +115,9 @@ func TestSend(t *testing.T) {
 	_ = err
 
 	pack, err := packets.ReadPacket(&bb)
+	check(err)
 	bytes, err = pack.ToJSON()
+	check(err)
 	got = string(bytes)
 	want = `[P,dest,source,some_data]`
 	if got != want {
@@ -142,8 +144,9 @@ func TestSub(t *testing.T) {
 	}
 
 	uni, err := packets.ReadUniversal(&bb)
-
+	check(err)
 	bytes, err := packets.UniversalToJSON(uni)
+	check(err)
 	got = string(bytes)
 	want = `[S,"destination address"]`
 	if got != want {
@@ -159,7 +162,9 @@ func TestSub(t *testing.T) {
 	_ = err
 
 	pack, err := packets.ReadPacket(&bb)
+	check(err)
 	bytes, err = pack.ToJSON()
+	check(err)
 	got = string(bytes)
 	want = `[S,"destination address"]`
 	if got != want {
@@ -186,8 +191,9 @@ func TestUnSub(t *testing.T) {
 	}
 
 	uni, err := packets.ReadUniversal(&bb)
-
+	check(err)
 	bytes, err := packets.UniversalToJSON(uni) // ([]byte, error)
+	check(err)
 	got = string(bytes)
 	want = `[U,"destination address"]`
 	if got != want {
@@ -200,10 +206,12 @@ func TestUnSub(t *testing.T) {
 
 	bb.Reset()
 	err = (&cmd).Write(&bb)
-	_ = err
+	check(err)
 
 	pack, err := packets.ReadPacket(&bb)
+	check(err)
 	bytes, err = pack.ToJSON()
+	check(err)
 	got = string(bytes)
 	want = `[U,"destination address"]`
 	if got != want {
@@ -230,8 +238,9 @@ func TestConnect(t *testing.T) {
 	}
 
 	uni, err := packets.ReadUniversal(&bb)
-
+	check(err)
 	bytes, err := packets.UniversalToJSON(uni) // ([]byte, error)
+	check(err)
 	got = string(bytes)
 	want = `[C,key1,value1,key2,value2]`
 	if got != want {
@@ -247,7 +256,9 @@ func TestConnect(t *testing.T) {
 	_ = err
 
 	pack, err := packets.ReadPacket(&bb)
+	check(err)
 	bytes, err = pack.ToJSON()
+	check(err)
 	got = string(bytes)
 	want = `[C,key1,value1,key2,value2]`
 	if got != want {
@@ -274,8 +285,9 @@ func TestDis(t *testing.T) {
 	}
 
 	uni, err := packets.ReadUniversal(&bb)
-
+	check(err)
 	bytes, err := packets.UniversalToJSON(uni) // ([]byte, error)
+	check(err)
 	got = string(bytes)
 	want = `[D,key1,value1,key2,value2]`
 	if got != want {
@@ -291,7 +303,9 @@ func TestDis(t *testing.T) {
 	_ = err
 
 	pack, err := packets.ReadPacket(&bb)
+	check(err)
 	bytes, err = pack.ToJSON()
+	check(err)
 	got = string(bytes)
 	want = `[D,key1,value1,key2,value2]`
 	if got != want {
@@ -318,8 +332,9 @@ func TestPing(t *testing.T) {
 	}
 
 	uni, err := packets.ReadUniversal(&bb)
-
+	check(err)
 	bytes, err := packets.UniversalToJSON(uni) // ([]byte, error)
+	check(err)
 	got = string(bytes)
 	want = `[H,key1,value1,key2,value2]`
 	if got != want {
@@ -335,7 +350,9 @@ func TestPing(t *testing.T) {
 	_ = err
 
 	pack, err := packets.ReadPacket(&bb)
+	check(err)
 	bytes, err = pack.ToJSON()
+	check(err)
 	got = string(bytes)
 	want = `[H,key1,value1,key2,value2]`
 	if got != want {
@@ -362,8 +379,9 @@ func TestLookup(t *testing.T) {
 	}
 
 	uni, err := packets.ReadUniversal(&bb)
-
+	check(err)
 	bytes, err := packets.UniversalToJSON(uni) // ([]byte, error)
+	check(err)
 	got = string(bytes)
 	want = `[L,"look me up","reply to me"]`
 	if got != want {
@@ -379,7 +397,9 @@ func TestLookup(t *testing.T) {
 	_ = err
 
 	pack, err := packets.ReadPacket(&bb)
+	check(err)
 	bytes, err = pack.ToJSON()
+	check(err)
 	got = string(bytes)
 	want = `[L,"look me up","reply to me"]`
 	if got != want {
@@ -455,7 +475,7 @@ func ExampleToJSON() {
 	if err != nil {
 		fmt.Println("wrong")
 	}
-	cmd.SetOption("IPv6", decoded)
+	cmd.SetOption("AAAA", decoded)
 	decoded, err = hex.DecodeString("FFFF00000000000000ABCDEF")
 	if err != nil {
 		fmt.Println("wrong2")
@@ -470,7 +490,7 @@ func ExampleToJSON() {
 	//  GetIPV6Option
 	fmt.Println(cmd.GetIPV6Option())
 
-	// Output: [P,destaddr,sourceaddr,"some data",IPv6,=IAENuIWjAAAAAIouA3BzNA,option1,test,option2,"На берегу пустынных волн",z,=__8AAAAAAAAAq83v]
+	// Output: [P,destaddr,sourceaddr,"some data",AAAA,=IAENuIWjAAAAAIouA3BzNA,option1,test,option2,"На берегу пустынных волн",z,=__8AAAAAAAAAq83v]
 	// [32 1 13 184 133 163 0 0 0 0 138 46 3 112 115 52]
 
 }
@@ -586,6 +606,7 @@ func TestForZombies(t *testing.T) {
 
 	bb.Reset()
 	bytes, err := hex.DecodeString(`5005040006`)
+	_ = err
 	bb.Write(bytes) // still not enough
 	uni, err = packets.ReadUniversal(&bb)
 	_ = uni
@@ -598,18 +619,19 @@ func TestForZombies(t *testing.T) {
 
 	bb.Reset()
 	bytes, err = hex.DecodeString(`5085040006`)
+	check(err)
 	bb.Write(bytes) // too many args
 	uni, err = packets.ReadUniversal(&bb)
 	_ = uni
-	_ = err
 	got = err.Error()
-	want = "Too many strings"
+	want = "too many strings"
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
 	}
 
 	bb.Reset()
 	bytes, err = hex.DecodeString(`500504000600`)
+	_ = err
 	bb.Write(bytes) // too few string lengths
 	uni, err = packets.ReadUniversal(&bb)
 	_ = uni
@@ -622,8 +644,10 @@ func TestForZombies(t *testing.T) {
 
 	bb.Reset()
 	bytes, err = hex.DecodeString(`500504000600`)
+	check(err)
 	bb.Write(bytes) // too few string lengths
 	aPacket, err := packets.ReadPacket(&bb)
+	check(err)
 	_ = aPacket
 	got = err.Error()
 	want = "EOF"
@@ -641,6 +665,7 @@ func TestForZombies2(t *testing.T) {
 
 	bb.Reset()
 	bytes, err := hex.DecodeString(`5005040006000964657374736f75726365736f6d655f646174`)
+	check(err)
 	bb.Write(bytes) // short by one byte
 	uni, err := packets.ReadUniversal(&bb)
 	_ = uni
@@ -653,8 +678,10 @@ func TestForZombies2(t *testing.T) {
 
 	bb.Reset()
 	bytes, err = hex.DecodeString(`500504000600`)
+	check(err)
 	bb.Write(bytes) // too few string lengths
 	aPacket, err := packets.ReadPacket(&bb)
+	check(err)
 	_ = aPacket
 	got = err.Error()
 	want = "EOF"
@@ -704,11 +731,12 @@ func TestForZombies2(t *testing.T) {
 	}
 	bb.Reset()
 	err = (&cmd).Write(&bb)
+	check(err)
 	fmt.Println("buffer size", bb.Len()) // the limit is 8m now
 	aPacket, err = packets.ReadPacket(&bb)
 	_ = aPacket
 	got = err.Error()
-	want = "Packet too long for this reality"
+	want = "packet too long for this reality"
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
 	}
@@ -805,4 +833,10 @@ func TestAddressMisc(t *testing.T) {
 		t.Errorf("got %v, want %v", got, want)
 	}
 
+}
+
+func check(e error) {
+	if e != nil {
+		fmt.Println("ERROR because ", e)
+	}
 }

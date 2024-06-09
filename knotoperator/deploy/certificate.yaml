@@ -7,7 +7,7 @@ apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
   name: knotfree
-  namespace: knotspace
+  namespace: cert-manager # knotspace
 spec:
   secretName: knotfree-secret
   issuerRef:

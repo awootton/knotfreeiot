@@ -25,13 +25,20 @@ import (
 	"reflect"
 	"strconv"
 	"sync"
-	"time"
+	"sync/atomic"
 
 	"github.com/awootton/knotfreeiot/packets"
 	"github.com/awootton/knotfreeiot/tokens"
 )
 
 // A 'contact' is an incoming connection.
+
+// ContactCommander is how we acceas a contact. It's a function that takes a *ContactStruct
+// We push the function into the 'commands' channel and it gets executed.
+type ContactCommander struct {
+	who string
+	fn  func(ss *ContactStruct)
+}
 
 // ContactStruct is our idea of channel or socket which is downstream from us.
 // I was trying to keep this small. LOL.
@@ -49,33 +56,34 @@ type ContactStruct struct {
 
 	nextBillingTime uint32
 	lastBillingTime uint32 // input and output were cleared at this time.
-	input           int
-	output          int
+	input           atomic.Int64
+	output          atomic.Int64
 
-	writechan           chan packets.Interface
-	dieWriteChanLoopDie chan bool
+	commands      chan ContactCommander
+	ClosedChannel chan interface{}
+	once          sync.Once
 
-	realReader io.Reader
-	realWriter io.Writer
+	realReader io.Reader // usually tcpConn
+	realWriter io.Writer // usually tcpConn
 
-	IsSpecial bool
-	// writeChanUnhooked bool
-	isClosed         bool
-	writeAccessMutex sync.Mutex
+	LogMeVerbose bool // this just a debug thing.
 }
 
 // ContactInterface is usually supplied by a tcp connection
 type ContactInterface interface {
-	Close(err error)
-
-	GetClosed() bool
+	DoClose(err error)
+	IsClosed() bool
 
 	GetKey() HalfHash
 
+	WriteCommand(cmd ContactCommander)
+
 	GetExpires() uint32
+	// only ever call this from inside a ContactCommander
 	SetExpires(when uint32)
 
 	GetToken() *tokens.KnotFreeTokenPayload
+	// only ever call this from inside a ContactCommander
 	SetToken(*tokens.KnotFreeTokenPayload)
 
 	GetConfig() *ContactStructConfig
@@ -101,7 +109,7 @@ type ContactInterface interface {
 
 	// this will disconnect the packet to writer loop and return the channel
 	// and unless you are reading the new chan packets will pile up.
-	ObtainControlOfWriteChannel() chan packets.Interface
+	// delete meObtainControlOfWriteChannel() chan packets.Interface
 }
 
 // ContactStructConfig could be just a stack frame but I'd like to return it.
@@ -129,7 +137,7 @@ type ContactStructConfig struct {
 }
 
 // AccessContactsList so we can disconnect them in test and stuff.
-// be sure to always lock. Don't call close or recurse in here or it will deadlock.
+// be sure to always lock. Don't call close or recurse in the fn or it will deadlock.
 func (config *ContactStructConfig) AccessContactsList(fn func(config *ContactStructConfig, listOfCi *list.List)) {
 	config.listlock.Lock()
 	defer config.listlock.Unlock()
@@ -156,7 +164,7 @@ func (config *ContactStructConfig) GetCe() *ClusterExecutive {
 	return config.ce
 }
 
-// IsGuru exposes onfig.lookup.isGuru
+// IsGuru exposes config.lookup.isGuru
 func (config *ContactStructConfig) IsGuru() bool {
 	if config == nil {
 		return false
@@ -172,7 +180,14 @@ func (config *ContactStructConfig) IsGuru() bool {
 // note that you must pass the same object twice, once as a ContactStruct and once as the Interface
 func AddContactStruct(ss *ContactStruct, ssi ContactInterface, config *ContactStructConfig) *ContactStruct {
 
+	size := 16
+	if config.IsGuru() {
+		size = 1024
+	}
+
 	ss.config = config
+	ss.commands = make(chan ContactCommander, size)
+	ss.ClosedChannel = make(chan interface{})
 
 	config.AccessContactsList(func(config *ContactStructConfig, listOfCi *list.List) {
 		if ss.key == 0 {
@@ -184,61 +199,43 @@ func AddContactStruct(ss *ContactStruct, ssi ContactInterface, config *ContactSt
 	})
 
 	now := config.GetLookup().getTime()
-	ss.SetExpires(20*60 + now) // stale contacts expire in 20 min. contact timeout
+	ss.contactExpires = 20*60 + now // stale contacts expire in 20 min. contact timeout
 	// fmt.Println("contactExpires 20 min")
 
 	ss.nextBillingTime = now + 30 // 30 seconds to start with
 	ss.lastBillingTime = now
 
-	if ss.writechan == nil {
-		size := 2
-		if config.IsGuru() {
-			size = 128
-		}
-		ss.writechan = make(chan packets.Interface, size)
-		ss.dieWriteChanLoopDie = make(chan bool, 1)
-		go func() {
-			theChan := ss.writechan
-			writeChanUnhooked := false // something weird here
-			for !writeChanUnhooked {
-				var p packets.Interface
-				select {
-				case p = <-theChan:
-				case <-ss.dieWriteChanLoopDie:
-					writeChanUnhooked = true
-					// should we wait 20 min and then close this?
-				}
-				if p == nil {
-					writeChanUnhooked = true
-					break // does this happen?
-				}
-				if writeChanUnhooked {
-					break
-				}
+	go func() { // loop until closed read p and write to Write impl
 
-				err := p.Write(ss)
-
-				if err != nil {
-					if ss.IsSpecial {
-						fmt.Println("writechan error closing now", ss.GetKey().Sig(), err)
-					}
-					// fmt.Println("ERROR writechan error closing now", err)
-					ss.Close(err)
-					if config.IsGuru() {
-						fmt.Println("writechan error Guru socket", err)
-					}
-					return //that's it, we're done.
+		for {
+			var cmd ContactCommander
+			select {
+			case <-ss.ClosedChannel:
+				if ss.LogMeVerbose {
+					fmt.Println("writechan error closing now", ss.GetKey().Sig())
 				}
+				if config.IsGuru() {
+					fmt.Println("writechan error closed Guru socket")
+				}
+				// stop looping, we're done
+				return
+			case cmd = <-ss.commands:
+				//fmt.Println("WriteCommand pop")
+				if !ss.IsClosed() {
+					// fmt.Println("WriteCommand fn TOP", cmd.who) // for debug FIXME: use debug print or something
+					cmd.fn(ss)
+					// fmt.Println("WriteCommand fn DONE", cmd.who)
+				}
+				//  done by some commands --->  p.Write(ss)
 			}
-		}()
-	}
+		}
+	}()
+
 	return ss
 }
 
-func (ss *ContactStruct) ObtainControlOfWriteChannel() chan packets.Interface {
-	ss.dieWriteChanLoopDie <- true // this will kill the old loop
-	// now it's YOUR job to read the writechan channel.
-	return ss.writechan
+func (ss *ContactStruct) WriteCommand(cmd ContactCommander) {
+	ss.commands <- cmd
 }
 
 // NewContactStructConfig is
@@ -264,27 +261,46 @@ func PushPacketUpFromBottom(ssi ContactInterface, p packets.Interface) error {
 // the packets are sent up to the looker where they are separated into buckets and dealt with.
 func PushPacketUpFromBottom2(ssi ContactInterface, p packets.Interface, doSetExpires bool) error {
 
-	if ssi.GetClosed() {
-		return errors.New("closed contact")
-	}
-	config := ssi.GetConfig()
-	if config == nil {
-		fmt.Println("no way")
-	}
-	looker := config.GetLookup()
-	var destination *HashType
+	var err error
+	var wg sync.WaitGroup
+	var config *ContactStructConfig
+	var looker *LookupTableStruct
+	wg.Add(1)
+	ssi.WriteCommand(ContactCommander{
+		who: "PushPacketUpFromBottom2",
+		fn: func(ss *ContactStruct) {
+			defer wg.Done()
+			if ssi.IsClosed() {
+				// throw the packet away
+				err = errors.New("closed contact")
+				return
+			}
+			config = ssi.GetConfig()
+			if config == nil {
+				fmt.Println("no way there's no config")
+				return
+			}
+			looker = config.GetLookup()
 
-	if doSetExpires {
-		ssi.SetExpires(20*60 + config.lookup.getTime())
-	}
+			if doSetExpires {
+				ssi.SetExpires(20*60 + config.lookup.getTime())
+			}
 
-	err := expectToken(ssi, p)
+			err := expectToken(ssi, p)
+			if err != nil {
+				return
+			}
+			got, ok := p.GetOption("debg")
+			if ok && string(got) == "12345678" {
+				fmt.Println("PushPacketUpFromBottom con=", ssi.GetConfig().key.Sig(), " ", p.Sig())
+			}
+		},
+	})
+	wg.Wait()
+
 	if err != nil {
+		ssi.DoClose(err)
 		return err
-	}
-	got, ok := p.GetOption("debg")
-	if ok && string(got) == "12345678" {
-		fmt.Println("PushPacketUpFromBottom con=", ssi.GetConfig().key.Sig(), " ", p.Sig())
 	}
 
 	switch v := p.(type) {
@@ -293,7 +309,7 @@ func PushPacketUpFromBottom2(ssi ContactInterface, p packets.Interface, doSetExp
 	case *packets.Disconnect:
 		ssi.WriteDownstream(v)
 		fmt.Println("contact closing on disconnect")
-		ssi.Close(errors.New("closing on disconnect"))
+		ssi.DoClose(errors.New("closing on disconnect"))
 	case *packets.Subscribe:
 		v.Address.EnsureAddressIsBinary()
 
@@ -302,8 +318,11 @@ func PushPacketUpFromBottom2(ssi ContactInterface, p packets.Interface, doSetExp
 		if !ok && !config.IsGuru() {
 			// it's a non-billing topic.
 			// later, during heartbeat, it will send messages to this address
-			id := ssi.GetToken().JWTID
-			v.SetOption("jwtidAlias", []byte(id))
+			tok := ssi.GetToken()
+			if tok != nil {
+				id := tok.JWTID
+				v.SetOption("jwtidAlias", []byte(id))
+			}
 		}
 		looker.sendSubscriptionMessage(ssi, v)
 	case *packets.Unsubscribe:
@@ -321,11 +340,6 @@ func PushPacketUpFromBottom2(ssi ContactInterface, p packets.Interface, doSetExp
 	default:
 		fmt.Printf("I don't know about native type : %T!\n", v)
 	}
-
-	_ = destination
-	_ = looker
-
-	//	looker.Send(ss, p)
 	return nil
 }
 
@@ -380,30 +394,21 @@ func (ss *ContactStruct) GetConfig() *ContactStructConfig {
 // WriteDownstream is often overridden
 // in *test* we force plain contacts on the bottom of the guru's
 // they just need to write.
-func (ss *ContactStruct) WriteDownstream(cmd packets.Interface) error {
+func (ss *ContactStruct) WriteDownstream(p packets.Interface) error {
 
-	if ss.GetClosed() {
+	if ss.IsClosed() {
 		return errors.New("closed contact")
 	}
-	got, ok := cmd.GetOption("debg")
+	got, ok := p.GetOption("debg")
 	if ok && string(got) == "12345678" {
-		fmt.Println("ContactStruct WriteDownstream con=", ss.GetKey().Sig(), cmd.Sig())
+		fmt.Println("ContactStruct WriteDownstream con=", ss.GetKey().Sig(), p.Sig())
 	}
 
-	ss.writechan <- cmd
-
-	// nope. need to buffer and extra buffer for guru sockets
-
-	// got, ok := cmd.GetOption("debg")
-	// if ok && string(got) == "12345678" {
-	// 	fmt.Println("ContactStruct write to con=", ss.key.Sig(), cmd.Sig())
-	// }
-
-	// // all at once
-	// buff := &bytes.Buffer{}
-	// cmd.Write(buff)
-	// _, err := ss.Write(buff.Bytes())
-	// //	whats wrong with this one? err := cmd.Write(ss)
+	go func() {
+		// fmt.Println("ContactStruct WriteDownstream 2 con=", ss.GetKey().Sig(), p.Sig())
+		p.Write(ss)
+	}()
+	// Don't wait.
 	return nil
 }
 
@@ -415,24 +420,43 @@ func (config *ContactStructConfig) GetLookup() *LookupTableStruct {
 // Close closes the conn
 // and the rest of the work too. doesn't send error or disconnect.
 // needs to be overridden
-func (ss *ContactStruct) Close(err error) {
+func (ss *ContactStruct) DoClose(err error) {
 
-	ss.writeAccessMutex.Lock()
-	defer ss.writeAccessMutex.Unlock()
-	if ss.isClosed {
+	select {
+	case <-ss.ClosedChannel:
 		return
+	default:
+		// fall through
 	}
-	ss.isClosed = true
-	if ss.IsSpecial {
-		fmt.Println("Closing special ", ss.GetKey().Sig(), " with err ", err)
+
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	// fmt.Println("WriteCommand push close")
+	ss.commands <- ContactCommander{
+		who: "DoClose",
+		fn: func(ss *ContactStruct) {
+			defer wg.Done()
+			if ss.LogMeVerbose {
+				fmt.Println("Closing special ", ss.GetKey().Sig(), " with err ", err)
+			}
+			ss.once.Do(func() {
+				close(ss.ClosedChannel)
+				ss.DoClosingWork(err)
+			})
+		},
 	}
-	if ss.ele != nil && ss.config != nil {
+	wg.Wait()
+}
 
-		// race problems?
-		// do we need this? ss.sendBillingInfo(ss.config.lookup.getTime())
-
+// This will unlink and close the contact.
+// Guaranteed to only happen once
+// Alert:never call this direcly. Use DoClose(err) instead and it will call this correctly.
+// You can override it though.
+func (ss *ContactStruct) DoClosingWork(err error) {
+	_ = err
+	if ss.ele != nil && ss.config != nil { //always true
 		config := ss.config
-		if config != nil {
+		if config != nil { // should always be true
 			config.listlock.Lock()
 			if ss.ele != nil {
 				config.listOfCi.Remove(ss.ele)
@@ -440,9 +464,7 @@ func (ss *ContactStruct) Close(err error) {
 			config.listlock.Unlock()
 		}
 		ss.ele = nil
-		// I had a panic at the remove so I'm checking for config.listOfCi
 	}
-	ss.config = nil
 }
 
 // GetSequence is
@@ -470,18 +492,15 @@ func (ss *ContactStruct) WriteUpstream(cmd packets.Interface) error {
 	return errors.New("FIXME unused WriteUpstream")
 }
 
-// GetClosed because the contact is still referenced by looker after closed.
-func (ss *ContactStruct) GetClosed() bool {
-	ss.writeAccessMutex.Lock()
-	defer ss.writeAccessMutex.Unlock()
-	return ss.isClosed
+// IsClosed returns if the contact was closed in a go safe way.
+func (ss *ContactStruct) IsClosed() bool {
 
-	// do we need this?
-	// close always nulls the list and the config
-	// if ss.ele == nil || ss.config == nil {
-	// 	return true
-	// }
-	// return false
+	select {
+	case <-ss.ClosedChannel:
+		return true
+	default:
+		return false
+	}
 }
 
 func (ss *ContactStruct) String() string {
@@ -493,43 +512,67 @@ func (ss *ContactStruct) GetToken() *tokens.KnotFreeTokenPayload {
 	return ss.token
 }
 
-// SetToken return the verified and decoded payload or else nil
+// SetToken set the verified and decoded payload
+//
+//	WARNING this is only called from inside a ContactCommander
 func (ss *ContactStruct) SetToken(t *tokens.KnotFreeTokenPayload) {
 	// do we need the cruft?
 	// need to keep this because it's the billing topic: t.JWTID
-	ss.writeAccessMutex.Lock()
-	defer ss.writeAccessMutex.Unlock()
-	t.URL = ""
-	t.Issuer = ""
-	ss.token = t
+	//var wg sync.WaitGroup
+	//wg.Add(1)
+	// fmt.Println("WriteCommand push set token")
+	//ss.commands <- func(ss *ContactStruct)
+	{
+		t.URL = ""
+		t.Issuer = ""
+		ss.token = t
+		//wg.Done()
+	}
+	//wg.Wait()
 }
 
 // GetExpires returns when the cc should expire
 func (ss *ContactStruct) GetExpires() uint32 {
-	ss.writeAccessMutex.Lock()
-	defer ss.writeAccessMutex.Unlock()
-
-	return ss.contactExpires
+	var val uint32
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	ss.commands <- ContactCommander{
+		who: "GetExpires",
+		fn: func(ss *ContactStruct) {
+			val = ss.contactExpires
+			wg.Done()
+		},
+	}
+	wg.Wait()
+	return val
 }
 
 // SetExpires sets when the ss will expire in unix time
 func (ss *ContactStruct) SetExpires(when uint32) {
-	// fmt.Println("SetExpires now", ss.GetSequence())
-	ss.writeAccessMutex.Lock()
-	defer ss.writeAccessMutex.Unlock()
-	if when > ss.contactExpires {
-		ss.contactExpires = when
+	ss.commands <- ContactCommander{
+		who: "SetExpires",
+		fn: func(ss *ContactStruct) {
+			if when > ss.contactExpires {
+				ss.contactExpires = when
+			}
+		},
 	}
+	// don't wait.
 }
 
 func (ss *ContactStruct) Read(p []byte) (int, error) {
 	if ss.realReader == nil {
 		panic("ss.realReader == nil")
 	}
-	n, err := ss.realReader.Read(p)
-	ss.writeAccessMutex.Lock()
-	ss.input += n
-	ss.writeAccessMutex.Unlock()
+	n, err := ss.realReader.Read(p) // is Read thread safe?
+	// ss.commands <- ContactCommander{
+	// 	who: "Read",
+	// 	fn: func(ss *ContactStruct) {
+	// 		ss.input += n
+	// 	},
+	// }
+	ss.input.Add(int64(n))
+	// don't wait
 	return n, err
 }
 
@@ -538,11 +581,16 @@ func (ss *ContactStruct) Write(p []byte) (int, error) {
 		// panic("ss.realWriter == nil")
 		return 0, errors.New("ss.realWriter == nil")
 	}
+	// fmt.Println("contact write", string(p))
 	n, err := ss.realWriter.Write(p)
-	ss.writeAccessMutex.Lock()
-	defer ss.writeAccessMutex.Unlock()
-
-	ss.output += n
+	// ss.commands <- ContactCommander{ // would fill the channel
+	// 	who: "Write",
+	// 	fn: func(ss *ContactStruct) {
+	// 		ss.output += n
+	// 	},
+	// }
+	// don't wait.
+	ss.output.Add(int64(n))
 	return n, err
 }
 
@@ -565,11 +613,13 @@ func (ss *ContactStruct) ReadByte() (byte, error) {
 	}
 	var data [1]byte
 	n, err := ss.Read(data[:])
-	ss.writeAccessMutex.Lock()
-	defer ss.writeAccessMutex.Unlock()
-
-	ss.output++
-	_ = n
+	// ss.commands <- ContactCommander{ // would fill the channel
+	// 	who: "ReadByte",
+	// 	fn: func(ss *ContactStruct) {
+	// 		ss.output += n
+	// 	},
+	// } // don't wait
+	ss.output.Add(int64(n))
 	return data[0], err
 }
 
@@ -591,19 +641,19 @@ func expectToken(ssi ContactInterface, p packets.Interface) error {
 		// find the public key that matches.
 		publicKeyBytes := tokens.FindPublicKey(issuer)
 		if len(publicKeyBytes) != 32 {
-			return makeErrorAndDisconnect(ssi, "token bad issuer", nil)
+			return makeErrorAndDisconnect(ssi, "token bad issuer "+issuer, nil)
 		}
 		foundPayload, ok := tokens.VerifyToken([]byte(trimmedToken), []byte(publicKeyBytes))
 		if !ok {
 			return makeErrorAndDisconnect(ssi, "token not verified", nil)
 		}
-		nowsec := uint32(time.Now().Unix())
+		nowsec := ssi.GetConfig().GetCe().timegetter() // uint32(time.Now().Unix())
 		if nowsec > foundPayload.ExpirationTime {
 			return makeErrorAndDisconnect(ssi, "token expired", nil)
 		}
 
-		ssi.SetToken(foundPayload)
-		{ // subscribe to token for billing
+		ssi.SetToken(foundPayload) // we're already in the contact loop thread
+		{                          // subscribe to token for billing
 			foundPayload.KnotFreeContactStats.Subscriptions += 1 // for billing subscription
 			billstr, err := json.Marshal(foundPayload.KnotFreeContactStats)
 			if err != nil {
@@ -615,7 +665,7 @@ func expectToken(ssi ContactInterface, p packets.Interface) error {
 			// fmt.Println("contact subscribing to ", ssi.GetToken().JWTID)
 			sub.SetOption("statsmax", billstr)
 			sub.SetOption("noack", []byte("1"))
-			PushPacketUpFromBottom(ssi, &sub)
+			go PushPacketUpFromBottom(ssi, &sub)
 		}
 		return nil
 	}
@@ -626,12 +676,13 @@ func makeErrorAndDisconnect(ssi ContactInterface, str string, err error) error {
 	if err == nil {
 		err = errors.New(str)
 	}
-
-	dis := &packets.Disconnect{}
-	dis.SetOption("error", []byte(err.Error()))
-	ssi.WriteDownstream(dis)
-	fmt.Println("contacts makeErrorAndDisconnect")
-	ssi.Close(err)
+	go func() { // must not block.
+		dis := &packets.Disconnect{}
+		dis.SetOption("error", []byte(err.Error()))
+		ssi.WriteDownstream(dis)
+		fmt.Println("contacts makeErrorAndDisconnect", str, err)
+		ssi.DoClose(err)
+	}()
 	return err
 }
 
@@ -652,15 +703,25 @@ func HasError(p packets.Interface) *packets.Disconnect {
 // fixme: have stats call a billingAccumulator on heartbeat.
 func (ss *ContactStruct) GetRates(now uint32) (int, int, int) {
 
-	ss.writeAccessMutex.Lock()
-	defer ss.writeAccessMutex.Unlock()
-	in := ss.input
-	out := ss.output
-	dt := now - ss.lastBillingTime
-	if dt > 4*300 { // ? is our normal reporting interval
-		dt = 0
+	var in int64
+	var out int64
+	var dt uint32
+	var wg sync.WaitGroup
+	wg.Add(1)
+	ss.commands <- ContactCommander{
+		who: "GetRates",
+		fn: func(ss *ContactStruct) {
+			ss.input.Store(in)
+			ss.output.Store(out)
+			dt = now - ss.lastBillingTime
+			if dt > 4*300 { // ? is our normal reporting interval
+				dt = 0
+			}
+			wg.Done()
+		},
 	}
-	return in, out, int(dt)
+	wg.Wait()
+	return int(in), int(out), int(dt) // return uint64
 }
 
 // SetReader allows test to monkey with the flow
@@ -675,56 +736,65 @@ func (ss *ContactStruct) SetWriter(w io.Writer) {
 
 func (ss *ContactStruct) sendBillingInfo(now uint32) {
 
-	ss.writeAccessMutex.Lock()
-	config := ss.config
-	tok := ss.token
-	isclosed := ss.isClosed
-	ss.writeAccessMutex.Unlock()
-
-	if config == nil || tok == nil || isclosed {
+	if ss.IsClosed() {
 		return
 	}
-
-	ss.writeAccessMutex.Lock()
-
-	deltaTime := ss.nextBillingTime - ss.lastBillingTime
-	ss.lastBillingTime = ss.nextBillingTime
-	ss.nextBillingTime += 60 // 60 secs after first time
+	var config *ContactStructConfig
+	// var tok *tokens.KnotFreeTokenPayload
 	msg := &Stats{}
-	msg.Input = float64(ss.input)
-	ss.input -= int(msg.Input) // todo: atomic?
-	msg.Output = float64(ss.output)
-	ss.output -= int(msg.Output)         // todo: atomic?
-	msg.Connections = float64(deltaTime) // means one per sec, one per min ... one
+	var deltaTime uint32
+	var wg sync.WaitGroup
+	wg.Add(1)
+	ss.commands <- ContactCommander{
+		who: "sendBillingInfp",
+		fn: func(ss *ContactStruct) {
 
-	ss.writeAccessMutex.Unlock()
-
-	// also send to exec
-	config.lookup.ex.Billing.AddUsage(&msg.KnotFreeContactStats, now, int(deltaTime))
-
-	// Subscriptions handled elsewhere.
-	p := &packets.Send{}
-	// fmt.Println("contact publishing to ", ss.token.JWTID)
-	p.Address.FromString(ss.token.JWTID)
-	p.Source.FromString("billing_stats_return_address_contact")
-	str, err := json.Marshal(msg)
-	if err != nil {
-		fmt.Println("impossible#3")
+			config = ss.config
+			// tok = ss.token
+			deltaTime := ss.nextBillingTime - ss.lastBillingTime
+			ss.lastBillingTime = ss.nextBillingTime
+			ss.nextBillingTime += 60 // 60 secs after first time
+			var tmp int64
+			ss.input.Store(tmp)
+			msg.Input = float64(tmp)
+			ss.input.Add(-tmp)
+			ss.output.Store(tmp)
+			msg.Output = float64(tmp)
+			ss.output.Add(-tmp)
+			msg.Connections = float64(deltaTime) // means one per sec, one per min ... one
+			wg.Done()
+		},
 	}
-	p.SetOption("add-stats", str)
-	p.SetOption("stats-deltat", []byte(strconv.FormatInt(int64(deltaTime), 10)))
+	wg.Wait()
+	go func() {
+		// also send to exec
+		config.lookup.ex.Billing.AddUsage(&msg.KnotFreeContactStats, now, int(deltaTime))
 
-	//fmt.Println("contact heartbeat sending stats", p, "from", ss.config.Name)
+		// Subscriptions handled elsewhere.
+		p := &packets.Send{}
+		// fmt.Println("contact publishing to ", ss.token.JWTID)
+		p.Address.FromString(ss.token.JWTID)
+		p.Source.FromString("billing_stats_return_address_contact")
+		str, err := json.Marshal(msg)
+		if err != nil {
+			fmt.Println("impossible#3")
+		}
+		p.SetOption("add-stats", str)
+		p.SetOption("stats-deltat", []byte(strconv.FormatInt(int64(deltaTime), 10)))
 
-	// don't bill a billing subscripton for the guru.
+		//fmt.Println("contact heartbeat sending stats", p, "from", ss.config.Name)
 
-	if !config.IsGuru() {
-		doSetExpires := false
-		err = PushPacketUpFromBottom2(ss, p, doSetExpires)
-	}
-	if err != nil {
-		fmt.Println("things before")
-	}
+		// don't bill a billing subscripton for the guru.
+
+		if !config.IsGuru() {
+			doSetExpires := false
+			err = PushPacketUpFromBottom2(ss, p, doSetExpires)
+		}
+		if err != nil {
+			fmt.Println("things before")
+		}
+	}()
+	// don't wait
 }
 
 // Heartbeat is periodic service ~= 10 sec
@@ -732,34 +802,46 @@ func (ss *ContactStruct) sendBillingInfo(now uint32) {
 // 50/60 times it'll do nothing.
 func (ss *ContactStruct) Heartbeat(now uint32) {
 
-	ss.writeAccessMutex.Lock()
-	config := ss.config
-	nextBillingTime := ss.nextBillingTime
-	token := ss.token
-	expires := ss.contactExpires
-	ss.writeAccessMutex.Unlock()
-
-	//fmt.Println("contact heartbeat ", ss.GetKey())
+	var config *ContactStructConfig
+	var nextBillingTime uint32
+	var token *tokens.KnotFreeTokenPayload
+	var expires uint32
+	var wg sync.WaitGroup
+	wg.Add(1)
+	ss.commands <- ContactCommander{
+		who: "Heartbeat",
+		fn: func(ss *ContactStruct) {
+			config = ss.config
+			nextBillingTime = ss.nextBillingTime
+			token = ss.token
+			expires = ss.contactExpires
+			wg.Done()
+		},
+	}
+	wg.Wait()
 	if token == nil {
 		// it's not even started yet.
 		return
 	}
-
 	// Guru clients don't bill. ? FIXME:
 	if nextBillingTime < now { // && !ss.GetConfig().IsGuru() {
-
 		ss.sendBillingInfo(now)
-
 	}
 	if !config.IsGuru() {
 		if expires < now {
 			fmt.Println("contact timed out in heartbeat")
-			ss.Close(errors.New("timed out in heartbeat "))
+			ss.DoClose(errors.New("timed out in heartbeat "))
 		}
 	}
 }
 
 // IncOutput so test and fake bytes written
 func (ss *ContactStruct) IncOutput(amt int) {
-	ss.output += amt
+	// ss.commands <- ContactCommander{
+	// 	who: "IncOutput",
+	// 	fn: func(ss *ContactStruct) {
+	// 		ss.output += amt
+	// 	},
+	// }
+	ss.output.Add(int64(amt))
 }

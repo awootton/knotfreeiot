@@ -2,15 +2,6 @@
 
 package mainhelpers_test
 
-import (
-	"fmt"
-
-	"testing"
-
-	"github.com/awootton/knotfreeiot/mainhelpers"
-	"github.com/awootton/knotfreeiot/tokens"
-)
-
 // this token comes from topkens.TestMakeToken1connection
 var sampleToken1 = `eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiSldUIn0.eyJleHAiOjE2MDkzNzY0MDAsImlzcyI6Il85c2giLCJqdGkiOiIxMjM0NTYiLCJpbiI6MjAsIm91dCI6MjAsInN1IjoxLCJjbyI6MSwidXJsIjoia25vdGZyZWUubmV0In0.i5-h6Yup6vYVD6HZhzIz_jP0y1FYkqfiM4D56eJi_-L8DWyDB9_6gSozpdF3eNgRHKBexiLVyhAAqLHUHLMZBw`
 
@@ -71,13 +62,13 @@ var sampleToken1 = `eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiSldUIn0.eyJleHAiOjE2MDkzNzY0
 
 // }
 
-func not_TestMakeHugeToken(t *testing.T) {
+// func not_TestMakeHugeToken(t *testing.T) {
+// 	_ = t
+// 	tokens.LoadPublicKeys()
 
-	tokens.LoadPublicKeys()
+// 	tokens.LoadPrivateKeys("~/atw/privateKeys4.txt")
 
-	tokens.LoadPrivateKeys("~/atw/privateKeys4.txt")
+// 	tok := tokens.Get32xTokenLocal() //mainhelpers.MakeMedium32cToken()
+// 	fmt.Println(tok)
 
-	tok, x := mainhelpers.MakeMedium32cToken()
-	fmt.Println(tok)
-	fmt.Println(x)
-}
+// }

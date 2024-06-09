@@ -63,7 +63,7 @@ func not_TestReserveName(t *testing.T) {
 	reserve.JWTID = base64.RawURLEncoding.EncodeToString(client_public[:])
 	reserve.Name = "contact9_address"
 
-	reserveBytes, err := tokens.MakeNameToken(&reserve, []byte(tokens.GetPrivateKey(reserve.Issuer)))
+	reserveBytes, err := tokens.MakeNameToken(&reserve, []byte(tokens.GetPrivateKeyMatching(reserve.Issuer)))
 
 	fmt.Println("Original name jwt", string(reserveBytes))
 
@@ -229,7 +229,7 @@ func TestLookupSubs(t *testing.T) {
 	contact9 := makeTestContact(aide9.Config, "")
 
 	connect := packets.Connect{}
-	connect.SetOption("token", []byte(tokens.Test32xToken))
+	connect.SetOption("token", tokens.GetTest32xToken())
 	iot.PushPacketUpFromBottom(contact0, &connect)
 	iot.PushPacketUpFromBottom(contact9, &connect)
 

@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/awootton/knotfreeiot/kubectl"
-	"github.com/awootton/knotfreeiot/tokens"
 )
 
 // ## build and deploy knotfree using kubectl to current namespace.
@@ -33,10 +32,10 @@ var needtobuild = true
 var alsoDoLibra = false // are deprecating libra due to excessive disk usage.
 // var alsoStartMonitoring = true // once is enough //this is broken from being too old
 
-var buildReactAndCopy = false // todo: mount the react static files instead of baking them in the docker.
+var buildReactAndCopy = false // true // todo: mount the react static files instead of baking them in the docker.
 // TODO: better. redirect to s3 bucket with the files in it.? does this work?
 
-var TARGET_CLUSTER = "knotfree.io" // for monitor pod
+// var TARGET_CLUSTER = "knotfree.io" // for monitor pod - NOT USED - deploy from monitor project please.
 
 func main() {
 
@@ -63,23 +62,23 @@ func main() {
 	kubectl.K("kubectl create ns knotspace")
 	kubectl.K("kubectl config set-context --current --namespace=knotspace")
 
-	if false { // make a new giant token, deploy the monitor_pod
-		tokens.LoadPrivateKeys("~/atw/privateKeys4.txt")
-		TOKEN := tokens.GetImpromptuGiantToken() // 256k connections is GiantX32
+	// if false { // make a new giant token, deploy the monitor_pod DEPRICATED - use the main in monitor.
+	// 	tokens.LoadPrivateKeys("~/atw/privateKeys4.txt")
+	// 	TOKEN := tokens.GetImpromptuGiantToken() // 256k connections is GiantX32
 
-		// wtf? hangs kubectl.K("cd ../../monitor_pod;go mod tidy")
-		kubectl.K("cd ../../;docker build -f DockerfileMonitor -t  gcr.io/fair-theater-238820/monitor_pod .")
-		kubectl.K("cd ../../;docker push gcr.io/fair-theater-238820/monitor_pod")
+	// 	// wtf? hangs kubectl.K("cd ../../monitor_pod;go mod tidy")
+	// 	kubectl.K("cd ../../;docker build -f DockerfileMonitor -t  gcr.io/fair-theater-238820/monitor_pod .")
+	// 	kubectl.K("cd ../../;docker push gcr.io/fair-theater-238820/monitor_pod")
 
-		data, _ := os.ReadFile("../../monitor_pod/deploy.yaml")
-		sdata := strings.ReplaceAll(string(data), "__TARGET_CLUSTER__", TARGET_CLUSTER)
-		sdata = strings.ReplaceAll(sdata, "__TOKEN__", TOKEN)
-		err := os.WriteFile("dummy.yaml", []byte(sdata), 0644)
-		if err != nil {
-			fmt.Println("fail flail 888")
-		}
-		kubectl.K("kubectl apply -f dummy.yaml")
-	}
+	// 	data, _ := os.ReadFile("../../monitor_pod/deploy.yaml")
+	// 	sdata := strings.ReplaceAll(string(data), "__TARGET_CLUSTER__", TARGET_CLUSTER)
+	// 	sdata = strings.ReplaceAll(sdata, "__TOKEN__", TOKEN)
+	// 	err := os.WriteFile("dummy.yaml", []byte(sdata), 0644)
+	// 	if err != nil {
+	// 		fmt.Println("fail flail 888")
+	// 	}
+	// 	kubectl.K("kubectl apply -f dummy.yaml")
+	// }
 
 	var wg sync.WaitGroup
 
@@ -124,6 +123,7 @@ func main() {
 	//path2 := hh + "/atw/fair-theater-238820-firebase-adminsdk-uyr4z-63b4da8ff3.json"
 	//path1 := hh + "/atw/privateKeys4.txt"
 	dir := hh + "/atw"
+	kubectl.K("kubectl delete secret privatekeys4")
 	kubectl.K("kubectl create secret generic privatekeys4 --from-file=" + dir)
 
 	//kubectl.K("kubectl apply -f knotfreedeploy.yaml")

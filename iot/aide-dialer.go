@@ -69,16 +69,16 @@ func (ex *Executive) DialContactToAnyAide(isTCP bool, ce *ClusterExecutive) {
 		for { // not the ClusterStats technique. for unit test only.
 			if len(ce.Aides) > 0 {
 				aide := ce.Aides[rand.Intn(len(ce.Aides))]
-				//   because we're in test
+				//  because we're in test
 				// with no tcp
-				token := tokens.Test32xToken //GetImpromptuGiantToken()
+				token := tokens.GetImpromptuGiantToken()
 
 				contact := &ContactStruct{}
 				AddContactStruct(contact, contact, aide.Config)
 				contact.SetExpires(contact.contactExpires + 60*60*24*365*10) // in 10 years
 
 				// define a reader and a writer
-				contact.realWriter = &DevNull{} // we don't  subscribe or care what they say
+				contact.realWriter = &DevNull{} // we don't subscribe or care what they say
 
 				connect := packets.Connect{}
 				connect.SetOption("token", []byte(token)) //SampleSmallToken))

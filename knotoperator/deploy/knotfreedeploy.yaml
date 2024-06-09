@@ -84,6 +84,7 @@ metadata:
   annotations:
     team: "knotfree"
 spec:
+  ipFamilyPolicy: PreferDualStack
   type: LoadBalancer
   ports:
 

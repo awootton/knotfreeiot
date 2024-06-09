@@ -50,6 +50,8 @@ type ThingContext struct {
 	pubStr   string
 	privStr  string
 
+	Host string //host and port. eg knotfree.net:8384
+
 	//adminPassPhrase string
 	adminPubStr string
 	//adminPrivStr    string
@@ -67,19 +69,10 @@ type ThingContext struct {
 	Index      int
 	Token      string
 
-	IsSpecial bool
+	LogMeVerbose bool // a debugging thing
 }
 
-var tempInF = 46.0
-
-func StartTempGetter() {
-	go func() {
-		for {
-			tempInF = 46.0 // FIXME get real temp
-			time.Sleep(15 * time.Minute)
-		}
-	}()
-}
+var TempInF = 46.0
 
 type Command struct {
 	execute       func(msg string, args []string) string
@@ -103,12 +96,16 @@ func MakeCommand(commandString string, description string,
 
 func ServeGetTime(token string, c *ThingContext) { // use knotfree format
 
-	target_cluster := os.Getenv("TARGET_CLUSTER")
+	//target_cluster := os.Getenv("TARGET_CLUSTER")
 
 	c.count = 0
 	c.fail = 0
 
 	setupCommands(c)
+
+	// var wg sync.WaitGroup
+	// wg.Add(1)
+	waitCount := 1
 
 	go func() {
 
@@ -116,7 +113,7 @@ func ServeGetTime(token string, c *ThingContext) { // use knotfree format
 
 		for { // connect loop forever
 
-			servAddr := target_cluster + ":8384"
+			servAddr := c.Host // target_cluster + ":8384"
 			tcpAddr, err := net.ResolveTCPAddr("tcp", servAddr)
 			if err != nil {
 				println("had ResolveTCPAddr failed:", c.Topic, err.Error())
@@ -124,7 +121,7 @@ func ServeGetTime(token string, c *ThingContext) { // use knotfree format
 				time.Sleep(10 * time.Second)
 				continue // to connect loop
 			}
-			println("Dialing ", c.Topic)
+			println("ServeGetTime Dialing ", c.Topic)
 			conn, err := net.DialTCP("tcp", nil, tcpAddr)
 			if err != nil {
 				println("dial failed:", err.Error())
@@ -134,7 +131,7 @@ func ServeGetTime(token string, c *ThingContext) { // use knotfree format
 			}
 			connect := &packets.Connect{}
 			connect.SetOption("token", []byte(token))
-			if c.IsSpecial {
+			if c.LogMeVerbose {
 				connect.SetOption("debg", []byte("12345678"))
 			}
 			err = connect.Write(conn)
@@ -146,7 +143,7 @@ func ServeGetTime(token string, c *ThingContext) { // use knotfree format
 				continue // to connect loop
 			}
 
-			quitSubscribeLoop := make(chan bool)
+			quitSubscribeLoop := make(chan interface{})
 
 			go func() {
 				// expiration time is 20 min.
@@ -156,6 +153,7 @@ func ServeGetTime(token string, c *ThingContext) { // use knotfree format
 					println("monitor Subscribing:" + c.Topic)
 
 					err := Subscribe(c, conn) // how do we know the conn is any good?
+
 					if err != nil {
 						println("subscribing ERROR:"+c.Topic, err)
 						conn.Close() // we should get a ReadPacket error asap
@@ -185,11 +183,11 @@ func ServeGetTime(token string, c *ThingContext) { // use knotfree format
 				}
 				if _, ok := p.(*packets.Subscribe); ok {
 					// this is the suback and is normal
-					fmt.Println("have suback", c.Topic, p.Sig())
+					fmt.Println("monitor has suback", c.Topic, p.Sig())
+					waitCount = 0
 					continue
 				}
-
-				sendme, err := digestPacket(p, c, c.CommandMap)
+				sendme, err := digestPacket(p, c)
 				if err != nil {
 					println("digestPacket err:", c.Topic, err)
 					conn.Close()
@@ -218,12 +216,18 @@ func ServeGetTime(token string, c *ThingContext) { // use knotfree format
 			connectCount++
 		} // connect loop
 	}()
+
+	// wg.Wait() // return after we have suback.
+	for waitCount > 0 {
+		time.Sleep(10 * time.Millisecond)
+	}
+	fmt.Println("serveThing started", c.Topic)
 }
 
 func Subscribe(c *ThingContext, conn net.Conn) error {
 	sub := &packets.Subscribe{}
 	sub.Address.FromString(c.Topic)
-	if c.IsSpecial {
+	if c.LogMeVerbose {
 		sub.SetOption("debg", []byte("12345678"))
 	}
 	err := sub.Write(conn)
@@ -238,9 +242,7 @@ func Subscribe(c *ThingContext, conn net.Conn) error {
 	return nil
 }
 
-func digestPacket(p packets.Interface,
-	c *ThingContext,
-	CommandMap map[string]Command) (packets.Interface, error) {
+func digestPacket(p packets.Interface, c *ThingContext) (packets.Interface, error) {
 
 	// println("received:", p.String())
 	pub, ok := p.(*packets.Send)
@@ -254,7 +256,6 @@ func digestPacket(p packets.Interface,
 	message := string(pub.Payload)
 
 	SpecialPrint(&pub.PacketCommon, func() {
-
 		fmt.Print("monitor ", c.Topic, " got ", pub.Sig())
 	})
 
@@ -497,6 +498,8 @@ func digestPacket(p packets.Interface,
 		reply = tmp
 	}
 
+	// fmt.Println("monitor reply ", reply)
+
 	sendme := &packets.Send{}
 	sendme.Address = pub.Source
 	sendme.Source = pub.Address
@@ -556,7 +559,7 @@ func PublishTestTopic(token string) { // use knotfree format
 			sub.Payload = []byte(message)
 			sub.Source.FromString("random unwatched return address")
 			sub.SetOption("helloKey", []byte("worldValue"))
-			sub.Write(conn)
+			err = sub.Write(conn)
 			if err != nil {
 				println("write testtopic failed:", err.Error())
 				fail++
@@ -596,7 +599,7 @@ func setupCommands(c *ThingContext) {
 	MakeCommand("get c",
 		"temperature in C🔓", 0,
 		func(msg string, args []string) string {
-			tmp := (tempInF - 32) * 5 / 9
+			tmp := (TempInF - 32) * 5 / 9
 			tmp = math.Floor(tmp*100) / 100.0
 			str := strconv.FormatFloat(tmp, 'f', 2, 64)
 			return str + "°C"
@@ -604,7 +607,7 @@ func setupCommands(c *ThingContext) {
 	MakeCommand("get f",
 		"temperature in F🔓", 0,
 		func(msg string, args []string) string {
-			str := strconv.FormatFloat(tempInF, 'f', 2, 64)
+			str := strconv.FormatFloat(TempInF, 'f', 2, 64)
 			return str + "°F"
 		}, c.CommandMap)
 	MakeCommand("get random",
@@ -650,7 +653,7 @@ func setupCommands(c *ThingContext) {
 			return c.Topic
 		}, c.CommandMap)
 	MakeCommand("favicon.ico",
-		"", 0,
+		"returns a green square png🔓", 0,
 		func(msg string, args []string) string {
 			return string(GreenSquare)
 		}, c.CommandMap)
@@ -691,6 +694,20 @@ func setupCommands(c *ThingContext) {
 			}
 			return s
 		}, c.CommandMap)
+	MakeCommand("get token",
+		"info about the token", 0,
+		func(msg string, args []string) string {
+			parts := strings.Split(c.Token, ".")
+			if len(parts) != 3 {
+				return "error: invalid token"
+			}
+			payloadB64 := parts[1]
+			payload, err := base64.RawURLEncoding.DecodeString(payloadB64)
+			if err != nil {
+				return "error: " + err.Error()
+			}
+			return string(payload)
+		}, c.CommandMap)
 }
 
 func SpecialPrint(p *packets.PacketCommon, fn func()) {
@@ -708,7 +725,7 @@ var GreenSquare = []byte{137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 6
 	239, 170, 29, 81, 139, 188, 27, 125, 0, 0, 0, 0, 73, 69, 78, 68,
 	174, 66, 96, 130}
 
-// Copyright 2022,2023 Alan Tracey Wootton
+// Copyright 2022,2023,2024 Alan Tracey Wootton
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by

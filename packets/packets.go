@@ -40,7 +40,7 @@ type Interface interface {
 	//
 	ToJSON() ([]byte, error) // for debugging and String() etc.
 	String() string
-	Sig() string
+	Sig() string // this is also for debugging only. Sig stands for signature. It's a short version of String()
 
 	GetOption(key string) ([]byte, bool)
 
@@ -264,7 +264,7 @@ type Lookup struct {
 type Send struct {
 	MessageCommon // address
 
-	// a return address. Required.
+	// Aka return address. Required.
 	Source AddressUnion
 
 	Payload []byte
@@ -306,7 +306,7 @@ type Universal struct {
 
 // GetIPV6Option is an example of using options
 func (p *PacketCommon) GetIPV6Option() []byte {
-	got, ok := p.GetOption("IPv6")
+	got, ok := p.GetOption("AAAA")
 	if !ok {
 		got = []byte("")
 	}
@@ -786,9 +786,9 @@ func ReadUniversal(reader io.Reader) (*Universal, error) {
 	// read array of byte arrays
 	str.Args, err = ReadArrayOfByteArray(reader)
 	_ = n
-	if err != nil {
-		fmt.Println("ReadUniversal got error", err, "type:", rune(str.Cmd))
-	}
+	// if err != nil {  this happens with a partial buffer.
+	// 	fmt.Println("ReadUniversal got error", err, "type:", rune(str.Cmd))
+	// }
 	return &str, err
 }
 
@@ -811,14 +811,14 @@ func ReadArrayOfByteArray(reader io.Reader) ([][]byte, error) {
 	oneByte := []uint8{0}
 	// read the lengths of the following args
 	n, err := reader.Read(oneByte)
-	if err != nil {
+	if err != nil || n != 1 {
 		return nil, err
 	}
 	argsLen := uint8(oneByte[0])
 	if argsLen&0x80 != 0 {
 		// in the future this would mean that another byte follows and the args
-		// count is even bigger but for now ...
-		return nil, errors.New("Too many strings")
+		// count is even bigger but for now ... 0x7F is the max.
+		return nil, errors.New("too many strings")
 	}
 
 	lengths := pool.Get().(*[128]int)
@@ -838,12 +838,12 @@ func ReadArrayOfByteArray(reader io.Reader) ([][]byte, error) {
 	// }
 
 	if total >= 8000000 { // atw 4/2021
-		// this should panic
-		fmt.Println("Packet too long error ", total)
-		for i := 0; i < int(argsLen); i++ {
-			fmt.Println("Packet strlen ", lengths[i])
-		}
-		return nil, errors.New("Packet too long for this reality")
+		// this can happen with a partial buffer
+		// fmt.Println("Packet too long error ", total)
+		// for i := 0; i < int(argsLen); i++ {
+		// 	fmt.Println("Packet strlen ", lengths[i])
+		// }
+		return nil, errors.New("packet too long for this reality")
 	}
 
 	// now we can read the rest all at once

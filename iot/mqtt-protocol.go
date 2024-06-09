@@ -54,7 +54,7 @@ func (cc *mqttWsContact) Close(err error) {
 	}
 	ss := &cc.ContactStruct
 	fmt.Println("mqtt contact close")
-	ss.Close(err) // close my parent
+	ss.DoClose(err) // close my parent
 }
 
 // MakeMqttExecutive is a thing like a server, not the exec
@@ -77,7 +77,7 @@ func mqttServer(ex *Executive, name string) {
 		fmt.Println("server didnt' stary ", err)
 		return
 	}
-	for ex.IAmBadError == nil {
+	for !ex.IsClosed() {
 		fmt.Println("MQTT Server listening")
 		tmpconn, err := ln.Accept()
 		if err != nil {
@@ -87,7 +87,7 @@ func mqttServer(ex *Executive, name string) {
 		}
 		go mqttConnection(tmpconn.(*net.TCPConn), ex) //,handler types.ProtocolHandler)
 	}
-	fmt.Println("MQTT Server loop break", ex.IAmBadError)
+	fmt.Println("MQTT Server loop break", ex.IsClosed())
 }
 
 func mqttConnection(tcpConn *net.TCPConn, ex *Executive) {
@@ -99,7 +99,7 @@ func mqttConnection(tcpConn *net.TCPConn, ex *Executive) {
 	cc := localMakeMqttContact(ex.Config, tcpConn)
 	defer func() {
 		fmt.Println("mqtt mqttConnection close")
-		cc.Close(nil)
+		cc.DoClose(nil)
 	}()
 
 	// connLogThing.Collect("new connection")
@@ -112,23 +112,27 @@ func mqttConnection(tcpConn *net.TCPConn, ex *Executive) {
 	}
 	//mqttName := "unknown"
 	//_ = mqttName
-	for ex.IAmBadError == nil { // the blocking read loop
+	for !ex.IsClosed() { // the blocking read loop
 		// SetReadDeadline
 		if cc.GetToken() == nil && false { // FIXME: shorter for prod.
 			err := cc.netDotTCPConn.SetDeadline(time.Now().Add(10 * time.Second))
 			if err != nil {
 				//connLogThing.Collect("server err2 " + err.Error())
 				fmt.Println("deadline err m1", err)
-				cc.Close(err)
-				return // quit, close the sock, be forgotten
+				cc.DoClose(err)
+				continue // quit, close the sock, be forgotten
 			}
 		} else {
+			if cc.netDotTCPConn == nil {
+				fmt.Println("mqtt netDotTCPConn is nil")
+				continue
+			}
 			err := cc.netDotTCPConn.SetDeadline(time.Now().Add(20 * time.Minute))
 			if err != nil {
 				//connLogThing.Collect("server err2 " + err.Error())
 				fmt.Println("deadline err ,2", err)
-				cc.Close(err)
-				return // quit, close the sock, be forgotten
+				cc.DoClose(err)
+				continue // quit, close the sock, be forgotten
 			}
 		}
 		//fmt.Println("waiting for packet", time.Now())
@@ -141,8 +145,8 @@ func mqttConnection(tcpConn *net.TCPConn, ex *Executive) {
 			} else {
 				fmt.Println("mqtt-protocol EOF close", err, time.Now())
 			}
-			cc.Close(err)
-			return
+			cc.DoClose(err)
+			continue
 		}
 
 		MQTTHandlePacket(cc, control)
@@ -176,7 +180,7 @@ func MQTTHandlePacket(cc *mqttContact, control libmqtt.Packet) {
 			str := fmt.Sprint("mqtt push connect fail", err) // needs prom counter
 			err = errors.New(str)
 			fmt.Println(str)
-			cc.Close(err)
+			cc.DoClose(err)
 			return
 		}
 		// write an ack
@@ -286,8 +290,8 @@ func MQTTHandlePacket(cc *mqttContact, control libmqtt.Packet) {
 			err := errors.New(str)
 			//	mqttLogThing.Collect(str)
 			fmt.Println("unhandled mqttp packet", str)
-			//ss.Close(err)
-			cc.Close(err)
+
+			cc.DoClose(err)
 			return
 		}
 	}
@@ -296,119 +300,124 @@ func MQTTHandlePacket(cc *mqttContact, control libmqtt.Packet) {
 
 func (cc *mqttContact) WriteDownstream(p packets.Interface) error {
 
-	// need packet switch here. like push
-	// this probably also needs a channel
+	cc.commands <- ContactCommander{
+		who: "mqttContact WriteDownstream",
+		fn: func(dummy *ContactStruct) {
 
-	switch v := p.(type) {
-	case *packets.Connect:
-		fmt.Println("cant happen")
-	case *packets.Disconnect:
+			switch v := p.(type) {
+			case *packets.Connect:
+				fmt.Println("cant happen")
+			case *packets.Disconnect:
 
-		mq := &libmqtt.DisconnPacket{}
-		mq.Props = &libmqtt.DisconnProps{}
-		//	mq.MessageType = mqttpackets.Disconnect
-		estr, ok := v.GetOption("error")
-		if ok {
-			mq.Props.Reason = string(estr)
-		}
-		// fmt.Println("mqtt-protocol packets.Disconnect", string(estr))
-		//mq.ProtoVersion = cc.protoVersion
-		return cc.writeLibPacket(mq, cc) // mq.WriteTo(cc)
-	case *packets.Subscribe:
-		// this happns now fmt.Println("cant happen3")
-		// mq := &libmqtt.SubscribePacket{}
-		//mq.MessageType = mqttpackets.Subscribe
-		//mq.Topics = []string{string(v.Address)}
-		//	mq.ProtoVersion = cc.protoVersion
-		// err := nil // cc.writeLibPacket(mq, cc) //mq.WriteTo(cc)
-		return nil // FIXME: mae these into subakc packets
-
-	case *packets.Unsubscribe:
-		fmt.Println("cant happen4")
-
-	case *packets.Lookup: // TODO: discontinue this and use a type of publish
-		// what form does a lookup take in mqtt ?
-		mq := &libmqtt.PublishPacket{}
-		mq.Payload = []byte("had lookup") //v.??
-		mq.TopicName = v.Address.String()
-		if len(mq.TopicName) == 0 {
-			mq.TopicName = "fixme_need_topic always" // fixme:
-		}
-		if cc.protoVersion == 5 {
-			mq.Props = &libmqtt.PublishProps{}
-
-			mq.Props.UserProps = make(map[string][]string)
-			// if v.SourceAlias != nil { // fixme: must always be something.
-			// 	mq.Props.RespTopic = string(v.SourceAlias)
-			// } else {
-			// 	mq.Props.RespTopic = "xxTEST/TIMEefghijk"
-			// }
-			mq.Props.RespTopic = v.Source.String()
-
-			keys, values := v.GetOptionKeys()
-			for i, key := range keys {
-				mq.Props.UserProps.Add(key, string(values[i]))
-			}
-			mq.Props.UserProps.Add("atw", "test1")
-			mq.Props.UserProps.Add("lookup", "lookup")
-		}
-
-		err := cc.writeLibPacket(mq, cc)
-		return err
-
-	case *packets.Send:
-
-		mq := &libmqtt.PublishPacket{}
-		mq.Payload = v.Payload
-		mq.TopicName = v.Address.String()
-		if len(mq.TopicName) == 0 {
-			mq.TopicName = "fixme_need_topic" // fixme:
-		}
-
-		if cc.protoVersion == 5 {
-			mq.Props = &libmqtt.PublishProps{}
-
-			mq.Props.UserProps = make(map[string][]string)
-			// if v.SourceAlias != nil { // fixme: must always be something.
-			// 	mq.Props.RespTopic = string(v.SourceAlias)
-			// } else {
-			// 	mq.Props.RespTopic = "xxTEST/TIMEefghijk"
-			// }
-			mq.Props.RespTopic = v.Source.String()
-			corrData, ok := v.GetOption("CorrelationData")
-			if ok {
-				mq.Props.CorrelationData = corrData
-			}
-			keys, values := v.GetOptionKeys()
-			for i, key := range keys {
-				if key != "CorrelationData" {
-					mq.Props.UserProps.Add(key, string(values[i]))
+				mq := &libmqtt.DisconnPacket{}
+				mq.Props = &libmqtt.DisconnProps{}
+				//	mq.MessageType = mqttpackets.Disconnect
+				estr, ok := v.GetOption("error")
+				if ok {
+					mq.Props.Reason = string(estr)
 				}
+				// fmt.Println("mqtt-protocol packets.Disconnect", string(estr))
+				//mq.ProtoVersion = cc.protoVersion
+				cc.writeLibPacket(mq, cc) // mq.WriteTo(cc)
+				return
+			case *packets.Subscribe:
+				// this happns now fmt.Println("cant happen3")
+				// mq := &libmqtt.SubscribePacket{}
+				//mq.MessageType = mqttpackets.Subscribe
+				//mq.Topics = []string{string(v.Address)}
+				//	mq.ProtoVersion = cc.protoVersion
+				// err := nil // cc.writeLibPacket(mq, cc) //mq.WriteTo(cc)
+				// FIXME: mae these into subakc packets
+
+			case *packets.Unsubscribe:
+				fmt.Println("cant happen4")
+
+			case *packets.Lookup: // TODO: discontinue this and use a type of publish
+				// what form does a lookup take in mqtt ?
+				mq := &libmqtt.PublishPacket{}
+				mq.Payload = []byte("had lookup") //v.??
+				mq.TopicName = v.Address.String()
+				if len(mq.TopicName) == 0 {
+					mq.TopicName = "fixme_need_topic always" // fixme:
+				}
+				if cc.protoVersion == 5 {
+					mq.Props = &libmqtt.PublishProps{}
+
+					mq.Props.UserProps = make(map[string][]string)
+					// if v.SourceAlias != nil { // fixme: must always be something.
+					// 	mq.Props.RespTopic = string(v.SourceAlias)
+					// } else {
+					// 	mq.Props.RespTopic = "xxTEST/TIMEefghijk"
+					// }
+					mq.Props.RespTopic = v.Source.String()
+
+					keys, values := v.GetOptionKeys()
+					for i, key := range keys {
+						mq.Props.UserProps.Add(key, string(values[i]))
+					}
+					mq.Props.UserProps.Add("atw", "test1")
+					mq.Props.UserProps.Add("lookup", "lookup")
+				}
+
+				err := cc.writeLibPacket(mq, cc)
+				_ = err //return err
+
+			case *packets.Send:
+
+				mq := &libmqtt.PublishPacket{}
+				mq.Payload = v.Payload
+				mq.TopicName = v.Address.String()
+				if len(mq.TopicName) == 0 {
+					mq.TopicName = "fixme_need_topic" // fixme:
+				}
+
+				if cc.protoVersion == 5 {
+					mq.Props = &libmqtt.PublishProps{}
+
+					mq.Props.UserProps = make(map[string][]string)
+					// if v.SourceAlias != nil { // fixme: must always be something.
+					// 	mq.Props.RespTopic = string(v.SourceAlias)
+					// } else {
+					// 	mq.Props.RespTopic = "xxTEST/TIMEefghijk"
+					// }
+					mq.Props.RespTopic = v.Source.String()
+					corrData, ok := v.GetOption("CorrelationData")
+					if ok {
+						mq.Props.CorrelationData = corrData
+					}
+					keys, values := v.GetOptionKeys()
+					for i, key := range keys {
+						if key != "CorrelationData" {
+							mq.Props.UserProps.Add(key, string(values[i]))
+						}
+					}
+					//mq.Props.UserProps.Add("atw", "test1")
+				}
+
+				//fmt.Println("mqtt WriteDownstream send topic = ", string(mq.TopicName))
+				err := cc.writeLibPacket(mq, cc) // mq.WriteTo(cc)
+				_ = err
+
+				// since there's no message in mqtt disconnect, send the pub first.
+				u := HasError(v)
+				if u != nil {
+					mq := &libmqtt.DisconnPacket{}
+					mq.Props = &libmqtt.DisconnProps{}
+					//	mq.MessageType = mqttpackets.Disconnect
+					// no place for message
+					//mq.ProtoVersion = cc.protoVersion
+					cc.writeLibPacket(mq, cc) // mq.WriteTo(cc)
+					err = errors.New(string(v.Payload))
+					_ = err // todo check err
+				}
+				// return err
+			case *packets.Ping:
+				// should not really happen here.
+			default:
+				fmt.Printf("I don't know about type mqtt %T!\n", v)
 			}
-			//mq.Props.UserProps.Add("atw", "test1")
-		}
-
-		//fmt.Println("mqtt WriteDownstream send topic = ", string(mq.TopicName))
-		err := cc.writeLibPacket(mq, cc) // mq.WriteTo(cc)
-
-		// since there's no message in mqtt disconnect, send the pub first.
-		u := HasError(v)
-		if u != nil {
-			mq := &libmqtt.DisconnPacket{}
-			mq.Props = &libmqtt.DisconnProps{}
-			//	mq.MessageType = mqttpackets.Disconnect
-			// no place for message
-			//mq.ProtoVersion = cc.protoVersion
-			cc.writeLibPacket(mq, cc) // mq.WriteTo(cc)
-			err = errors.New(string(v.Payload))
-		}
-		return err
-	case *packets.Ping:
-		// should not really happen here.
-	default:
-		fmt.Printf("I don't know about type mqtt %T!\n", v)
+		},
 	}
-
 	return nil
 }
 
@@ -481,7 +490,7 @@ func WebSocketLoop(wsConn *websocket.Conn, config *ContactStructConfig) {
 	defer wsConn.Close()
 	for {
 	top:
-		t := time.Now().Add(time.Second * 300)
+		t := time.Now().Add(time.Second * 300) // use timegetter?
 		wsConn.SetReadDeadline(t)
 		wsConn.SetWriteDeadline(t)
 

@@ -12,6 +12,13 @@ docs/
 
 monitor_pod/main/dummy.yaml
 
+knotoperator/key.json
+
+XXknotoperator/deploy/dummy.yaml
+
+clusterInProcess/clusterLog.txt
+
+
 # Test binary, build with `go test -c`
 *.test
 

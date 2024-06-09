@@ -155,6 +155,7 @@ func (me *LookupTableStruct) SetUpstreamNames(names []string, addresses []string
 	done := make(chan bool)
 	go func(done chan bool) {
 		command := callBackCommand{}
+		command.name = "reSubscribeRemappedTopics"
 		command.callback = reSubscribeRemappedTopics
 		for _, bucket := range me.allTheSubscriptions {
 			command.wg.Add(1)
@@ -202,6 +203,7 @@ func (me *LookupTableStruct) setGuruUpstreamNames(names []string) {
 
 	go func() {
 		command := callBackCommand{}
+		command.name = "guruDeleteRemappedAndGoneTopics"
 		command.callback = guruDeleteRemappedAndGoneTopics
 		command.index = myindex
 
