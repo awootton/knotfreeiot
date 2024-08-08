@@ -32,7 +32,7 @@ var needtobuild = true
 var alsoDoLibra = false // are deprecating libra due to excessive disk usage.
 // var alsoStartMonitoring = true // once is enough //this is broken from being too old
 
-var buildReactAndCopy = false // true // todo: mount the react static files instead of baking them in the docker.
+var buildReactAndCopy = true // true // todo: mount the react static files instead of baking them in the docker.
 // TODO: better. redirect to s3 bucket with the files in it.? does this work?
 
 // var TARGET_CLUSTER = "knotfree.io" // for monitor pod - NOT USED - deploy from monitor project please.

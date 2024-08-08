@@ -170,7 +170,7 @@ func atw_fixme_TestGrowAides(t *testing.T) {
 	ce.WaitForActions()
 
 	c1 := getNewContactFromSlackestAide(ce, string(tokens.Get32xTokenLocal()))
-	c1.(*testContact).index = 0
+	// c1.(*testContact).index = 0
 	allContacts = append(allContacts, c1.(*testContact))
 	c1.SetExpires(2000000000) //localtime + 60*60) // 1580000000
 
@@ -200,9 +200,9 @@ func atw_fixme_TestGrowAides(t *testing.T) {
 	for i := 0; i < contactStressSize; i++ {
 		ci := getNewContactFromSlackestAide(ce, string(tokens.Get32xTokenLocal()))
 		allContacts = append(allContacts, ci.(*testContact))
-		index := len(allContacts)
-		ci.(*testContact).index = index
-		cmd := fmt.Sprintf("S contactTopic%v", index)
+		// index := len(allContacts)
+		// ci.(*testContact).index = index
+		cmd := fmt.Sprintf("S contactTopic%v", i)
 		//fmt.Println("cmd := ", cmd)   S contactTopic51
 		SendText(ci, cmd)
 		localtime += 60 // a minute
@@ -239,11 +239,12 @@ func atw_fixme_TestGrowAides(t *testing.T) {
 
 	// check that they all get messages - send some
 	for i, cc := range allContacts {
+		_ = cc
 		if i == 0 {
 			continue // the first one has no message
 		}
-		index := cc.index
-		command := fmt.Sprintf("P contactTopic%v ,srcadd, a_test_message_%v", index, index)
+		// index := cc.index
+		command := fmt.Sprintf("P contactTopic%v ,srcadd, a_test_message_%v", i, i)
 		SendText(c1, command) // publish to cc from c1
 	}
 
@@ -252,13 +253,13 @@ func atw_fixme_TestGrowAides(t *testing.T) {
 	ce.WaitForActions()
 	ce.WaitForActions()
 
-	for i, cc := range allContacts {
+	for i := range allContacts {
 		if i == 0 {
 			continue // the first one has no message
 		}
 		got = "none"
-		index := cc.index
-		want = fmt.Sprintf("a_test_message_%v", index)
+		// index := cc.index
+		want = fmt.Sprintf("a_test_message_%v", i)
 		// p := cc.mostRecent
 		// if len(p) != 0 && reflect.TypeOf(p[0]) == reflect.TypeOf(&packets.Send{}) {
 		// 	send := p[0].(*packets.Send)
@@ -309,11 +310,12 @@ func atw_fixme_TestGrowAides(t *testing.T) {
 	fmt.Println("check 1")
 
 	for i, cc := range allContacts {
+		_ = cc
 		if i == 0 {
 			continue // the first one has no message
 		}
-		index := cc.index
-		command := fmt.Sprintf("P contactTopic%v srcaddr a_test_message2_%v", index, index)
+		// index := cc.index
+		command := fmt.Sprintf("P contactTopic%v srcaddr a_test_message2_%v", i, i)
 		SendText(c1, command) // publish to cc from c1
 	}
 
@@ -324,12 +326,13 @@ func atw_fixme_TestGrowAides(t *testing.T) {
 	fmt.Println("check 2")
 
 	for i, cc := range allContacts {
+		_ = cc
 		if i == 0 {
 			continue // the first one has no message
 		}
-		index := cc.index
+		// index := cc.index
 		got = "none"
-		want = "a_test_message2_" + strconv.FormatInt(int64(index), 10)
+		want = "a_test_message2_" + strconv.FormatInt(int64(i), 10)
 		// p := cc.mostRecent
 		// if len(p) != 0 && reflect.TypeOf(p[0]) == reflect.TypeOf(&packets.Send{}) {
 		// 	send := p[0].(*packets.Send)
@@ -341,7 +344,7 @@ func atw_fixme_TestGrowAides(t *testing.T) {
 		// 	cc.mostRecent = cc.mostRecent[1:]
 		// }
 		if got != want {
-			fmt.Println("i no most recent", index, cc)
+			fmt.Println("i no most recent", i, cc)
 			t.Errorf("got %v, want %v", got, want)
 
 		}

@@ -142,6 +142,7 @@ func MakeHTTPExecutive(ex *Executive, serverName string) *Executive {
 func (cc *tcpContact) DoClosingWork(err error) {
 	// do we need a mutex here?
 	// No, it is only called from the one place and only once
+	fmt.Println("tcpContact DoClosingWork con=", cc.GetKey().Sig(), err)
 	if cc.netDotTCPConn != nil {
 		//fmt.Println("close tcp ", cc.netDotTCPConn.RemoteAddr())
 		cc.netDotTCPConn.Close()
@@ -155,6 +156,8 @@ func (cc *tcpContact) IsClosed() bool {
 	return cc.ContactStruct.IsClosed()
 }
 
+// WriteDownstream writes a packet to the tcp connection going towards the user.
+// error returned always nil
 func (cc *tcpContact) WriteDownstream(packet packets.Interface) error {
 
 	if cc.IsClosed() {
@@ -164,7 +167,7 @@ func (cc *tcpContact) WriteDownstream(packet packets.Interface) error {
 	if ok && string(got) == "12345678" {
 		fmt.Println("tcpContact WriteDownstream con=", cc.GetKey().Sig(), packet.Sig())
 	}
-	var goterr error
+	// var goterr error
 	// var wg sync.WaitGroup we don't need to wait. It's in the Q and that's enough.
 	// wg.Add(1)
 	cc.commands <- ContactCommander{
@@ -172,17 +175,17 @@ func (cc *tcpContact) WriteDownstream(packet packets.Interface) error {
 		fn: func(ss *ContactStruct) {
 			//defer wg.Done()
 			u := HasError(packet)
-			if u != nil {
+			if u != nil && !cc.config.IsGuru() {
 				fmt.Println("tcpContact ERROR write disconnect con=", cc.GetKey().Sig(), packet.Sig())
 				u.Write(cc) // write disconnect
 				cc.DoClose(errors.New(u.String()))
-				goterr = errors.New(u.String())
+				_ = errors.New(u.String())
 			} else {
 				if cc.netDotTCPConn == nil {
 					return
 				}
 				// this must not block, otherwise the whole channel gets stuck.
-				goterr = packet.Write(cc)
+				_ = packet.Write(cc)
 				// when do we flush?
 				// if goterr == nil {
 				// 	go func() {
@@ -194,7 +197,7 @@ func (cc *tcpContact) WriteDownstream(packet packets.Interface) error {
 		},
 	}
 	// wg.Wait()
-	return goterr
+	return nil
 
 	//fmt.Println("received from above", packet, reflect.TypeOf(packet))
 	// if !cc.GetClosed() && !cc.GetConfig().lookup.isGuru {

@@ -37,56 +37,40 @@ import (
 	"golang.org/x/crypto/curve25519"
 )
 
-var aTest32xToken = []byte("")
-
-func GetTest32xToken() []byte {
-	if len(aTest32xToken) != 0 {
-		return aTest32xToken
-	}
-	LoadPrivateKeys("~/atw/privateKeys4.txt")
-
-	payload := GetSampleTokenFromStats(uint32(time.Now().Unix()), "knotfree.dog:8085/mqtt", GetTokenStatsAndPrice(Medium).Stats) // is localhost in my /etc/hosts
-
-	signingKey := GetPrivateKeyWhole(0)
-	bytes, err := MakeToken(payload, []byte(signingKey))
-	_ = err
-	aTest32xToken = bytes
-	return bytes
-}
-
 // KnotFreeTokenPayload is our JWT 'claims'.
 type KnotFreeTokenPayload struct {
-	//
-	ExpirationTime uint32 `json:"exp,omitempty"` // unix seconds
-	Issuer         string `json:"iss"`           // first 4 bytes (or more) of base64 public key of issuer
-	JWTID          string `json:"jti,omitempty"` // a unique serial number for this Issuer
+	ExpirationTime uint32 `json:"exp,omitempty" bson:"exp,omitempty"` // unix seconds
+	Issuer         string `json:"iss" bson:"iss,omitempty"`           // first 4 bytes (or more) of base64 public key of issuer
+	JWTID          string `json:"jti,omitempty" bson:"jti,omitempty"` // a unique serial number for this token.
 
 	KnotFreeContactStats // limits on what we're allowed to do.
 
-	URL string `json:"url"` // address of the service eg. "knotfree.net" or knotfree0.com for localhost
+	URL  string `json:"url" bson:"url,omitempty"`             // address of the service eg. "knotfree.net" or knotfree0.com for localhost
+	Pubk string `json:"pubk,omitempty" bson:"pubk,omitempty"` // the public key the owner to verify ownership..
 }
 
 // KnotFreeContactStats is the numeric part of the token claims
 // it is floats to and fractions in json
 type KnotFreeContactStats struct {
 	//
-	Input         float64 `json:"in"`  // bytes per sec float32
-	Output        float64 `json:"out"` // bytes per sec
-	Subscriptions float64 `json:"su"`  // seconds per sec
-	Connections   float64 `json:"co"`  // seconds per sec
+	Input         float64 `json:"in" bson:"in,omitempty"`   // bytes per sec float32
+	Output        float64 `json:"out" bson:"out,omitempty"` // bytes per sec
+	Subscriptions float64 `json:"su" bson:"su,omitempty"`   // seconds per sec
+	Connections   float64 `json:"co" bson:"co,omitempty"`   // seconds per sec
 }
 
 // TokenRequest is created in javascript and sent as json.
+// payload not uses because free tokens are all small.
 type TokenRequest struct {
 	//
-	Pkey    string                `json:"pkey"` // a curve25519 pub key of caller
+	Pubk    string                `json:"pubk"` // a 25519 pub key of caller
 	Payload *KnotFreeTokenPayload `json:"payload"`
 	Comment string                `json:"comment"`
 }
 
 // TokenReply is created here and boxed and sent back to js
 type TokenReply struct {
-	Pkey    string `json:"pkey"` // a curve25519 pub key of server
+	Pubk    string `json:"pubk"` // a curve25519 pub key of server
 	Payload string `json:"payload"`
 	Nonce   string `json:"nonce"`
 }
@@ -400,8 +384,7 @@ func LoadPrivateKeys(fname string) error {
 		publicKey := privateKey.Public()
 		epublic := bytes[32:] // publicKey.([]byte) or get bytes or something
 		public64 := base64.RawURLEncoding.EncodeToString([]byte(epublic))
-		fmt.Println("loaded public key ", public64)
-		//fmt.Println(public64)
+		//fmt.Println("loaded public key ", public64)
 		first4 := public64[0:4]
 		knownPrivateKeys[first4] = string(privateKey)
 		knownPrivateKeyPrefixes = append(knownPrivateKeyPrefixes, first4)
@@ -541,42 +524,62 @@ func GetSampleTokenFromStats(startTime uint32, serviceUrl string, stats KnotFree
 }
 
 var giantToken = ""
-var mediumToken = ""
+var giantTokenLock sync.Mutex
+
+var giantTokenLocal = ""
+var giantTokenLocalLock sync.Mutex
+var giantTokenLocalPayload *KnotFreeTokenPayload
+
+var aTest32xToken = []byte("")
+var aTest32xTokenLock sync.Mutex
+
+// var mediumToken = ""
 
 // GetImpromptuGiantToken is GiantX32 256k connections is GiantX32
 func GetImpromptuGiantToken() string {
-	if len(giantToken) != 0 {
+	giantTokenLock.Lock()
+	defer giantTokenLock.Unlock()
+	if giantToken != "" {
 		return giantToken
 	}
+	fmt.Println("GetImpromptuGiantToken")
 
+	LoadPublicKeys()
 	LoadPrivateKeys("~/atw/privateKeys4.txt")
 
 	payload := GetSampleBigToken(uint32(time.Now().Unix()), "knotfree.net/mqtt")
 	signingKey := GetPrivateKeyWhole(0)
 	bbb, err := MakeToken(payload, []byte(signingKey))
 	if err != nil {
-		fmt.Println("GetImpromptuGiantToken", err)
+		fmt.Println("error GetImpromptuGiantToken", err)
 	}
 	giantToken = string(bbb)
 	return giantToken
 }
 
-func GetImpromptuGiantTokenLocal() string {
+func GetImpromptuGiantTokenLocal(personPubk string) (string, *KnotFreeTokenPayload) {
 
-	if len(giantToken) != 0 {
-		return giantToken
+	giantTokenLocalLock.Lock()
+	defer giantTokenLocalLock.Unlock()
+	if giantTokenLocal != "" {
+		return giantTokenLocal, giantTokenLocalPayload
 	}
-
+	fmt.Println("GetImpromptuGiantTokenLocal")
+	LoadPublicKeys()
 	LoadPrivateKeys("~/atw/privateKeys4.txt")
 
 	payload := GetSampleBigToken(uint32(time.Now().Unix()), "knotfree.dog:8085/mqtt") // is localhost in my /etc/hosts
+	if personPubk != "" {
+		payload.Pubk = personPubk
+	}
 	signingKey := GetPrivateKeyWhole(0)
 	bbb, err := MakeToken(payload, []byte(signingKey))
 	if err != nil {
-		fmt.Println("GetImpromptuGiantToken", err)
+		fmt.Println("err GetImpromptuGiantTokenLocal", err)
 	}
 	giantToken = string(bbb)
-	return giantToken
+	giantTokenLocalPayload = payload
+	return giantToken, payload
 }
 
 func Get32xTokenLocal() []byte {
@@ -707,4 +710,22 @@ func GetBoxKeyPairFromPassphrase(pass string) ([32]byte, [32]byte) {
 	curve25519.ScalarBaseMult(publicKey, privateKey)
 
 	return *publicKey, *privateKey
+}
+
+func GetTest32xToken() []byte {
+	aTest32xTokenLock.Lock()
+	defer aTest32xTokenLock.Unlock()
+	if len(aTest32xToken) != 0 {
+		return aTest32xToken
+	}
+	LoadPublicKeys()
+	LoadPrivateKeys("~/atw/privateKeys4.txt")
+
+	payload := GetSampleTokenFromStats(uint32(time.Now().Unix()), "knotfree.dog:8085/mqtt", GetTokenStatsAndPrice(Medium).Stats) // is localhost in my /etc/hosts
+
+	signingKey := GetPrivateKeyWhole(0)
+	bytes, err := MakeToken(payload, []byte(signingKey))
+	_ = err
+	aTest32xToken = bytes
+	return bytes
 }

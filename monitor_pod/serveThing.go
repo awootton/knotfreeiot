@@ -75,20 +75,20 @@ type ThingContext struct {
 var TempInF = 46.0
 
 type Command struct {
-	execute       func(msg string, args []string) string
-	commandString string
-	description   string
-	argCount      int
+	Execute       func(msg string, args []string, callContext interface{}) string
+	CommandString string
+	Description   string
+	ArgCount      int
 }
 
-func MakeCommand(commandString string, description string,
-	argCount int, execute func(msg string, args []string) string,
+func MakeCommand(commandString string, description string, argCount int,
+	execute func(msg string, args []string, callContext interface{}) string,
 	ourMap map[string]Command) Command {
 	cmd := Command{
-		commandString: commandString,
-		description:   description,
-		argCount:      argCount,
-		execute:       execute,
+		CommandString: commandString,
+		Description:   description,
+		ArgCount:      argCount,
+		Execute:       execute,
 	}
 	ourMap[commandString] = cmd
 	return cmd
@@ -397,7 +397,7 @@ func digestPacket(p packets.Interface, c *ThingContext) (packets.Interface, erro
 		args := make([]string, 0, 10)
 
 		// this doesn't work right with command with args
-		// like 'set some text abc'
+		// like 'set some text abc' FIXME! atw
 		cmd, ok = c.CommandMap[message]
 		if !ok { // try harder
 			ok = false
@@ -412,14 +412,14 @@ func digestPacket(p packets.Interface, c *ThingContext) (packets.Interface, erro
 		if !ok {
 			cmd = c.CommandMap["help"]
 		}
-		if strings.Contains(cmd.description, "🔓") {
-			reply = cmd.execute(message, args)
+		if strings.Contains(cmd.Description, "🔓") {
+			reply = cmd.Execute(message, args, nil)
 		} else {
 			if !hadEncryption {
 				reply = "Error: this command requires encryption"
 				c.fail++
 			} else {
-				reply = cmd.execute(message, args)
+				reply = cmd.Execute(message, args, nil)
 			}
 		}
 	}
@@ -428,7 +428,7 @@ func digestPacket(p packets.Interface, c *ThingContext) (packets.Interface, erro
 		hadError = "Error: no nonce"
 	}
 
-	if hadError == "" && !strings.Contains(cmd.description, "🔓") {
+	if hadError == "" && !strings.Contains(cmd.Description, "🔓") {
 		// encrypt the reply
 
 		admn, ok2 := pub.GetOption("admn")
@@ -483,19 +483,20 @@ func digestPacket(p packets.Interface, c *ThingContext) (packets.Interface, erro
 	}
 
 	if isHttp {
-
-		tmp := "HTTP/1.1 200 OK\r\n"
-		tmp += "Content-Length: "
-		tmp += strconv.FormatInt(int64(len(reply)), 10)
-		tmp += "\r\n"
-		tmp += "Content-Type: text/plain\r\n"
-		tmp += "Access-Control-Allow-Origin: *\r\n"
-		tmp += "access-control-expose-headers: nonc\r\n"
-		tmp += "Connection: Closed\r\n"
-		//tmp += "nonc: " + string(nonc) + "\r\n" // this might be redundant
-		tmp += "\r\n"
-		tmp += reply
-		reply = tmp
+		sttrbuf := strings.Builder{}
+		sttrbuf.WriteString("HTTP/1.1 200 OK\r\n")
+		sttrbuf.WriteString("Content-Length: ")
+		sttrbuf.WriteString(strconv.FormatInt(int64(len(reply)), 10))
+		sttrbuf.WriteString("\r\n")
+		sttrbuf.WriteString("Content-Type: text/plain\r\n")
+		sttrbuf.WriteString("Access-Control-Allow-Origin: *\r\n")
+		sttrbuf.WriteString("access-control-expose-headers: nonc\r\n")
+		// ?? atw fixme: make nginx-ingress happy
+		sttrbuf.WriteString("Connection: Closed\r\n") // ?? atw fixme: make nginx-ingress happy
+		// sttrbuf.WriteString("nonc: " + string(nonc) + "\r\n") // this might be redundant
+		sttrbuf.WriteString("\r\n")
+		sttrbuf.WriteString(reply)
+		reply = sttrbuf.String()
 	}
 
 	// fmt.Println("monitor reply ", reply)
@@ -591,14 +592,14 @@ func setupCommands(c *ThingContext) {
 
 	MakeCommand("get time",
 		"seconds since 1970🔓", 0,
-		func(msg string, args []string) string {
+		func(msg string, args []string, callContext interface{}) string { //
 			sec := time.Now().UnixMilli() / 1000
 			secStr := strconv.FormatInt(sec, 10)
 			return secStr
 		}, c.CommandMap)
 	MakeCommand("get c",
 		"temperature in C🔓", 0,
-		func(msg string, args []string) string {
+		func(msg string, args []string, callContext interface{}) string {
 			tmp := (TempInF - 32) * 5 / 9
 			tmp = math.Floor(tmp*100) / 100.0
 			str := strconv.FormatFloat(tmp, 'f', 2, 64)
@@ -606,65 +607,65 @@ func setupCommands(c *ThingContext) {
 		}, c.CommandMap)
 	MakeCommand("get f",
 		"temperature in F🔓", 0,
-		func(msg string, args []string) string {
+		func(msg string, args []string, callContext interface{}) string {
 			str := strconv.FormatFloat(TempInF, 'f', 2, 64)
 			return str + "°F"
 		}, c.CommandMap)
 	MakeCommand("get random",
 		"returns a random integer", 0,
-		func(msg string, args []string) string {
+		func(msg string, args []string, callContext interface{}) string {
 			tmp := rand.Uint32()
 			secStr := strconv.FormatInt(int64(tmp), 10)
 			return secStr
 		}, c.CommandMap)
 	MakeCommand("get count",
 		"how many served since reboot", 0,
-		func(msg string, args []string) string {
+		func(msg string, args []string, callContext interface{}) string {
 			countStr := strconv.FormatInt(int64(c.count), 10)
 			return countStr
 		}, c.CommandMap)
 
 	MakeCommand("get fail",
 		"how many requests were bad since reboot", 0,
-		func(msg string, args []string) string {
+		func(msg string, args []string, callContext interface{}) string {
 			secStr := strconv.FormatInt(int64(c.fail), 10)
 			return secStr
 		}, c.CommandMap)
 
 	MakeCommand("get pubk",
 		"device public key 🔓", 0,
-		func(msg string, args []string) string {
+		func(msg string, args []string, callContext interface{}) string {
 			return c.pubStr
 		}, c.CommandMap)
 	MakeCommand("get admin hint",
 		"the first chars of the admin public keys🔓", 0,
-		func(msg string, args []string) string {
+		func(msg string, args []string, callContext interface{}) string {
 			return c.adminPubStr[0:8] + " " + c.adminPubStr2[0:8]
 		}, c.CommandMap)
 
 	MakeCommand("get short name",
 		"the local name🔓", 0,
-		func(msg string, args []string) string {
+		func(msg string, args []string, callContext interface{}) string {
 			return "time"
 		}, c.CommandMap)
 	MakeCommand("get long name",
 		"the global name", 0,
-		func(msg string, args []string) string {
+		func(msg string, args []string, callContext interface{}) string {
 			return c.Topic
 		}, c.CommandMap)
 	MakeCommand("favicon.ico",
 		"returns a green square png🔓", 0,
-		func(msg string, args []string) string {
+		func(msg string, args []string, callContext interface{}) string {
 			return string(GreenSquare)
 		}, c.CommandMap)
 	MakeCommand("get some text",
 		"return the saved text", 0,
-		func(msg string, args []string) string {
+		func(msg string, args []string, callContext interface{}) string {
 			return c.dummyString
 		}, c.CommandMap)
 	MakeCommand("set some text",
 		"save some text", 1,
-		func(msg string, args []string) string {
+		func(msg string, args []string, callContext interface{}) string {
 			s := msg[len("set some text"):]
 			s = strings.Trim(s, " ")
 			c.dummyString = s
@@ -672,12 +673,12 @@ func setupCommands(c *ThingContext) {
 		}, c.CommandMap)
 	MakeCommand("version",
 		"info about this thing", 0,
-		func(msg string, args []string) string {
+		func(msg string, args []string, callContext interface{}) string {
 			return "v0.1.5"
 		}, c.CommandMap)
 	MakeCommand("help",
 		"lists all commands. 🔓 means no encryption required", 0,
-		func(msg string, args []string) string {
+		func(msg string, args []string, callContext interface{}) string {
 			s := ""
 			keys := make([]string, 0, len(c.CommandMap)) //  maps.Keys(c.CommandMap)
 			for k := range c.CommandMap {
@@ -687,16 +688,16 @@ func setupCommands(c *ThingContext) {
 			for _, k := range keys {
 				command := c.CommandMap[k]
 				argCount := ""
-				if command.argCount > 0 {
-					argCount = " +" + strconv.FormatInt(int64(command.argCount), 10)
+				if command.ArgCount > 0 {
+					argCount = " +" + strconv.FormatInt(int64(command.ArgCount), 10)
 				}
-				s += "[" + k + "]" + argCount + " " + command.description + "\n"
+				s += "[" + k + "]" + argCount + " " + command.Description + "\n"
 			}
 			return s
 		}, c.CommandMap)
 	MakeCommand("get token",
 		"info about the token", 0,
-		func(msg string, args []string) string {
+		func(msg string, args []string, callContext interface{}) string {
 			parts := strings.Split(c.Token, ".")
 			if len(parts) != 3 {
 				return "error: invalid token"

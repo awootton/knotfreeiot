@@ -35,10 +35,11 @@ func serveBillingCommand(p *packets.Send, billingAccumulator *BillingAccumulator
 	}
 
 	// fmt.Println(" billing channel has command", command)
+	// TODO: make this like the monnitor_pod and lookmsg
 	reply := ""
 	if command == "get max" {
 
-		bytes, err := json.Marshal(billingAccumulator.max)
+		bytes, err := json.Marshal(billingAccumulator.Max)
 		if err != nil {
 			reply = "error fail " + err.Error()
 		} else {

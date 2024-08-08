@@ -48,7 +48,7 @@ type testContact struct {
 
 	doNotReconnect bool
 
-	index int
+	// unused index int
 
 	// map from hashedaddress to string address?
 }
@@ -155,7 +155,7 @@ func (cc *testContact) WriteDownstream(packet packets.Interface) error {
 	text := packet.String()
 	cc.IncOutput(len(text))
 
-	fmt.Println(cc.index, "APPENDING to mostRecent", text)
+	// fmt.Println(cc.index, "APPENDING to mostRecent", text)
 
 	// cc.mostRecent = append(cc.mostRecent, packet) //use stream instead of array
 	cc.mostRecent <- packet

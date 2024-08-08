@@ -1,13 +1,28 @@
 package iot
 
+// Copyright 2024 Alan Tracey Wootton
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 import (
 	"bytes"
+	"crypto/rand"
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
-	"math/rand"
 	"net/http"
 	"reflect"
 	"strconv"
@@ -29,9 +44,9 @@ type pinfo struct {
 	buff []byte
 }
 type RequestReplyStruct struct {
-	originalRequest []byte
-	firstLine       string
-	replyParts      []pinfo
+	// originalRequest []byte
+	firstLine  string
+	replyParts []pinfo
 }
 
 type myWriterType struct {
@@ -77,6 +92,8 @@ func (w *myWriterType) Read(p []byte) (n int, err error) {
 
 func HandleHttpSubdomainRequest(w http.ResponseWriter, r *http.Request, ex *Executive, subDomain string) {
 
+	r.Close = true // close when done? // see below
+
 	clen := r.ContentLength
 	if clen > 63*1024 {
 		fmt.Println("http packet too long ")
@@ -106,9 +123,20 @@ func HandleHttpSubdomainRequest(w http.ResponseWriter, r *http.Request, ex *Exec
 	}
 	buf := new(bytes.Buffer)
 	buf.WriteString(firstLine)
+	// transfer all the headers.
+	// leave some out. We may have to add them back but they clog up the small microcontrollers. TODO:
 	for key, val := range r.Header {
 		if key == "Cookie" {
 			continue // don't pass the cookie
+		}
+		if strings.HasPrefix(key, "X-") {
+			continue
+		}
+		if strings.HasPrefix(key, "Sec-") {
+			continue
+		}
+		if strings.HasPrefix(key, "User-Agent") {
+			continue
 		}
 		for i := 0; i < len(val); i++ {
 			tmp := key + ": " + val[i] + "\r\n"
@@ -127,10 +155,11 @@ func HandleHttpSubdomainRequest(w http.ResponseWriter, r *http.Request, ex *Exec
 	pastWritesIndex := 0
 	packetStruct := &RequestReplyStruct{}
 
-	packetStruct.originalRequest = buf.Bytes()
+	// packetStruct.originalRequest = buf.Bytes()
 	packetStruct.firstLine = firstLine[0 : len(firstLine)-2]
 
-	// we need to make a contact
+	// we need to make a contact. TODO: reuse a contact for all these.
+	// FIXMEL use ServiceContact for this
 	// make a reply address
 	// serialize the request
 	// publish it.
@@ -177,10 +206,12 @@ func HandleHttpSubdomainRequest(w http.ResponseWriter, r *http.Request, ex *Exec
 	if isDebg {
 		contact.LogMeVerbose = true
 	}
-
+	startTime := time.Now()
 	fmt.Println("serving subdomain ", subDomain, "  of "+r.Host+r.RequestURI, "con=", contact.GetKey().Sig())
 
 	defer func() {
+		fmt.Println("DONE subdomain ", subDomain, "con=", contact.GetKey().Sig(), "time=", time.Since(startTime))
+
 		if isDebg {
 			fmt.Println("contact normal close", contact.GetKey().Sig())
 		}
@@ -294,14 +325,23 @@ func HandleHttpSubdomainRequest(w http.ResponseWriter, r *http.Request, ex *Exec
 		http.Error(w, "webserver doesn't support hijacking", http.StatusInternalServerError)
 		return
 	}
-	conn, responseBuffer, err := hj.Hijack()
+	hijackedconn, responseBuffer, err := hj.Hijack()
+	_ = hijackedconn
 	if err != nil {
 		fmt.Println("hijack error  ", err)
 	}
 	defer func() {
-		// fmt.Println("closing hijack socket " + r.URL.String() + "\n")
-		conn.Close() // closes contact.ClosedChannel
-		contact.DoClose(nil)
+		// trying to make the nginx ingress happy. It never is.
+		// it keeps acting like it's not getting the whole response.
+		fmt.Println("flushing hijack socket ", r.URL.String(), contact.GetKey().Sig(), time.Since(startTime))
+		responseBuffer.Flush()
+		time.Sleep(1 * time.Millisecond) // superstition ain't the way
+		responseBuffer.Flush()
+		r.Close = true // see above also
+		err = hijackedconn.Close()
+		if err != nil {
+			fmt.Println("hijackedconn close error  ", err)
+		}
 	}()
 
 	{ // The Receive-a-packet loop
@@ -361,14 +401,14 @@ func HandleHttpSubdomainRequest(w http.ResponseWriter, r *http.Request, ex *Exec
 						headerEndBytes := []byte("\r\n\r\n")
 						headerPos := bytes.Index(snd.Payload, headerEndBytes)
 						if headerPos <= 0 {
-							fmt.Println("no header was found in first packet")
+							fmt.Println("no header was found in first packet", string(snd.Payload))
 						} else {
 							// parse the header
 							header := snd.Payload[0:headerPos]
 							clStr := "Content-Length:"
 							clPos := bytes.Index(header, []byte(clStr))
 							if clPos <= 0 {
-								fmt.Println("no Content-Length was found in first packet")
+								fmt.Println("no Content-Length was found in the header", string(header))
 							}
 							hpart := header[clPos+len(clStr):]
 							lineEndBytes := []byte("\r\n")
@@ -377,7 +417,7 @@ func HandleHttpSubdomainRequest(w http.ResponseWriter, r *http.Request, ex *Exec
 							cldigits := string(hpart[0:endPos])
 							i, err := strconv.Atoi(strings.Trim(cldigits, " "))
 							if err != nil {
-								fmt.Println("ERROR finding Content-Length", hpart[0:endPos])
+								fmt.Println("ERROR finding Content-Length", string(hpart[0:endPos]))
 							}
 							// fmt.Println("theLengthWeNeed is ", i)
 							theLengthWeNeed = i + len(header) + 4
@@ -456,37 +496,30 @@ func HandleHttpSubdomainRequest(w http.ResponseWriter, r *http.Request, ex *Exec
 						//fmt.Println("So far we have got", theAmountWeGot, " of ", theLengthWeNeed, "for", packetStruct.firstLine)
 						if theAmountWeGot >= theLengthWeNeed {
 							// fmt.Println("looks like we made it ! :")
-							responseBuffer.Flush()
-							// push a close packet or something
-							// close the connection -- below
-
 							if isDebg {
 								fmt.Println("Request complete", packetStruct.firstLine)
 							}
 							running = false
 						}
-						//responseBuffer.Flush()
+						responseBuffer.Flush()
 					}
 
 				default:
 					// no match. do nothing. panic?
 					fmt.Println("got weird packet instead of publish ", reflect.TypeOf(packet))
-					w.Write([]byte("error got weird packet"))
+					responseBuffer.Write([]byte("error got weird packet"))
 					running = false
 				}
-			// is this the only way to know that we're done??
-			case <-time.After(5 * time.Second):
-				errMsg := "timed out waiting for html reply " + contact.GetKey().Sig() + " " + firstLine[0:len(firstLine)-2]
+			//
+			case <-time.After(4567 * time.Millisecond): // sooner than nginx
+				errMsg := "timed out waiting for reply (receiver offline)" + contact.GetKey().Sig() + " " + firstLine[0:len(firstLine)-2]
 				fmt.Println(errMsg)
-				// http.Error(w, errMsg, 500)
+				// http.Error(responseBuffer, errMsg, 500)
+				responseBuffer.WriteString(errMsg)
 				running = false
 			}
 		}
 
-		//fmt.Println("closing html write ")
-		responseBuffer.Flush()
-		// un sub
-		// close the contact
 		unsub := packets.Unsubscribe{}
 		unsub.Address.FromString(myRandomName)
 		if isDebg {
@@ -494,6 +527,5 @@ func HandleHttpSubdomainRequest(w http.ResponseWriter, r *http.Request, ex *Exec
 		}
 		err = PushPacketUpFromBottom(contact, &unsub)
 		_ = err
-		// defered contact.DoClose(nil)
 	}
 }

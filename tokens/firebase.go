@@ -12,7 +12,7 @@ import (
 	"google.golang.org/api/option"
 )
 
-func GetFirebaseApp(ctx context.Context) (*firebase.App, error) {
+func XXGetFirebaseApp(ctx context.Context) (*firebase.App, error) {
 
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -36,7 +36,7 @@ func GetFirebaseApp(ctx context.Context) (*firebase.App, error) {
 // CalcTokenPrice figures out how much we would need to pay to get this token.
 // TODO: move out of firebase
 // TODO: use standard sizes
-func xxxxCalcTokenPrice(token *KnotFreeTokenPayload, unixIssueTime uint32) float64 {
+func XxxxCalcTokenPrice(token *KnotFreeTokenPayload, unixIssueTime uint32) float64 {
 	price := float64(0.0)
 	// at DigitalOcean 4/2021:
 	// $5
@@ -103,11 +103,11 @@ type TokenLogStruct struct {
 
 // LogNewToken to make a record that this token was delivered to customer.
 // Let's not include the whole jwt.
-func LogNewToken(ctx context.Context, token *KnotFreeTokenPayload, remoteAddr string) error {
+func XX_depricsted_LogNewToken(ctx context.Context, token *KnotFreeTokenPayload, remoteAddr string) error {
 
 	//ctx := context.Background()
 
-	app, err := GetFirebaseApp(ctx)
+	app, err := XXGetFirebaseApp(ctx)
 	if err != nil {
 		log.Fatalf("app.Firestore: %v", err)
 	}
@@ -122,7 +122,7 @@ func LogNewToken(ctx context.Context, token *KnotFreeTokenPayload, remoteAddr st
 	tokenLogStruct.Token = token
 	tokenLogStruct.When = uint32(time.Now().Unix())
 
-	jsonbytes, err := json.Marshal(tokenLogStruct)
+	jsonbytes, _ := json.Marshal(tokenLogStruct)
 	_ = jsonbytes
 
 	currentTime := time.Now()

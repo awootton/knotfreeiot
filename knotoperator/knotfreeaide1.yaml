@@ -1,0 +1,53 @@
+
+# the same as knotfreeaide but ClusterIP 
+#  this did not help  with the ingress-ngnix delay problem.
+#  https://stackoverflow.com/questions/78715706/intermittent-ingress-nginx-upstream-timed-out-110-operation-timed-out-while-c
+
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: "knotfreeaide2"
+  name: "knotfreeaide2"
+  annotations:
+    team: "knotfree"
+spec:
+  ipFamilyPolicy: PreferDualStack
+  type: ClusterIP
+  ports:
+
+  - port: 1883
+    name: mqtt
+    protocol: TCP
+    
+  - port: 7465
+    name: text
+    protocol: TCP
+
+  - port: 8384
+    name: iot
+    protocol: TCP
+
+  - name: http
+    port: 80
+    targetPort: 8085
+    protocol: TCP
+
+  - name: promfwd
+    port: 9090
+    targetPort: 9090 
+    protocol: TCP
+
+  - name: prom
+    port: 9102
+    targetPort: 9102 
+    protocol: TCP
+
+  - name: graf
+    port: 3000
+    targetPort: 3000
+    protocol: TCP 
+
+  selector:
+    run: "knotfreeaide"
+

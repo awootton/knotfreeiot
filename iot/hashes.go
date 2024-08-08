@@ -20,8 +20,13 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 	"strconv"
+
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/bsontype"
+	"go.mongodb.org/mongo-driver/x/bsonx/bsoncore"
 )
 
 // HashType will be the key
@@ -34,7 +39,7 @@ import (
 const HashTypeLen = 24
 
 // HashType is for the hash table that Lookup uses.
-type HashType [3]uint64
+type HashType [3]int64 // was [3]uint64 but mongodb barfed on it
 
 // GetHalfHash is for cases when we can do with 'just' 64 bits.
 func (h *HashType) GetHalfHash() HalfHash {
@@ -43,7 +48,7 @@ func (h *HashType) GetHalfHash() HalfHash {
 
 // GetUint64 is for cases when we can do with 'just' 64 bits.
 func (h *HashType) GetUint64() uint64 {
-	return h[0]
+	return uint64(h[0])
 }
 
 // HashString will hash the string and init the HashType
@@ -83,7 +88,7 @@ func (h *HashType) HashString(s string) {
 // HashBytes will initialize an existing hash from a string.
 // The string will get hashed to provide the bits so we'll wish this was faster.
 // It doesn't have to be crypto safe but it does need to be evenly distributed.
-// allocates. wanted to use highwayhash.New128 but was scared of 128 bits.
+// allocates. Wanted to use highwayhash.New128 but was scared of 128 bits.
 func (h *HashType) HashBytes(s []byte) {
 
 	sh := sha256.New()
@@ -99,10 +104,9 @@ func (h *HashType) InitFromBytes(addressBytes []byte) {
 	if len(addressBytes) != HashTypeLen {
 		panic("InitFromBytes bad input")
 	}
-
-	h[0] = binary.BigEndian.Uint64(addressBytes[0:8])
-	h[1] = binary.BigEndian.Uint64(addressBytes[8:16])
-	h[2] = binary.BigEndian.Uint64(addressBytes[16:HashTypeLen])
+	h[0] = int64(binary.BigEndian.Uint64(addressBytes[0:8]))
+	h[1] = int64(binary.BigEndian.Uint64(addressBytes[8:16]))
+	h[2] = int64(binary.BigEndian.Uint64(addressBytes[16:HashTypeLen]))
 }
 
 // GetBytes will fill b byte array with value from h.
@@ -110,9 +114,84 @@ func (h *HashType) GetBytes(b []byte) {
 	if len(b) < HashTypeLen {
 		return // err ?
 	}
-	binary.BigEndian.PutUint64(b[0:8], h[0])
-	binary.BigEndian.PutUint64(b[8:16], h[1])
-	binary.BigEndian.PutUint64(b[16:HashTypeLen], h[2])
+	binary.BigEndian.PutUint64(b[0:8], uint64(h[0]))
+	binary.BigEndian.PutUint64(b[8:16], uint64(h[1]))
+	binary.BigEndian.PutUint64(b[16:HashTypeLen], uint64(h[2]))
+}
+
+func (h *HashType) ToBase64() string {
+	var bytes [HashTypeLen]byte
+	h.GetBytes(bytes[:])
+	return base64.RawURLEncoding.EncodeToString(bytes[:])
+}
+
+func (h *HashType) FromBase64(str string) {
+
+	bytes, err := base64.RawURLEncoding.DecodeString(str)
+	if err != nil {
+		panic("FromBase64 bad input")
+	}
+	if len(bytes) != HashTypeLen {
+		fmt.Println("FromBase64 bad input")
+	} else {
+		h.InitFromBytes(bytes)
+	}
+}
+
+func (h HashType) MarshalBSONValue() (bsontype.Type, []byte, error) {
+	s := h.ToBase64()
+	t, bytes, err := bson.MarshalValue(s)
+	// _ = t
+	//  return bson.TypeString, []byte(s), nil // this one ??
+	return t, bytes, err
+}
+
+func (h HashType) MarshalBSON() ([]byte, error) { // unused?
+	s := h.ToBase64()
+	t, bytes, err := bson.MarshalValue(s)
+	_ = t
+	return bytes, err
+}
+
+func (h *HashType) UnmarshalBSON(data []byte) error {
+	s, b, ok := bsoncore.ReadString(data)
+	_ = ok
+	_ = b
+	if len(s) == 32 {
+		h.FromBase64(s)
+	} else {
+		return fmt.Errorf("bsin bad string HashType")
+	}
+	return nil
+}
+
+func (h *HashType) UnmarshalBSONValue(t bsontype.Type, data []byte) error {
+	if t != bson.TypeString {
+		return fmt.Errorf("invalid bson value type HashType'%s'", t.String())
+	}
+	// var s string
+	// err := bson.UnmarshalValue(bson.TypeString, data, &s)
+	s, b, ok := bsoncore.ReadString(data)
+	if !ok {
+		return fmt.Errorf("invalid bson string value HashType")
+	}
+	if len(s) != 32 {
+		return fmt.Errorf("invalid bson string length HashType")
+	}
+	_ = b
+	h.FromBase64(s)
+	return nil
+}
+
+func (h HashType) MarshalJSON() ([]byte, error) {
+	s := "\"" + h.ToBase64() + "\""
+	return []byte(s), nil
+}
+func (h *HashType) UnmarshalJSON(data []byte) error {
+	var s string
+	err := json.Unmarshal(data, &s)
+	h.FromBase64(s)
+	return err
 }
 
 // HalfHash represents

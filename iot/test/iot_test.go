@@ -91,7 +91,7 @@ func TestTwoLevel(t *testing.T) {
 
 	got, _ = contact1.(*testContact).popResultAsString()
 	got = strings.Replace(got, atokenStruct.JWTID, "xxxx", 1)
-	want = "[S,=ygRnE97Kfx0usxBqx5cygy4enA1eojeR,jwtidAlias,xxxx,pub2self,0]" //"no message received"
+	want = "[S,=ygRnE97Kfx0usxBqx5cygy4enA1eojeR,jwtid,xxxx,pub2self,0]" //"no message received"
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
 	}

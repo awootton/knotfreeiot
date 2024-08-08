@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"strings"
@@ -31,6 +32,199 @@ import (
 	"github.com/awootton/knotfreeiot/packets"
 	"github.com/awootton/knotfreeiot/tokens"
 )
+
+func GetLocalIP() (string, string) {
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return "", ""
+	}
+	ipv4 := ""
+	ipv6 := ""
+	i := 0
+	for _, address := range addrs {
+		// fmt.Println("address", address)
+		if ipv4 == "" {
+			if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+				if ipnet.IP.To4() != nil {
+					ipv4 = ipnet.IP.String()
+				}
+			}
+		}
+		if ipnet6, ok := address.(*net.IPNet); ok && !ipnet6.IP.IsLoopback() {
+			// fmt.Println(ipnet6.Mask)
+			if ipnet6.IP.To16() != nil {
+				if ipv6 == "" {
+					ipv6 = ipnet6.IP.String()
+				}
+			}
+		}
+		i++
+	}
+	return ipv4, ipv6
+}
+
+func TestLookup(t *testing.T) {
+
+	go func() {
+		log.Println(http.ListenAndServe("localhost:6060", nil))
+	}()
+
+	ip4, xxip6 := GetLocalIP()
+	fmt.Println("localIP", ip4, xxip6)
+	// TODO: get ipv 6 to work
+
+	var port int
+	addr := ":0"                               // ip4 + ":0"
+	s, err := net.ResolveUDPAddr("udp4", addr) // this is goofy. just returns :0
+	check(err)
+
+	// sss, err := net.UDPAddrFromAddrPort(s, addr)
+
+	ce, contacts, names := setup(t)
+	_ = ce
+	_ = names
+
+	closed := make(chan interface{})
+	defer close(closed)
+	// let's listen on a udp port
+	received := make(chan []byte)
+	started := make(chan bool)
+	go func() {
+		// start a server
+		// ln, err := net.Listen("tcp6", "[::]:1024")
+		connection, err := net.ListenUDP("udp4", s)
+		check(err)
+
+		port = connection.LocalAddr().(*net.UDPAddr).Port
+		addr = connection.LocalAddr().(*net.UDPAddr).AddrPort().String()
+		fmt.Println("Using port:", port) // eg Using port: 62823
+		fmt.Println("Using addr:", addr) // Using addr: 0.0.0.0:62823
+
+		started <- true
+		defer connection.Close()
+		for {
+			select {
+			case <-closed:
+				return
+			default:
+			}
+
+			buffer := make([]byte, 1024)
+			n, _, err := connection.ReadFromUDP(buffer)
+			check(err)
+			fmt.Println("received", string(buffer[:n]))
+			received <- buffer[:n]
+		}
+	}()
+
+	<-started // wait for the listener to start
+	// sent it something
+	{
+		hostport := ip4 + ":" + fmt.Sprint(port) // ip4 ?
+		s, err := net.ResolveUDPAddr("udp4", hostport)
+		check(err)
+		c, err := net.DialUDP("udp4", nil, s)
+		check(err)
+		fmt.Printf("The UDP server is %s\n", c.RemoteAddr().String())
+		defer c.Close()
+
+		data := []byte("dummy message")
+		_, err = c.Write(data)
+		check(err)
+		fmt.Println("sent", string(data))
+	}
+
+	got := <-received
+
+	fmt.Println("received", got)
+	// makereader of got
+	reader := bytes.NewReader(got)
+	p, err := packets.ReadPacket(reader)
+
+	fmt.Println("packet", p.Sig())
+
+	_ = received
+
+	look := packets.Lookup{}
+	look.Address.FromString("contact-address-5")
+	look.SetOption("debg", []byte("12345678"))
+	hostport := ip4 + ":" + fmt.Sprint(port)
+	look.SetOption("A", []byte(hostport))
+	iot.PushPacketUpFromBottom(contacts[0], &look)
+
+	bytes := <-received
+
+	fmt.Println("received", bytes)
+
+	_ = err
+}
+
+func setup(t *testing.T) (*iot.ClusterExecutive, []iot.ContactInterface, []string) {
+
+	tokens.LoadPublicKeys()
+
+	atoken := tokens.GetTest32xToken()
+	atokenStruct := tokens.ParseTokenNoVerify(atoken)
+
+	got := ""
+	want := ""
+
+	localtime := uint32(time.Now().Unix())
+	getTime := func() uint32 {
+		return localtime
+	}
+	var ce *iot.ClusterExecutive
+
+	_ = captureStdout(func() {
+		isTCP := true
+		aideCount := 1
+		ce = iot.MakeSimplestCluster(getTime, isTCP, aideCount, "")
+		globalClusterExec = ce
+
+		ce.WaitForActions()
+	})
+
+	contacts := make([]iot.ContactInterface, 10)
+	names := make([]string, 10)
+	for i := 0; i < 10; i++ {
+
+		contact1 := makeTestContact(ce.Aides[0].Config, "")
+		contacts[i] = contact1
+		connect := packets.Connect{}
+		connect.SetOption("token", atoken)
+		iot.PushPacketUpFromBottom(contact1, &connect)
+
+		// subscribe
+		subs := packets.Subscribe{}
+		names[i] = fmt.Sprint("contact-address-", i)
+		subs.Address.FromString(names[i])
+		// subs.SetOption("debg", []byte("12345678"))
+		iot.PushPacketUpFromBottom(contact1, &subs)
+		// fmt.Println("contact1 subscribed contact", contact1.GetKey().Sig())
+		// fmt.Println("contact1 subscribed    subs", subs.Address.Sig())
+	}
+
+	ce.WaitForActions()
+
+	// they should all have subacks now
+	for i := 0; i < 10; i++ {
+		contact1 := contacts[i]
+		name := fmt.Sprint("contact-address-", i)
+		var h iot.HashType
+		h.HashBytes([]byte(name))
+		hashedb64 := h.String()
+		got, _ = contact1.(*testContact).popResultAsString() // the suback
+		got = strings.Replace(got, atokenStruct.JWTID, "xxxx", 1)
+		want = "[S,=" + hashedb64 + ",jwtid,xxxx,pub2self,0]" //"no message received"
+		if got != want {
+			t.Errorf("got %v, want %v", got, want)
+		}
+	}
+
+	return ce, contacts, names
+}
+
+// These (below) could go to another file.
 
 func TestSubDomain(t *testing.T) {
 
@@ -91,7 +285,7 @@ func TestSubDomain(t *testing.T) {
 
 	got, _ = contact1.(*testContact).popResultAsString() // the suback
 	got = strings.Replace(got, atokenStruct.JWTID, "xxxx", 1)
-	want = "[S,=ygRnE97Kfx0usxBqx5cygy4enA1eojeR,debg,12345678,jwtidAlias,xxxx,pub2self,0]" //"no message received"
+	want = "[S,=ygRnE97Kfx0usxBqx5cygy4enA1eojeR,debg,12345678,jwtid,xxxx,pub2self,0]" //"no message received"
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
 	}
@@ -289,4 +483,10 @@ func captureStdout(f func()) string {
 	var buf bytes.Buffer
 	io.Copy(&buf, r)
 	return buf.String()
+}
+
+func check(e error) {
+	if e != nil {
+		fmt.Println("ERROR because ", e)
+	}
 }

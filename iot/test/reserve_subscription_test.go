@@ -27,6 +27,7 @@ import (
 	"github.com/awootton/knotfreeiot/iot"
 	"github.com/awootton/knotfreeiot/packets"
 	"github.com/awootton/knotfreeiot/tokens"
+	"go.mongodb.org/mongo-driver/bson"
 	"golang.org/x/crypto/nacl/box"
 )
 
@@ -40,6 +41,8 @@ func (MathRandReader) Read(buf []byte) (int, error) {
 }
 
 // FIXME: reserve name is broken
+// it's in lookmsg.go
+// it's in service_contact.go
 func not_TestReserveName(t *testing.T) {
 
 	tokens.LoadPublicKeys()
@@ -380,4 +383,14 @@ func TestLookupSubs(t *testing.T) {
 		return count >= 4
 	}, "timed out waiting for look message to arrive")
 	fmt.Println("lookup was " + got)
+}
+
+func showBson(bytes []byte) string {
+	var result bson.M
+	err := bson.Unmarshal(bytes, &result)
+	if err != nil {
+		s := "error" + err.Error()
+		return s
+	}
+	return fmt.Sprintf("%v", result)
 }

@@ -23,6 +23,19 @@ spec:
         imagePullPolicy: Always
         image: gcr.io/fair-theater-238820/knotfreeserver 
         command: ["/knotfreeiot/manager"] # ["sleep","9999999"] # ["/go/bin/linux_386/knotfreeiot"] 
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 8085
+            scheme: HTTP
+        livenessProbe:
+          httpGet:
+            path: /livez
+            port: 8085
+            scheme: HTTP
+          initialDelaySeconds: 10
+          timeoutSeconds: 5
+
         #command: ["/bin/sh"] #  start with race detector
         #-race is not supported on linux/386  ?
         #args: ["-c","cd /knotfreeiot ; ./runmain.sh"] #  startup with race detector

@@ -1,6 +1,7 @@
 package iot
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -10,19 +11,22 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"sort"
 	"strings"
 	"time"
 
 	"github.com/awootton/knotfreeiot/tokens"
 	"github.com/gorilla/websocket"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
 	"golang.org/x/crypto/nacl/box"
 )
 
 type ApiHandler struct {
-	ce *ClusterExecutive
-
+	ce                 *ClusterExecutive
 	staticStuffHandler webHandler
+	// add long lived mongo connect here?
 }
 
 type SuperMux struct {
@@ -61,7 +65,7 @@ func StartPublicServer(ce *ClusterExecutive) {
 
 	supermux.sub.Handle("/mqtt", wsAPIHandler{ce})
 
-	supermux.sub.Handle("/", ApiHandler{ce, staticStuffHandler})
+	supermux.sub.Handle("/", ApiHandler{ce, staticStuffHandler}) // add mongo client?
 
 	s := &http.Server{
 		Addr:           ":8085",
@@ -71,22 +75,18 @@ func StartPublicServer(ce *ClusterExecutive) {
 		MaxHeaderBytes: 1 << 13,
 	}
 	go func(s *http.Server) {
-		fmt.Println("http service for ws " + s.Addr)
+		fmt.Println("http service for " + s.Addr)
 		err := s.ListenAndServe()
 		_ = err
 		fmt.Println("ListenAndServe 8085 returned !!!!!  arrrrg", err)
 	}(s)
 }
 
-type webHandler struct { // is this even used?
+type webHandler struct { // this is the 'staticstuff' handler. It serves the static content.
 	ce *ClusterExecutive
 
 	//	fs1 http.Handler
 	fs2 http.Handler
-
-	//fs := http.FileServer(http.Dir("./docs/_site"))
-	// supermux.sub.Handle("/", fs)
-
 }
 
 // webHandler.ServeHTTP serves the static content
@@ -177,7 +177,7 @@ func startPublicServer9090() {
 
 var upgrader = websocket.Upgrader{}
 
-type wsAPIHandler struct {
+type wsAPIHandler struct { // this is the websocket handler
 	ce *ClusterExecutive
 }
 
@@ -246,8 +246,84 @@ func (api ApiHandler) ServeMakeToken(w http.ResponseWriter, req *http.Request) {
 
 	ctx := req.Context()
 
+	tokenRequest := &tokens.TokenRequest{}
+	err := json.NewDecoder(req.Body).Decode(tokenRequest)
+
+	if err != nil {
+		BadTokenRequests.Inc()
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	clientPublicKey := tokenRequest.Pubk
+	if len(clientPublicKey) < 43 {
+		BadTokenRequests.Inc()
+		http.Error(w, "bad client key", 500)
+		return
+	}
+
 	// what is IP or id of sender?
-	fmt.Println("token req RemoteAddr", remoteAddr) // F I X M E: use db see below
+	tmp := GetIPAdress(req)
+	if tmp != "" {
+		remoteAddr = tmp
+	}
+	if remoteAddr == "127.0.0.1" {
+		// let's fake address for testing
+		remoteAddr += "+" + fmt.Sprint(time.Now().Unix()%10)
+	}
+	fmt.Println("token req RemoteAddr", remoteAddr)
+
+	// check mongo
+	InitMongEnv()
+	InitIotTables()
+
+	client, err := mongo.Connect(ctx, MongoClientOptions)
+	if err != nil {
+		BadTokenRequests.Inc()
+		http.Error(w, "bad mongo.Connect", 500)
+		return
+	}
+	defer client.Disconnect(ctx)
+
+	saved_tokens := client.Database("iot").Collection("saved-tokens")
+	// get the toks for an ip
+	filter := bson.D{{Key: "ip", Value: remoteAddr}}
+	cursor, err := saved_tokens.Find(context.TODO(), filter)
+	if err != nil {
+		BadTokenRequests.Inc()
+		fmt.Println("saved_tokens find err", err.Error())
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	defer cursor.Close(context.TODO())
+	gottokens := make([]*SavedToken, 0)
+	for cursor.Next(context.TODO()) {
+		var result SavedToken
+		err := cursor.Decode(&result)
+		if err != nil {
+			BadTokenRequests.Inc()
+			fmt.Println("saved_tokens cursor err", err.Error())
+			http.Error(w, err.Error(), 500)
+			return
+		}
+		fmt.Println("found saved token ", result.KnotFreeTokenPayload.JWTID, result.IpAddress, result.ExpirationTime)
+		gottokens = append(gottokens, &result)
+	}
+	if len(gottokens) > 0 {
+		sort.Slice(gottokens, func(i, j int) bool {
+			return gottokens[i].ExpirationTime > gottokens[j].ExpirationTime
+		})
+		threeMonths := uint32(60 * 60 * 24 * 90)
+		if gottokens[0].ExpirationTime > (uint32(time.Now().Unix()) + threeMonths) {
+			// we have a token that's good for 3 months
+			// return it
+			nonce := gottokens[0].JWTID
+			fmt.Println("returning found token ", gottokens[0].JWTID, gottokens[0].IpAddress, gottokens[0].ExpirationTime)
+			api.signAndReturnToken(w, gottokens[0].KnotFreeTokenPayload, gottokens[0].ExpirationTime,
+				*tokenRequest, nonce, clientPublicKey)
+			return
+		}
+	}
 
 	now := time.Now().Unix()
 	numberOfMinutesPassed := (now - bootTimeSec) / 6 // now it's 10 sec
@@ -262,149 +338,131 @@ func (api ApiHandler) ServeMakeToken(w http.ResponseWriter, req *http.Request) {
 		tokensServed = 0
 	}
 
-	var buff1024 [1024]byte
-	n, err := req.Body.Read(buff1024[:])
-	if err != nil {
-		BadTokenRequests.Inc()
+	// not using the payload . we always hand out Tiny4
+
+	payload := tokens.KnotFreeTokenPayload{}
+
+	payload.Issuer = tokens.GetPrivateKeyPrefix(0) //"_9sh"
+	payload.JWTID = tokens.GetRandomB36String()
+	nonce := payload.JWTID
+	payload.ExpirationTime = uint32(time.Now().Unix()) + 60*60*24*90 // 3 months
+	payload.Pubk = clientPublicKey
+
+	priceThing := tokens.GetTokenStatsAndPrice(tokens.TinyX4)
+	payload.KnotFreeContactStats = priceThing.Stats
+
+	parts = strings.Split(req.Host, ".")
+	partslen := len(parts)
+	if partslen < 2 {
+		parts = strings.Split("local.localhost", ".")
+		partslen = len(parts)
 	}
-	buf := buff1024[:n]
-	fmt.Println("token request read body", string(buf), n)
-	_ = buf
+	targetSite := parts[partslen-2] + "." + parts[partslen-1]
 
-	tokenRequest := &tokens.TokenRequest{}
-	err = json.Unmarshal(buf, tokenRequest)
-	if err != nil {
-		BadTokenRequests.Inc()
-		fmt.Println("TokenRequest err", err.Error())
-		http.Error(w, err.Error(), 500)
-		return
-	} else {
-		// todo: calc cost of this token and have limit.
-		// move this phat routine somewhere else TODO:
+	payload.URL = targetSite
 
-		clientPublicKey := tokenRequest.Pkey
-		if len(clientPublicKey) != 64 {
-			BadTokenRequests.Inc()
-			http.Error(w, "bad client key", 500)
-			return
-		}
-
-		// not using the payload . we always hand out Tiny4
-
-		payload := tokens.KnotFreeTokenPayload{}
-
-		payload.Issuer = tokens.GetPrivateKeyPrefix(0) //"_9sh"
-		payload.JWTID = tokens.GetRandomB36String()
-		nonce := payload.JWTID
-		payload.ExpirationTime = uint32(time.Now().Unix()) + 60*60*24*30*2 // two months
-
-		priceThing := tokens.GetTokenStatsAndPrice(tokens.TinyX4)
-		payload.KnotFreeContactStats = priceThing.Stats
-
-		parts := strings.Split(req.Host, ".")
-		partslen := len(parts)
-		if partslen < 2 {
-			parts = strings.Split("local.localhost", ".")
-			partslen = len(parts)
-		}
-		targetSite := parts[partslen-2] + "." + parts[partslen-1]
-
-		payload.URL = targetSite
-
-		exp := payload.ExpirationTime
-		if exp > uint32(time.Now().Unix()+60*60*24*365) {
-			// more than a year in the future not allowed now.
-			exp = uint32(time.Now().Unix() + 60*60*24*365)
-			fmt.Println("had long token ", string(payload.JWTID)) // TODO: store in db
-		}
-
-		cost := priceThing.Price // tokens.CalcTokenPrice(&payload, uint32(time.Now().Unix()))
-		fmt.Println("token cost is " + fmt.Sprintf("%f", cost))
-
-		// if cost > 0.012 {
-		// 	http.Error(w, "token too expensive at "+fmt.Sprintf("%f", cost), 500)
-		// 	return
-		// }
-
-		signingKey := tokens.GetPrivateKeyWhole(0)
-		tokenString, err := tokens.MakeToken(&payload, []byte(signingKey))
-		if err != nil {
-			BadTokenRequests.Inc()
-			http.Error(w, err.Error(), 500)
-			return
-		}
-		signingKey = "unused now"
-
-		when := time.Unix(int64(exp), 0)
-		year, month, day := when.Date()
-
-		comments := make([]interface{}, 3)
-		tmp := fmt.Sprintf(" expires: %v-%v-%v", year, int(month), day)
-		comments[0] = tokenRequest.Comment + tmp
-		comments[1] = "" //payload
-		comments[2] = string(tokenString)
-		//returnval, err := json.Marshal(comments)
-		_ = err
-		//returnval = []byte(strings.ReplaceAll(string(returnval), `"`, ``))
-		// returnval = []byte(strings.ReplaceAll(string(returnval), ` `, `_`))
-		//fmt.Println("sending token package ", string(returnval))
-
-		returnval := tokenString
-
-		err = tokens.LogNewToken(ctx, &payload, remoteAddr)
-		if err != nil {
-			BadTokenRequests.Inc()
-			http.Error(w, err.Error(), 500)
-			return
-		}
-		// box it up
-		boxout := make([]byte, len(returnval)+box.Overhead)
-		boxout = boxout[:0]
-		var jwtid [24]byte
-		copy(jwtid[:], []byte(nonce))
-
-		var clipub [32]byte
-		n, err := hex.Decode(clipub[:], []byte(clientPublicKey))
-		_ = err
-		if n != 32 {
-			BadTokenRequests.Inc()
-			http.Error(w, "bad size2", 500)
-			return
-		}
-		sealed := box.Seal(boxout, returnval, &jwtid, &clipub, api.ce.PrivateKeyTemp)
-
-		reply := tokens.TokenReply{}
-		reply.Nonce = nonce
-		reply.Pkey = hex.EncodeToString(api.ce.PublicKeyTemp[:])
-		reply.Payload = hex.EncodeToString(sealed)
-		bytes, err := json.Marshal(reply)
-		if err != nil {
-			BadTokenRequests.Inc()
-			http.Error(w, err.Error(), 500)
-			return
-		}
-		//time.Sleep(8 * time.Second)
-		time.Sleep(1 * time.Second)
-		w.Write(bytes)
-		tokensServed++
-		fmt.Println("done sending free token")
+	exp := payload.ExpirationTime
+	if exp > uint32(time.Now().Unix()+60*60*24*365) {
+		// more than a year in the future not allowed now.
+		exp = uint32(time.Now().Unix() + 60*60*24*365)
+		fmt.Println("had long token ", string(payload.JWTID)) // TODO: store in db
 	}
+
+	cost := priceThing.Price // tokens.CalcTokenPrice(&payload, uint32(time.Now().Unix()))
+	fmt.Println("token cost is " + fmt.Sprintf("%f", cost))
+
+	// if cost > 0.012 {
+	// 	http.Error(w, "token too expensive at "+fmt.Sprintf("%f", cost), 500)
+	// 	return
+	// }
+
+	fmt.Println("returning new token ", payload.JWTID, remoteAddr, payload.ExpirationTime)
+
+	err = api.signAndReturnToken(w, payload, exp, *tokenRequest, nonce, clientPublicKey)
+	if err == nil {
+		saved_token := &SavedToken{}
+		saved_token.KnotFreeTokenPayload = payload
+		saved_token.IpAddress = remoteAddr
+		result, err := saved_tokens.InsertOne(context.TODO(), saved_token)
+		if err != nil {
+			BadTokenRequests.Inc()
+			http.Error(w, err.Error(), 500)
+			return
+		}
+		_ = result
+	}
+}
+
+// clientPublicKey is base64 encoded
+func (api ApiHandler) signAndReturnToken(w http.ResponseWriter, payload tokens.KnotFreeTokenPayload, exp uint32,
+	tokenRequest tokens.TokenRequest, nonce string, clientPublicKey string) error {
+	signingKey := tokens.GetPrivateKeyWhole(0)
+	tokenString, err := tokens.MakeToken(&payload, []byte(signingKey))
+	if err != nil {
+		return err
+	}
+	signingKey = "unused now"
+
+	when := time.Unix(int64(exp), 0)
+	year, month, day := when.Date()
+
+	comments := make([]interface{}, 3)
+	tmp := fmt.Sprintf(" expires: %v-%v-%v", year, int(month), day)
+	comments[0] = tokenRequest.Comment + tmp
+	comments[1] = "" //payload
+	comments[2] = string(tokenString)
+	//returnval, err := json.Marshal(comments)
+	_ = err
+	//returnval = []byte(strings.ReplaceAll(string(returnval), `"`, ``))
+	// returnval = []byte(strings.ReplaceAll(string(returnval), ` `, `_`))
+	//fmt.Println("sending token package ", string(returnval))
+
+	returnval := tokenString
+
+	// err = tokens.LogNewToken(ctx, &payload, remoteAddr)
+	// if err != nil {
+	// 	BadTokenRequests.Inc()
+	// 	http.Error(w, err.Error(), 500)
+	// 	return
+	// }
+	// box it up
+	boxout := make([]byte, len(returnval)+box.Overhead)
+	boxout = boxout[:0]
+	var jwtid [24]byte
+	copy(jwtid[:], []byte(nonce))
+
+	var clipub [32]byte
+	temp, err := base64.RawURLEncoding.DecodeString(clientPublicKey)
+	_ = err
+	if len(temp) != 32 {
+		return fmt.Errorf("bad size, need 32 has %v", tmp)
+	}
+	copy(clipub[:], temp)
+	sealed := box.Seal(boxout, returnval, &jwtid, &clipub, api.ce.PrivateKeyTemp)
+
+	reply := tokens.TokenReply{}
+	reply.Nonce = nonce
+	reply.Pubk = hex.EncodeToString(api.ce.PublicKeyTemp[:])
+	reply.Payload = hex.EncodeToString(sealed)
+	bytes, err := json.Marshal(reply)
+	if err != nil {
+		return err
+	}
+	//time.Sleep(8 * time.Second)
+	// time.Sleep(1 * time.Second)
+	w.Write(bytes)
+	tokensServed++
+	return nil
 }
 
 func (superMux *SuperMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
-	//fmt.Println("giant token ", tokens.GetImpromptuGiantToken())
+	fmt.Println("ServeHTTP from host ", r.Host)
 
-	// if !strings.Contains(r.Host, "knotfree.") {
-	// 	fmt.Println("unknown host ", r.Host)
-	// 	http.NotFound(w, r)
-	// 	return
-	// }
-
-	// fmt.Println("ServeHTTP from host ", r.Host)
-
-	isApiRequest := strings.HasPrefix(r.RequestURI, "/api1/") // len(r.RequestURI) >= 9 && r.RequestURI[:9] == "/api1/get"
+	isApiRequest := strings.HasPrefix(r.RequestURI, "/api1/")
 	isApiRequest = isApiRequest || r.RequestURI == "/mqtt"
+	isApiRequest = isApiRequest || r.RequestURI == "/healthz"
+	isApiRequest = isApiRequest || r.RequestURI == "/livez"
 
 	if strings.HasPrefix(r.Host, "212.2.245.112") { // the ip address of knotfree.io
 		r.Host = "knotfree.io"
@@ -420,9 +478,10 @@ func (superMux *SuperMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	domainParts := strings.Split(r.Host, ".")
 	if len(domainParts) == 4 { // dotted quads don't work for what's coming.
-		fmt.Println("unknown host-dotted", r.Host)
-		http.NotFound(w, r)
-		return
+		// fmt.Println("unknown host-dotted", r.Host)
+		// http.NotFound(w, r)
+		// return
+		isApiRequest = true
 	}
 
 	// eg [knotfree net]
@@ -444,7 +503,9 @@ func (superMux *SuperMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func (api ApiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
-	fmt.Println("ApiHandler ServeHTTP", req.RequestURI, req.Host)
+	if req.RequestURI != "/healthz" && req.RequestURI != "/livez" {
+		fmt.Println("ApiHandler ServeHTTP", req.RequestURI, req.Host)
+	}
 
 	w.Header().Add("Access-Control-Allow-Origin", "*")
 
@@ -489,11 +550,6 @@ func (api ApiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	} else if req.RequestURI == "/api1/getToken" {
 
-		// if isLocal(req) {
-		// 	w.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
-		// } else {
-		// 	w.Header().Set("Access-Control-Allow-Origin", "http://knotfree.io")
-		// }
 		api.ServeMakeToken(w, req)
 
 	} else if req.RequestURI == "/api1/getPublicKey" {
@@ -525,10 +581,19 @@ func (api ApiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 		w.Write([]byte(sss))
 
+	} else if req.RequestURI == "/healthz" {
+
+		w.Write([]byte("ok"))
+
+	} else if req.RequestURI == "/livez" {
+
+		w.Write([]byte("ok"))
+
 	} else {
 		// http.NotFound(w, req)
 		// fmt.Fprintf(w, "expected known path "+req.RequestURI)
 		// iot.HTTPServe404.Inc()
 		api.staticStuffHandler.ServeHTTP(w, req)
 	}
+
 }

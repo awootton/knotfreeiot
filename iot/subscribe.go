@@ -44,15 +44,15 @@ func processSubscribe(me *LookupTableStruct, bucket *subscribeBucket, submsg *su
 		// weAreTheFirst = true
 		// make a new one as necessary
 		watchedTopic = &WatchedTopic{}
-		watchedTopic.name = submsg.topicHash
+		watchedTopic.Name = submsg.topicHash
 		watchedTopic.thetree = NewWithInt64Comparator()
-		watchedTopic.expires = 20*60 + me.getTime()
+		watchedTopic.Expires = 20*60 + me.getTime()
 
-		t, _ := submsg.p.GetOption("jwtidAlias") // don't they ALL have this?, except billing topics
-		if len(t) != 0 {                         // it's always 64 bytes binary
-			watchedTopic.jwtidAlias = string(t)
+		t, _ := submsg.p.GetOption("jwtid") // don't they ALL have this?, except billing topics
+		if len(t) != 0 {                    // it's always 64 bytes binary
+			watchedTopic.Jwtid = string(t)
 		}
-		// if watchedTopic.jwtidAlias == "123456" {
+		// if watchedTopic.jwtid == "123456" {
 		// 	fmt.Println("have 123456 in new watcher", me.myname)
 		// }
 		setWatcher(bucket, &submsg.topicHash, watchedTopic)
@@ -87,32 +87,32 @@ func processSubscribe(me *LookupTableStruct, bucket *subscribeBucket, submsg *su
 
 		// how do we keep anyone from sending a message to fake this?
 		// check if there's already a BillingAccumulator
-		_, haveBilling := watchedTopic.GetOption("bill")
+		_, haveBilling := watchedTopic.IsBilling()
 		if !haveBilling {
 			//fmt.Println("new BillingAccumulator", watchedTopic.name)
 			stats := &tokens.KnotFreeContactStats{}
 			err := json.Unmarshal(val, stats)
 			if err == nil {
 				ba := &BillingAccumulator{}
-				ba.name = submsg.topicHash.String()[0:4]
-				BucketCopy(stats, &ba.max)
-				watchedTopic.SetOption("bill", ba)
+				ba.Name = submsg.topicHash.String()[0:4]
+				BucketCopy(stats, &ba.Max)
+				watchedTopic.Bill = ba
 			}
 		}
 		// else {
 		// 	//fmt.Println("found BillingAccumulator", watchedTopic.name)
 		// }
-		watchedTopic.expires = 60*60 + me.getTime()
+		watchedTopic.Expires = 60*60 + me.getTime()
 	}
 
-	watchedTopic.expires = 26*60 + me.getTime()
+	watchedTopic.Expires = 26*60 + me.getTime()
 
 	// only the first subscriber can set the IPv6 address that lookup can return.
 	val, ok = submsg.p.GetOption("AAAA")
 	if ok {
 		_, exists := watchedTopic.GetOption("AAAA")
 		if !exists {
-			watchedTopic.SetOption("AAAA", val)
+			watchedTopic.SetOption("AAAA", string(val))
 		}
 	}
 
@@ -120,17 +120,18 @@ func processSubscribe(me *LookupTableStruct, bucket *subscribeBucket, submsg *su
 	if ok {
 		_, exists := watchedTopic.GetOption("misc")
 		if !exists {
-			watchedTopic.SetOption("misc", val)
+			watchedTopic.SetOption("misc", string(val))
 		}
 	}
 
 	// done: permanent subscription.
 	// Pretty sure this is broken.
+	// delete this. We reserve subs with a lookup command.
 	subs := submsg.p
 	box_bytes2, ok1 := subs.GetOption("reserved")
 	pubk, ok2 := subs.GetOption("pubk")
 	nonce, ok3 := subs.GetOption("nonce")
-	if ok1 && ok2 && ok3 {
+	if false && ok1 && ok2 && ok3 {
 
 		fmt.Println(me.ex.Name, "Subscribe setting permanent node=", me.ex.Name)
 
@@ -160,7 +161,7 @@ func processSubscribe(me *LookupTableStruct, bucket *subscribeBucket, submsg *su
 
 		// and here's the trick
 		// the public key in the namePayload must
-		// match the pubk for the box
+		// match the pubk for the box FIXME:
 
 		if namePayload.JWTID != base64.RawURLEncoding.EncodeToString(pubk) {
 			fmt.Printf(" pub key should match got %v, want %v", base64.RawURLEncoding.EncodeToString(pubk), namePayload.JWTID)
@@ -177,8 +178,8 @@ func processSubscribe(me *LookupTableStruct, bucket *subscribeBucket, submsg *su
 		}
 
 		if len(hadError) == 0 {
-			watchedTopic.permanent = true
-			watchedTopic.SetOption("reserved", namePayload)
+			// what was this? watchedTopic.Permanent = true
+			// FIXME:	watchedTopic.SetOption("reserved", namePayload)
 
 			subMsgKey := submsg.ss.GetKey()
 			watchedTopic.removeAll()
@@ -311,7 +312,7 @@ func heartBeatCallBack(me *LookupTableStruct, bucket *subscribeBucket, cmd *call
 			continue
 		}
 
-		expireAll := watchedItem.expires < cmd.now
+		expireAll := watchedItem.Expires < cmd.now
 
 		// FIRST, scan all the contact references and schedule the stale ones for deleteion.
 		// if expireAll {
@@ -360,7 +361,7 @@ func heartBeatCallBack(me *LookupTableStruct, bucket *subscribeBucket, cmd *call
 				now := me.getTime()
 				good, msg := billingAccumulator.AreUnderMax(now)
 				if !good {
-					fmt.Println("have token error", msg, watchedItem.name.GetUint64())
+					fmt.Println("have billing error", msg, watchedItem.Name.GetUint64())
 					p := &packets.Send{}
 					p.Address.Bytes = new([24]byte)[:]
 					p.Address.Type = packets.BinaryAddress
@@ -383,7 +384,7 @@ func heartBeatCallBack(me *LookupTableStruct, bucket *subscribeBucket, cmd *call
 		}
 		// THIRD, we'll need to send out the topic usage-stats occasionally.
 		// from the guru only. For all topics that are not billing
-		if len(watchedItem.jwtidAlias) > 0 && !haveUpstream {
+		if len(watchedItem.Jwtid) > 0 && !haveUpstream {
 			if watchedItem.nextBillingTime < cmd.now {
 				// again, we can't do this right now.
 				go func(watchedItem *WatchedTopic) {
@@ -398,7 +399,7 @@ func heartBeatCallBack(me *LookupTableStruct, bucket *subscribeBucket, cmd *call
 					// fmt.Println("sending subscribe deltat", deltaTime, "from ", me.myname)
 
 					p := &packets.Send{}
-					p.Address.FromString(watchedItem.jwtidAlias)
+					p.Address.FromString(watchedItem.Jwtid)
 					p.Source.FromString("billing_stats_return_address_subscribe") // doesn't exist. use "ping" ?
 					str, err := json.Marshal(msg)
 					if err != nil {
@@ -427,7 +428,7 @@ func heartBeatCallBack(me *LookupTableStruct, bucket *subscribeBucket, cmd *call
 	// we have to do this async
 	for _, emptyBucket := range emptyTopics {
 		// fmt.Println("Subscribe deleting entire empty bucket", emptyBucket.name)
-		delete(bucket.mySubscriptions, emptyBucket.name) // the name is the hash
+		delete(bucket.mySubscriptions, emptyBucket.Name) // the name is the hash
 	}
 
 	// if bucket.index == 49 {
@@ -442,12 +443,12 @@ func heartBeatCallBack(me *LookupTableStruct, bucket *subscribeBucket, cmd *call
 			unmsg := new(packets.Unsubscribe)
 			unmsg.Address.Type = packets.BinaryAddress
 			unmsg.Address.Bytes = new([24]byte)[:]
-			emptyBucket.name.GetBytes(unmsg.Address.Bytes)
+			emptyBucket.Name.GetBytes(unmsg.Address.Bytes)
 
 			// I don't want to see "sendSubscriptionMessage channel full"
 			msg := unsubscribeMessage{} // TODO: use a pool.
 			// no contact msg.ss = ss
-			msg.p = unmsg
+			// msg.p = unmsg
 			unmsg.Address.EnsureAddressIsBinary()
 			msg.topicHash.InitFromBytes(unmsg.Address.Bytes)
 			i := msg.topicHash.GetFractionalBits(me.theBucketsSizeLog2) // is 4. The first 4 bits of the hash.
@@ -455,7 +456,7 @@ func heartBeatCallBack(me *LookupTableStruct, bucket *subscribeBucket, cmd *call
 			if len(b.incoming)*4 > cap(b.incoming)*3 {
 				time.Sleep(time.Millisecond) // low priority
 			}
-			err := bucket.looker.PushUp(unmsg, emptyBucket.name)
+			err := bucket.looker.PushUp(unmsg, emptyBucket.Name)
 			if err != nil {
 				fmt.Println("Subscribe heartbeat unsub  PushUp error", err)
 			}
@@ -490,7 +491,8 @@ func processUnsubscribe(me *LookupTableStruct, bucket *subscribeBucket, unmsg *u
 
 	watchedTopic, ok := getWatcher(bucket, &unmsg.topicHash)
 	if ok {
-		if watchedTopic.permanent {
+		isPermanent := len(watchedTopic.Owners) > 0
+		if isPermanent {
 			watchedTopic.remove(unmsg.ss.GetKey())
 			// don't delete the entry
 			err := bucket.looker.PushUp(unmsg.p, unmsg.topicHash)

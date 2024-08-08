@@ -16,6 +16,7 @@
 package iot
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -27,6 +28,7 @@ import (
 	"github.com/emirpasic/gods/trees/redblacktree"
 	"github.com/emirpasic/gods/utils"
 	"github.com/prometheus/client_golang/prometheus"
+	"go.mongodb.org/mongo-driver/bson"
 )
 
 // LookupTableStruct is good for message routing and address lookup.
@@ -53,28 +55,40 @@ type LookupTableStruct struct {
 	theBucketsSizeLog2 int // = 4
 }
 
-// watchedTopic is what we'll be collecting a lot of.
+type MyRedblacktree struct {
+	tree redblacktree.Tree
+}
+
+// watchedTopic is what we'll be collecting a lot of. Aka, a subscription. Aka a name.
 // what if *everyone* is watching this topic? and then the watchers.thetree is huge.
 // these normally time out. See the heartbeat
 type WatchedTopic struct {
 	//
-	name HashType // not my real name
+	// not my real name
+	Name HashType `bson:"name,omitempty"`
 
-	expires uint32
+	Expires uint32 `bson:"exp,omitempty"`
 
+	// like map[uint64]*watcherItem
 	thetree *redblacktree.Tree // of uint64 to watcherItem
 
-	optionalKeyValues *redblacktree.Tree // might be nil if no options. used by billing
+	// like map[string]string
+	OptionalKeyValues *MyRedblacktree `bson:"opt,omitempty"` // might be nil if no options.
 
-	// billing: can we NOT use the optionalKeyValues ? like bill
+	Bill *BillingAccumulator `bson:"bill,omitempty"` // might be nil if no billing. used by billing.
 
 	nextBillingTime uint32
 	lastBillingTime uint32
-	jwtidAlias      string
+	Jwtid           string `bson:"jwtid,omitempty"` // aka billkey is the id fronm the auth token
 
-	permanent bool // keep it around always
-	Single    bool // just the one subscriber
-	Owned     bool // only one client allowed to post to this channel
+	// presense of Pubk implies this Permanent bool `bson:"perm,omitempty"`   // keep it around always, until it expires.
+	// presense of Users enforces this Single    bool `bson:"simgle,omitempty"` // just the one subscriber
+
+	// OwnedBroadcast means that this is a broadcast channel. All posts must be signed by an owner.
+	OwnedBroadcast bool `bson:"owned,omitempty"` // only one client allowed to post to this channel
+
+	Owners []string `bson:"own,omitempty"`   // the public key of the owners who have permission to make changes.
+	Users  []string `bson:"users,omitempty"` // the public key of things that can subscribe to this topic. None means anyone.
 }
 
 type watcherItem struct {
@@ -108,7 +122,7 @@ func (me *LookupTableStruct) PushUp(p packets.Interface, h HashType) error {
 	upc := router.getUpperChannel(h.GetUint64())
 	if upc != nil {
 
-		if !upc.running || upc.founderr != nil || upc.conn == nil {
+		if !upc.isRunning() || upc.founderr != nil || upc.conn == nil {
 			fmt.Println("upc.running == false or founderr or conn==nil in PushUp for ", me.myname)
 		}
 		SpecialPrint(&packets.PacketCommon{}, func() {
@@ -602,19 +616,19 @@ func (it *subIterator) KeyValue() (HalfHash, *watcherItem) {
 // utility routines for watchedTopic options
 // OptionSize returns key count which is same as value count
 func (wt *WatchedTopic) OptionSize() int {
-	if wt.optionalKeyValues == nil {
+	if wt.OptionalKeyValues == nil {
 		return 0
 	}
-	return wt.optionalKeyValues.Size()
+	return wt.OptionalKeyValues.tree.Size()
 }
 
 // GetOption returns the value,true to go with the key or nil,false
 func (wt *WatchedTopic) GetOption(key string) ([]byte, bool) {
-	if wt.optionalKeyValues == nil {
+	if wt.OptionalKeyValues == nil {
 		return nil, false
 	}
 	var bytes []byte
-	val, ok := wt.optionalKeyValues.Get(key)
+	val, ok := wt.OptionalKeyValues.tree.Get(key)
 	if !ok {
 		bytes = []byte("")
 	} else {
@@ -628,38 +642,95 @@ func (wt *WatchedTopic) GetOption(key string) ([]byte, bool) {
 
 // GetOption returns the value,true to go with the key or nil,false
 func (wt *WatchedTopic) IsBilling() (*BillingAccumulator, bool) {
-	if wt.optionalKeyValues == nil {
-		return nil, false
-	}
-	val, ok := wt.optionalKeyValues.Get("bill") // can we do this another way? TODO:
-	if !ok {
-		return nil, ok
-	}
-	stats, ok := val.(*BillingAccumulator)
-	if !ok {
-		return nil, ok
-	}
-	if stats.max.Subscriptions == 1 { // a test
-		fmt.Print("")
-	}
-	return stats, ok
+	return wt.Bill, wt.Bill != nil
 }
 
 // DeleteOption returns the value,true to go with the key or nil,false
 func (wt *WatchedTopic) DeleteOption(key string) {
-	if wt.optionalKeyValues == nil {
+	if wt.OptionalKeyValues == nil {
 		return
 	}
-	wt.optionalKeyValues.Remove(key)
+	wt.OptionalKeyValues.tree.Remove(key)
+}
 
+func (rbt *MyRedblacktree) Iterator() redblacktree.Iterator {
+	return rbt.tree.Iterator()
+}
+
+func (rbt *MyRedblacktree) MarshalBSON() ([]byte, error) {
+
+	amap := make(map[string]interface{})
+	it := rbt.Iterator()
+	for it.Next() {
+		s, ok := it.Key().(string)
+		if !ok {
+			return nil, fmt.Errorf("key is not a string %v", it.Key())
+		}
+		val := it.Value()
+
+		amap[s] = fmt.Sprint(val)
+	}
+	t, b, err := bson.MarshalValue(amap)
+	_ = t
+	return b, err
+}
+
+func (r *MyRedblacktree) UnmarshalBSON(data []byte) error {
+
+	amap := make(map[string]interface{})
+	err := bson.Unmarshal(data, &amap)
+	if err != nil {
+		return err
+	}
+	tree := redblacktree.NewWithStringComparator()
+	r.tree = *tree
+	for k, v := range amap {
+		r.tree.Put(k, v)
+	}
+	return nil
+}
+
+func (rbt *MyRedblacktree) MarshalJSON() ([]byte, error) {
+
+	amap := make(map[string]interface{})
+	it := rbt.Iterator()
+	for it.Next() {
+		s, ok := it.Key().(string)
+		if !ok {
+			return nil, fmt.Errorf("key is not a string %v", it.Key())
+		}
+		val := it.Value()
+
+		amap[s] = fmt.Sprint(val)
+	}
+	b, err := json.Marshal(amap)
+	return b, err
+}
+
+func (r *MyRedblacktree) UnmarshalJSON(data []byte) error {
+
+	amap := make(map[string]interface{})
+	err := json.Unmarshal(data, &amap)
+	if err != nil {
+		return err
+	}
+	tree := redblacktree.NewWithStringComparator()
+	r.tree = *tree
+	for k, v := range amap {
+		r.tree.Put(k, v)
+	}
+	return nil
 }
 
 // SetOption adds the key,value
-func (wt *WatchedTopic) SetOption(key string, val interface{}) {
-	if wt.optionalKeyValues == nil {
-		wt.optionalKeyValues = redblacktree.NewWithStringComparator()
+func (wt *WatchedTopic) SetOption(key string, val string) {
+	if wt.OptionalKeyValues == nil {
+		tree := redblacktree.NewWithStringComparator()
+		rbt := MyRedblacktree{}
+		rbt.tree = *tree
+		wt.OptionalKeyValues = &rbt // &MyRedblacktree.Tree.NewWithStringComparator()
 	}
-	wt.optionalKeyValues.Put(key, val)
+	wt.OptionalKeyValues.tree.Put(key, val)
 }
 
 // FlushMarkerAndWait puts a command into the head of *all* the q's

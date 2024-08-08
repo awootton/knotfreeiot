@@ -45,7 +45,7 @@ See: https://docs.vultr.com/how-to-install-a-wildcard-let-s-encrypt-ssl-certific
     Verify the installation.
 
     kubectl get services/ingress-nginx-controller -n ingress-nginx
-        note that we are waiting for an external IP -->  is 155.138.240.174 
+        note that we are waiting for an external IP -->  is 155.138.240.174  now 216.128.128.128
 
     Install the cert-manager plugin.
 

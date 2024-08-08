@@ -84,8 +84,12 @@ type ClusterExecutive struct {
 
 	timegetter func() uint32
 
+	// Curve25519 aka X25519 is for nacl box. We use ed25519 for signing jwt.
+	// These are not really temp. They come from privateKeys4.txt
 	PublicKeyTemp  *[32]byte //curve25519.PublicKey // temporary to this run not ed25519
 	PrivateKeyTemp *[32]byte //curve25519.PrivateKey
+
+	ServiceContact *ServiceContact
 }
 
 // ExecutiveLimits will be how we tell if the ex is 'full'
@@ -644,12 +648,18 @@ func (ex *Executive) GetExecutiveStats() *ExecutiveStats {
 func (ex *Executive) Heartbeat(now uint32) {
 
 	log := make([]string, 10)
+	var lock sync.Mutex
 
 	isDone := make(chan interface{})
+	startTime := time.Now()
 	go func() {
+
 		defer func() { isDone <- true }()
-		fmt.Println("Heartbeat Executive START", ex.Name, ex.tcpAddress)
+		// fmt.Println("Heartbeat Executive START", ex.Name, ex.tcpAddress)
+
+		lock.Lock()
 		log = append(log, "START")
+		lock.Unlock()
 		connectionsTotal.Set(float64(ex.Config.Len()))
 
 		// this would require a lock or else pushing into the incoming q
@@ -659,7 +669,9 @@ func (ex *Executive) Heartbeat(now uint32) {
 		// fmt.Println("Heartbeat Executive LOOKER", ex.Name, ex.tcpAddress)
 
 		ex.Looker.Heartbeat(now)
+		lock.Lock()
 		log = append(log, "Looker done")
+		lock.Unlock()
 		// fmt.Println("Heartbeat Executive Looker done", ex.Name, ex.tcpAddress)
 
 		timer := prometheus.NewTimer(heartbeatContactsDuration)
@@ -667,26 +679,36 @@ func (ex *Executive) Heartbeat(now uint32) {
 
 		//fmt.Println("Heartbeat copy clients", ex.Name)
 		// fmt.Println("Heartbeat Executive CONTACTS getcopy", ex.Name, ex.tcpAddress)
+		lock.Lock()
 		log = append(log, "copy")
+		lock.Unlock()
 		contactList := ex.Config.GetContactsListCopy() // could be 20k contacts!
 
 		// fmt.Println("Heartbeat Executive CONTACTS", ex.Name, ex.tcpAddress)
 
 		//fmt.Println("Heartbeat clients", len(contactList), ex.Name)
+		lock.Lock()
 		log = append(log, "clients")
+		lock.Unlock()
 		for _, ci := range contactList {
 			// fmt.Println("Heartbeat client TOP", ci.GetKey().Sig())
 			ci.Heartbeat(now)
 			// fmt.Println("Heartbeat client DONE", ci.GetKey().Sig())
 		}
+		lock.Lock()
 		log = append(log, "done")
+		lock.Unlock()
 	}()
 	select {
 	case <-isDone:
 	case <-time.After(5 * time.Second):
+		lock.Lock()
 		fmt.Println("Heartbeat Executive timeout ERROR", ex.Name, log) // this is fatal. we're stuck.
+		lock.Unlock()
 	}
-	fmt.Println("Heartbeat Executive DONE", ex.Name)
+	elapsed := time.Since(startTime)
+	_ = elapsed
+	// fmt.Println("Heartbeat Executive DONE", ex.Name, elapsed)
 }
 
 // Heartbeat everyone when testing

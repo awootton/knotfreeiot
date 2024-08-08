@@ -51,7 +51,7 @@ func processPublish(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *publ
 
 		haveUpstream := len(me.upstreamRouter.channels) != 0
 
-		// it has the optionalKeyValues.Get("bill") which holds the billingAccumulator
+		// it has which holds the billingAccumulator
 		billingAccumulator, isBilling := watchedTopic.IsBilling() // has billingAccumulator
 		// it's really only supposed to ever even have a billingAccumulator unless this is a guru
 		if isBilling {
@@ -108,12 +108,12 @@ func processPublish(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *publ
 					me.ex.channelToAnyAide <- &gotsend
 				}
 			}
-			watchedTopic.expires = 60*60 + me.getTime() // one hour
+			watchedTopic.Expires = 60*60 + me.getTime() // one hour
 
 		} else {
 			badContacts := make([]ContactInterface, 0)
 			// do the WriteDownstream
-			watchedTopic.expires = 25*60 + me.getTime() //20 min
+			watchedTopic.Expires = 25*60 + me.getTime() //20 min
 			// this is where the typical packet comes
 			// fmt.Println("pub down", string(pubmsg.p.Payload))
 			if wereSpecial && watchedTopic.thetree.Size() == 0 {
@@ -218,7 +218,7 @@ func processPublishDown(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *
 		missedPushes.Inc()
 
 	} else {
-		watcheditem.expires = 25*60 + me.getTime() // 25 min
+		watcheditem.Expires = 25*60 + me.getTime() // 25 min
 		if wereSpecial && watcheditem.thetree.Size() == 0 {
 			fmt.Println(me.ex.Name, "processPublishDown getWatcher found topic but no subs ", " p:", pubmsg.p.Sig())
 		}

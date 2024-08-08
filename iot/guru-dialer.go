@@ -30,6 +30,15 @@ import (
 	"github.com/dgryski/go-maglev"
 )
 
+func (upc *upperChannel) isRunning() bool {
+	select {
+	case <-upc.stopped:
+		return false
+	default:
+		return true
+	}
+}
+
 // dialGuru is used to connect an aide to a guru.
 // if it's tcp then we open sockets and connect them to the channel
 // if not then we simply make a contact in the guru and wire it to the channel
@@ -46,11 +55,11 @@ func (upc *upperChannel) dialGuru() {
 		isTCP = true
 	}
 
-	upc.running = true
+	upc.stopped = make(chan interface{})
 	if isTCP {
 		// in prod:
 		fmt.Println("dialGuruAndServe started with", upc.address, upc.name)
-		for upc.running {
+		for upc.isRunning() {
 			err := upc.dialGuruAndServe()
 			if err != nil {
 				fmt.Println("dialGuruAndServe returned err", err, upc.address, upc.name)
@@ -62,7 +71,7 @@ func (upc *upperChannel) dialGuru() {
 		}
 
 	} else {
-		for upc.running { // this is a debug version. delete this
+		for upc.isRunning() { // this is a debug version. delete this
 
 			// the test we can find all the other nodes in the ce.
 			// or in GuruNameToConfigMap
@@ -240,8 +249,9 @@ func (upc *upperChannel) dialGuruAndServe() error {
 
 	var mux sync.Mutex // needed?
 
+	tok := tokens.GetImpromptuGiantToken()
 	connect := &packets.Connect{}
-	connect.SetOption("token", []byte(tokens.GetImpromptuGiantToken()))
+	connect.SetOption("token", []byte(tok))
 	mux.Lock()
 	err = connect.Write(upc.conn)
 	mux.Unlock()
@@ -270,7 +280,7 @@ func (upc *upperChannel) dialGuruAndServe() error {
 	fmt.Println("dialGuruAndServe finished pushing subscriptions", upc.address, upc.name)
 
 	go func() {
-		for upc.founderr == nil && upc.running {
+		for upc.founderr == nil && upc.isRunning() {
 			time.Sleep(time.Second * 300)
 			p := &packets.Ping{}
 			if len(upc.up)*4 >= cap(upc.up)*3 {
@@ -282,7 +292,7 @@ func (upc *upperChannel) dialGuruAndServe() error {
 
 	// since we have a conn now...
 	go func() {
-		for upc.founderr == nil && upc.running {
+		for upc.founderr == nil && upc.isRunning() {
 			p, err := packets.ReadPacket(upc.conn) // guru sent this down to us
 			if err != nil {
 				fmt.Println("dialGuruAndServe readPacket err", p, err, upc.address, upc.name)
@@ -304,7 +314,7 @@ func (upc *upperChannel) dialGuruAndServe() error {
 		}
 	}()
 
-	for upc.founderr == nil && upc.running {
+	for upc.founderr == nil && upc.isRunning() {
 		var err error
 		select {
 		case p := <-upc.up:
@@ -314,7 +324,7 @@ func (upc *upperChannel) dialGuruAndServe() error {
 
 			//fmt.Println("dialGuruAndServe pushed to guru ", p.Sig())
 		case <-time.After(time.Millisecond * 100):
-			//fmt.Println("dialGuruAndServe timeout")
+			// fmt.Println("dialGuruAndServe timeout")
 			// check the upc.founderr and upc.running
 		}
 		if err != nil {
@@ -381,7 +391,7 @@ func ConnectGuruToSuperAide(guru *Executive, aide *Executive) {
 		theNamesThisTime[name] = address
 
 		upc, found := router.name2channel[name]
-		if found && upc.running {
+		if found && upc.isRunning() {
 			router.channels[i] = upc
 		} else {
 			fmt.Println("starting dialGuru from ", me.ex.Name, " to ", name)
@@ -400,7 +410,7 @@ func ConnectGuruToSuperAide(guru *Executive, aide *Executive) {
 	for _, upc := range oldContacts {
 		_, found := theNamesThisTime[upc.name]
 		if !found {
-			upc.running = false
+			close(upc.stopped)
 			fmt.Println("forgetting upper router ", upc.name)
 			close(upc.up)
 			close(upc.down)

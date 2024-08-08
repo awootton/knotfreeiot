@@ -252,8 +252,10 @@ type Unsubscribe struct {
 }
 
 // Lookup returns information on the dest to source.
-// can be used to verify existance of an endpoint prior to subscribe.
+// Can be used to verify existance of an endpoint prior to subscribe.
 // If the topic metadata has one subscriber and an ipv6 address then this is the same as a dns lookup.
+// there will be commands to add and remove the name in the options under the key "cmd"
+// No command means just a lookup.
 type Lookup struct {
 	MessageCommon
 	// a return address

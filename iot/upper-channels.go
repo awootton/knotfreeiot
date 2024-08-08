@@ -20,7 +20,7 @@ type upperChannel struct {
 
 	ex *Executive
 
-	running  bool
+	stopped  chan interface{} // close this to stop the upperChannel
 	founderr error
 	conn     net.Conn
 
@@ -107,7 +107,7 @@ func (me *LookupTableStruct) SetUpstreamNames(names []string, addresses []string
 		theNamesThisTime[name] = address
 
 		upc, found := router.name2channel[name]
-		if found && upc.running {
+		if found && upc.isRunning() {
 			router.channels[i] = upc
 		} else {
 			fmt.Println("SetUpstreamNames starting upper router from ", me.ex.Name, " to ", name)
@@ -130,7 +130,7 @@ func (me *LookupTableStruct) SetUpstreamNames(names []string, addresses []string
 	for _, upc := range oldContacts {
 		_, found := theNamesThisTime[upc.name]
 		if !found {
-			upc.running = false
+			close(upc.stopped)
 			fmt.Println("forgetting upper router ", upc.name)
 			close(upc.up)
 			close(upc.down)

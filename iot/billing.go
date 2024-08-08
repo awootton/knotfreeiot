@@ -32,11 +32,11 @@ The connect send a subscribe to the JWTID (see contacts expectToken) and also
 sends "statsmax" with the subscribe and statsmax is a KnotFreeContactStats from the token.
 
 In subscribe.go we notice the statsmax KnotFreeContactStats and construct a BillingAccumulator
-and add it to the watcher with the name of "bill". There is a getter for that. watchedItem.GetBilling()
+and add it to the watcher. There is a getter for that. watchedItem.GetBilling()
 
 In the Heartbeat of a Contact we periodically (30 then 60 sec) construct a Stats
 and we Push it as a Send with option "add-stats".
-When the publish.go gets the stats message we do a GetBilling() (aka GetOption("bill"))
+When the publish.go gets the stats message we do a GetBilling()
  and we have special case for that and we BillingAccumulator.Add(stats)
 
 Later, in the heartbeat of lookup, we check if it's a billing topic and if we're 'over' our maximums.
@@ -68,12 +68,12 @@ const bucketSpanTime = 10 * 60 // 10 minutes
 // BillingAccumulator is terse
 type BillingAccumulator struct {
 	//
-	a [4]StatsWithTime
-	i int // this will be always mod len(a) and will increment.
+	a [4]StatsWithTime `bson:"a,omitempty"` // todo, just the sum please
+	i int              // this will be always mod len(a) and will increment.
 
-	max tokens.KnotFreeContactStats
+	Max tokens.KnotFreeContactStats `bson:"max,omitempty"`
 
-	name string
+	Name string `bson:"name,omitempty"`
 
 	mux sync.Mutex
 }
@@ -129,9 +129,9 @@ func (ba *BillingAccumulator) AddUsage(stats *tokens.KnotFreeContactStats, now u
 		c.Subscriptions = 0
 	}
 
-	if ba.max.Subscriptions == 1 && stats.Subscriptions != 0 { // the test in billing_test
+	if ba.Max.Subscriptions == 1 && stats.Subscriptions != 0 { // the test in billing_test
 		subs := ba.GetSubscriptions(now)
-		fmt.Println("Subscriptions now", subs, ba.name)
+		fmt.Println("Subscriptions now", subs, ba.Name)
 	}
 
 	//fmt.Println("added", stats.Subscriptions)
@@ -148,21 +148,21 @@ func (ba *BillingAccumulator) AreUnderMax(now uint32) (bool, string) {
 	current := tokens.KnotFreeContactStats{}
 	ba.GetStats(now, &current)
 
-	if current.Connections > (ba.max.Connections + .1) {
+	if current.Connections > (ba.Max.Connections + .1) {
 		weGood = false
-		why += fmt.Sprintf(" BILLING ERROR %v connections > %v", current.Connections, ba.max.Connections)
+		why += fmt.Sprintf(" BILLING ERROR connections %v > %v", current.Connections, ba.Max.Connections)
 	}
-	if current.Input > (ba.max.Input + .1*100) {
+	if current.Input > (ba.Max.Input + .1*100) {
 		weGood = false
-		why += fmt.Sprintf(" BILLING ERROR %v bytes in > %v/s", current.Input, ba.max.Input)
+		why += fmt.Sprintf(" BILLING ERROR bytes in %v > %v/s", current.Input, ba.Max.Input)
 	}
-	if current.Output > (ba.max.Output + .1) {
+	if current.Output > (ba.Max.Output + .1) {
 		weGood = false
-		why += fmt.Sprintf(" BILLING ERROR %v bytes out > %v/s", current.Output, ba.max.Output)
+		why += fmt.Sprintf(" BILLING ERROR bytes out %v > %v/s", current.Output, ba.Max.Output)
 	}
-	if current.Subscriptions > (ba.max.Subscriptions + .1) {
+	if current.Subscriptions > (ba.Max.Subscriptions + .1) {
 		weGood = false
-		why += fmt.Sprintf(" BILLING ERROR %v subscriptions > %v", current.Subscriptions, ba.max.Subscriptions)
+		why += fmt.Sprintf(" BILLING ERROR subscriptions %v > %v", current.Subscriptions, ba.Max.Subscriptions)
 	}
 
 	return weGood, why
@@ -325,6 +325,7 @@ func BucketCopy(src *tokens.KnotFreeContactStats, dest *tokens.KnotFreeContactSt
 	dest.Input = src.Input
 	dest.Output = src.Output
 	dest.Subscriptions = src.Subscriptions
+	// dest.JWTID = src.JWTID
 }
 
 // BucketClear is

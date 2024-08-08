@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"math/rand"
 	"net"
+	"sync/atomic"
 	"time"
 
 	"github.com/awootton/knotfreeiot/packets"
@@ -138,7 +139,7 @@ func getTheIndex(ex *Executive) (int, string, string) {
 // pop packets off the channelToAnyAide and send them to the aide.
 // The problem is that the aide might go away and we need get another. // ce *ClusterExecutive??
 // how can we be sure to not call this twice?
-var dialAideAndServeInvoked int
+var dialAideAndServeInvoked atomic.Int64
 
 func (ex *Executive) dialAideAndServe() {
 
@@ -151,7 +152,7 @@ func (ex *Executive) dialAideAndServe() {
 
 	startReader := make(chan bool)
 
-	dialAideAndServeInvoked++
+	dialAideAndServeInvoked.Add(1)
 
 	var conn net.Conn = nil
 
@@ -160,8 +161,9 @@ func (ex *Executive) dialAideAndServe() {
 			for index == -1 {
 				index, name, address = getTheIndex(ex)
 			}
-
-			fmt.Println("top of dialAideAndServe from ", ex.Name, " to ", name, address, dialAideAndServeInvoked, index)
+			var tmp int64
+			dialAideAndServeInvoked.Store(tmp)
+			fmt.Println("top of dialAideAndServe from ", ex.Name, " to ", name, address, tmp, index)
 
 			// todo: tell prometheius we're dialing
 			var err error

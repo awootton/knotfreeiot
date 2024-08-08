@@ -22,8 +22,13 @@ import (
 
 func TestGetGiantTokens(t *testing.T) {
 	fmt.Println("giant token ", tokens.GetImpromptuGiantToken())
-	fmt.Println("giant local ", tokens.GetImpromptuGiantTokenLocal())
-	fmt.Println("medium local ", tokens.Get32xTokenLocal())
+	//fmt.Println("giant local ", tokens.GetImpromptuGiantTokenLocal(""))
+	fmt.Println("medium local ", string(tokens.Get32xTokenLocal()))
+
+	fmt.Println("giant token ", tokens.GetImpromptuGiantToken())
+	//fmt.Println("giant local ", tokens.GetImpromptuGiantTokenLocal(""))
+	fmt.Println("medium local ", string(tokens.Get32xTokenLocal()))
+
 }
 
 func TestMakeRandomPhrase(t *testing.T) {

@@ -31,12 +31,15 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+// mqttContact is for reqular mqtt connections over tcp.
 type mqttContact struct {
 	tcpContact
 	protoVersion   libmqtt.ProtoVersion
 	writeLibPacket func(libPacket libmqtt.Packet, cc *mqttContact) error
+	subscriptions  map[string]bool
 }
 
+// mqttWsContact is used with the react mqtt client that uses websockets from a browser.
 type mqttWsContact struct {
 	mqttContact
 	wsConn           *websocket.Conn
@@ -44,17 +47,35 @@ type mqttWsContact struct {
 	writeAccessMutex sync.Mutex
 }
 
-func (cc *mqttWsContact) Close(err error) {
-	hadConfig := cc.GetConfig() != nil
-	if hadConfig {
-		dis := packets.Disconnect{}
-		dis.SetOption("error", []byte(err.Error()))
-		cc.WriteDownstream(&dis)
-		// we don't close the  cc.netDotTCPConn, who does?
+func (cc *mqttContact) DoClose(err error) {
+	fmt.Println("mqttContact DoClose", cc.GetKey().Sig())
+	cc.tcpContact.DoClose(err) // close my parent
+}
+
+func (cc *mqttContact) DoClosingWork(err error) {
+	fmt.Println("mqttContact DoClosingWork con=", cc.GetKey().Sig(), err)
+	for sub := range cc.subscriptions {
+		fmt.Println("mqttContact DoClosingWork unsub", sub)
+		unsub := &packets.Unsubscribe{}
+		unsub.Address.FromString(sub)
+		_ = PushPacketUpFromBottom(cc, unsub)
 	}
-	ss := &cc.ContactStruct
-	fmt.Println("mqtt contact close")
-	ss.DoClose(err) // close my parent
+	cc.tcpContact.DoClosingWork(err) // close my parent too. This closes the socket.
+}
+
+func (cc *mqttWsContact) DoClose(err error) {
+	fmt.Println("mqttWsContact DoClose", cc.GetKey().Sig())
+	cc.mqttContact.DoClose(err) // close my parent
+}
+
+func (cc *mqttWsContact) DoClosingWorkClose(err error) {
+
+	fmt.Println("mqttWsContact DoClosingWork con=", cc.GetKey().Sig(), err)
+
+	dis := packets.Disconnect{}
+	dis.SetOption("error", []byte(err.Error()))
+	cc.WriteDownstream(&dis)
+	cc.mqttContact.DoClosingWork(err)
 }
 
 // MakeMqttExecutive is a thing like a server, not the exec
@@ -85,7 +106,7 @@ func mqttServer(ex *Executive, name string) {
 			fmt.Println("accetp err ", err)
 			continue
 		}
-		go mqttConnection(tmpconn.(*net.TCPConn), ex) //,handler types.ProtocolHandler)
+		go mqttConnection(tmpconn.(*net.TCPConn), ex)
 	}
 	fmt.Println("MQTT Server loop break", ex.IsClosed())
 }
@@ -94,13 +115,13 @@ func mqttConnection(tcpConn *net.TCPConn, ex *Executive) {
 
 	//srvrLogThing.Collect("Conn Accept")
 
-	fmt.Println("new mqttConnection ")
-
 	cc := localMakeMqttContact(ex.Config, tcpConn)
 	defer func() {
-		fmt.Println("mqtt mqttConnection close")
+		fmt.Println("mqtt mqttConnection close", cc.GetKey().Sig())
 		cc.DoClose(nil)
 	}()
+
+	fmt.Println("new mqttConnection ", cc.GetKey().Sig())
 
 	// connLogThing.Collect("new connection")
 
@@ -112,7 +133,7 @@ func mqttConnection(tcpConn *net.TCPConn, ex *Executive) {
 	}
 	//mqttName := "unknown"
 	//_ = mqttName
-	for !ex.IsClosed() { // the blocking read loop
+	for !cc.IsClosed() && !ex.IsClosed() { // the blocking read loop
 		// SetReadDeadline
 		if cc.GetToken() == nil && false { // FIXME: shorter for prod.
 			err := cc.netDotTCPConn.SetDeadline(time.Now().Add(10 * time.Second))
@@ -143,7 +164,7 @@ func mqttConnection(tcpConn *net.TCPConn, ex *Executive) {
 			if err.Error() != "EOF" {
 				fmt.Println("packets libmqtt read err", err, time.Now())
 			} else {
-				fmt.Println("mqtt-protocol EOF close", err, time.Now())
+				fmt.Println("mqtt-protocol EOF close", err, time.Now(), cc.GetKey().Sig())
 			}
 			cc.DoClose(err)
 			continue
@@ -192,10 +213,11 @@ func MQTTHandlePacket(cc *mqttContact, control libmqtt.Packet) {
 
 	case *libmqtt.PublishPacket: // handle upstream publish
 
+		// translate it to a Send
 		p := &packets.Send{}
 		p.Address.FromString(mq.TopicName)
 		p.Payload = mq.Payload
-		if mq.Props != nil {
+		if mq.Props != nil { // copy the props
 			p.Source.FromString(mq.Props.RespTopic)
 			for k, v := range mq.Props.UserProps {
 				p.SetOption(k, []byte(fmt.Sprint(v)))
@@ -224,8 +246,9 @@ func MQTTHandlePacket(cc *mqttContact, control libmqtt.Packet) {
 				}
 			}
 		}
+		// otherwise, just send it up.
 
-		bytes, ok = p.GetOption("lookup")
+		bytes, ok = p.GetOption("lookup") // alternative way to do a lookup in mqtt.
 		if ok && string(bytes) == "lookup" {
 			// we need to chanage this to a lookup
 			pp := &packets.Lookup{}
@@ -248,9 +271,15 @@ func MQTTHandlePacket(cc *mqttContact, control libmqtt.Packet) {
 		for _, topic := range mq.Topics {
 
 			// fmt.Println("mqtt client subscribes to", topic)
+			cc.subscriptions[topic.Name] = true
 
 			p := &packets.Subscribe{}
 			p.Address.FromString(topic.Name)
+			if mq.Props != nil { // copy the props
+				for k, v := range mq.Props.UserProps {
+					p.SetOption(k, []byte(fmt.Sprint(v)))
+				}
+			}
 			err := PushPacketUpFromBottom(cc, p)
 			if err != nil {
 				fmt.Println("mqtt sub fail", err) // needs prom counter
@@ -275,9 +304,15 @@ func MQTTHandlePacket(cc *mqttContact, control libmqtt.Packet) {
 		for _, topic := range mq.TopicNames {
 
 			fmt.Println("mqtt client unsubscribes to", topic)
+			delete(cc.subscriptions, topic)
 
 			p := &packets.Unsubscribe{}
 			p.Address.FromString(topic)
+			if mq.Props != nil { // copy the props
+				for k, v := range mq.Props.UserProps {
+					p.SetOption(k, []byte(fmt.Sprint(v)))
+				}
+			}
 			_ = PushPacketUpFromBottom(cc, p)
 		}
 	default:
@@ -298,6 +333,7 @@ func MQTTHandlePacket(cc *mqttContact, control libmqtt.Packet) {
 
 }
 
+// WriteDownstream translates the packets to mqtt and sends them down via TCP to the thing..
 func (cc *mqttContact) WriteDownstream(p packets.Interface) error {
 
 	cc.commands <- ContactCommander{
@@ -316,7 +352,7 @@ func (cc *mqttContact) WriteDownstream(p packets.Interface) error {
 				if ok {
 					mq.Props.Reason = string(estr)
 				}
-				// fmt.Println("mqtt-protocol packets.Disconnect", string(estr))
+				fmt.Println("mqtt-protocol packets.Disconnect", string(estr))
 				//mq.ProtoVersion = cc.protoVersion
 				cc.writeLibPacket(mq, cc) // mq.WriteTo(cc)
 				return
@@ -428,6 +464,7 @@ func localMakeMqttContact(config *ContactStructConfig, tcpConn *net.TCPConn) *mq
 	contact1.netDotTCPConn = tcpConn
 	contact1.realReader = tcpConn
 	contact1.realWriter = tcpConn
+	contact1.subscriptions = make(map[string]bool)
 
 	writer := func(mq libmqtt.Packet, cc *mqttContact) error {
 		mq.SetVersion(cc.protoVersion)
@@ -461,7 +498,7 @@ func WebSocketLoop(wsConn *websocket.Conn, config *ContactStructConfig) {
 		err := mq.WriteTo(cc)
 		if err != nil {
 			fmt.Println("WebSocketLoop err", err)
-			cc.Close(err)
+			cc.DoClose(err)
 			return err
 		}
 		data := cc.writebuff.Bytes()
@@ -474,7 +511,7 @@ func WebSocketLoop(wsConn *websocket.Conn, config *ContactStructConfig) {
 			err = cc.wsConn.WriteMessage(mt, data)
 			cc.writeAccessMutex.Unlock()
 			if err != nil {
-				cc.Close(err)
+				cc.DoClose(err)
 				return err
 			}
 		}
@@ -537,7 +574,7 @@ func WebSocketLoop(wsConn *websocket.Conn, config *ContactStructConfig) {
 			} else {
 				fmt.Println("libmqtt.Decode EOF", control, err)
 			}
-			cc.Close(err)
+			cc.DoClose(err)
 			break // return
 		}
 

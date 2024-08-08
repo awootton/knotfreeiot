@@ -71,7 +71,9 @@ type ContactStruct struct {
 
 // ContactInterface is usually supplied by a tcp connection
 type ContactInterface interface {
-	DoClose(err error)
+	DoClose(err error)       // call this to close the contact
+	DoClosingWork(err error) // this will get called only one time, with sole access to the contact
+
 	IsClosed() bool
 
 	GetKey() HalfHash
@@ -313,7 +315,7 @@ func PushPacketUpFromBottom2(ssi ContactInterface, p packets.Interface, doSetExp
 	case *packets.Subscribe:
 		v.Address.EnsureAddressIsBinary()
 
-		// every sub gets a jwtidAlias except for the stats subs
+		// every sub gets a jwtid except for the stats subs
 		_, ok := v.GetOption("statsmax")
 		if !ok && !config.IsGuru() {
 			// it's a non-billing topic.
@@ -321,7 +323,7 @@ func PushPacketUpFromBottom2(ssi ContactInterface, p packets.Interface, doSetExp
 			tok := ssi.GetToken()
 			if tok != nil {
 				id := tok.JWTID
-				v.SetOption("jwtidAlias", []byte(id))
+				v.SetOption("jwtid", []byte(id))
 			}
 		}
 		looker.sendSubscriptionMessage(ssi, v)
@@ -359,8 +361,8 @@ func PushDownFromTop(looker *LookupTableStruct, p packets.Interface) error {
 	case *packets.Connect:
 		fmt.Println("got connect we don't need ", v)
 	case *packets.Disconnect:
-		fmt.Println("got disconnect from guru  ", v)
-		//ignore it. ssi.Close(errors.New("got disconnect from guru"))
+		fmt.Println("PushDownFromTop got disconnect from guru is this for us?  ", v) // this is really bad.
+		//ignore it? ssi.Close(errors.New("got disconnect from guru"))
 	case *packets.Subscribe:
 		v.Address.EnsureAddressIsBinary()
 		looker.sendSubscriptionMessageDown(v)
@@ -431,7 +433,6 @@ func (ss *ContactStruct) DoClose(err error) {
 
 	wg := sync.WaitGroup{}
 	wg.Add(1)
-	// fmt.Println("WriteCommand push close")
 	ss.commands <- ContactCommander{
 		who: "DoClose",
 		fn: func(ss *ContactStruct) {
@@ -453,18 +454,16 @@ func (ss *ContactStruct) DoClose(err error) {
 // Alert:never call this direcly. Use DoClose(err) instead and it will call this correctly.
 // You can override it though.
 func (ss *ContactStruct) DoClosingWork(err error) {
+
+	// fmt.Println("ContactStruct DoClosingWork con=", ss.GetKey().Sig(), err)
+
 	_ = err
-	if ss.ele != nil && ss.config != nil { //always true
-		config := ss.config
-		if config != nil { // should always be true
-			config.listlock.Lock()
-			if ss.ele != nil {
-				config.listOfCi.Remove(ss.ele)
-			}
-			config.listlock.Unlock()
-		}
-		ss.ele = nil
+	config := ss.config
+	config.listlock.Lock()
+	if ss.ele != nil {
+		config.listOfCi.Remove(ss.ele)
 	}
+	config.listlock.Unlock()
 }
 
 // GetSequence is
@@ -492,7 +491,7 @@ func (ss *ContactStruct) WriteUpstream(cmd packets.Interface) error {
 	return errors.New("FIXME unused WriteUpstream")
 }
 
-// IsClosed returns if the contact was closed in a go safe way.
+// IsClosed returns if the contact was closed - in a go safe way.
 func (ss *ContactStruct) IsClosed() bool {
 
 	select {

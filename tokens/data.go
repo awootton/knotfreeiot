@@ -31,7 +31,7 @@ type KnotFreeContactPrices struct {
 var OneConnectionToken = KnotFreeContactPrices{
 	Stats: KnotFreeContactStats{
 		Connections:   1,
-		Subscriptions: 25,
+		Subscriptions: 2, // was 25
 		Input:         38,
 		Output:        38,
 	},
@@ -66,7 +66,7 @@ type TokenType int
 const (
 	Tiny TokenType = iota
 	TinyX2
-	TinyX4 // this is the free one , 4 connections
+	TinyX4 // this is the free one , 4 connections, 8 names
 	TinyX8
 	Small     // 16 connections
 	Medium    // 32 connections aka medium32

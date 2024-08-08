@@ -4,11 +4,9 @@ import (
 	"context"
 	"testing"
 	"time"
-
-	"github.com/awootton/knotfreeiot/tokens"
 )
 
-func not_TestLogTok(t *testing.T) { // fixme
+func Xnot_TestLogTok(t *testing.T) { // fixme
 	_ = t
 	ctx := context.Background()
 
@@ -16,9 +14,9 @@ func not_TestLogTok(t *testing.T) { // fixme
 
 	token := GetSampleTokenPayload(uint32(startTime))
 
-	remoteAddr := "10.10.10.10"
+	// remoteAddr := "10.10.10.10"
 
-	tokens.LogNewToken(ctx, token, remoteAddr)
+	// tokens.LogNewToken(ctx, token, remoteAddr)
 
 	_ = ctx
 	_ = token
