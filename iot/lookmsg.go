@@ -57,6 +57,36 @@ func getCallContext(calContest interface{}) (*LookupTableStruct, *subscribeBucke
 // set up for some commands
 func setupCommands(c *lookupContext) {
 
+	monitor_pod.MakeCommand("get option",
+		"get key val. eg A 12.34.56.78 🔓", 0,
+		func(msg string, args []string, callContext interface{}) string {
+
+			if len(args) < 1 {
+				return "error: not enough arguments"
+			}
+			key := args[0]
+			fmt.Println("get option", key)
+			me, bucket, lookMsg := getCallContext(callContext)
+			_ = me
+			watchedTopic, ok := getWatcher(bucket, &lookMsg.topicHash)
+			if !ok {
+				// checkMongo
+				str := lookMsg.topicHash.ToBase64()
+				watchedTopic, ok = GetSubscription(str)
+				if !ok {
+					// don't make a new one
+					return "error: topic not found"
+				}
+				// remember it here
+				setWatcher(bucket, &lookMsg.topicHash, watchedTopic)
+			}
+			val, ok := watchedTopic.GetOption(key)
+			if !ok {
+				return "error: key not found"
+			}
+			return string(val)
+		}, c.CommandMap)
+
 	monitor_pod.MakeCommand("set option",
 		"add key val. eg A 12.34.56.78 ", 0,
 		func(msg string, args []string, callContext interface{}) string {
@@ -79,6 +109,7 @@ func setupCommands(c *lookupContext) {
 					// don't make a new one
 					return "error: topic not found"
 				}
+				setWatcher(bucket, &lookMsg.topicHash, watchedTopic)
 			}
 			watchedTopic.SetOption(key, val)
 			// save to mongo !
@@ -108,6 +139,10 @@ func setupCommands(c *lookupContext) {
 					watchedTopic.Name = lookMsg.topicHash
 					watchedTopic.thetree = NewWithInt64Comparator()
 					// watchedTopic.Expires = 20*60 + me.getTime() this should match a token
+					nameStr, ok := lookMsg.p.GetOption("name")
+					if ok {
+						watchedTopic.NameStr = string(nameStr)
+					}
 
 					t, _ := lookMsg.p.GetOption("jwtid") // don't they ALL have this?, except billing topics
 					if len(t) != 0 {                     // it's always 64 bytes binary
@@ -120,6 +155,7 @@ func setupCommands(c *lookupContext) {
 					watchedTopic.nextBillingTime = now + 30 // 30 seconds to start with
 					watchedTopic.lastBillingTime = now
 				}
+				setWatcher(bucket, &lookMsg.topicHash, watchedTopic)
 			}
 
 			watchedTopic.Owners = append(watchedTopic.Owners, string(pubk))
@@ -135,12 +171,19 @@ func setupCommands(c *lookupContext) {
 		"returns true if the name exists 🔓", 0,
 		func(msg string, args []string, callContext interface{}) string {
 			me, bucket, lookMsg := getCallContext(callContext)
-			watcheditem, ok := getWatcher(bucket, &lookMsg.topicHash)
+			watchedTopic, ok := getWatcher(bucket, &lookMsg.topicHash)
+			_ = watchedTopic
 			if ok {
 				return "true"
 			}
+			// check mongo
+			str := lookMsg.topicHash.ToBase64()
+			watchedTopic, ok = GetSubscription(str)
+			if ok {
+				setWatcher(bucket, &lookMsg.topicHash, watchedTopic)
+				return "true"
+			}
 			_ = me
-			_ = watcheditem
 			return "false"
 		}, c.CommandMap)
 
@@ -396,15 +439,15 @@ func decryptCommand(me *LookupTableStruct, p *packets.Lookup, command string) bo
 // _ = nodeName
 //}
 
-type xxxLookReply struct {
-	Level       uint32
-	Count       uint32
-	Null        bool
-	Node        string // node name
-	IsPermanent bool
+// type xxxLookReply struct {
+// 	Level       uint32
+// 	Count       uint32
+// 	Null        bool
+// 	Node        string // node name
+// 	IsPermanent bool
 
-	// What else?
-}
+// 	// What else?
+// }
 
 // TODO: chop out the dead wood in subscribe etc.
 // there is not one of these. Lookup replies to the return address

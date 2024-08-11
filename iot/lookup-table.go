@@ -64,10 +64,15 @@ type MyRedblacktree struct {
 // these normally time out. See the heartbeat
 type WatchedTopic struct {
 	//
-	// not my real name
+	// not my real name, the hash name
 	Name HashType `bson:"name,omitempty"`
 
+	// the real name, if known
+	NameStr string `bson:"namestr,omitempty"`
+
 	Expires uint32 `bson:"exp,omitempty"`
+
+	// todo: ttl ?
 
 	// like map[uint64]*watcherItem
 	thetree *redblacktree.Tree // of uint64 to watcherItem
@@ -486,6 +491,9 @@ func setWatcher(bucket *subscribeBucket, h *HashType, watcher *WatchedTopic) {
 
 	hashtable := bucket.mySubscriptions
 	if watcher != nil {
+		if watcher.thetree == nil {
+			watcher.thetree = NewWithInt64Comparator()
+		}
 		hashtable[*h] = watcher
 	} else {
 		delete(hashtable, *h)
@@ -634,7 +642,13 @@ func (wt *WatchedTopic) GetOption(key string) ([]byte, bool) {
 	} else {
 		bytes, ok = val.([]byte)
 		if !ok {
-			bytes = []byte("")
+			var str string
+			str, ok = val.(string) // our bson unmarshaler is a bit loose
+			if ok {
+				bytes = []byte(str)
+			} else {
+				bytes = []byte("")
+			}
 		}
 	}
 	return bytes, ok

@@ -2,13 +2,12 @@ package iot
 
 import (
 	"fmt"
-	"io"
+	"net"
 	"sync"
 
 	"time"
 
 	"github.com/awootton/knotfreeiot/packets"
-	"github.com/awootton/knotfreeiot/tokens"
 )
 
 // Copyright 2024 Alan Tracey Wootton
@@ -26,16 +25,27 @@ import (
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-// ServiceContact is a client for sending messages up into the cluster and the return the value back to the caller
+// This is similar to the ServiceContact struct in iot/service-contact.go
+// except it's over TCP instead of a pipe.
+// TODO: make this share most of the code with ServiceContact
 
-type ServiceContact struct {
+type ServiceContactTcp struct {
 
 	// The client is the client that is used to send the message to the cluster
-	contact *ContactStruct
+	// contact *ContactStruct
 
-	ex *Executive
+	//  ex *Executive
 
-	// this is 0our return address
+	Host  string
+	token string
+
+	conn     *net.TCPConn
+	outgoing chan packets.Interface
+
+	fail  int
+	count int
+
+	// this is our return address
 	mySubscriptionName string
 
 	// a map of which call to SendPacket sent the message
@@ -45,13 +55,13 @@ type ServiceContact struct {
 	packetsChan chan packets.Interface
 	closed      chan bool
 	IsDebg      bool
-	myWriter    *myWriterType
+	// myWriter    *myWriterType
 }
 
 // Get is a blocking call that sends a message to the cluster and waits for the reply.
 // it blocks waiting for an answer. Has a smaller timeout than SendPacket
 // This is an example of client code.
-func (sc *ServiceContact) Get(msg packets.Interface) (packets.Interface, error) {
+func (sc *ServiceContactTcp) Get(msg packets.Interface) (packets.Interface, error) {
 	returnChannel := make(chan packets.Interface)
 	done := make(chan bool)
 	// this termnates when we close done.
@@ -73,7 +83,7 @@ func (sc *ServiceContact) Get(msg packets.Interface) (packets.Interface, error) 
 // this is the entry point. It sends a message to the cluster and waits for the reply.
 // the reply will go into the returnChannel
 // caller should select on the returnChannel and timeout if needed. See Get() above.
-func (sc *ServiceContact) SendPacket(msg packets.Interface, returnChannel chan packets.Interface, done chan bool) {
+func (sc *ServiceContactTcp) SendPacket(msg packets.Interface, returnChannel chan packets.Interface, done chan bool) {
 
 	key := GetRandomB64String()
 	// case  on the type of msg and set the sessionKey and reply address
@@ -101,11 +111,14 @@ func (sc *ServiceContact) SendPacket(msg packets.Interface, returnChannel chan p
 		sc.key2channelLock.Unlock()
 	}()
 
-	err := PushPacketUpFromBottom(sc.contact, msg)
-	if err != nil {
-		fmt.Println("ServiceContact SendPacket PushPacketUpFromBottom failed ", err)
-		return
-	}
+	sc.outgoing <- msg
+
+	// err := PushPacketUpFromBottom(sc.contact, msg)
+	// if err != nil {
+	// 	fmt.Println("ServiceContact SendPacket PushPacketUpFromBottom failed ", err)
+	// 	return
+	// }
+
 	{ // The Receive-a-packet loop from returnChannel. caller must close chan done to exit.
 		for {
 			select {
@@ -128,51 +141,58 @@ func (sc *ServiceContact) SendPacket(msg packets.Interface, returnChannel chan p
 
 // StartNewServiceClient creates a new ServiceContact and returns it.
 // Starts listening for packets on the pipe.
-func StartNewServiceClient(ex *Executive) (*ServiceContact, error) {
+func StartNewServiceContactTcp(address string, token string) (*ServiceContactTcp, error) {
 
-	sc := &ServiceContact{}
+	sc := &ServiceContactTcp{}
+	sc.Host = address
+	sc.token = token
 
 	sc.key2channel = make(map[string]chan packets.Interface)
 	sc.mySubscriptionName = GetRandomB64String()
-	sc.ex = ex
+	// sc.ex = ex
 	sc.closed = make(chan bool)
 
-	packetsChan := make(chan packets.Interface, 100)
-	contact := &ContactStruct{}
-	sc.contact = contact
+	sc.packetsChan = make(chan packets.Interface, 100)
+	sc.outgoing = make(chan packets.Interface, 100)
+
+	// contact := &ContactStruct{}
+	// sc.contact = contact
 	// hook the real writer
-	myWriter := &myWriterType{}
-	myWriter.packets = packetsChan
-	sc.packetsChan = packetsChan
-	sc.myWriter = myWriter
-	contact.contactExpires += 60 * 60 * 24 * 365 * 10 // in 10 years
+	// myWriter := &myWriterType{}
+	// myWriter.packets = packetsChan
+	//sc.packetsChan = packetsChan
+	// sc.myWriter = myWriter
+	//contact.contactExpires += 60 * 60 * 24 * 365 * 10 // in 10 years
 
-	myWriter.myPipeReader, myWriter.myPipeWriter = io.Pipe() // this is the pipe that the packets will come in on
+	// myWriter.myPipeReader, myWriter.myPipeWriter = io.Pipe() // this is the pipe that the packets will come in on
 
-	sc.startReadTheWriterPipe() // reads packets and puts them on the packetsChan forever.
+	// sc.startReadTheWriterPipe() // reads packets and puts them on the packetsChan forever.
 
-	contact.SetWriter(myWriter) // myWriter)
-	AddContactStruct(contact, contact, ex.Config)
+	sc.ConnectLoopForever()
 
-	connect := packets.Connect{}
-	connect.SetOption("token", []byte(tokens.GetImpromptuGiantToken()))
-	err := PushPacketUpFromBottom(contact, &connect)
-	_ = err
+	// contact.SetWriter(myWriter) // myWriter)
+	// AddContactStruct(contact, contact, ex.Config)
+
+	// connect := packets.Connect{}
+	// connect.SetOption("token", []byte(tokens.GetImpromptuGiantToken()))
+	// err := PushPacketUpFromBottom(contact, &connect)
+	// _ = err
 
 	// subscribe to the mySubscriptionName
 	subs := packets.Subscribe{}
 	subs.Address.FromString(sc.mySubscriptionName)
 	subs.Address.EnsureAddressIsBinary()
-	err = PushPacketUpFromBottom(contact, &subs)
-	_ = err
+	sc.outgoing <- &subs
+	// err = PushPacketUpFromBottom(contact, &subs)
+	// _ = err
 
 	// now we have to wait for the suback to come back
 	haveSuback := false
 	for !haveSuback {
 		select {
-		case <-contact.ClosedChannel:
-			haveSuback = true
-		case packet := <-packetsChan:
+		// case <-contact.ClosedChannel:
+		// 	haveSuback = true
+		case packet := <-sc.packetsChan:
 			// see if it's a suback
 			// fmt.Println("waiting for suback on gotDataChan.TheChan got ", cmd.Sig())
 			if packet == nil {
@@ -209,8 +229,9 @@ func StartNewServiceClient(ex *Executive) (*ServiceContact, error) {
 			subs := packets.Subscribe{}
 			subs.Address.FromString(sc.mySubscriptionName)
 			subs.Address.EnsureAddressIsBinary()
-			err := PushPacketUpFromBottom(contact, &subs)
-			_ = err
+			//err := PushPacketUpFromBottom(contact, &subs)
+			//_ = err
+			sc.outgoing <- &subs
 		}
 	}()
 
@@ -221,7 +242,7 @@ func StartNewServiceClient(ex *Executive) (*ServiceContact, error) {
 			select {
 			case <-sc.closed:
 				return // we're dead as a doornail
-			case p := <-packetsChan:
+			case p := <-sc.packetsChan:
 				{
 					sessionKey, got := p.GetOption("sessionKey")
 					if !got {
@@ -232,7 +253,7 @@ func StartNewServiceClient(ex *Executive) (*ServiceContact, error) {
 					destChan, ok := sc.key2channel[string(sessionKey)]
 					sc.key2channelLock.Unlock()
 					if !ok {
-						// fmt.Println("ERROR no channel for key ", string(sessionKey))
+						fmt.Println("ERROR no channel for key ", string(sessionKey))
 					} else {
 						destChan <- p
 					}
@@ -244,27 +265,116 @@ func StartNewServiceClient(ex *Executive) (*ServiceContact, error) {
 	return sc, nil
 }
 
-func (sc *ServiceContact) startReadTheWriterPipe() {
-	go func() {
-		for {
-			select {
-			case <-sc.contact.ClosedChannel:
-				fmt.Println(" handler contact closed")
-				return
-			default:
+// func (sc *ServiceContactTcp) startReadTheWriterPipe() {
+// 	go func() {
+// 		for {
+// 			select {
+// 			// case <-sc.contact.ClosedChannel:
+// 			// 	fmt.Println(" handler contact closed")
+// 			// 	return
+// 			default:
 
-				packet, err := packets.ReadPacket(sc.myWriter)
-				if err != nil || packet == nil {
-					// the buffer only had a partial packet
-					fmt.Println("ERROR packet read fail ", err)
-					sc.contact.DoClose(err)
-					return
-				}
-				if sc.IsDebg {
-					fmt.Println("http subdomain handler got packet ", packet.String())
-				}
-				sc.packetsChan <- packet
+// 				packet, err := packets.ReadPacket(sc.myWriter)
+// 				if err != nil || packet == nil {
+// 					// the buffer only had a partial packet
+// 					fmt.Println("ERROR packet read fail ", err)
+// 					sc.contact.DoClose(err)
+// 					return
+// 				}
+// 				if sc.IsDebg {
+// 					fmt.Println("http subdomain handler got packet ", packet.String())
+// 				}
+// 				sc.packetsChan <- packet
+// 			}
+// 		}
+// 	}()
+// }
+
+func (sc *ServiceContactTcp) ConnectLoopForever() {
+
+	go func() {
+
+		connectCount := 0
+
+		for { // connect loop forever
+
+			servAddr := sc.Host // target_cluster + ":8384"
+			tcpAddr, err := net.ResolveTCPAddr("tcp", servAddr)
+			if err != nil {
+				println("had ResolveTCPAddr failed:", err.Error())
+				sc.fail++
+				time.Sleep(10 * time.Second)
+				continue // to connect loop
 			}
-		}
+			println("ConnectLoopForever Dialing ")
+			sc.conn, err = net.DialTCP("tcp", nil, tcpAddr)
+			if err != nil {
+				println("dial failed:", err.Error())
+				time.Sleep(10 * time.Second)
+				sc.fail++
+				continue // to connect loop forevek
+			}
+			connect := &packets.Connect{}
+			connect.SetOption("token", []byte(sc.token))
+			// if c.LogMeVerbose {
+			// 	connect.SetOption("debg", []byte("12345678"))
+			// }
+			err = connect.Write(sc.conn)
+			if err != nil {
+				println("write C to server failed:", err.Error())
+				sc.conn.Close()
+				time.Sleep(10 * time.Second)
+				sc.fail++
+				continue // to connect loop
+			}
+
+			fmt.Println("connected and waiting..")
+
+			isBroken := make(chan interface{})
+
+			go func() {
+				for {
+					select {
+					case <-sc.closed:
+						close(isBroken)
+						return
+					case <-isBroken:
+						return
+					case p := <-sc.outgoing:
+						err := p.Write(sc.conn)
+						if err != nil {
+							println("write C to server failed:", err.Error())
+							close(isBroken)
+						}
+					}
+				}
+			}()
+
+			for { // read cmd loop
+				done := false
+				select {
+				case <-isBroken:
+					done = true //break from read loop, not select
+				default:
+				}
+				if done {
+					break
+				}
+				p, err := packets.ReadPacket(sc.conn) // blocks
+				if err != nil {
+					println("ReadPacket client err:", err.Error())
+					sc.conn.Close()
+					sc.fail++
+					// quitSubscribeLoop <- true
+					time.Sleep(10 * time.Second)
+					// close(isBroken)
+					break // from read loop
+				}
+				sc.packetsChan <- p
+				sc.count++
+			} // read loop
+			connectCount++
+		} // connect loop
 	}()
+
 }
