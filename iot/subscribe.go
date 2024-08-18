@@ -242,10 +242,12 @@ func processSubscribe(me *LookupTableStruct, bucket *subscribeBucket, submsg *su
 	}
 
 	namesAdded.Inc()
-	err := bucket.looker.PushUp(submsg.p, submsg.topicHash)
-	if err != nil {
-		// what? we're sad? todo: man up
-		fmt.Println("FIXME khjjkkkad", err, submsg.p)
+	if !me.isGuru {
+		err := bucket.looker.PushUp(submsg.p, submsg.topicHash)
+		if err != nil {
+			// what? we're sad? todo: man up
+			fmt.Println("ERROR pushup", err, submsg.p.Sig(), me.ex.Name)
+		}
 	}
 }
 
@@ -456,9 +458,11 @@ func heartBeatCallBack(me *LookupTableStruct, bucket *subscribeBucket, cmd *call
 			if len(b.incoming)*4 > cap(b.incoming)*3 {
 				time.Sleep(time.Millisecond) // low priority
 			}
-			err := bucket.looker.PushUp(unmsg, emptyBucket.Name)
-			if err != nil {
-				fmt.Println("Subscribe heartbeat unsub  PushUp error", err)
+			if !me.isGuru {
+				err := bucket.looker.PushUp(unmsg, emptyBucket.Name)
+				if err != nil {
+					fmt.Println("Subscribe heartbeat unsub  PushUp error", err)
+				}
 			}
 		}
 	}()
@@ -495,9 +499,11 @@ func processUnsubscribe(me *LookupTableStruct, bucket *subscribeBucket, unmsg *u
 		if isPermanent {
 			watchedTopic.remove(unmsg.ss.GetKey())
 			// don't delete the entry
-			err := bucket.looker.PushUp(unmsg.p, unmsg.topicHash)
-			if err != nil {
-				fmt.Println("help jkd334j 2")
+			if !me.isGuru {
+				err := bucket.looker.PushUp(unmsg.p, unmsg.topicHash)
+				if err != nil {
+					fmt.Println("ERROR processUnsubscribe PushUp", err)
+				}
 			}
 
 		} else {
@@ -507,9 +513,11 @@ func processUnsubscribe(me *LookupTableStruct, bucket *subscribeBucket, unmsg *u
 				// if nobody here is subscribing anymore then delete the entry in the hash
 				setWatcher(bucket, &unmsg.topicHash, nil)
 				// and also tell upstream that we're not interested anymore.
-				err := bucket.looker.PushUp(unmsg.p, unmsg.topicHash)
-				if err != nil {
-					fmt.Println("help jkd334j")
+				if !me.isGuru {
+					err := bucket.looker.PushUp(unmsg.p, unmsg.topicHash)
+					if err != nil {
+						fmt.Println("ERROR processUnsubscribe PushUp", err)
+					}
 				}
 			}
 			topicsRemoved.Inc()

@@ -78,18 +78,39 @@ var mongoInited = false
 var mongoInitedLock sync.Mutex
 var MongoClientOptions *options.ClientOptions
 
-func GetSubscription(hashedTopicStr string) (*WatchedTopic, bool) {
+var clientConnectLock sync.Mutex
+var clientConnectDone = false
+var mongoClient *mongo.Client
+
+// GetMongoClient returns THE mongo client. Is this safe to just do once ever?
+// Is it safe to call this multiple times?
+func GetMongoClient() (*mongo.Client, error) {
+
 	InitMongEnv()
 	InitIotTables()
 
-	ctx := context.TODO()
+	clientConnectLock.Lock()
+	defer clientConnectLock.Unlock()
+	if clientConnectDone {
+		return mongoClient, nil
+	}
+	var err error
+	mongoClient, err = mongo.Connect(context.TODO(), MongoClientOptions)
+	if err != nil {
+		return nil, err
+	}
+	clientConnectDone = true
+	return mongoClient, nil
+}
 
-	client, err := mongo.Connect(ctx, MongoClientOptions)
+func GetSubscription(hashedTopicStr string) (*WatchedTopic, bool) {
+
+	client, err := GetMongoClient() //:= mongo.Connect(ctx, MongoClientOptions)
 	if err != nil {
 		fmt.Println("mongo.Connect err", err)
 		return nil, false
 	}
-	defer client.Disconnect(ctx)
+	// defer client.Disconnect(ctx)
 
 	subscriptions := client.Database("iot").Collection("subscriptions")
 
@@ -117,7 +138,7 @@ func SaveSubscription(watchedTopic *WatchedTopic) error {
 
 	ctx := context.TODO()
 
-	client, err := mongo.Connect(ctx, MongoClientOptions)
+	client, err := mongo.Connect(ctx, MongoClientOptions) // is this a new connection each time?
 	if err != nil {
 		fmt.Println("mongo.Connect err", err)
 		return err

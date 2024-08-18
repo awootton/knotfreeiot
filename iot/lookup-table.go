@@ -113,16 +113,16 @@ func (me *LookupTableStruct) PushUp(p packets.Interface, h HashType) error {
 	if router.maglev == nil {
 		// some of us don't have superiors so no pushup
 		// unless we have a superior cluster in which case there's
-		// just the one upper channel trying to go up.
+		// just the one upper channel trying to go up. FIXME: needs test.
 		//
-		return nil
+		return errors.New("no upstreamRouter")
 	}
 	if len(router.channels) == 0 {
 		// can't pushup to no channels
 		if !me.isGuru {
 			fmt.Println("ERROR len(router.channels) == 0 in PushUp for ", me.myname)
 		}
-		return nil
+		return errors.New("no upstream channels")
 	}
 	upc := router.getUpperChannel(h.GetUint64())
 	if upc != nil {
@@ -140,7 +140,7 @@ func (me *LookupTableStruct) PushUp(p packets.Interface, h HashType) error {
 
 	} else {
 		fmt.Println("where is our socket?")
-		return errors.New("missing upper c")
+		return errors.New("missing upper channel")
 	}
 	return nil
 }

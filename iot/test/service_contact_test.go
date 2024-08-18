@@ -12,6 +12,7 @@ import (
 	"github.com/awootton/knotfreeiot/monitor_pod"
 	"github.com/awootton/knotfreeiot/packets"
 	"github.com/awootton/knotfreeiot/tokens"
+	"github.com/stretchr/testify/assert"
 	"golang.org/x/crypto/nacl/box"
 )
 
@@ -22,7 +23,12 @@ func TestServiceContactTCP_prod(t *testing.T) {
 	sc, err := iot.StartNewServiceContactTcp(address, token)
 	check(err)
 
-	time.Sleep(5 * time.Second)
+	// time.Sleep(5 * time.Second)
+
+	fmt.Println("ServiceContactTcp_prod test start 1")
+	fmt.Println("ServiceContactTcp_prod test start 1")
+	fmt.Println("ServiceContactTcp_prod test start 1")
+	fmt.Println("ServiceContactTcp_prod test start 1")
 
 	name := "a-person-channel_iot"
 	{
@@ -35,6 +41,7 @@ func TestServiceContactTCP_prod(t *testing.T) {
 		reply, err := sc.Get(&cmd)
 		if err == nil {
 			got := string(reply.(*packets.Send).Payload)
+			fmt.Println("reply 1 got", got)
 			want := "216.128.128.195"
 			if got != want {
 				t.Error("reply got", got, "want", want)
@@ -46,7 +53,12 @@ func TestServiceContactTCP_prod(t *testing.T) {
 		}
 	}
 
-	time.Sleep(15 * time.Second)
+	// time.Sleep(15 * time.Second)
+
+	fmt.Println("ServiceContactTcp_prod test start 2")
+	fmt.Println("ServiceContactTcp_prod test start 2")
+	fmt.Println("ServiceContactTcp_prod test start 2")
+	fmt.Println("ServiceContactTcp_prod test start 2")
 
 	{
 		command := "get option A"
@@ -58,6 +70,7 @@ func TestServiceContactTCP_prod(t *testing.T) {
 		reply, err := sc.Get(&cmd)
 		if err == nil {
 			got := string(reply.(*packets.Send).Payload)
+			fmt.Println("reply 2 got", got)
 			want := "216.128.128.195"
 			if got != want {
 				t.Error("reply got", got, "want", want)
@@ -80,28 +93,8 @@ func TestGetA(t *testing.T) {
 	ce := makeClusterWithServiceContact()
 	sc := ce.ServiceContact
 
-	// devicePublicKey := ce.PublicKeyTemp
-	// devicePublicKeyStr := base64.URLEncoding.EncodeToString(devicePublicKey[:])
-	//devicePublicKeyStr = strings.TrimRight(devicePublicKeyStr, "=")
-
-	//make a person
-	// passphrase := "a-person-passphrase"
-	// pubk, privk := tokens.GetBoxKeyPairFromPassphrase(passphrase)
-	// pubkStr := base64.URLEncoding.EncodeToString(pubk[:])
-	// pubkStr = strings.TrimRight(pubkStr, "=")
-
 	// make an internet name
 	name := "a-person-channel_iot"
-
-	// token, payload := tokens.GetImpromptuGiantTokenLocal(pubkStr)
-	// _ = token
-	// // let's make a reserved subscription
-
-	// nonceStr := []byte(tokens.GetRandomB36String())
-	// nonce := new([24]byte)
-	// copy(nonce[:], nonceStr[:])
-
-	// timeStr := strconv.FormatInt(time.Now().Unix(), 10)
 	{
 		command := "get option A"
 		cmd := packets.Lookup{}
@@ -521,6 +514,8 @@ func TestServiceContactTCP(t *testing.T) {
 func TestServiceContactTCP_DNS(t *testing.T) {
 
 	tokens.LoadPublicKeys()
+	iot.InitMongEnv()
+	iot.InitIotTables()
 
 	var err error
 	localtime := starttime
@@ -550,7 +545,7 @@ func TestServiceContactTCP_DNS(t *testing.T) {
 		reply, err = sc.Get(&cmd)
 		if err != nil {
 			fmt.Println("SendPacket returned error and that's bad", err)
-			t.Error("SendPacket returned wanted timeout", string(reply.(*packets.Send).Payload))
+			assert.Equal(t, 0, 1, "SendPacket returned error and that's bad"+err.Error())
 		} else {
 			fmt.Println("SendPacket returned", string(reply.(*packets.Send).Payload))
 		}
@@ -569,7 +564,7 @@ func TestServiceContactTCP_DNS(t *testing.T) {
 		reply, err = sc.Get(&cmd)
 		if err != nil {
 			fmt.Println("SendPacket returned error and that's bad", err)
-			t.Error("SendPacket returned wanted timeout", string(reply.(*packets.Send).Payload))
+			assert.Equal(t, 0, 1, "SendPacket returned timeout"+err.Error())
 		} else {
 			fmt.Println("SendPacket returned", string(reply.(*packets.Send).Payload))
 		}

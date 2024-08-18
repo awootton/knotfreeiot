@@ -41,11 +41,13 @@ func processPublish(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *publ
 		// push it up to the next level
 		missedPushes.Inc()
 		// send upstream publish
-		err := bucket.looker.PushUp(pubmsg.p, pubmsg.topicHash)
-		if err != nil {
-			// what? sad? todo: man up
-			// we should die and reconnect
-			fmt.Println(me.ex.Name, "when a q push fails", string(pubmsg.p.Payload))
+		if !me.isGuru {
+			err := bucket.looker.PushUp(pubmsg.p, pubmsg.topicHash)
+			if err != nil {
+				// what? sad? todo: man up
+				// we should die and reconnect
+				fmt.Println(me.ex.Name, "when a q push fails", string(pubmsg.p.Payload))
+			}
 		}
 	} else {
 
@@ -173,12 +175,12 @@ func processPublish(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *publ
 		if wereSpecial {
 			fmt.Println(me.ex.Name, "pub PushUp con=", pubmsg.ss.GetKey().Sig(), pubmsg.p.Sig())
 		}
-		err := bucket.looker.PushUp(pubmsg.p, pubmsg.topicHash)
-		if err != nil {
-			// what? we're sad? todo: man up
-			// we should die and reconnect
-			fmt.Println("FIXME tws0000000 error")
-			// sendPushUpFail.Inc()
+		if !me.isGuru { //me.upstreamRouter != nil {
+			err := bucket.looker.PushUp(pubmsg.p, pubmsg.topicHash)
+			if err != nil {
+				fmt.Println("ERROR PushUp in processPublish ", err, pubmsg.p.Sig(), " in ", me.ex.Name)
+				// sendPushUpFail.Inc()
+			}
 		}
 	}
 
@@ -211,9 +213,11 @@ func processPublishDown(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *
 		unsub.Address = pubmsg.p.Address
 		unsub.Address.EnsureAddressIsBinary()
 
-		err := bucket.looker.PushUp(&unsub, pubmsg.h)
-		if err != nil {
-			fmt.Println("error PushUp in processPublishDown ", err)
+		if !me.isGuru {
+			err := bucket.looker.PushUp(&unsub, pubmsg.h)
+			if err != nil {
+				fmt.Println("error PushUp in processPublishDown ", err)
+			}
 		}
 		missedPushes.Inc()
 

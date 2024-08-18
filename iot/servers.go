@@ -561,9 +561,9 @@ func (superMux *SuperMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Write(thePacket.Payload)
 		return
 
-	} else {
-		// it's not a subdomain pass it to the api.
-	}
+	} //else {
+	// it's not a subdomain pass it to the api.
+	//}
 }
 
 func (api ApiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {

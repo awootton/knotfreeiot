@@ -297,16 +297,16 @@ func (sc *ServiceContactTcp) ConnectLoopForever() {
 			if err != nil {
 				println("had ResolveTCPAddr failed:", err.Error())
 				sc.fail++
-				time.Sleep(10 * time.Second)
+				time.Sleep(2 * time.Second)
 				continue // to connect loop
 			}
 			println("ConnectLoopForever Dialing ")
 			sc.conn, err = net.DialTCP("tcp", nil, tcpAddr)
 			if err != nil {
 				println("dial failed:", err.Error())
-				time.Sleep(10 * time.Second)
+				time.Sleep(2 * time.Second)
 				sc.fail++
-				continue // to connect loop forevek
+				continue // to connect loop forever
 			}
 			connect := &packets.Connect{}
 			connect.SetOption("token", []byte(sc.token))
@@ -315,7 +315,7 @@ func (sc *ServiceContactTcp) ConnectLoopForever() {
 			// }
 			err = connect.Write(sc.conn)
 			if err != nil {
-				println("write C to server failed:", err.Error())
+				println("write connect to server failed:", err.Error())
 				sc.conn.Close()
 				time.Sleep(10 * time.Second)
 				sc.fail++
@@ -357,15 +357,22 @@ func (sc *ServiceContactTcp) ConnectLoopForever() {
 				if done {
 					break
 				}
+				err = sc.conn.SetDeadline(time.Now().Add(30 * time.Minute))
+				if err != nil {
+					fmt.Println("deadline err 5", err, sc.conn.RemoteAddr())
+					time.Sleep(2 * time.Second)
+					sc.fail++
+					done = true
+					break // from read loop
+				}
 				p, err := packets.ReadPacket(sc.conn) // blocks
 				if err != nil {
 					println("ReadPacket client err:", err.Error())
 					sc.conn.Close()
 					sc.fail++
-					// quitSubscribeLoop <- true
-					time.Sleep(10 * time.Second) // try again in 10 seconds
-					done = true                  //break from read loop
-					break                        // from read loop
+					time.Sleep(2 * time.Second) // try again in 2 seconds
+					done = true                 // break from read loop
+					break                       // from read loop
 				}
 				sc.packetsChan <- p
 				sc.count++

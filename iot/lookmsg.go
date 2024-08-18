@@ -49,6 +49,88 @@ type lookupCallContext struct {
 	lookMsg *lookupMessage
 }
 
+func processLookup(me *LookupTableStruct, bucket *subscribeBucket, lookmsg *lookupMessage) {
+
+	if !me.isGuru {
+		fmt.Println("processLookup PushUp", me.ex.Name)
+		err := bucket.looker.PushUp(lookmsg.p, lookmsg.topicHash)
+		if err != nil {
+			// we should be ashamed
+			fmt.Println("processLookup PushUp error: ", err)
+		}
+		return
+	}
+
+	fmt.Println("processLookup TOP:", me.ex.Name, lookmsg.p.Sig())
+
+	// else we are the guru or we have no upstream
+	// we will handle it here.
+	cmd := "exists"
+	tmp, ok := lookmsg.p.GetOption("cmd")
+	if ok {
+		cmd = string(tmp)
+	}
+	cmd = strings.TrimSpace(cmd)
+	cmd = strings.ToLower(cmd)
+	parts := strings.Split(cmd, " ")
+	var comandStruct monitor_pod.Command
+	ok2 := false
+	var args []string
+	if len(parts) > 1 { // try two word command match
+		tmp := parts[0] + " " + parts[1]
+		comandStruct, ok2 = lookupContextGlobal.CommandMap[tmp]
+		args = parts[2:]
+	}
+	if !ok2 { // try one word command
+		comandStruct, ok2 = lookupContextGlobal.CommandMap[parts[0]]
+		args = parts[1:]
+	}
+	if !ok2 {
+		// make this a get option txt for default?
+		comandStruct = lookupContextGlobal.CommandMap["help"]
+	}
+	lcxt := lookupCallContext{me, bucket, lookmsg}
+
+	go func(comandStruct monitor_pod.Command, lcxt lookupCallContext) { // must be async because of mongo
+		// Do we need to timeout in here?
+		startTime := time.Now()
+
+		fmt.Println("processLookup have command:", comandStruct.CommandString)
+
+		// does it require encryption?
+		requiresEncryption := !strings.Contains(comandStruct.Description, "🔓")
+		encryptedGood := true
+		if requiresEncryption {
+			encryptedGood = decryptCommand(me, lookmsg.p, cmd)
+		}
+
+		reply := ""
+		if !encryptedGood {
+			// if we can't decrypt it. We can't do anything with it.
+			reply = "decryption error"
+		} else {
+			reply = comandStruct.Execute(cmd, args, &lcxt)
+		}
+
+		// now send the reply back.
+		send := packets.Send{}
+		send.Address = lookmsg.p.Source
+		send.Source = lookmsg.p.Address
+		send.CopyOptions(&lookmsg.p.PacketCommon)
+		send.Payload = []byte(reply)
+		// if requiresEncryption && encryptedGood {
+		// 	// encrypt the answer TODO:
+		// }
+
+		delta := time.Since(startTime)
+		fmt.Println("processLookup BOTTOM:", lookmsg.p.Sig(), delta, reply)
+		if len(me.ex.channelToAnyAide) >= cap(me.ex.channelToAnyAide) {
+			fmt.Println("ERROR me.ex.channelToAnyAide channel full")
+		}
+		me.ex.channelToAnyAide <- &send
+	}(comandStruct, lcxt)
+}
+
 func getCallContext(calContest interface{}) (*LookupTableStruct, *subscribeBucket, *lookupMessage) {
 	ctx := calContest.(*lookupCallContext)
 	return ctx.me, ctx.bucket, ctx.lookMsg
@@ -267,73 +349,6 @@ func setupCommands(c *lookupContext) {
 			}
 			return s
 		}, c.CommandMap)
-}
-
-func processLookup(me *LookupTableStruct, bucket *subscribeBucket, lookmsg *lookupMessage) {
-
-	// lookReplyObject := LookReply{}
-	noUpstream := len(me.upstreamRouter.channels) == 0
-	if !me.isGuru && !noUpstream {
-		err := bucket.looker.PushUp(lookmsg.p, lookmsg.topicHash)
-		if err != nil {
-			// we should be ashamed
-			fmt.Println("processLookup error: ", err)
-		}
-		return
-	}
-
-	// else we are the guru or we have no upstream
-	// we will handle it here.
-	cmd := "exists"
-	tmp, ok := lookmsg.p.GetOption("cmd")
-	if ok {
-		cmd = string(tmp)
-	}
-	cmd = strings.TrimSpace(cmd)
-	cmd = strings.ToLower(cmd)
-	parts := strings.Split(cmd, " ")
-	var comandStruct monitor_pod.Command
-	ok2 := false
-	var args []string
-	if len(parts) > 1 { // try two word command match
-		tmp := parts[0] + " " + parts[1]
-		comandStruct, ok2 = lookupContextGlobal.CommandMap[tmp]
-		args = parts[2:]
-	}
-	if !ok2 { // try one word command
-		comandStruct, ok2 = lookupContextGlobal.CommandMap[parts[0]]
-		args = parts[1:]
-	}
-	if !ok2 {
-		// make this a get option txt ?
-		comandStruct = lookupContextGlobal.CommandMap["help"]
-	}
-	lookupCallContext := lookupCallContext{me, bucket, lookmsg}
-	// does it require encryption?
-	requiresEncryption := !strings.Contains(comandStruct.Description, "🔓")
-	encryptedGood := true
-	if requiresEncryption {
-		encryptedGood = decryptCommand(me, lookmsg.p, cmd)
-	}
-
-	reply := ""
-	if !encryptedGood {
-		// if we can't decrypt it. We can't do anything with it.
-		reply = "decryption error"
-	} else {
-		reply = comandStruct.Execute(cmd, args, &lookupCallContext)
-	}
-
-	// now send the reply back.
-	send := packets.Send{}
-	send.Address = lookmsg.p.Source
-	send.Source = lookmsg.p.Address
-	send.CopyOptions(&lookmsg.p.PacketCommon)
-	send.Payload = []byte(reply)
-	// if requiresEncryption && encryptedGood {
-	// 	// encrypt the answer TODO:
-	// }
-	me.ex.channelToAnyAide <- &send
 }
 
 func decryptCommand(me *LookupTableStruct, p *packets.Lookup, command string) bool {
