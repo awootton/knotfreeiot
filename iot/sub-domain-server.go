@@ -90,7 +90,7 @@ func (w *myWriterType) Read(p []byte) (n int, err error) {
 	return n, err
 }
 
-func HandleHttpSubdomainRequest(w http.ResponseWriter, r *http.Request, ex *Executive, subDomain string) {
+func HandleHttpSubdomainRequest(w http.ResponseWriter, r *http.Request, ex *Executive, subDomain string, theHost string) {
 
 	r.Close = true // close when done? // see below
 
@@ -207,7 +207,7 @@ func HandleHttpSubdomainRequest(w http.ResponseWriter, r *http.Request, ex *Exec
 		contact.LogMeVerbose = true
 	}
 	startTime := time.Now()
-	fmt.Println("serving subdomain ", subDomain, "  of "+r.Host+r.RequestURI, "con=", contact.GetKey().Sig())
+	fmt.Println("serving subdomain ", subDomain, "  of "+theHost+r.RequestURI, "con=", contact.GetKey().Sig())
 
 	defer func() {
 		fmt.Println("DONE subdomain ", subDomain, "con=", contact.GetKey().Sig(), "time=", time.Since(startTime))

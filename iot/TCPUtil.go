@@ -253,13 +253,13 @@ func handleConnection(tcpConn *net.TCPConn, ex *Executive) {
 	//srvrLogThing.Collect("Conn Accept")
 	TCPServerConnAccept.Inc() // <-- like this
 
-	fmt.Println("KF native contact add, ", tcpConn.RemoteAddr())
-
 	cc := localMakeTCPContact(ex.Config, tcpConn)
 	defer func() {
 		fmt.Println("handleConnection exit close")
 		cc.DoClose(nil)
 	}()
+
+	fmt.Println("KF native contact add, ", tcpConn.RemoteAddr(), cc.GetKey().Sig())
 
 	TCPServerNewConnection.Inc()
 
@@ -270,7 +270,7 @@ func handleConnection(tcpConn *net.TCPConn, ex *Executive) {
 		return
 	}
 
-	defer fmt.Println("KF native contact QUIT, ", tcpConn.RemoteAddr())
+	defer fmt.Println("KF native contact QUIT, ", tcpConn.RemoteAddr(), cc.GetKey().Sig())
 
 	// we might just for over the range of the handler input channel?
 	for !ex.IsClosed() {
@@ -292,7 +292,7 @@ func handleConnection(tcpConn *net.TCPConn, ex *Executive) {
 			}
 		}
 
-		// fmt.Println("KF native contact waiting for packet con=", cc.GetKey().Sig())
+		fmt.Println("KF native contact waiting for packet con=", cc.GetKey().Sig())
 
 		p, err := packets.ReadPacket(cc)
 		if err != nil {
@@ -302,8 +302,7 @@ func handleConnection(tcpConn *net.TCPConn, ex *Executive) {
 			cc.DoClose(err)
 			return
 		}
-
-		//fmt.Println("KF native contact got packet con=", cc.GetKey().Sig(), p.Sig())
+		fmt.Println("KF native contact got packet con=", cc.GetKey().Sig(), p.Sig())
 
 		err = PushPacketUpFromBottom(cc, p)
 		if err != nil {

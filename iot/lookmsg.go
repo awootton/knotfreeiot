@@ -82,7 +82,38 @@ func setupCommands(c *lookupContext) {
 			}
 			val, ok := watchedTopic.GetOption(key)
 			if !ok {
-				return "error: key not found"
+				if key == "a" { // a total hack where the default of A is knotfree.io
+					val = []byte("216.128.128.195")
+				} else {
+					return "error: key not found"
+				}
+			}
+			return string(val)
+		}, c.CommandMap)
+
+	monitor_pod.MakeCommand("get txt", // same as get option TXT
+		"get key val. eg A 12.34.56.78 🔓", 0,
+		func(msg string, args []string, callContext interface{}) string {
+
+			key := "TXT"
+			fmt.Println("get txt")
+			me, bucket, lookMsg := getCallContext(callContext)
+			_ = me
+			watchedTopic, ok := getWatcher(bucket, &lookMsg.topicHash)
+			if !ok {
+				// checkMongo
+				str := lookMsg.topicHash.ToBase64()
+				watchedTopic, ok = GetSubscription(str)
+				if !ok {
+					// don't make a new one
+					return "error: topic not found"
+				}
+				// remember it here
+				setWatcher(bucket, &lookMsg.topicHash, watchedTopic)
+			}
+			val, ok := watchedTopic.GetOption(key) // TODO:get option map
+			if !ok {
+				return "error: txt key not found"
 			}
 			return string(val)
 		}, c.CommandMap)
@@ -111,6 +142,7 @@ func setupCommands(c *lookupContext) {
 				}
 				setWatcher(bucket, &lookMsg.topicHash, watchedTopic)
 			}
+			key = strings.ToUpper(key)
 			watchedTopic.SetOption(key, val)
 			// save to mongo !
 			if changed {
@@ -258,6 +290,7 @@ func processLookup(me *LookupTableStruct, bucket *subscribeBucket, lookmsg *look
 		cmd = string(tmp)
 	}
 	cmd = strings.TrimSpace(cmd)
+	cmd = strings.ToLower(cmd)
 	parts := strings.Split(cmd, " ")
 	var comandStruct monitor_pod.Command
 	ok2 := false
@@ -272,6 +305,7 @@ func processLookup(me *LookupTableStruct, bucket *subscribeBucket, lookmsg *look
 		args = parts[1:]
 	}
 	if !ok2 {
+		// make this a get option txt ?
 		comandStruct = lookupContextGlobal.CommandMap["help"]
 	}
 	lookupCallContext := lookupCallContext{me, bucket, lookmsg}

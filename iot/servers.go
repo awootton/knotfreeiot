@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/awootton/knotfreeiot/packets"
 	"github.com/awootton/knotfreeiot/tokens"
 	"github.com/gorilla/websocket"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -457,47 +458,111 @@ func (api ApiHandler) signAndReturnToken(w http.ResponseWriter, payload tokens.K
 
 func (superMux *SuperMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
-	fmt.Println("ServeHTTP from host ", r.Host)
-
-	isApiRequest := strings.HasPrefix(r.RequestURI, "/api1/")
-	isApiRequest = isApiRequest || r.RequestURI == "/mqtt"
-	isApiRequest = isApiRequest || r.RequestURI == "/healthz"
-	isApiRequest = isApiRequest || r.RequestURI == "/livez"
-
-	if strings.HasPrefix(r.Host, "212.2.245.112") { // the ip address of knotfree.io
-		r.Host = "knotfree.io"
+	theHost := r.Host
+	if !strings.HasPrefix(theHost, "10.") {
+		fmt.Println("ServeHTTP from host ", theHost)
 	}
+	{
+		isApiRequest := strings.HasPrefix(r.RequestURI, "/api1/")
+		isApiRequest = isApiRequest || r.RequestURI == "/mqtt"
+		isApiRequest = isApiRequest || r.RequestURI == "/healthz"
+		isApiRequest = isApiRequest || r.RequestURI == "/livez"
 
+		if isApiRequest {
+			superMux.sub.ServeHTTP(w, r)
+			return
+		}
+	}
+	//let's lose the port
+	hh := strings.Split(theHost, ":")
+	theHost = hh[0]
+
+	if strings.HasPrefix(r.Host, "216.128.128.195") { // the ip address of knotfree.io
+		theHost = "knotfree.io"
+	}
 	if strings.HasPrefix(r.Host, "216.128.128.195") { // the ip address of knotfree.org at vultr
-		r.Host = "knotfree.org"
+		theHost = "knotfree.org"
 	}
 
-	if (!isApiRequest) && r.Host == "127.0.0.1:8085" { // localhost for testing by hackery
-		r.Host = "get-unix-time.localhost.com"
+	if r.Host == "127.0.0.1:8085" { // localhost for testing by hackery
+		theHost = "get-unix-time.localhost.com"
 	}
 
-	domainParts := strings.Split(r.Host, ".")
-	if len(domainParts) == 4 { // dotted quads don't work for what's coming.
-		// fmt.Println("unknown host-dotted", r.Host)
-		// http.NotFound(w, r)
-		// return
-		isApiRequest = true
+	if strings.Contains(theHost, ".iot") {
+		theHost = strings.ReplaceAll(theHost, ".iot", "_iot.knotfree.net")
 	}
+	if strings.Contains(theHost, ".vr") {
+		theHost = strings.ReplaceAll(theHost, ".vr", "_vr.knotfree.net")
+	}
+	if strings.Contains(theHost, ".pod") {
+		theHost = strings.ReplaceAll(theHost, ".pod", "_pod.knotfree.net")
+	}
+	if strings.Contains(theHost, ".test") { // for testing only - pretend .test is .iot
+		theHost = strings.ReplaceAll(theHost, ".test", "_iot.knotfree.net")
+	}
+
+	domainParts := strings.Split(theHost, ".")
+	// lose the tld
+	tld := domainParts[len(domainParts)-1]
+	domainParts = domainParts[0 : len(domainParts)-1]
+	_ = tld
+	// if len(domainParts) ==  { // dotted quads don't work for what's coming.
+	// 	// fmt.Println("unknown host-dotted", r.Host)
+	// 	// http.NotFound(w, r)
+	// 	// return
+	// 	superMux.sub.ServeHTTP(w, r)
+	// 	return
+	// }
 
 	// eg [knotfree net]
 	// eg [subdomain knotfree net]
 	// eg [subdomain knotfree io]
 	// fmt.Println("serving domainParts ", domainParts)
 
-	if !isApiRequest && len(domainParts) > 2 && domainParts[0] != "www" {
+	if len(domainParts) == 2 && domainParts[0] != "www" {
 		// we have a subdomain
 		subDomain := domainParts[0]
 
-		HandleHttpSubdomainRequest(w, r, superMux.ce.Aides[0], subDomain)
+		HandleHttpSubdomainRequest(w, r, superMux.ce.Aides[0], subDomain, theHost)
+
+	} else if len(domainParts) > 2 {
+		// eg get option a get-unix-time_iot knotfree
+		// we don't need the h9st
+		host := domainParts[len(domainParts)-1] // eg knotfree
+		_ = host
+		// this is the sub sub domain case and the command goes to the api of the subscription
+		// this will go to the subscription aka name api
+		args := domainParts[0 : len(domainParts)-2] // eg get option a
+		domainParts = domainParts[len(domainParts)-2:]
+		subDomain := domainParts[0]
+		// subSubDomain := domainParts[0]
+		//
+		fmt.Println("sub sub domain ", subDomain, args)
+		command := strings.Join(args, " ")
+		cmd := packets.Lookup{}
+		cmd.Address.FromString(subDomain)
+		cmd.SetOption("cmd", []byte(command))
+		// TODO: handle encoded commands.
+
+		// send it
+		reply, err := superMux.ce.ServiceContact.Get(&cmd)
+		if err != nil {
+			fmt.Println("sub sub domain err", err)
+			http.NotFound(w, r)
+			return
+		}
+		thePacket, ok := reply.(*packets.Send)
+		if !ok {
+			fmt.Println("sub sub domain not a send packet")
+			http.NotFound(w, r)
+			return
+		}
+		fmt.Println("sub sub domain reply", string(thePacket.Payload))
+		w.Write(thePacket.Payload)
+		return
 
 	} else {
 		// it's not a subdomain pass it to the api.
-		superMux.sub.ServeHTTP(w, r)
 	}
 }
 

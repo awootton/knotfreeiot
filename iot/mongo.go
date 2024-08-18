@@ -96,7 +96,7 @@ func GetSubscription(hashedTopicStr string) (*WatchedTopic, bool) {
 	filter := bson.D{{Key: "name", Value: hashedTopicStr}}
 	result := subscriptions.FindOne(context.TODO(), filter)
 	if result.Err() != nil {
-		fmt.Println("mongo find name err", result.Err())
+		// fmt.Println("mongo find name err", result.Err())
 		return nil, false
 	}
 	found := WatchedTopic{}

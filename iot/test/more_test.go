@@ -58,8 +58,10 @@ func XxxxTestGrowGurus(t *testing.T) {
 
 	c1test := c1.(*testContact)
 	got, _ = c1test.popResultAsString()
+	_ = got
 	c2test := c2.(*testContact)
 	got, _ = c2test.popResultAsString()
+	_ = got
 
 	c1test.SetExpires(2000000000)
 	c2test.SetExpires(2000000000)
@@ -67,9 +69,9 @@ func XxxxTestGrowGurus(t *testing.T) {
 	// there one in the aide and one in the guru
 	got = fmt.Sprint("topics collected ", ce.GetSubsCount())
 	want = "topics collected 11"
-	if got != want {
-		// unreliable t.Errorf("got %v, want %v", got, want)
-	}
+	//if got != want {
+	// unreliable t.Errorf("got %v, want %v", got, want)
+	//}
 
 	// add a subscription a minute and see what happens.
 	// they will time out.

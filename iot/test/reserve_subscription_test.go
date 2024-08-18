@@ -43,7 +43,7 @@ func (MathRandReader) Read(buf []byte) (int, error) {
 // FIXME: reserve name is broken
 // it's in lookmsg.go
 // it's in service_contact.go
-func not_TestReserveName(t *testing.T) {
+func not_TestReserveName(t *testing.T) { // delete me
 
 	tokens.LoadPublicKeys()
 	tokens.LoadPrivateKeys("~/atw/privateKeys4.txt")

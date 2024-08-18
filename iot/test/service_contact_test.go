@@ -15,6 +15,63 @@ import (
 	"golang.org/x/crypto/nacl/box"
 )
 
+func TestServiceContactTCP_prod(t *testing.T) {
+
+	address := "knotfree.io:8384"
+	token, _ := tokens.GetImpromptuGiantTokenLocal("", "")
+	sc, err := iot.StartNewServiceContactTcp(address, token)
+	check(err)
+
+	time.Sleep(5 * time.Second)
+
+	name := "a-person-channel_iot"
+	{
+		command := "get option A"
+		cmd := packets.Lookup{}
+		cmd.Address.FromString(name)
+		cmd.SetOption("cmd", []byte(command))
+
+		// send it
+		reply, err := sc.Get(&cmd)
+		if err == nil {
+			got := string(reply.(*packets.Send).Payload)
+			want := "216.128.128.195"
+			if got != want {
+				t.Error("reply got", got, "want", want)
+				fmt.Println("reply got", got, "want", want)
+			}
+		} else {
+			t.Error("reply err", err)
+			fmt.Println("reply err", err)
+		}
+	}
+
+	time.Sleep(15 * time.Second)
+
+	{
+		command := "get option A"
+		cmd := packets.Lookup{}
+		cmd.Address.FromString(name)
+		cmd.SetOption("cmd", []byte(command))
+
+		// send it
+		reply, err := sc.Get(&cmd)
+		if err == nil {
+			got := string(reply.(*packets.Send).Payload)
+			want := "216.128.128.195"
+			if got != want {
+				t.Error("reply got", got, "want", want)
+				fmt.Println("reply got", got, "want", want)
+			}
+		} else {
+			t.Error("reply err", err)
+			fmt.Println("reply err", err)
+		}
+	}
+
+	fmt.Println("ServiceContactTcp_prod test done")
+}
+
 func TestGetA(t *testing.T) {
 
 	iot.InitMongEnv()
@@ -100,7 +157,7 @@ func TestReserve(t *testing.T) {
 	// make an internet name
 	name := "a-person-channel_iot"
 
-	token, payload := tokens.GetImpromptuGiantTokenLocal(pubkStr)
+	token, payload := tokens.GetImpromptuGiantTokenLocal(pubkStr, "")
 	_ = token
 	// let's make a reserved subscription
 
@@ -400,7 +457,7 @@ func startAServer(name string, personPubk string) {
 	c.Topic = name //"get-unix-time"
 	c.CommandMap = make(map[string]monitor_pod.Command)
 	c.Index = 0
-	c.Token, _ = tokens.GetImpromptuGiantTokenLocal(personPubk)
+	c.Token, _ = tokens.GetImpromptuGiantTokenLocal(personPubk, "")
 	c.LogMeVerbose = true
 	c.Host = "localhost" + ":8384" //
 	fmt.Println("monitor main c.Host", c.Host)
@@ -436,8 +493,9 @@ func TestServiceContactTCP(t *testing.T) {
 	_ = ce
 
 	address := "localhost:8384"
-	token, _ := tokens.GetImpromptuGiantTokenLocal("")
+	token, _ := tokens.GetImpromptuGiantTokenLocal("", "")
 	sc, err := iot.StartNewServiceContactTcp(address, token)
+	check(err)
 
 	var reply packets.Interface
 	reply = &packets.Send{}
@@ -446,32 +504,10 @@ func TestServiceContactTCP(t *testing.T) {
 	msg.Address.FromString("get-unix-time")
 	msg.Payload = []byte("get time")
 
-	// this is the timeout test and it works but is kinda slow for a unit test.
-	//  put this back: reply, err := sc.Get(&msg)
-	// if err != nil {
-	// 	fmt.Println("SendPacket returned error and that's good", err)
-	// } else {
-	// 	t.Error("SendPacket returned wanted timeout", string(reply.(*packets.Send).Payload))
-	// 	fmt.Println("SendPacket returned", string(reply.(*packets.Send).Payload))
-	// }
 	// Now. Start the get-unix-time service.
 
 	startAServer("get-unix-time", "")
 
-	// c := monitor_pod.ThingContext{}
-	// c.Topic = "get-unix-time"
-	// c.CommandMap = make(map[string]monitor_pod.Command)
-	// c.Index = 0
-	// c.Token = tokens.GetImpromptuGiantTokenLocal()
-	// c.LogMeVerbose = true
-	// c.Host = "localhost" + ":8384" //
-	// fmt.Println("monitor main c.Host", c.Host)
-	// monitor_pod.ServeGetTime(c.Token, &c)
-
-	// try it again.
-	// msg := packets.Send{}
-	// msg.Address.FromString("get-unix-time")
-	// msg.Payload = []byte("get time")
 	reply, err = sc.Get(&msg)
 	if err != nil {
 		fmt.Println("SendPacket returned error and that's bad", err)
@@ -479,5 +515,65 @@ func TestServiceContactTCP(t *testing.T) {
 	} else {
 		fmt.Println("SendPacket returned", string(reply.(*packets.Send).Payload))
 	}
+	fmt.Println("ServiceContactTcp test done")
+}
+
+func TestServiceContactTCP_DNS(t *testing.T) {
+
+	tokens.LoadPublicKeys()
+
+	var err error
+	localtime := starttime
+	getTime := func() uint32 {
+		return localtime
+	}
+	ce := iot.MakeSimplestCluster(getTime, true, 1, "")
+	_ = ce
+
+	address := "localhost:8384"
+	token, _ := tokens.GetImpromptuGiantTokenLocal("", "")
+	sc, err := iot.StartNewServiceContactTcp(address, token)
+	check(err)
+
+	var reply packets.Interface
+	reply = &packets.Send{}
+	{
+		name := "a-person-channel_iot"
+		command := "get option A"
+		cmd := packets.Lookup{}
+		cmd.Address.FromString(name)
+		cmd.SetOption("cmd", []byte(command))
+		// Now. Start the get-unix-time service.
+
+		// startAServer("get-unix-time", "")
+
+		reply, err = sc.Get(&cmd)
+		if err != nil {
+			fmt.Println("SendPacket returned error and that's bad", err)
+			t.Error("SendPacket returned wanted timeout", string(reply.(*packets.Send).Payload))
+		} else {
+			fmt.Println("SendPacket returned", string(reply.(*packets.Send).Payload))
+		}
+	}
+	// time.Sleep(10 * time.Second)
+	{
+		name := "a-person-channel_iot"
+		command := "get option A"
+		cmd := packets.Lookup{}
+		cmd.Address.FromString(name)
+		cmd.SetOption("cmd", []byte(command))
+		// Now. Start the get-unix-time service.
+
+		// startAServer("get-unix-time", "")
+
+		reply, err = sc.Get(&cmd)
+		if err != nil {
+			fmt.Println("SendPacket returned error and that's bad", err)
+			t.Error("SendPacket returned wanted timeout", string(reply.(*packets.Send).Payload))
+		} else {
+			fmt.Println("SendPacket returned", string(reply.(*packets.Send).Payload))
+		}
+	}
+
 	fmt.Println("ServiceContactTcp test done")
 }

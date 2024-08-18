@@ -557,7 +557,7 @@ func GetImpromptuGiantToken() string {
 	return giantToken
 }
 
-func GetImpromptuGiantTokenLocal(personPubk string) (string, *KnotFreeTokenPayload) {
+func GetImpromptuGiantTokenLocal(personPubk string, jwtid string) (string, *KnotFreeTokenPayload) {
 
 	giantTokenLocalLock.Lock()
 	defer giantTokenLocalLock.Unlock()
@@ -571,6 +571,9 @@ func GetImpromptuGiantTokenLocal(personPubk string) (string, *KnotFreeTokenPaylo
 	payload := GetSampleBigToken(uint32(time.Now().Unix()), "knotfree.dog:8085/mqtt") // is localhost in my /etc/hosts
 	if personPubk != "" {
 		payload.Pubk = personPubk
+	}
+	if jwtid != "" {
+		payload.JWTID = jwtid
 	}
 	signingKey := GetPrivateKeyWhole(0)
 	bbb, err := MakeToken(payload, []byte(signingKey))

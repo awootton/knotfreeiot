@@ -70,13 +70,13 @@ func (sc *ServiceContactTcp) Get(msg packets.Interface) (packets.Interface, erro
 
 	select {
 	case <-done:
-		return nil, fmt.Errorf("ServiceContact failed prematurely")
+		return nil, fmt.Errorf("ServiceContact_tcp failed prematurely")
 	case packet := <-returnChannel:
 		close(done)
 		return packet, nil
 	case <-time.After(2 * time.Second):
 		close(done)
-		return nil, fmt.Errorf("ServiceContact timed out waiting for reply")
+		return nil, fmt.Errorf("ServiceContact_tcp timed out waiting for reply 2 sec")
 	}
 }
 
@@ -100,7 +100,7 @@ func (sc *ServiceContactTcp) SendPacket(msg packets.Interface, returnChannel cha
 		return
 	}
 
-	fmt.Println("ServiceContact SendPacket ", msg.Sig())
+	fmt.Println("ServiceContact_tcp send packet ", msg.Sig())
 
 	sc.key2channelLock.Lock()
 	sc.key2channel[key] = returnChannel
@@ -112,12 +112,6 @@ func (sc *ServiceContactTcp) SendPacket(msg packets.Interface, returnChannel cha
 	}()
 
 	sc.outgoing <- msg
-
-	// err := PushPacketUpFromBottom(sc.contact, msg)
-	// if err != nil {
-	// 	fmt.Println("ServiceContact SendPacket PushPacketUpFromBottom failed ", err)
-	// 	return
-	// }
 
 	{ // The Receive-a-packet loop from returnChannel. caller must close chan done to exit.
 		for {
@@ -253,7 +247,7 @@ func StartNewServiceContactTcp(address string, token string) (*ServiceContactTcp
 					destChan, ok := sc.key2channel[string(sessionKey)]
 					sc.key2channelLock.Unlock()
 					if !ok {
-						fmt.Println("ERROR no channel for key ", string(sessionKey))
+						// fmt.Println("ERROR no channel for key ", string(sessionKey))
 					} else {
 						destChan <- p
 					}
@@ -339,8 +333,10 @@ func (sc *ServiceContactTcp) ConnectLoopForever() {
 						close(isBroken)
 						return
 					case <-isBroken:
+						println("serviceContactTcp isBroken:", err.Error())
 						return
 					case p := <-sc.outgoing:
+						println("write packet from outgoing:", p.Sig())
 						err := p.Write(sc.conn)
 						if err != nil {
 							println("write C to server failed:", err.Error())
@@ -350,10 +346,11 @@ func (sc *ServiceContactTcp) ConnectLoopForever() {
 				}
 			}()
 
-			for { // read cmd loop
-				done := false
+			done := false
+			for !done { // read cmd loop
 				select {
 				case <-isBroken:
+					println("read cmd loop isBroken")
 					done = true //break from read loop, not select
 				default:
 				}
@@ -366,9 +363,9 @@ func (sc *ServiceContactTcp) ConnectLoopForever() {
 					sc.conn.Close()
 					sc.fail++
 					// quitSubscribeLoop <- true
-					time.Sleep(10 * time.Second)
-					// close(isBroken)
-					break // from read loop
+					time.Sleep(10 * time.Second) // try again in 10 seconds
+					done = true                  //break from read loop
+					break                        // from read loop
 				}
 				sc.packetsChan <- p
 				sc.count++

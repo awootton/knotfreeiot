@@ -29,32 +29,34 @@ func main() {
 		return
 	}
 
-	c := monitor_pod.ThingContext{}
-	c.Topic = "get-unix-time"
-	c.CommandMap = make(map[string]monitor_pod.Command)
-	c.Index = 0
-	c.Token = token
-	c.LogMeVerbose = os.Getenv("TARGET_CLUSTER") == "knotfree.com" // aka localhost
+	{
+		c := monitor_pod.ThingContext{}
+		c.Topic = "get-unix-time"
+		c.CommandMap = make(map[string]monitor_pod.Command)
+		c.Index = 0
+		c.Token = token
+		c.LogMeVerbose = os.Getenv("TARGET_CLUSTER") == "knotfree.com" // aka localhost
 
-	c.Host = os.Getenv("TARGET_CLUSTER") + ":8384" // + ":8384"
+		c.Host = os.Getenv("TARGET_CLUSTER") + ":8384" // + ":8384"
 
-	fmt.Println("monitor main c.Host", c.Host)
+		fmt.Println("monitor main c.Host", c.Host)
 
-	monitor_pod.ServeGetTime(token, &c)
+		monitor_pod.ServeGetTime(token, &c)
+	}
+	{
+		c := monitor_pod.ThingContext{}
+		c.Topic = "get-unix-time_iot"
+		c.CommandMap = make(map[string]monitor_pod.Command)
+		c.Index = 0
+		c.Token = token
+		c.LogMeVerbose = os.Getenv("TARGET_CLUSTER") == "knotfree.com" // aka localhost
 
-	c = monitor_pod.ThingContext{}
-	c.Topic = "get-unix-time_iot"
-	c.CommandMap = make(map[string]monitor_pod.Command)
-	c.Index = 0
-	c.Token = token
-	c.LogMeVerbose = os.Getenv("TARGET_CLUSTER") == "knotfree.com" // aka localhost
+		c.Host = os.Getenv("TARGET_CLUSTER") + ":8384" // + ":8384"
 
-	c.Host = os.Getenv("TARGET_CLUSTER") + ":8384" // + ":8384"
+		fmt.Println("monitor main c.Host", c.Host)
 
-	fmt.Println("monitor main c.Host", c.Host)
-
-	monitor_pod.ServeGetTime(token, &c)
-
+		monitor_pod.ServeGetTime(token, &c)
+	}
 	// monitor_pod.PublishTestTopic(token)
 
 	for {

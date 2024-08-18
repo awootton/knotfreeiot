@@ -31,6 +31,20 @@ func TestGetGiantTokens(t *testing.T) {
 
 }
 
+func TestMakeGiantTokenToFile(t *testing.T) {
+
+	token := tokens.GetImpromptuGiantToken()
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		fmt.Println(err)
+	}
+	err = os.WriteFile(homeDir+"/atw_private/giantToken.txt", []byte(token), 0644)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+}
+
 func TestMakeRandomPhrase(t *testing.T) {
 
 	// 12 words is about 120 bits of random
