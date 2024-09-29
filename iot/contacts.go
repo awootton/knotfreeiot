@@ -633,6 +633,10 @@ func expectToken(ssi ContactInterface, p packets.Interface) error {
 		if !ok || b64Token == nil {
 			return makeErrorAndDisconnect(ssi, "expected token", nil)
 		}
+		comment, hasComment := connectPacket.GetOption("comment")
+		if hasComment {
+			fmt.Println("comment", string(comment), "from", ssi.GetKey().Sig())
+		}
 		trimmedToken, issuer, err := tokens.GetKnotFreePayload(string(b64Token))
 		if err != nil {
 			return makeErrorAndDisconnect(ssi, "", err)

@@ -62,7 +62,7 @@ func main() {
 	fmt.Println("theAide tcp", theAide.GetTCPAddress())   // 8384
 	fmt.Println("theAide http", theAide.GetHTTPAddress()) // 8080
 
-	time.Sleep(1 * time.Second)
+	// time.Sleep(1 * time.Second)
 
 	// guruList := []string{theGuru.Name}
 	// guruAddress := []string{theGuru.GetTCPAddress()}

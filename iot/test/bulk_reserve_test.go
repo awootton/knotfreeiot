@@ -15,19 +15,21 @@ import (
 	"golang.org/x/crypto/nacl/box"
 )
 
-// TestReserveNames is not really a test, it's a script to reserve names.io
-func XxTestReserveNames(t *testing.T) {
+// TestReserveNames is not really a test, it's a script to reserve names.
+// Using the look api.
+func XxxxTestReserveNames(t *testing.T) {
 
 	iot.InitMongEnv()
 	iot.InitIotTables()
 
 	ce := makeClusterWithServiceContact()
-	sc := ce.ServiceContact
+	sc := ce.PacketService
 	_ = sc
 
 	devicePublicKey := ce.PublicKeyTemp
 	devicePublicKeyStr := base64.URLEncoding.EncodeToString(devicePublicKey[:])
 	devicePublicKeyStr = strings.TrimRight(devicePublicKeyStr, "=")
+	_ = devicePublicKeyStr
 
 	// get the user dicrectory
 
@@ -46,6 +48,7 @@ func XxTestReserveNames(t *testing.T) {
 	pubkStr := base64.URLEncoding.EncodeToString(pubk[:])
 	pubkStr = strings.TrimRight(pubkStr, "=")
 	_ = privk
+	fmt.Println("pubkStr", pubkStr)
 
 	// keep using the same jwtid as before
 	token, payload := tokens.GetImpromptuGiantTokenLocal(pubkStr, "plfdfo4ezlgclcumjtqkiwre")
@@ -63,26 +66,26 @@ func XxTestReserveNames(t *testing.T) {
 
 		timeStr := strconv.FormatInt(time.Now().Unix(), 10)
 		{
-			command := "reserve"
+			command := "reserve " + name + " " + token
 			cmd := packets.Lookup{}
 			cmd.Address.FromString(name)
 			// fixme: serialize a struct instead of this?
 			cmd.SetOption("cmd", []byte(command))
 			cmd.SetOption("pubk", []byte(pubkStr))
 			cmd.SetOption("nonc", nonce[:]) // raw nonce, binary
-			cmd.SetOption("jwtid", []byte(payload.JWTID))
-			cmd.SetOption("name", []byte(name))
+			// cmd.SetOption("jwtid", []byte(payload.JWTID))
+			// cmd.SetOption("name", []byte(name))
 			// should we pass the whole token?
 
 			// we need to sign this
-			payload := command + " " + timeStr
+			payload := command + "#" + timeStr
 
 			buffer := make([]byte, 0, (len(payload) + box.Overhead))
-			sealed := box.Seal(buffer, []byte(payload), nonce, devicePublicKey, &privk)
+			sealed := box.Seal(buffer, []byte(payload), nonce, ce.PublicKeyTemp, &privk)
 			cmd.SetOption("sealed", sealed)
 
 			// send it
-			reply, err := sc.Get(&cmd)
+			reply, err := sc.GetPacketReply(&cmd)
 			if err == nil {
 				got := string(reply.(*packets.Send).Payload)
 				want := "ok"

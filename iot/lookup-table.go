@@ -62,15 +62,16 @@ type MyRedblacktree struct {
 // watchedTopic is what we'll be collecting a lot of. Aka, a subscription. Aka a name.
 // what if *everyone* is watching this topic? and then the watchers.thetree is huge.
 // these normally time out. See the heartbeat
+// Keep this in sync with the ts in knotfree-net-homepage
 type WatchedTopic struct {
 	//
 	// not my real name, the hash name
-	Name HashType `bson:"name,omitempty"`
+	Name HashType `bson:"name,omitempty" json:"name,omitempty"`
 
 	// the real name, if known
-	NameStr string `bson:"namestr,omitempty"`
+	NameStr string `bson:"namestr,omitempty" json:"namestr,omitempty"`
 
-	Expires uint32 `bson:"exp,omitempty"`
+	Expires uint32 `bson:"exp,omitempty" json:"exp,omitempty"`
 
 	// todo: ttl ?
 
@@ -78,29 +79,31 @@ type WatchedTopic struct {
 	thetree *redblacktree.Tree // of uint64 to watcherItem
 
 	// like map[string]string
-	OptionalKeyValues *MyRedblacktree `bson:"opt,omitempty"` // might be nil if no options.
+	OptionalKeyValues *MyRedblacktree `bson:"opt,omitempty" json:"opt,omitempty"` // might be nil if no options.
 
-	Bill *BillingAccumulator `bson:"bill,omitempty"` // might be nil if no billing. used by billing.
+	Bill *BillingAccumulator `bson:"bill,omitempty" json:"bill,omitempty"` // might be nil if no billing. used by billing.
 
 	nextBillingTime uint32
 	lastBillingTime uint32
-	Jwtid           string `bson:"jwtid,omitempty"` // aka billkey is the id fronm the auth token
+	Jwtid           string `bson:"jwtid,omitempty" json:"jwtid,omitempty"` // aka billkey is the id fronm the auth token
 
 	// presense of Pubk implies this Permanent bool `bson:"perm,omitempty"`   // keep it around always, until it expires.
 	// presense of Users enforces this Single    bool `bson:"simgle,omitempty"` // just the one subscriber
 
 	// OwnedBroadcast means that this is a broadcast channel. All posts must be signed by an owner.
-	OwnedBroadcast bool `bson:"owned,omitempty"` // only one client allowed to post to this channel
+	OwnedBroadcast bool `bson:"owned,omitempty" json:"owned,omitempty"` // only one client allowed to post to this channel
 
-	Owners []string `bson:"own,omitempty"`   // the public key of the owners who have permission to make changes.
-	Users  []string `bson:"users,omitempty"` // the public key of things that can subscribe to this topic. None means anyone.
+	// Owners []string `bson:"own,omitempty"`   // the public key of the owners who have permission to make changes.
+	Owner string   `bson:"own" json:"own"`                         // the public key of the owners who have permission to make changes.
+	Users []string `bson:"users,omitempty" json:"users,omitempty"` // the public key of things that can subscribe to this topic. None means anyone.
 }
 
 type watcherItem struct {
 	contactInterface ContactInterface
 	// When someone publishes to a topic they are also subscribed to, do they get a copy back?
-	// We're setting it so the first subscription in a chain is pub2self:true and that
-	// sub will get a copy back but doing that afterwards will cause duplicates.
+	// No, that's an abnormal case. The default is false.
+	// if they want this they have to explicitly ask for it.
+	// it creates multiple replies.
 	pub2self bool // if true then publish back to caller if subscribed. The default is false everywhere else.
 }
 
@@ -377,6 +380,9 @@ func (bucket *subscribeBucket) processMessages(me *LookupTableStruct) {
 		// 	fmt.Println("have processMessages ", reflect.TypeOf(msg), "#", bucket.index)
 		// }
 
+		// TODO: use virtual methods or function pointers to avoid this switch.
+		// eg use the CallBackInterface for everything.
+
 		switch v := msg.(type) {
 
 		case *subscriptionMessage:
@@ -385,8 +391,6 @@ func (bucket *subscribeBucket) processMessages(me *LookupTableStruct) {
 			processSubscribeDown(me, bucket, v)
 		case *lookupMessage:
 			processLookup(me, bucket, v)
-		// case *lookupMessageDown:
-		// 	processLookupDown(me, bucket, v)
 		case *publishMessage:
 			processPublish(me, bucket, v)
 		case *publishMessageDown:
@@ -394,8 +398,6 @@ func (bucket *subscribeBucket) processMessages(me *LookupTableStruct) {
 
 		case *unsubscribeMessage:
 			processUnsubscribe(me, bucket, v)
-		// case *unsubscribeMessageDown:
-		// 	processUnsubscribeDown(me, bucket, v)
 		case CallBackInterface:
 			// fmt.Println("callback in", bucket.index)
 			cbc := msg.(CallBackInterface)
@@ -543,6 +545,7 @@ func (me *LookupTableStruct) Heartbeat(now uint32) {
 var DEBUG = false
 
 func init() {
+	// hack alert.
 	if os.Getenv("KUBE_EDITOR") == "atom --wait" {
 		DEBUG = true
 	}
@@ -667,6 +670,19 @@ func (wt *WatchedTopic) DeleteOption(key string) {
 	wt.OptionalKeyValues.tree.Remove(key)
 }
 
+// ReplaceOptions replaces all the options in bulk
+func (wt *WatchedTopic) ReplaceOptions(amap map[string]string) {
+	if true { // !! always !!! delete everything wt.OptionalKeyValues == nil {
+		tree := redblacktree.NewWithStringComparator()
+		rbt := MyRedblacktree{}
+		rbt.tree = *tree
+		wt.OptionalKeyValues = &rbt
+	}
+	for k, v := range amap {
+		wt.OptionalKeyValues.tree.Put(k, v)
+	}
+}
+
 func (rbt *MyRedblacktree) Iterator() redblacktree.Iterator {
 	return rbt.tree.Iterator()
 }
@@ -778,7 +794,8 @@ type callBackCommand struct { // todo make interface
 	name  string
 	wg    sync.WaitGroup
 	// expires  uint32
-	now      uint32
+	now uint32
+	// cmd is 'this' aka 'self'.
 	callback func(me *LookupTableStruct, bucket *subscribeBucket, cmd *callBackCommand)
 	donemap  []byte
 }

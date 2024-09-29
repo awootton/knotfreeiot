@@ -51,7 +51,7 @@ func processPublish(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *publ
 		}
 	} else {
 
-		haveUpstream := len(me.upstreamRouter.channels) != 0
+		// use isGuru instead of haveUpstream := len(me.upstreamRouter.channels) != 0
 
 		// it has which holds the billingAccumulator
 		billingAccumulator, isBilling := watchedTopic.IsBilling() // has billingAccumulator
@@ -70,7 +70,7 @@ func processPublish(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *publ
 
 			// fmt.Println("isBilling ", haveUpstream, hasStats, string(pubmsg.p.Payload))
 
-			if hasStats && !haveUpstream {
+			if hasStats && !me.isGuru { //!haveUpstream {
 
 				deltat := 10
 				deltatStr, ok := pubmsg.p.GetOption("stats-deltat")
@@ -100,7 +100,7 @@ func processPublish(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *publ
 				// 	statsUnmarshalFail.Inc()
 				// }
 			} else {
-				if !haveUpstream && !hasStats {
+				if !me.isGuru && !hasStats { //  !haveUpstream
 					// it's billing but it's not add-stats
 
 					gotsend := serveBillingCommand(pubmsg.p, billingAccumulator, me.getTime())
@@ -128,8 +128,11 @@ func processPublish(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *publ
 				key, item := it.KeyValue()
 				ci := item.contactInterface
 
-				if !item.pub2self {
+				if item.pub2self { // this is dumb. we should just not add it to the watchedTopic
+					// it's for people who want to publich to their own address and get it back
+					// which is not a usual case.
 					// everybody here gets the message right now
+					// if key != pubMsgKey {
 					if !me.checkForBadContact(ci, watchedTopic) {
 						ci.WriteDownstream(pubmsg.p)
 						sentMessages.Inc()
@@ -141,8 +144,12 @@ func processPublish(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *publ
 							fmt.Println(me.ex.Name, "haveBadContact ", ci.GetKey().Sig(), " ", pubmsg.p.Sig())
 						}
 					}
+					// }
 				} else {
 					// we don't sent right back to ourselves. this is the typical case
+					// if me.isGuru {
+					// 	fmt.Println("k1 k2 k3 k4 ", key.Sig(), pubMsgKey.Sig(), ci.GetKey().Sig(), pubmsg.ss.GetKey().Sig())
+					// }
 					if key != pubMsgKey {
 						if !me.checkForBadContact(ci, watchedTopic) {
 							if wereSpecial {

@@ -24,12 +24,12 @@ func makeSampleWatchedItem() ([]*iot.WatchedTopic, []*iot.SavedToken) {
 	results := make([]*iot.WatchedTopic, 10)
 	savedTokens := make(map[string]*iot.SavedToken, 0)
 
-	ownerPassPhrase := "myFamousOldeSaying" //
+	ownerPassPhrase := "myFamousOldeSaying" // blRyuFY51TT7jL6GBLHPYjE5-nAV_Cc2wUEuXmkqNCU
 	spublic, sprivate := tokens.GetBoxKeyPairFromPassphrase(ownerPassPhrase)
 	fmt.Println(ownerPassPhrase, "makes sender public key ", base64.RawURLEncoding.EncodeToString(spublic[:]))
 	fmt.Println(ownerPassPhrase, "makes sender private key ", base64.RawURLEncoding.EncodeToString(sprivate[:]))
 
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 4; i++ {
 
 		JWTID := "i6gezcteajn8o6g9lj4xlzm" + fmt.Sprint(i/2) // ie mi6gezcteajn8o6g9lj4xlzm0 to i6gezcteajn8o6g9lj4xlzm4
 
@@ -56,12 +56,12 @@ func makeSampleWatchedItem() ([]*iot.WatchedTopic, []*iot.SavedToken) {
 		topic.Jwtid = JWTID
 
 		topic.SetOption("noack", "y")
-		topic.SetOption("pub2self", "0")
+		//  topic.SetOption("pub 2self", "0") all values of pub2self mean true
 		topic.SetOption("A", "123.123.123.123")
 		topic.SetOption("AAAA", "2001:0000:130F:0000:0000:09C0:876A:130B")
 		topic.SetOption("WEB", "get-unix-time.knotfree.net")
-		topic.Owners = []string{base64.RawURLEncoding.EncodeToString(spublic[:])}
-		topic.Users = []string{topic.Owners[0]}
+		topic.Owner = base64.RawURLEncoding.EncodeToString(spublic[:])
+		topic.Users = []string{topic.Owner}
 
 		ba := &iot.BillingAccumulator{} // for topics that are "bill" only
 		ba.Name = topic.Name.String()[0:4]

@@ -72,7 +72,7 @@ type Executive struct {
 }
 
 // ClusterExecutive is a list of Executive
-// used for testing.
+
 type ClusterExecutive struct {
 	Aides              []*Executive
 	Gurus              []*Executive
@@ -89,7 +89,7 @@ type ClusterExecutive struct {
 	PublicKeyTemp  *[32]byte //curve25519.PublicKey // temporary to this run not ed25519
 	PrivateKeyTemp *[32]byte //curve25519.PrivateKey
 
-	ServiceContact *ServiceContact
+	PacketService *ServiceContact
 }
 
 // ExecutiveLimits will be how we tell if the ex is 'full'
@@ -202,6 +202,10 @@ func MakeSimplestCluster(timegetter func() uint32, isTCP bool, aideCount int, su
 
 	if isTCP {
 
+		if ce.PacketService == nil {
+			ce.PacketService, _ = StartNewServiceContact(ce.Aides[0])
+		}
+
 		StartPublicServer(ce)
 
 		// don't cheat: send these by http
@@ -233,6 +237,7 @@ func MakeSimplestCluster(timegetter func() uint32, isTCP bool, aideCount int, su
 func MakeTCPMain(name string, limits *ExecutiveLimits, token string, isGuru bool) *ClusterExecutive {
 
 	isTCP := true
+	var err error
 
 	timegetterReal := func() uint32 {
 		return uint32(time.Now().Unix())
@@ -258,6 +263,11 @@ func MakeTCPMain(name string, limits *ExecutiveLimits, token string, isGuru bool
 	aide1.Limits = limits
 	aide1.Config.ce = ce
 	ce.Aides = append(ce.Aides, aide1)
+
+	ce.PacketService, err = StartNewServiceContact(aide1)
+	if err != nil {
+		fmt.Println("StartNewServiceContact failed", err)
+	}
 
 	myip := "" //os.Getenv("MY_POD_IP")
 

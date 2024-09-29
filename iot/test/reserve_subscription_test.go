@@ -40,10 +40,10 @@ func (MathRandReader) Read(buf []byte) (int, error) {
 	return len(buf), nil
 }
 
-// FIXME: reserve name is broken
+// FIXME: reserve name is broken delete thism
 // it's in lookmsg.go
 // it's in service_contact.go
-func not_TestReserveName(t *testing.T) { // delete me
+func Not_TestReserveName(t *testing.T) { // delete me
 
 	tokens.LoadPublicKeys()
 	tokens.LoadPrivateKeys("~/atw/privateKeys4.txt")
@@ -212,7 +212,7 @@ func not_TestReserveName(t *testing.T) { // delete me
 
 }
 
-// TestLookup still doesn't actually make a reservatiom
+// TestLookupSubs does what?
 func TestLookupSubs(t *testing.T) {
 
 	localtime := starttime

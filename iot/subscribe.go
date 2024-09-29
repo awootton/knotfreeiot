@@ -66,17 +66,22 @@ func processSubscribe(me *LookupTableStruct, bucket *subscribeBucket, submsg *su
 	wi := &watcherItem{}
 	wi.contactInterface = submsg.ss
 
-	// is this rigtht?
+	// is this right?
 	opt, ok := submsg.p.GetOption("pub2self")
-	if ok { // TODO: tear this out. Who uses pub2self ?
-		_ = opt // assume it's 0 which means false
-		wi.pub2self = false
-	} else {
-		// this is the first stop in the sub process - straight from a client.
-		// we assume he wants publish to come back to him if he also is a sub
-		submsg.p.SetOption("pub2self", []byte("0"))
-		wi.pub2self = true // default is true
+	if ok {
+		_ = opt // ignore the value
+		wi.pub2self = true
 	}
+
+	// if ok { // TODO: tear this out. Who uses pub2self ?
+	// 	_ = opt // assume it's 0 which means false
+	// 	wi.pub2self = false
+	// } else {
+	// 	// this is the first stop in the sub process - straight from a client.
+	// 	// we assume he wants publish to come back to him if he also is a sub
+	// 	submsg.p.SetOption("pub2self", []byte("0"))
+	// 	wi.pub2self = true // default is true
+	// }
 
 	// The contact is going to send up this subscribe to the billing channel
 	val, ok := submsg.p.GetOption("statsmax")
@@ -107,22 +112,23 @@ func processSubscribe(me *LookupTableStruct, bucket *subscribeBucket, submsg *su
 
 	watchedTopic.Expires = 26*60 + me.getTime()
 
-	// only the first subscriber can set the IPv6 address that lookup can return.
-	val, ok = submsg.p.GetOption("AAAA")
-	if ok {
-		_, exists := watchedTopic.GetOption("AAAA")
-		if !exists {
-			watchedTopic.SetOption("AAAA", string(val))
-		}
-	}
+	// use ghe lookmsg  api for this
+	// // only the first subscriber can set the IPv6 address that lookup can return.
+	// val, ok = submsg.p.GetOption("AAAA")
+	// if ok {
+	// 	_, exists := watchedTopic.GetOption("AAAA")
+	// 	if !exists {
+	// 		watchedTopic.SetOption("AAAA", string(val))
+	// 	}
+	// }
 
-	val, ok = submsg.p.GetOption("misc")
-	if ok {
-		_, exists := watchedTopic.GetOption("misc")
-		if !exists {
-			watchedTopic.SetOption("misc", string(val))
-		}
-	}
+	// val, ok = submsg.p.GetOption("misc")
+	// if ok {
+	// 	_, exists := watchedTopic.GetOption("misc")
+	// 	if !exists {
+	// 		watchedTopic.SetOption("misc", string(val))
+	// 	}
+	// }
 
 	// done: permanent subscription.
 	// Pretty sure this is broken.
@@ -495,14 +501,14 @@ func processUnsubscribe(me *LookupTableStruct, bucket *subscribeBucket, unmsg *u
 
 	watchedTopic, ok := getWatcher(bucket, &unmsg.topicHash)
 	if ok {
-		isPermanent := len(watchedTopic.Owners) > 0
+		isPermanent := len(watchedTopic.Owner) > 0
 		if isPermanent {
 			watchedTopic.remove(unmsg.ss.GetKey())
 			// don't delete the entry
 			if !me.isGuru {
 				err := bucket.looker.PushUp(unmsg.p, unmsg.topicHash)
 				if err != nil {
-					fmt.Println("ERROR processUnsubscribe PushUp", err)
+					fmt.Println("ERROR processUnsubscribe PushUp", err, me.ex.Name)
 				}
 			}
 
@@ -516,7 +522,7 @@ func processUnsubscribe(me *LookupTableStruct, bucket *subscribeBucket, unmsg *u
 				if !me.isGuru {
 					err := bucket.looker.PushUp(unmsg.p, unmsg.topicHash)
 					if err != nil {
-						fmt.Println("ERROR processUnsubscribe PushUp", err)
+						fmt.Println("ERROR processUnsubscribe PushUp", err, me.ex.Name)
 					}
 				}
 			}

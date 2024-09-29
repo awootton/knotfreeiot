@@ -86,6 +86,8 @@ func (sc *ServiceContactTcp) Get(msg packets.Interface) (packets.Interface, erro
 func (sc *ServiceContactTcp) SendPacket(msg packets.Interface, returnChannel chan packets.Interface, done chan bool) {
 
 	key := GetRandomB64String()
+	// fmt.Println("ServiceContact_tcp sessionKey ", key)
+
 	// case  on the type of msg and set the sessionKey and reply address
 	switch v := msg.(type) {
 	case *packets.Send:
@@ -95,12 +97,12 @@ func (sc *ServiceContactTcp) SendPacket(msg packets.Interface, returnChannel cha
 		v.SetOption("sessionKey", []byte(key))
 		v.Source.FromString(sc.mySubscriptionName)
 	default:
-		fmt.Printf("ERROR I don't know about type %T!\n", v)
+		fmt.Printf("ERROR ServiceContact_tcp I don't know about type %T!\n", v)
 		close(done)
 		return
 	}
 
-	fmt.Println("ServiceContact_tcp send packet ", msg.Sig())
+	// fmt.Println("ServiceContact_tcp send packet ", msg.Sig())
 
 	sc.key2channelLock.Lock()
 	sc.key2channel[key] = returnChannel
@@ -243,12 +245,14 @@ func StartNewServiceContactTcp(address string, token string) (*ServiceContactTcp
 						fmt.Println("ERROR no sessionKey in packet ", p.Sig())
 						continue
 					}
+
 					sc.key2channelLock.Lock()
 					destChan, ok := sc.key2channel[string(sessionKey)]
 					sc.key2channelLock.Unlock()
 					if !ok {
-						// fmt.Println("ERROR no channel for key ", string(sessionKey))
+						fmt.Println("ERROR no match for sessionKey ", string(sessionKey), p.Sig())
 					} else {
+						// fmt.Println("found sessionKey match", string(sessionKey), p.Sig())
 						destChan <- p
 					}
 				}
@@ -374,6 +378,8 @@ func (sc *ServiceContactTcp) ConnectLoopForever() {
 					done = true                 // break from read loop
 					break                       // from read loop
 				}
+				// println("ReadPacket packet:", p.Sig())
+
 				sc.packetsChan <- p
 				sc.count++
 			} // read loop

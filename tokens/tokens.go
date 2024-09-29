@@ -86,6 +86,24 @@ func MakeToken(data *KnotFreeTokenPayload, privateKey []byte) ([]byte, error) {
 	return token, nil
 }
 
+func ValidateToken(token string) (*KnotFreeTokenPayload, error) {
+
+	trimmedToken, issuer, err := GetKnotFreePayload(token)
+	if err != nil {
+		return nil, err
+	}
+	// find the public key that matches.
+	publicKeyBytes := FindPublicKey(issuer)
+	if len(publicKeyBytes) != 32 {
+		return nil, errors.New("bad public key found")
+	}
+	foundPayload, ok := VerifyToken([]byte(trimmedToken), []byte(publicKeyBytes))
+	if !ok {
+		return nil, errors.New("bad token")
+	}
+	return foundPayload, nil
+}
+
 // VerifyToken is
 func VerifyToken(ticket []byte, publicKey []byte) (*KnotFreeTokenPayload, bool) {
 
@@ -478,7 +496,7 @@ func (cr *CountReader) Read(buf []byte) (int, error) {
 // 	return privKey
 // }
 
-func parseString(in []byte) (out, rest []byte, ok bool) {
+func ParseString(in []byte) (out, rest []byte, ok bool) {
 	if len(in) < 4 {
 		return
 	}
@@ -725,6 +743,30 @@ func GetTest32xToken() []byte {
 	LoadPrivateKeys("~/atw/privateKeys4.txt")
 
 	payload := GetSampleTokenFromStats(uint32(time.Now().Unix()), "knotfree.dog:8085/mqtt", GetTokenStatsAndPrice(Medium).Stats) // is localhost in my /etc/hosts
+
+	signingKey := GetPrivateKeyWhole(0)
+	bytes, err := MakeToken(payload, []byte(signingKey))
+	_ = err
+	aTest32xToken = bytes
+	return bytes
+}
+
+func GetTest32xTokenwjwtid(owner string, jwtid string) []byte {
+	aTest32xTokenLock.Lock()
+	defer aTest32xTokenLock.Unlock()
+	if len(aTest32xToken) != 0 {
+		return aTest32xToken
+	}
+	LoadPublicKeys()
+	LoadPrivateKeys("~/atw/privateKeys4.txt")
+
+	payload := GetSampleTokenFromStats(uint32(time.Now().Unix()), "knotfree.dog:8085/mqtt", GetTokenStatsAndPrice(Medium).Stats) // is localhost in my /etc/hosts
+	if owner != "" {
+		payload.Pubk = owner
+	}
+	if jwtid != "" {
+		payload.JWTID = jwtid
+	}
 
 	signingKey := GetPrivateKeyWhole(0)
 	bytes, err := MakeToken(payload, []byte(signingKey))

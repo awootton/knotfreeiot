@@ -51,7 +51,12 @@ type ServiceContact struct {
 // Get is a blocking call that sends a message to the cluster and waits for the reply.
 // it blocks waiting for an answer. Has a smaller timeout than SendPacket
 // This is an example of client code.
-func (sc *ServiceContact) Get(msg packets.Interface) (packets.Interface, error) {
+func (sc *ServiceContact) GetPacketReply(msg packets.Interface) (packets.Interface, error) {
+
+	return sc.GetPacketReplyLonger(msg, time.Duration(5*time.Second))
+}
+
+func (sc *ServiceContact) GetPacketReplyLonger(msg packets.Interface, timeout time.Duration) (packets.Interface, error) {
 	returnChannel := make(chan packets.Interface)
 	done := make(chan bool)
 	// this termnates when we close done.
@@ -64,7 +69,7 @@ func (sc *ServiceContact) Get(msg packets.Interface) (packets.Interface, error) 
 	case packet := <-returnChannel:
 		close(done)
 		return packet, nil
-	case <-time.After(2 * time.Second):
+	case <-time.After(timeout):
 		close(done)
 		return nil, fmt.Errorf("ServiceContact timed out waiting for reply")
 	}
@@ -106,6 +111,10 @@ func (sc *ServiceContact) SendPacket(msg packets.Interface, returnChannel chan p
 		fmt.Println("ServiceContact SendPacket PushPacketUpFromBottom failed ", err)
 		return
 	}
+	timeout := time.Duration(5 * time.Second)
+	if DEBUG {
+		timeout = time.Duration(999 * time.Second)
+	}
 	{ // The Receive-a-packet loop from returnChannel. caller must close chan done to exit.
 		for {
 			select {
@@ -117,7 +126,7 @@ func (sc *ServiceContact) SendPacket(msg packets.Interface, returnChannel chan p
 			case <-sc.closed:
 				fmt.Println("seviceContact closed. This is bad")
 				return
-			case <-time.After(4321 * time.Millisecond): // sooner than nginx
+			case <-time.After(timeout): // sooner than nginx
 				errMsg := "SendPacket timed out waiting for reply (receiver offline)"
 				fmt.Println(errMsg)
 				return
@@ -126,9 +135,9 @@ func (sc *ServiceContact) SendPacket(msg packets.Interface, returnChannel chan p
 	}
 }
 
-// StartNewServiceClient creates a new ServiceContact and returns it.
+// StartNewServiceContact retunrs a Contact that is able to send and receive packets.
 // Starts listening for packets on the pipe.
-func StartNewServiceClient(ex *Executive) (*ServiceContact, error) {
+func StartNewServiceContact(ex *Executive) (*ServiceContact, error) {
 
 	sc := &ServiceContact{}
 

@@ -12,6 +12,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -477,17 +478,10 @@ func (superMux *SuperMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	hh := strings.Split(theHost, ":")
 	theHost = hh[0]
 
-	if strings.HasPrefix(r.Host, "216.128.128.195") { // the ip address of knotfree.io
-		theHost = "knotfree.io"
+	// should we just do all the TLDs here?
+	if strings.Contains(theHost, ".xyz") {
+		theHost = strings.ReplaceAll(theHost, ".xyz", "_xyz.knotfree.net")
 	}
-	if strings.HasPrefix(r.Host, "216.128.128.195") { // the ip address of knotfree.org at vultr
-		theHost = "knotfree.org"
-	}
-
-	if r.Host == "127.0.0.1:8085" { // localhost for testing by hackery
-		theHost = "get-unix-time.localhost.com"
-	}
-
 	if strings.Contains(theHost, ".iot") {
 		theHost = strings.ReplaceAll(theHost, ".iot", "_iot.knotfree.net")
 	}
@@ -526,8 +520,10 @@ func (superMux *SuperMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		HandleHttpSubdomainRequest(w, r, superMux.ce.Aides[0], subDomain, theHost)
 
 	} else if len(domainParts) > 2 {
+
+		// sub sub domain request invokes the lockup api on the name.
 		// eg get option a get-unix-time_iot knotfree
-		// we don't need the h9st
+		// we don't need the host
 		host := domainParts[len(domainParts)-1] // eg knotfree
 		_ = host
 		// this is the sub sub domain case and the command goes to the api of the subscription
@@ -545,7 +541,7 @@ func (superMux *SuperMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// TODO: handle encoded commands.
 
 		// send it
-		reply, err := superMux.ce.ServiceContact.Get(&cmd)
+		reply, err := superMux.ce.PacketService.GetPacketReply(&cmd)
 		if err != nil {
 			fmt.Println("sub sub domain err", err)
 			http.NotFound(w, r)
@@ -569,7 +565,11 @@ func (superMux *SuperMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (api ApiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	if req.RequestURI != "/healthz" && req.RequestURI != "/livez" {
-		fmt.Println("ApiHandler ServeHTTP", req.RequestURI, req.Host)
+		tmp := req.RequestURI
+		if len(tmp) > 100 {
+			tmp = tmp[0:100]
+		}
+		fmt.Println("ApiHandler ServeHTTP", tmp, req.Host)
 	}
 
 	w.Header().Add("Access-Control-Allow-Origin", "*")
@@ -597,14 +597,18 @@ func (api ApiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		} else {
 			w.Write(body)
 		}
-
-	} else if req.RequestURI == "/api1/getallstats" {
+		return
+	}
+	path := strings.Split(req.RequestURI, "?")[0]
+	// switch here? TODO: switch
+	// mo., really. make this into a switch statement
+	if path == "/api1/getallstats" {
 
 		stats := api.ce.Aides[0].ClusterStatsString
 
 		w.Write([]byte(stats))
 
-	} else if req.RequestURI == "/api1/getstats" {
+	} else if path == "/api1/getstats" {
 
 		stats := api.ce.Aides[0].GetExecutiveStats()
 		bytes, err := json.Marshal(stats)
@@ -613,11 +617,11 @@ func (api ApiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		}
 		w.Write(bytes)
 
-	} else if req.RequestURI == "/api1/getToken" {
+	} else if path == "/api1/getToken" {
 
 		api.ServeMakeToken(w, req)
 
-	} else if req.RequestURI == "/api1/getPublicKey" {
+	} else if path == "/api1/getPublicKey" {
 
 		//sss := base64.RawURLEncoding.EncodeToString([]byte(tokens.FindPublicKey("yRst")))
 
@@ -628,13 +632,13 @@ func (api ApiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		//w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Write([]byte(sss))
 
-	} else if req.RequestURI == "/api1/getGiantPassword" {
+	} else if path == "/api1/getGiantPassword" {
 
 		sss := tokens.MakeRandomPhrase(14)
 
 		w.Write([]byte(sss))
 
-	} else if req.RequestURI == "/api1/help" {
+	} else if path == "/api1/help" {
 
 		//	w.Header().Set("Access-Control-Allow-Origin", "*")
 
@@ -643,18 +647,139 @@ func (api ApiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		sss += "/api1/getToken\n"
 		sss += "/api1/getPublicKey\n"
 		sss += "/api1/getGiantPassword\n"
+		sss += "/api1/getNames\n"
+		sss += "/api1/getNameStatus\n"
+		sss += "/api1/getNameDetail\n"
 
 		w.Write([]byte(sss))
 
-	} else if req.RequestURI == "/healthz" {
+	} else if path == "/healthz" {
 
 		w.Write([]byte("ok"))
 
-	} else if req.RequestURI == "/livez" {
+	} else if path == "/livez" {
 
 		w.Write([]byte("ok"))
 
-	} else {
+	} else if path == "/api1/getNameStatus" {
+
+		// don't use this. use the nameService
+		name := req.URL.Query().Get("name")
+		fmt.Println("have getNameStatus", name)
+
+		look := packets.Lookup{}
+		look.Address.FromString(name)
+		look.SetOption("cmd", []byte("exists"))
+		val, err := api.ce.PacketService.GetPacketReply(&look)
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+			return
+		}
+		if val == nil {
+			http.Error(w, "no reply", 500)
+			return
+		}
+		str := string(val.(*packets.Send).Payload)
+		w.Write([]byte(str))
+
+	} else if path == "/api1/getNames" {
+
+		//  see nameServices.go
+
+		// get a list of WatchedItems for an owner pubk, from the mongo db
+		cmd := req.URL.Query().Get("cmd")
+		nonceStr := req.URL.Query().Get("nonce")
+		ourPrivK := api.ce.PrivateKeyTemp
+		theirPubk := req.URL.Query().Get("pubk")
+		_ = ourPrivK
+
+		fmt.Println("getNames cmd", cmd)
+		fmt.Println("getNames theirPubk", theirPubk)
+
+		// we need to unbox this
+		bincmd, err := base64.RawURLEncoding.DecodeString(cmd)
+		if err != nil {
+			fmt.Println("getNames decode cmd", err)
+			http.Error(w, err.Error(), 500)
+			return
+		}
+		nonce := new([24]byte)
+		copy(nonce[:], nonceStr[:])
+		openbuffer := make([]byte, 0, (len(cmd))) // - box.Overhead))
+		tmp, err := base64.RawURLEncoding.DecodeString(theirPubk)
+		if err != nil {
+			fmt.Println("getNames decode pubk", err)
+			http.Error(w, err.Error(), 500)
+			return
+		}
+		pubk := new([32]byte)
+		copy(pubk[:], tmp[:])
+		opened, ok := box.Open(openbuffer, bincmd, nonce, pubk, api.ce.PrivateKeyTemp)
+		if !ok {
+			fmt.Println("getNames box open failed", nonceStr, theirPubk, ourPrivK)
+			http.Error(w, "box open failed", 500)
+			return
+		}
+		parts := strings.Split(string(opened), "#")
+		if len(parts) != 2 {
+			fmt.Println("getNames parts len != 2")
+			http.Error(w, "parts len != 2", 500)
+			return
+		}
+		if parts[0] != theirPubk {
+			fmt.Println("pubk not match")
+			http.Error(w, "pubk not match", 500)
+			return
+		}
+		timeStr := parts[1]
+		seconds, err := strconv.ParseInt(timeStr, 10, 64)
+		if err != nil {
+			fmt.Println("time not int")
+			http.Error(w, "time not int", 500)
+			return
+		}
+		delta := time.Now().Unix() - seconds
+		if delta < 0 {
+			delta = -delta
+		}
+		if delta > 10 {
+			fmt.Println("time not match")
+			http.Error(w, "time not match", 500)
+			return
+		}
+
+		list, err := GetSubscriptionList(theirPubk)
+		if err != nil {
+			fmt.Println("getNames GetSubscriptionList", err)
+			http.Error(w, err.Error(), 500)
+			return
+		}
+
+		jsonList, err := json.Marshal(list)
+		if err != nil {
+			fmt.Println("getNames json.Marshal", err)
+			http.Error(w, err.Error(), 500)
+			return
+		}
+
+		// fmt.Println("getNames found ", string(jsonList)) //
+		//now we must encrypt the answer
+
+		payload := string(jsonList)
+		buffer := make([]byte, 0, (len(payload) + box.Overhead))
+		privk := api.ce.PrivateKeyTemp
+		devicePublicKey := pubk
+		sealed := box.Seal(buffer, []byte(payload), nonce, devicePublicKey, privk)
+
+		sealedb64 := base64.RawURLEncoding.EncodeToString(sealed)
+		w.Write([]byte(sealedb64)) // agile rules say no binary
+
+	} else if path == "/api1/nameService" {
+
+		api.NameService(w, req)
+
+	} else { // default:
+
 		// http.NotFound(w, req)
 		// fmt.Fprintf(w, "expected known path "+req.RequestURI)
 		// iot.HTTPServe404.Inc()

@@ -150,6 +150,8 @@ func (ex *Executive) dialAideAndServe() {
 	count := 0
 	address := ""
 
+	fmt.Println("top of dialAideAndServe ONE TOP ONCE", ex.Name)
+
 	startReader := make(chan bool)
 
 	dialAideAndServeInvoked.Add(1)
@@ -157,7 +159,7 @@ func (ex *Executive) dialAideAndServe() {
 	var conn net.Conn = nil
 
 	go func() {
-		for {
+		for { // forever
 			for index == -1 {
 				index, name, address = getTheIndex(ex)
 			}
@@ -194,22 +196,25 @@ func (ex *Executive) dialAideAndServe() {
 
 			connect := &packets.Connect{}
 			connect.SetOption("token", []byte(tokens.GetImpromptuGiantToken()))
+			connect.SetOption("comment", []byte("dialAideAndServe"+ex.Name))
 			err = connect.Write(conn)
 			if err != nil {
 				fmt.Println("dialAideAndServe connect error", conn, err)
 				conn.Close()
 				index = -1
 				time.Sleep(100 * time.Millisecond)
-				continue
+				continue // back to top
 			}
 
-			for {
+			fmt.Println("dialAideAndServe connected, waiting to write")
+
+			for { // pop packets off the channelToAnyAide and send them to the aide.
 				if index == -1 {
 					fmt.Println("dialAideAndServe index -1")
 					if conn != nil {
 						conn.Close()
 					}
-					break
+					break // from pop-packets, back to top of connect
 				}
 				oops := false
 
@@ -229,10 +234,11 @@ func (ex *Executive) dialAideAndServe() {
 				if oops {
 					index = -1
 					conn.Close()
-					break
+					break // from pop-packets, back to top of connect
 				}
 				if conn == nil {
-					break
+					fmt.Println("ERROR dialAideAndServe conn nil")
+					break // from pop-packets, back to top of connect
 				}
 				p := <-ex.channelToAnyAide
 				err := p.Write(conn)
@@ -243,7 +249,7 @@ func (ex *Executive) dialAideAndServe() {
 					}
 					index = -1
 					conn = nil
-					break
+					break // from pop-packets, back to top of connect
 				}
 			}
 		}
@@ -262,31 +268,39 @@ func (ex *Executive) dialAideAndServe() {
 		}
 	}()
 
+	// we don't care about the packets we're reading.
+	// but we care if the connection goes away.
+	// we're going to read packets and drop them on the floor.
+	// if something goes wrong we'll close the connection and that's tge signal to start over.
 	go func() {
 		count := 0
-		<-startReader
 		for {
-			// for !wasStarted {
-			// 	time.Sleep(100 * time.Millisecond)
-			// }
-			if conn == nil {
-				index = -1
-				break
-			}
-			p, err := packets.ReadPacket(conn)
-			if err != nil {
-				// if err.Error() == "EOF" { // this is what i'm seeing.
+			// wait for the connection to be established
+			<-startReader
+			for {
+				// for !wasStarted {
+				// 	time.Sleep(100 * time.Millisecond)
 				// }
-				//if wasStarted {
-				fmt.Println("dialAideAndServe packets.ReadPacket error ", err, count, address)
-				conn.Close()
-				conn = nil
-				index = -1
-				//}
-				time.Sleep(100 * time.Millisecond)
-				return
+				if conn == nil {
+					index = -1
+					fmt.Println("ERROR dialAideAndServe packets.ReadPacket no conn ")
+					break
+				}
+				p, err := packets.ReadPacket(conn)
+				if err != nil {
+					// if err.Error() == "EOF" { // this is what i'm seeing.
+					// }
+					//if wasStarted {
+					fmt.Println("dialAideAndServe packets.ReadPacket error ", err, count, address)
+					conn.Close()
+					conn = nil
+					index = -1
+					//}
+					time.Sleep(100 * time.Millisecond)
+					break
+				}
+				_ = p // drop it on the floor
 			}
-			_ = p // drop it on the floor
 		}
 	}()
 

@@ -174,7 +174,7 @@ func (address *AddressUnion) EnsureAddressIsBinary() {
 		return
 	}
 	switch address.Type {
-	case '$':
+	case '$': // it's hex.
 		if len(address.Bytes) != HashTypeLen*2 {
 			// fall through to utf case
 			break // return address, errors.New("requires 48 bytes of hex")
@@ -185,7 +185,7 @@ func (address *AddressUnion) EnsureAddressIsBinary() {
 		address.Type = BinaryAddress
 		address.Bytes = tmp
 		return //&result, err
-	case '=':
+	case '=': // it's base64
 		if len(address.Bytes) != HashTypeLen*8/6 {
 			break // return address, errors.New("requires 32 bytes of base64")
 		}
@@ -196,6 +196,7 @@ func (address *AddressUnion) EnsureAddressIsBinary() {
 		return // &result, err
 	default:
 	}
+	// it's a string.
 	// is utf8. Hash it.
 	// FIXME this is the same as in HashType but we can't use hashtype in packets package.
 	sh := sha256.New()
@@ -203,8 +204,6 @@ func (address *AddressUnion) EnsureAddressIsBinary() {
 	shabytes := sh.Sum(nil)
 	address.Type = BinaryAddress
 	address.Bytes = shabytes[0:24] // same as in HashType = just keep 192 bits
-	return                         // &result, nil
-
 }
 
 // PacketCommon is stuff the packets all have, like options.

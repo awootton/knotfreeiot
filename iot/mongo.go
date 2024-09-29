@@ -103,6 +103,65 @@ func GetMongoClient() (*mongo.Client, error) {
 	return mongoClient, nil
 }
 
+func GetSubscriptionList(ownerPubk string) ([]WatchedTopic, error) {
+
+	client, err := GetMongoClient()
+	if err != nil {
+		fmt.Println("mongo.Connect err", err)
+		return nil, err
+	}
+	// defer client.Disconnect(ctx)
+
+	subscriptions := client.Database("iot").Collection("subscriptions")
+
+	filter := bson.D{{Key: "own", Value: ownerPubk}}
+	cursor, err := subscriptions.Find(context.TODO(), filter)
+	if err != nil {
+		fmt.Println("mongo find err", err)
+		return nil, err
+	}
+
+	var names []WatchedTopic
+	if err = cursor.All(context.TODO(), &names); err != nil {
+		return nil, err
+	}
+
+	// fmt.Println("found watched topic ", len(names))
+
+	return names, nil
+}
+
+func GetSubscriptionListCount(ownerPubk string) (int, error) {
+
+	client, err := GetMongoClient()
+	if err != nil {
+		fmt.Println("mongo.Connect err", err)
+		return 0, err
+	}
+	// defer client.Disconnect(ctx)
+
+	subscriptions := client.Database("iot").Collection("subscriptions")
+
+	filter := bson.D{{Key: "own", Value: ownerPubk}}
+	cursor, err := subscriptions.Find(context.TODO(), filter)
+	if err != nil {
+		fmt.Println("mongo find err", err)
+		return 0, err
+	}
+
+	// FIXME: find a better way to just get the count.
+	// maybe fetch the distinct names and count them?
+
+	var names []WatchedTopic
+	if err = cursor.All(context.TODO(), &names); err != nil {
+		return 0, err
+	}
+
+	fmt.Println("found watched topic count ", len(names))
+
+	return len(names), nil
+}
+
 func GetSubscription(hashedTopicStr string) (*WatchedTopic, bool) {
 
 	client, err := GetMongoClient() //:= mongo.Connect(ctx, MongoClientOptions)
@@ -127,9 +186,32 @@ func GetSubscription(hashedTopicStr string) (*WatchedTopic, bool) {
 		return nil, false
 	}
 
-	fmt.Println("found watched topic ", found.Name.ToBase64(), found.Jwtid)
+	// fmt.Println("found watched topic ", found.Name.ToBase64(), found.Jwtid)
 
 	return &found, true
+}
+
+// DeleteSubscription deletes a subscription from the database.
+// hashedTopicStr is the base64 encoded topic name.
+func DeleteSubscription(hashedTopicStr string) error {
+
+	client, err := GetMongoClient() //:= mongo.Connect(ctx, MongoClientOptions)
+	if err != nil {
+		fmt.Println("mongo.Connect err", err)
+		return err
+	}
+	// defer client.Disconnect(ctx)
+
+	subscriptions := client.Database("iot").Collection("subscriptions")
+
+	filter := bson.D{{Key: "name", Value: hashedTopicStr}}
+	result, err := subscriptions.DeleteOne(context.TODO(), filter)
+	if err != nil {
+		// fmt.Println("mongo delete name err", result.Err())
+		return err
+	}
+	_ = result
+	return nil
 }
 
 func SaveSubscription(watchedTopic *WatchedTopic) error {
@@ -239,7 +321,8 @@ func InitIotTables() error {
 	if err != nil {
 		return err
 	}
-	fmt.Println("Name of subscriptions Index Created: " + name)
+	_ = name
+	// fmt.Println("Name of subscriptions Index Created: " + name)
 
 	indexModel = mongo.IndexModel{
 		Keys:    bson.D{{Key: "jwtid", Value: 1}},
@@ -249,8 +332,23 @@ func InitIotTables() error {
 	if err != nil {
 		return err
 	}
-	fmt.Println("Name of subscriptions Index Created: " + name)
+	_ = name
+	// fmt.Println("Name of subscriptions Index Created: " + name)
 
+	indexModel = mongo.IndexModel{
+		Keys:    bson.D{{Key: "own", Value: 1}},
+		Options: options.Index().SetUnique(false), // many subs can have same owner
+	}
+	name, err = subscriptions.Indexes().CreateOne(context.TODO(), indexModel)
+	if err != nil {
+		return err
+	}
+	_ = name
+	// fmt.Println("Name of subscriptions Index Created: " + name)
+
+	// now do the tokens
+	// now do the tokens
+	// now do the tokens
 	savedTokensColl := client.Database("iot").Collection("saved-tokens")
 	indexModel = mongo.IndexModel{
 		Keys:    bson.D{{Key: "knotfreetokenpayload.jti", Value: 1}},
@@ -260,8 +358,21 @@ func InitIotTables() error {
 	if err != nil {
 		return err
 	}
-	fmt.Println("Name of tokens Index Created: " + name)
+	_ = name
+	// fmt.Println("Name of tokens Index Created: " + name)
 
+	indexModel = mongo.IndexModel{
+		Keys:    bson.D{{Key: "knotfreetokenpayload.pubk", Value: 1}},
+		Options: options.Index().SetUnique(false), // many tokens can have same pubk !!
+	}
+	name, err = savedTokensColl.Indexes().CreateOne(context.TODO(), indexModel)
+	if err != nil {
+		return err
+	}
+	_ = name
+	// fmt.Println("Name of tokens Index Created: " + name)
+
+	//  this is the IP address from which a free token was created.
 	indexModel = mongo.IndexModel{
 		Keys:    bson.D{{Key: "ip", Value: 1}},
 		Options: options.Index().SetUnique(false),
@@ -270,7 +381,8 @@ func InitIotTables() error {
 	if err != nil {
 		return err
 	}
-	fmt.Println("Name of tokens Index Created: " + name)
+	_ = name
+	// fmt.Println("Name of tokens Index Created: " + name)
 
 	return nil
 }
