@@ -28,10 +28,13 @@ func main() {
 		Deploy(target_cluster)
 		return
 	}
-
-	{
+	// this is for prod. For startCluster.go, see startCluster.go
+	names := []string{"get-unix-time", "get-unix-time_iot",
+		"a-thermometer-demo_iot", "a-thermometer-demo_xyz",
+		"backyard-temp-9gmf97inj5e_xyz"}
+	for _, name := range names {
 		c := monitor_pod.ThingContext{}
-		c.Topic = "get-unix-time"
+		c.Topic = name
 		c.CommandMap = make(map[string]monitor_pod.Command)
 		c.Index = 0
 		c.Token = token
@@ -43,53 +46,10 @@ func main() {
 
 		monitor_pod.ServeGetTime(token, &c)
 	}
-	{
-		c := monitor_pod.ThingContext{}
-		c.Topic = "get-unix-time_iot"
-		c.CommandMap = make(map[string]monitor_pod.Command)
-		c.Index = 0
-		c.Token = token
-		c.LogMeVerbose = os.Getenv("TARGET_CLUSTER") == "knotfree.com" // aka localhost
-
-		c.Host = os.Getenv("TARGET_CLUSTER") + ":8384" // + ":8384"
-
-		fmt.Println("monitor main c.Host", c.Host)
-
-		monitor_pod.ServeGetTime(token, &c)
-	}
-	{
-		c := monitor_pod.ThingContext{}
-		c.Topic = "a-thermometer-demo_iot"
-		c.CommandMap = make(map[string]monitor_pod.Command)
-		c.Index = 0
-		c.Token = token
-		c.LogMeVerbose = os.Getenv("TARGET_CLUSTER") == "knotfree.com" // aka localhost
-
-		c.Host = os.Getenv("TARGET_CLUSTER") + ":8384" // + ":8384"
-
-		fmt.Println("monitor main c.Host", c.Host)
-
-		monitor_pod.ServeGetTime(token, &c)
-	}
-	{
-		c := monitor_pod.ThingContext{}
-		c.Topic = "backyard-temp-9gmf97inj5e_xyz"
-		c.CommandMap = make(map[string]monitor_pod.Command)
-		c.Index = 0
-		c.Token = token
-		c.LogMeVerbose = os.Getenv("TARGET_CLUSTER") == "knotfree.com" // aka localhost
-
-		c.Host = os.Getenv("TARGET_CLUSTER") + ":8384" // + ":8384"
-
-		fmt.Println("monitor main c.Host", c.Host)
-
-		monitor_pod.ServeGetTime(token, &c)
-	}
-
-	// monitor_pod.PublishTestTopic(token)
 
 	for {
-		fmt.Println("in monitor_pod")
+		fmt.Println("in monitor_pod, calling ReplaceTempInF ")
+		monitor_pod.ReplaceTempInF()
 		time.Sleep(600 * time.Second)
 	}
 }

@@ -45,4 +45,13 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.name
+        volumeMounts:
+        - name: foo
+          mountPath: "/root/atw/"
+          readOnly: true
+      volumes:
+      - name: foo
+        secret:
+          secretName: privatekeys4
+
               

@@ -4,9 +4,11 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"math/rand"
 	"net"
+	"net/http"
 	"os"
 	"sort"
 	"strconv"
@@ -46,19 +48,19 @@ import (
 type ThingContext struct {
 	Topic string
 
-	password string
-	pubStr   string
-	privStr  string
+	Password string
+	PubStr   string
+	PrivStr  string
 
 	Host string //host and port. eg knotfree.net:8384
 
 	//adminPassPhrase string
-	adminPubStr string
-	//adminPrivStr    string
+	AdminPubStr  string
+	AdminPrivStr string
 
 	//adminPassPhrase2 string
-	adminPubStr2 string
-	//adminPrivStr2    string
+	AdminPubStr2  string
+	AdminPrivStr2 string
 
 	dummyString string
 
@@ -73,6 +75,7 @@ type ThingContext struct {
 }
 
 var TempInF = 46.0
+var Humidity = 10.0
 
 type Command struct {
 	Execute       func(msg string, args []string, callContext interface{}) string
@@ -321,10 +324,10 @@ func digestPacket(p packets.Interface, c *ThingContext) (packets.Interface, erro
 			}
 
 			adminPublic := "none"
-			if strings.HasPrefix(c.adminPubStr, string(admn)) {
-				adminPublic = c.adminPubStr
-			} else if strings.HasPrefix(c.adminPubStr2, string(admn)) {
-				adminPublic = c.adminPubStr2
+			if strings.HasPrefix(c.AdminPubStr, string(admn)) {
+				adminPublic = c.AdminPubStr
+			} else if strings.HasPrefix(c.AdminPubStr2, string(admn)) {
+				adminPublic = c.AdminPubStr2
 			} else {
 				hadError = "no matching admin key found" + c.Topic
 				c.fail++
@@ -339,7 +342,7 @@ func digestPacket(p packets.Interface, c *ThingContext) (packets.Interface, erro
 			}
 
 			devicePrivateKey := new([32]byte)
-			devicePrivateKeyTmp, err := base64.RawURLEncoding.DecodeString(c.privStr)
+			devicePrivateKeyTmp, err := base64.RawURLEncoding.DecodeString(c.PrivStr)
 			if err != nil || len(devicePrivateKeyTmp) != 32 {
 				hadError = err.Error()
 			} else {
@@ -444,10 +447,10 @@ func digestPacket(p packets.Interface, c *ThingContext) (packets.Interface, erro
 		//use same nonce that was used for the message and is in the packet user args
 
 		adminPublic := "none"
-		if strings.HasPrefix(c.adminPubStr, string(admn)) {
-			adminPublic = c.adminPubStr
-		} else if strings.HasPrefix(c.adminPubStr2, string(admn)) {
-			adminPublic = c.adminPubStr2
+		if strings.HasPrefix(c.AdminPubStr, string(admn)) {
+			adminPublic = c.AdminPubStr
+		} else if strings.HasPrefix(c.AdminPubStr2, string(admn)) {
+			adminPublic = c.AdminPubStr2
 		} else {
 			hadError = "no matching admin key found"
 			c.fail++
@@ -462,7 +465,7 @@ func digestPacket(p packets.Interface, c *ThingContext) (packets.Interface, erro
 		}
 
 		devicePrivateKey := new([32]byte)
-		devicePrivateKeyTmp, err := base64.RawURLEncoding.DecodeString(c.privStr)
+		devicePrivateKeyTmp, err := base64.RawURLEncoding.DecodeString(c.PrivStr)
 		if err != nil || len(devicePrivateKeyTmp) != 32 {
 			hadError = err.Error()
 		} else {
@@ -571,24 +574,47 @@ func PublishTestTopic(token string) { // use knotfree format
 	}()
 }
 
-func setupCommands(c *ThingContext) {
+func SetupKeys(c *ThingContext) {
 
-	c.password = "testString123"
-	pubk, privk := tokens.GetBoxKeyPairFromPassphrase(c.password)
-	c.pubStr = base64.RawURLEncoding.EncodeToString(pubk[:])
-	c.privStr = base64.RawURLEncoding.EncodeToString(privk[:])
+	c.Password = "testString123"
+
+	pubk, privk := tokens.GetBoxKeyPairFromPassphrase(c.Password)
+	c.PubStr = base64.RawURLEncoding.EncodeToString(pubk[:])
+	c.PrivStr = base64.RawURLEncoding.EncodeToString(privk[:])
 
 	adminPassPhrase := "myFamousOldeSaying"
 	pubk, privk = tokens.GetBoxKeyPairFromPassphrase(adminPassPhrase)
-	c.adminPubStr = base64.RawURLEncoding.EncodeToString(pubk[:])
-	//c.adminPrivStr = base64.RawURLEncoding.EncodeToString(privk[:])
+	c.AdminPubStr = base64.RawURLEncoding.EncodeToString(pubk[:])
+	c.AdminPrivStr = base64.RawURLEncoding.EncodeToString(privk[:])
 
 	adminPassPhrase2 := "myFamousOldeSaying2"
 	pubk, privk = tokens.GetBoxKeyPairFromPassphrase(adminPassPhrase2)
-	c.adminPubStr2 = base64.RawURLEncoding.EncodeToString(pubk[:])
-	//c.adminPrivStr2 = base64.RawURLEncoding.EncodeToString(privk[:])
+	c.AdminPubStr2 = base64.RawURLEncoding.EncodeToString(pubk[:])
+	c.AdminPrivStr2 = base64.RawURLEncoding.EncodeToString(privk[:])
 
 	c.dummyString = "none"
+}
+
+func setupCommands(c *ThingContext) {
+
+	SetupKeys(c)
+
+	//
+	// pubk, privk := tokens.GetBoxKeyPairFromPassphrase(c.password)
+	// c.pubStr = base64.RawURLEncoding.EncodeToString(pubk[:])
+	// c.privStr = base64.RawURLEncoding.EncodeToString(privk[:])
+
+	// // adminPassPhrase := "myFamousOldeSaying"
+	// pubk, privk = tokens.GetBoxKeyPairFromPassphrase(adminPassPhrase)
+	// c.adminPubStr = base64.RawURLEncoding.EncodeToString(pubk[:])
+	// //c.adminPrivStr = base64.RawURLEncoding.EncodeToString(privk[:])
+
+	// adminPassPhrase2 := "myFamousOldeSaying2"
+	// pubk, privk = tokens.GetBoxKeyPairFromPassphrase(adminPassPhrase2)
+	// c.adminPubStr2 = base64.RawURLEncoding.EncodeToString(pubk[:])
+	// //c.adminPrivStr2 = base64.RawURLEncoding.EncodeToString(privk[:])
+
+	// c.dummyString = "none"
 
 	MakeCommand("get time",
 		"seconds since 1970🔓", 0,
@@ -597,20 +623,30 @@ func setupCommands(c *ThingContext) {
 			secStr := strconv.FormatInt(sec, 10)
 			return secStr
 		}, c.CommandMap)
+
 	MakeCommand("get c",
-		"temperature in C🔓", 0,
+		"temperature in °C🔓", 0,
 		func(msg string, args []string, callContext interface{}) string {
 			tmp := (TempInF - 32) * 5 / 9
 			tmp = math.Floor(tmp*100) / 100.0
 			str := strconv.FormatFloat(tmp, 'f', 2, 64)
 			return str + "°C"
 		}, c.CommandMap)
+
 	MakeCommand("get f",
-		"temperature in F🔓", 0,
+		"temperature in °F🔓", 0,
 		func(msg string, args []string, callContext interface{}) string {
 			str := strconv.FormatFloat(TempInF, 'f', 2, 64)
 			return str + "°F"
 		}, c.CommandMap)
+
+	MakeCommand("get humidity",
+		"humidity in %🔓", 0,
+		func(msg string, args []string, callContext interface{}) string {
+			str := strconv.FormatFloat(Humidity, 'f', 2, 64)
+			return str + "%"
+		}, c.CommandMap)
+
 	MakeCommand("get random",
 		"returns a random integer", 0,
 		func(msg string, args []string, callContext interface{}) string {
@@ -635,12 +671,12 @@ func setupCommands(c *ThingContext) {
 	MakeCommand("get pubk",
 		"device public key 🔓", 0,
 		func(msg string, args []string, callContext interface{}) string {
-			return c.pubStr
+			return c.PubStr
 		}, c.CommandMap)
 	MakeCommand("get admin hint",
 		"the first chars of the admin public keys🔓", 0,
 		func(msg string, args []string, callContext interface{}) string {
-			return c.adminPubStr[0:8] + " " + c.adminPubStr2[0:8]
+			return c.AdminPubStr[0:8] + " " + c.AdminPubStr2[0:8]
 		}, c.CommandMap)
 
 	MakeCommand("get short name",
@@ -709,6 +745,181 @@ func setupCommands(c *ThingContext) {
 			}
 			return string(payload)
 		}, c.CommandMap)
+}
+
+func getFromReno(cmd string) string {
+
+	// read passphrase from ~/atw/renoIotpass.txt
+	home, _ := os.UserHomeDir()
+	fname := home + "/atw/renoIotpass.txt"
+	fmt.Println("getFromReno fname", fname)
+
+	tmp, err := os.ReadFile(fname)
+	if err != nil {
+		fmt.Println("TestGetIotResponseReno err", err)
+		return "111"
+	}
+	passphrase := strings.TrimSpace(string(tmp))
+
+	fmt.Println("getFromReno passphrase", len(passphrase))
+
+	c := ThingContext{}
+
+	c.Password = "demo-Device"
+
+	pubk, privk := tokens.GetBoxKeyPairFromPassphrase(c.Password)
+	c.PubStr = base64.RawURLEncoding.EncodeToString(pubk[:])
+	c.PrivStr = base64.RawURLEncoding.EncodeToString(privk[:])
+	_ = c.PrivStr
+	c.PubStr = "iP8H8BJAvNsac3rI2SFXvGiHmDqZV3vxFFLEWE-8bnE"
+
+	// c.PrivStr = base64.RawURLEncoding.EncodeToString(privk[:])
+
+	adminPassPhrase := strings.TrimSpace(passphrase)
+	pubk, privk = tokens.GetBoxKeyPairFromPassphrase(adminPassPhrase)
+	c.AdminPubStr = base64.RawURLEncoding.EncodeToString(pubk[:])
+	c.AdminPrivStr = base64.RawURLEncoding.EncodeToString(privk[:])
+
+	server := "knotfree.io"
+	thing := "demo-small-window-allow-should-engine"
+
+	r := GetIotResponse(server, thing, cmd, c.PubStr, c.AdminPrivStr, c.AdminPubStr)
+
+	fmt.Println("getFromReno r", r)
+	return r
+}
+
+func ReplaceTempInF() {
+
+	temp := getFromReno("get f")
+	hum := getFromReno("get humidity")
+	temp = temp[:len(temp)-3]
+	hum = hum[:len(hum)-1]
+
+	TempInF, _ = strconv.ParseFloat(temp, 64)
+	Humidity, _ = strconv.ParseFloat(hum, 64)
+	fmt.Println("replaceTempInF TempInF", TempInF, "Humidity", Humidity)
+}
+
+// GetIotResponse queries a thing for a response via http
+// TODO: make a packet version of this. And Python version, etc.
+func GetIotResponse(server string, thing string, cmd string, devicepubk string, adminprivk string, adminpubk string) string {
+	result := "failed to get response"
+
+	url := "http://" + thing + "." + server + "/"
+
+	// if devicepubk then we need to encrypt the request
+	if len(devicepubk) != 0 && len(adminprivk) != 0 {
+
+		publicKeyBinary, err := base64.RawURLEncoding.DecodeString(devicepubk)
+		if err != nil {
+			fmt.Println("GetIotResponse err", err)
+			return "error GetIotResponse:" + err.Error()
+		}
+		adminPrivateKeyBinary, err := base64.RawURLEncoding.DecodeString(adminprivk)
+		if err != nil {
+			fmt.Println("GetIotResponse err", err)
+			return "error GetIotResponse:" + err.Error()
+		}
+
+		command := cmd
+		payload := command + "#" + strconv.FormatInt(time.Now().Unix(), 10)
+		nonceStr := tokens.GetRandomB36String()
+		nonce := new([24]byte)
+		copy(nonce[:], nonceStr[:])
+
+		publicKeyBuffer := new([32]byte)
+		copy(publicKeyBuffer[:], publicKeyBinary[:])
+		adminPrivateKeyBuffer := new([32]byte)
+		copy(adminPrivateKeyBuffer[:], adminPrivateKeyBinary[:])
+
+		buffer := make([]byte, 0, (len(payload) + box.Overhead))
+		sealed := box.Seal(buffer, []byte(payload), nonce, publicKeyBuffer, adminPrivateKeyBuffer)
+		if len(sealed) == 0 {
+			fmt.Println("GetIotResponse box fail")
+			return "error GetIotResponse: box fail"
+		}
+		url += "=" + base64.RawURLEncoding.EncodeToString(sealed)
+		url += "?nonc=" + nonceStr
+		url += "&admn=" + adminpubk[0:8]
+
+	} else {
+		cmd = strings.ReplaceAll(cmd, " ", "/")
+		url += cmd // in plain text
+	}
+
+	resp, err := http.Get(url)
+	if err != nil {
+		fmt.Println("GetIotResponse err", err)
+		return "error GetIotResponse:" + err.Error()
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Println("GetIotResponse err", err)
+		return "error GetIotResponse:" + err.Error()
+	}
+	result = string(body)
+	fmt.Println("GetIotResponse body", result)
+
+	// if devicepubk then we need to decrypt the response
+	if result[0] == '=' {
+		// decrypt the response
+		publicKeyBinary, err := base64.RawURLEncoding.DecodeString(devicepubk)
+		if err != nil {
+			fmt.Println("GetIotResponse err", err)
+			return "error GetIotResponse:" + err.Error()
+		}
+		adminPrivateKeyBinary, err := base64.RawURLEncoding.DecodeString(adminprivk)
+		if err != nil {
+			fmt.Println("GetIotResponse err", err)
+			return "error GetIotResponse:" + err.Error()
+		}
+
+		nonceStr := resp.Request.URL.Query().Get("nonc")
+		nonce := new([24]byte)
+		copy(nonce[:], nonceStr[:])
+
+		publicKeyBuffer := new([32]byte)
+		copy(publicKeyBuffer[:], publicKeyBinary[:])
+		adminPrivateKeyBuffer := new([32]byte)
+		copy(adminPrivateKeyBuffer[:], adminPrivateKeyBinary[:])
+
+		sealed, err := base64.RawURLEncoding.DecodeString(result[1:]) // skip the '='
+		if err != nil {
+			fmt.Println("GetIotResponse err", err)
+			return "error GetIotResponse:" + err.Error()
+		}
+		opened, ok := box.Open(nil, sealed, nonce, publicKeyBuffer, adminPrivateKeyBuffer)
+		if !ok {
+			fmt.Println("GetIotResponse box fail")
+			return "error GetIotResponse: box fail"
+		}
+		result = string(opened)
+		fmt.Println("GetIotResponse opened", result)
+		// split the time off of it.
+		parts := strings.Split(result, "#")
+		if len(parts) < 2 {
+			fmt.Println("GetIotResponse err", "no time")
+			return "error GetIotResponse no time"
+		}
+		result = parts[0]
+		now := time.Now().Unix()
+		t, err := strconv.ParseInt(parts[1], 10, 64)
+		if err != nil {
+			fmt.Println("GetIotResponse err", err)
+			return "error GetIotResponse:" + err.Error()
+		}
+		delta := now - t
+		if delta < 0 {
+			delta = -delta
+		}
+		if delta > 10 {
+			fmt.Println("GetIotResponse err", "time too old")
+			return "error GetIotResponse: time too old"
+		}
+	}
+	return result
 }
 
 func SpecialPrint(p *packets.PacketCommon, fn func()) {

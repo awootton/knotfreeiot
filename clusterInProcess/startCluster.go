@@ -15,6 +15,9 @@ import (
 
 func main() {
 
+	iot.InitMongEnv()
+	iot.InitIotTables()
+
 	// var err error
 
 	// f, err := os.Create("cpu.out")
@@ -48,9 +51,9 @@ func main() {
 
 	// launch an aide using main.go
 
-	tenKstats := tokens.GetTokenTenKStatsAndPrice()
-	var mainLimits = &iot.ExecutiveLimits{}
-	mainLimits.KnotFreeContactStats = tenKstats.Stats
+	// tenKstats := tokens.GetTokenTenKStatsAndPrice()
+	// var mainLimits = &iot.ExecutiveLimits{}
+	// mainLimits.KnotFreeContactStats = tenKstats.Stats
 	// limits := mainLimits
 
 	// token := tokens.GetImpromptuGiantToken()
@@ -71,6 +74,14 @@ func main() {
 	// checkerr(err)
 	// err = iot.PostUpstreamNames(guruList, guruAddress, theAide.GetHTTPAddress())
 	// checkerr(err)
+
+	go func() {
+		namesList := []string{"get-unix-time", "get-unix-time_iot", "a-thermometer-demo_iot"}
+		for _, name := range namesList {
+			iot.StartAServer(name, "")
+		}
+
+	}()
 
 	for {
 		now := getTime()

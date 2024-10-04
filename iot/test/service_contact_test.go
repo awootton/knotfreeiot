@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/awootton/knotfreeiot/iot"
-	"github.com/awootton/knotfreeiot/monitor_pod"
 	"github.com/awootton/knotfreeiot/packets"
 	"github.com/awootton/knotfreeiot/tokens"
 	"github.com/stretchr/testify/assert"
@@ -567,7 +566,7 @@ func TestSubs(t *testing.T) {
 		}
 	}
 	// start a monitor server
-	startAServer("get-unix-time", "")
+	iot.StartAServer("get-unix-time", "")
 	timeStr = strconv.FormatInt(time.Now().Unix(), 10)
 	{
 		command := "exists"
@@ -626,7 +625,7 @@ func TestServiceContact(t *testing.T) {
 	// }
 	// Now. Start the get-unix-time service.
 
-	startAServer("get-unix-time", "")
+	iot.StartAServer("get-unix-time", "")
 
 	// c := monitor_pod.ThingContext{}
 	// c.Topic = "get-unix-time"
@@ -659,18 +658,6 @@ func TestServiceContact(t *testing.T) {
 
 	fmt.Println("ServiceContact test done")
 
-}
-
-func startAServer(name string, personPubk string) {
-	c := monitor_pod.ThingContext{}
-	c.Topic = name //"get-unix-time"
-	c.CommandMap = make(map[string]monitor_pod.Command)
-	c.Index = 0
-	c.Token, _ = tokens.GetImpromptuGiantTokenLocal(personPubk, "")
-	c.LogMeVerbose = true
-	c.Host = "localhost" + ":8384" //
-	fmt.Println("monitor main c.Host", c.Host)
-	monitor_pod.ServeGetTime(c.Token, &c)
 }
 
 func makeClusterWithServiceContact() *iot.ClusterExecutive {
@@ -715,7 +702,7 @@ func TestServiceContactTCP(t *testing.T) {
 
 	// Now. Start the get-unix-time service.
 
-	startAServer("get-unix-time", "")
+	iot.StartAServer("get-unix-time", "")
 
 	reply, err = sc.Get(&msg)
 	if err != nil {

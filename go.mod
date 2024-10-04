@@ -14,6 +14,7 @@ require (
 	github.com/prometheus/client_golang v1.13.0
 	github.com/prometheus/client_model v0.2.0
 	github.com/stretchr/testify v1.9.0
+	github.com/victorspringer/http-cache v0.0.0-20240523143319-7d9f48f8ab91
 	go.mongodb.org/mongo-driver v1.15.1
 	golang.org/x/crypto v0.21.0
 	google.golang.org/api v0.114.0

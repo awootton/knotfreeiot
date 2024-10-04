@@ -658,9 +658,9 @@ func TestUrl(t *testing.T) {
 		sss := base64.RawURLEncoding.EncodeToString(ce.PublicKeyTemp[:])
 		assert.Equal(t, val, sss) //"-muxcABH_pTsuNqT3yaYfQj-3krwM6XmEu47vTZLSHM")
 	}
-	startAServer("get-unix-time", "")     // start a thing server
-	startAServer("get-unix-time_iot", "") // start a thing server
-	{                                     // a device call
+	iot.StartAServer("get-unix-time", "")     // start a thing server
+	iot.StartAServer("get-unix-time_iot", "") // start a thing server
+	{                                         // a device call
 		val := getVal(t, "http://get-unix-time.knotlocal.com:8085/get/pubk")
 		fmt.Println("pubk", val)
 		assert.Equal(t, val, "bht-Ka3j7GKuMFOablMlQnABnBvBeugvSf4CdFV3LXs")

@@ -11,15 +11,19 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"os"
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/awootton/knotfreeiot/packets"
 	"github.com/awootton/knotfreeiot/tokens"
 	"github.com/gorilla/websocket"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	cache "github.com/victorspringer/http-cache"
+	"github.com/victorspringer/http-cache/adapter/memory"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"golang.org/x/crypto/nacl/box"
@@ -29,6 +33,9 @@ type ApiHandler struct {
 	ce                 *ClusterExecutive
 	staticStuffHandler webHandler
 	// add long lived mongo connect here?
+
+	// add cache here.
+	cacheClient *cache.Client
 }
 
 type SuperMux struct {
@@ -64,10 +71,34 @@ func StartPublicServer(ce *ClusterExecutive) {
 
 	staticStuffHandler := webHandler{ce,
 		http.FileServer(http.Dir("./docs"))} // FIXME: points to gotohere static assets (a react build)
+	// serve another way. Serve from memory?
+
+	memcached, err := memory.NewAdapter(
+		memory.AdapterWithAlgorithm(memory.LRU),
+		memory.AdapterWithCapacity(100*1024),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	cachettl := 10 * time.Minute
+	if DEBUG {
+		cachettl = time.Second
+	}
+
+	cacheClient, err := cache.NewClient(
+		cache.ClientWithAdapter(memcached),
+		cache.ClientWithTTL(cachettl),
+		cache.ClientWithRefreshKey("opn"),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	supermux.sub.Handle("/mqtt", wsAPIHandler{ce})
 
-	supermux.sub.Handle("/", ApiHandler{ce, staticStuffHandler}) // add mongo client?
+	// the default handler is the ApiHandler
+	supermux.sub.Handle("/", ApiHandler{ce, staticStuffHandler, cacheClient}) // add mongo client?
 
 	s := &http.Server{
 		Addr:           ":8085",
@@ -85,9 +116,7 @@ func StartPublicServer(ce *ClusterExecutive) {
 }
 
 type webHandler struct { // this is the 'staticstuff' handler. It serves the static content.
-	ce *ClusterExecutive
-
-	//	fs1 http.Handler
+	ce  *ClusterExecutive
 	fs2 http.Handler
 }
 
@@ -97,7 +126,6 @@ func (api webHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("webHandler ServeHTTP", r.RequestURI)
 
 	api.fs2.ServeHTTP(w, r)
-
 }
 
 func startPublicServer9102() {
@@ -560,6 +588,7 @@ func (superMux *SuperMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	} //else {
 	// it's not a subdomain pass it to the api.
 	//}
+	superMux.sub.ServeHTTP(w, r)
 }
 
 func (api ApiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
@@ -580,23 +609,59 @@ func (api ApiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 		path := req.RequestURI[len(proxyApiPath):]
 
-		fmt.Println("proxy path", path)
+		// fmt.Println("proxy path", path)
 		if strings.HasSuffix(path, ".png") || strings.HasSuffix(path, ".jpg") {
 			w.Header().Set("Content-Type", "image/png")
 		}
 
-		resp, err := http.Get("https://raw.githubusercontent.com/" + path)
-		if err != nil {
-			w.Write([]byte("error " + err.Error()))
-		}
-		defer resp.Body.Close()
+		// DONE: build a cache and don't fetch the same thing twice in the same 10 minutes.
 
-		body, err := io.ReadAll(resp.Body)
-		if err != nil {
-			w.Write([]byte("error " + err.Error()))
+		wholeUrl := "https://raw.githubusercontent.com/" + path
+		fmt.Println("proxying to ", wholeUrl)
+
+		if true {
+
+			handler2 := api.cacheClient.Middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				// do something with the response
+				fmt.Println("cacheClient.Middleware", r.RequestURI)
+				// fmt.Println("cacheClient.Middleware", r.URL)
+				resp, err := http.Get(wholeUrl)
+				if err != nil {
+					fmt.Println("rawgithubusercontentproxy failed to fetch ", wholeUrl)
+					w.Write([]byte("error " + err.Error()))
+					return
+				}
+				defer resp.Body.Close()
+
+				body, err := io.ReadAll(resp.Body)
+				if err != nil {
+					w.Write([]byte("error " + err.Error()))
+				} else {
+					w.Write(body)
+				}
+
+			}))
+			req.URL, _ = url.Parse(wholeUrl)
+			handler2.ServeHTTP(w, req)
+
 		} else {
-			w.Write(body)
+			// old way
+			resp, err := http.Get(wholeUrl)
+			if err != nil {
+				fmt.Println("rawgithubusercontentproxy failed to fetch ", wholeUrl)
+				w.Write([]byte("error " + err.Error()))
+				return
+			}
+			defer resp.Body.Close()
+
+			body, err := io.ReadAll(resp.Body)
+			if err != nil {
+				w.Write([]byte("error " + err.Error()))
+			} else {
+				w.Write(body)
+			}
 		}
+
 		return
 	}
 	path := strings.Split(req.RequestURI, "?")[0]
@@ -779,11 +844,31 @@ func (api ApiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		api.NameService(w, req)
 
 	} else { // default:
-
-		// http.NotFound(w, req)
-		// fmt.Fprintf(w, "expected known path "+req.RequestURI)
-		// iot.HTTPServe404.Inc()
-		api.staticStuffHandler.ServeHTTP(w, req)
+		//  This might be unnecessary but I want to see the path if it fails.
+		if req.RequestURI == "/index.html" || req.RequestURI == "/" {
+			indexHtml := getIndexHtml()
+			w.Write([]byte(indexHtml))
+		} else {
+			api.staticStuffHandler.ServeHTTP(w, req)
+		}
 	}
+}
 
+var indexHtml []byte
+var indexHtmlLock sync.Mutex
+
+func getIndexHtml() []byte {
+	indexHtmlLock.Lock()
+	defer indexHtmlLock.Unlock()
+	if len(indexHtml) != 0 {
+		return indexHtml
+	}
+	cwd, _ := os.Getwd()
+	fmt.Println("getIndexHtml cwd", cwd)
+	var err error
+	indexHtml, err = os.ReadFile("./docs/index.html")
+	if err != nil {
+		fmt.Println("getIndexHtml err", err)
+	}
+	return indexHtml
 }

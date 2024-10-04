@@ -2,10 +2,26 @@ package iot
 
 import (
 	"bytes"
+	"fmt"
 	"net"
 	"net/http"
 	"strings"
+
+	"github.com/awootton/knotfreeiot/monitor_pod"
+	"github.com/awootton/knotfreeiot/tokens"
 )
+
+func StartAServer(name string, personPubk string) {
+	c := monitor_pod.ThingContext{}
+	c.Topic = name //"get-unix-time"
+	c.CommandMap = make(map[string]monitor_pod.Command)
+	c.Index = 0
+	c.Token, _ = tokens.GetImpromptuGiantTokenLocal(personPubk, "")
+	c.LogMeVerbose = true
+	c.Host = "localhost" + ":8384" //
+	fmt.Println("monitor main c.Host", c.Host)
+	monitor_pod.ServeGetTime(c.Token, &c)
+}
 
 func GetIPAdress(r *http.Request) string {
 	for _, h := range []string{"X-Forwarded-For", "X-Real-Ip"} {
