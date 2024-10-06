@@ -747,7 +747,7 @@ func setupCommands(c *ThingContext) {
 		}, c.CommandMap)
 }
 
-func getFromReno(cmd string) string {
+func getFromReno(cmd string, current string) string {
 
 	// read passphrase from ~/atw/renoIotpass.txt
 	home, _ := os.UserHomeDir()
@@ -757,7 +757,7 @@ func getFromReno(cmd string) string {
 	tmp, err := os.ReadFile(fname)
 	if err != nil {
 		fmt.Println("TestGetIotResponseReno err", err)
-		return "111"
+		return current
 	}
 	passphrase := strings.TrimSpace(string(tmp))
 
@@ -791,8 +791,8 @@ func getFromReno(cmd string) string {
 
 func ReplaceTempInF() {
 
-	temp := getFromReno("get f")
-	hum := getFromReno("get humidity")
+	temp := getFromReno("get f", strconv.FormatFloat(TempInF, 'f', 2, 64)+"°F")
+	hum := getFromReno("get humidity", strconv.FormatFloat(TempInF, 'f', 2, 64)+"%")
 	temp = temp[:len(temp)-3]
 	hum = hum[:len(hum)-1]
 

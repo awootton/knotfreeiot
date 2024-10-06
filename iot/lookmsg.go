@@ -162,6 +162,13 @@ type LookupNameExistsReturnType struct {
 	Online bool
 }
 
+type ProxyStatusReturnType struct {
+	Exists bool
+	Online bool
+	Static string // path to static files
+	Proxy  string // path to proxy/ Are these the same?
+}
+
 type lookBackCommand struct {
 	callContext interface{}
 
@@ -267,14 +274,10 @@ func setupCommands(c *lookupContext) {
 				subKey = args[1]
 			}
 
-			fmt.Println("get option", key)
+			fmt.Println("get option TOP", key, subKey)
 			getAndSetWatcher(callContext, func(callContext interface{}, watchedTopic *WatchedTopic) {
-				me, bucket, lookMsg, pubk := getCallContext(callContext)
+				me, bucket, lookMsg, _ := getCallContext(callContext)
 				_ = bucket
-				if pubk != watchedTopic.Owner {
-					sendReply(me, lookMsg, "error: not owner")
-					return
-				}
 				key = strings.ToUpper(key)
 				val, ok := watchedTopic.GetOption(key)
 				if !ok {
@@ -290,6 +293,7 @@ func setupCommands(c *lookupContext) {
 						return
 					}
 				}
+				fmt.Println("get option returning", key, subValue)
 				sendReply(me, lookMsg, subValue)
 			}, nil)
 			return ""
@@ -308,9 +312,8 @@ func setupCommands(c *lookupContext) {
 			}
 
 			getAndSetWatcher(callContext, func(callContext interface{}, watchedTopic *WatchedTopic) {
-				me, bucket, lookMsg, pubk := getCallContext(callContext)
+				me, bucket, lookMsg, _ := getCallContext(callContext)
 				_ = bucket
-				_ = pubk // get txt is not protected
 
 				val, ok := watchedTopic.GetOption(strings.ToUpper(key))
 				if !ok {
@@ -463,6 +466,39 @@ func setupCommands(c *lookupContext) {
 
 		}, c.CommandMap)
 
+	monitor_pod.MakeCommand("proxy-status",
+		"returns ProxyStatusReturnType 🔓", 0,
+		func(msg string, args []string, callContext interface{}) string {
+
+			status := ProxyStatusReturnType{false, false, "", ""}
+
+			getAndSetWatcher(callContext, func(callContext interface{}, watchedTopic *WatchedTopic) {
+				me, _, lookMsg, _ := getCallContext(callContext)
+				if watchedTopic == nil {
+					bytes, _ := json.Marshal(status)
+					sendReply(me, lookMsg, string(bytes))
+					return
+				}
+				status.Exists = true
+				val, ok := watchedTopic.GetOption("STATIC")
+				if ok {
+					optionMap := StringToMap(string(val))
+					status.Static = optionMap["@"]
+				}
+				val, ok = watchedTopic.GetOption("PROXY")
+				if ok {
+					optionMap := StringToMap(string(val))
+					status.Proxy = optionMap["@"]
+				}
+				status.Online = !watchedTopic.thetree.Empty()
+
+				bytes, _ := json.Marshal(status)
+				sendReply(me, lookMsg, string(bytes))
+			}, nil)
+
+			return ""
+
+		}, c.CommandMap)
 	monitor_pod.MakeCommand("exists",
 		"returns true if the name exists 🔓", 0,
 		func(msg string, args []string, callContext interface{}) string {

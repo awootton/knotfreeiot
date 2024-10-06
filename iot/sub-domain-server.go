@@ -20,6 +20,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -93,6 +94,95 @@ func (w *myWriterType) Read(p []byte) (n int, err error) {
 func HandleHttpSubdomainRequest(w http.ResponseWriter, r *http.Request, ex *Executive, subDomain string, theHost string) {
 
 	r.Close = true // close when done? // see below
+
+	// see if it even exists
+	look := packets.Lookup{}
+	look.Address.FromString(subDomain)
+	look.SetOption("cmd", []byte("proxy-status"))
+	gotPacket, err := ex.ce.PacketService.GetPacketReply(&look)
+	if err != nil {
+		fmt.Println("PacketService error ", err)
+		http.Error(w, "PacketService error "+err.Error(), 500)
+		return
+	}
+	gotPacketStr := gotPacket.(*packets.Send).Payload
+	theStatus := ProxyStatusReturnType{}
+	err = json.Unmarshal([]byte(gotPacketStr), &theStatus)
+	if err != nil {
+		fmt.Println("json unmarshal error ", err)
+		http.Error(w, "json unmarshal error "+err.Error(), 500)
+		return
+	}
+	if !theStatus.Exists {
+		fmt.Println("subdomain does not exist ", subDomain)
+		http.Error(w, "subdomain does not exist "+subDomain, 500)
+		return
+	}
+	if theStatus.Static != "" {
+
+		urlString := theStatus.Static
+		urlString = strings.TrimSuffix(urlString, "/")
+		// proxy
+		if r.RequestURI == "/" {
+			urlString += "/index.html"
+		} else {
+			urlString += r.RequestURI
+		}
+		fmt.Println("subdomain serving static ", urlString)
+
+		// url, err := url.Parse(urlString)
+		// if err != nil {
+		// 	fmt.Println("url.Parse error ", urlString)
+		// 	http.Error(w, "url.Parse "+urlString, 500)
+		// 	return
+
+		//proxy := httputil.NewSingleHostReverseProxy(url)
+		// proxy := &httputil.ReverseProxy{
+		// 	Rewrite: func(r *httputil.ProxyRequest) {
+		// 		r.SetURL(url)
+		// 		r.Out.Host = r.In.Host // if desired
+		// 	},
+		// }
+		// proxy.ServeHTTP(w, r)
+
+		// it's a static file. Just do a get.
+		// resp, err := http.Get(urlString)
+		newRequest, err := http.NewRequest("GET", urlString, nil)
+		if err != nil {
+			fmt.Println("http.Get error ", urlString)
+			http.Error(w, "http.Get "+urlString, 500)
+			return
+		}
+		// copy headers
+		for key, val := range r.Header {
+			for i := 0; i < len(val); i++ {
+				newRequest.Header.Add(key, val[i])
+			}
+		}
+		resp, err := http.DefaultClient.Do(newRequest)
+		if err != nil {
+			fmt.Println("http.Get ", urlString)
+			http.Error(w, "http.Get "+urlString, 500)
+			return
+		}
+
+		defer resp.Body.Close()
+		body, err := io.ReadAll(resp.Body) // what if it's huge?
+		if err != nil {
+			fmt.Println("http.Get io.ReadAllerror ", urlString)
+			http.Error(w, "http.Get io.ReadAll "+urlString, 500)
+			return
+		}
+		w.Header().Set("Content-Type", resp.Header.Get("Content-Type"))
+		w.Write(body)
+		return
+	}
+	fmt.Println("subdomain is online ", theStatus.Online)
+	if !theStatus.Online {
+		fmt.Println("subdomain is not online to reply ", subDomain)
+		http.Error(w, "subdomain is not online to reply "+subDomain, 404)
+		return
+	}
 
 	clen := r.ContentLength
 	if clen > 63*1024 {

@@ -313,3 +313,19 @@ func getNewContactFromSlackestAide(ce *iot.ClusterExecutive, token string) iot.C
 	cc := makeTestContact(smallestAide.Config, token)
 	return cc
 }
+
+func TestMakeLargeTokenAtw(t *testing.T) {
+
+	tokens.LoadPrivateKeys("~/atw/privateKeys4.txt")
+
+	payload := tokens.GetSampleTokenFromStats(uint32(time.Now().Unix()), "knotfree.net/mqtt", tokens.GetTokenStatsAndPrice(tokens.Medium).Stats)
+	signingKey := tokens.GetPrivateKeyWhole(0)
+	payload.Pubk = "NEUdZXsPTD-lxGeeHWXG-o_9wlfn_sBSqPqUqzA0HS0"
+	payload.JWTID = "dvaw3z28o8bxqsq6fwozx3hx"
+	bbb, err := tokens.MakeToken(payload, []byte(signingKey))
+	if err != nil {
+		fmt.Println("Get32xTokenLocal", err)
+	}
+	fmt.Println("Get32xTokenLocal", string(bbb))
+
+}
