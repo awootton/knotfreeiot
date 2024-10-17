@@ -21,6 +21,7 @@ import (
 	"log"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/awootton/knotfreeiot/tokens"
 	"go.mongodb.org/mongo-driver/bson"
@@ -163,6 +164,15 @@ func GetSubscriptionListCount(ownerPubk string) (int, error) {
 }
 
 func GetSubscription(hashedTopicStr string) (*WatchedTopic, bool) {
+
+	startTime := time.Now()
+	defer func() {
+		endTime := time.Now()
+		duration := endTime.Sub(startTime)
+		if duration > 500*time.Millisecond {
+			fmt.Println("GetSubscription SLOW took ", duration)
+		}
+	}()
 
 	client, err := GetMongoClient() //:= mongo.Connect(ctx, MongoClientOptions)
 	if err != nil {

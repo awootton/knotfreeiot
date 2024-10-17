@@ -120,8 +120,11 @@ func (sc *ServiceContact) SendPacket(msg packets.Interface, returnChannel chan p
 			select {
 			case <-done:
 				return
-			// case <-sc.contact.ClosedChannel: Does this happen?
-			// 	fmt.Println("seviceContact contact closed. This is bad")
+			case <-sc.contact.ClosedChannel: // Does this happen?
+				fmt.Println("error seviceContact contact closed. This is bad")
+				// we have to start over
+				InitNewServiceContact(sc) // leaks?
+				return
 			// 	close(sc.closed)
 			case <-sc.closed:
 				fmt.Println("seviceContact closed. This is bad")
@@ -135,19 +138,25 @@ func (sc *ServiceContact) SendPacket(msg packets.Interface, returnChannel chan p
 	}
 }
 
-// StartNewServiceContact retunrs a Contact that is able to send and receive packets.
+// StartNewServiceContact returns a Contact that is able to send and receive packets.
 // Starts listening for packets on the pipe.
 func StartNewServiceContact(ex *Executive) (*ServiceContact, error) {
-
 	sc := &ServiceContact{}
+	sc.ex = ex
+	return sc, InitNewServiceContact(sc)
+}
+
+// InitNewServiceContact- a Contact that is able to send and receive packets.
+// Starts listening for packets on the pipe.
+func InitNewServiceContact(sc *ServiceContact) error {
 
 	sc.key2channel = make(map[string]chan packets.Interface)
 	sc.mySubscriptionName = GetRandomB64String()
-	sc.ex = ex
 	sc.closed = make(chan bool)
 
 	packetsChan := make(chan packets.Interface, 100)
 	contact := &ContactStruct{}
+	contact.LogMeVerbose = true // todo: remove later
 	sc.contact = contact
 	// hook the real writer
 	myWriter := &myWriterType{}
@@ -161,7 +170,7 @@ func StartNewServiceContact(ex *Executive) (*ServiceContact, error) {
 	sc.startReadTheWriterPipe() // reads packets and puts them on the packetsChan forever.
 
 	contact.SetWriter(myWriter) // myWriter)
-	AddContactStruct(contact, contact, ex.Config)
+	AddContactStruct(contact, contact, sc.ex.Config)
 
 	connect := packets.Connect{}
 	connect.SetOption("token", []byte(tokens.GetImpromptuGiantToken()))
@@ -203,9 +212,11 @@ func StartNewServiceContact(ex *Executive) (*ServiceContact, error) {
 			errMsg := "timed out waiting for suback reply "
 			fmt.Println(errMsg)
 			close(sc.closed)
-			return nil, fmt.Errorf(errMsg)
+			return fmt.Errorf(errMsg)
 		}
 	}
+
+	fmt.Println("ServiceContact started.")
 
 	// to keep the contact alive by resubscribing every 10 minutes.
 	go func() {
@@ -215,6 +226,7 @@ func StartNewServiceContact(ex *Executive) (*ServiceContact, error) {
 				return
 			case <-time.After(10 * 60 * time.Second):
 			}
+			fmt.Println("ServiceContact keep alive.")
 			subs := packets.Subscribe{}
 			subs.Address.FromString(sc.mySubscriptionName)
 			subs.Address.EnsureAddressIsBinary()
@@ -229,12 +241,14 @@ func StartNewServiceContact(ex *Executive) (*ServiceContact, error) {
 		for {
 			select {
 			case <-sc.closed:
+				fmt.Println("ServiceContact closed. we're dead as a doornail")
+				InitNewServiceContact(sc)
 				return // we're dead as a doornail
 			case p := <-packetsChan:
 				{
 					sessionKey, got := p.GetOption("sessionKey")
 					if !got {
-						fmt.Println("ERROR no sessionKey in packet ", p.Sig())
+						// this happens. fmt.Println("ERROR no sessionKey in packet ", p.Sig())
 						continue
 					}
 					sc.key2channelLock.Lock()
@@ -250,7 +264,7 @@ func StartNewServiceContact(ex *Executive) (*ServiceContact, error) {
 		}
 	}()
 
-	return sc, nil
+	return nil
 }
 
 func (sc *ServiceContact) startReadTheWriterPipe() {
@@ -259,6 +273,7 @@ func (sc *ServiceContact) startReadTheWriterPipe() {
 			select {
 			case <-sc.contact.ClosedChannel:
 				fmt.Println(" handler contact closed")
+				InitNewServiceContact(sc)
 				return
 			default:
 

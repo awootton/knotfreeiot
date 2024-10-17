@@ -165,7 +165,7 @@ type LookupNameExistsReturnType struct {
 type ProxyStatusReturnType struct {
 	Exists bool
 	Online bool
-	Static string // path to static files
+	Static string // path to static files aka FORWARD
 	Proxy  string // path to proxy/ Are these the same?
 }
 
@@ -472,15 +472,20 @@ func setupCommands(c *lookupContext) {
 
 			status := ProxyStatusReturnType{false, false, "", ""}
 
+			fmt.Println("proxy-status TOP")
+
 			getAndSetWatcher(callContext, func(callContext interface{}, watchedTopic *WatchedTopic) {
 				me, _, lookMsg, _ := getCallContext(callContext)
+
+				fmt.Println("proxy-status watcher", watchedTopic)
+
 				if watchedTopic == nil {
 					bytes, _ := json.Marshal(status)
 					sendReply(me, lookMsg, string(bytes))
 					return
 				}
 				status.Exists = true
-				val, ok := watchedTopic.GetOption("STATIC")
+				val, ok := watchedTopic.GetOption("FORWARD")
 				if ok {
 					optionMap := StringToMap(string(val))
 					status.Static = optionMap["@"]

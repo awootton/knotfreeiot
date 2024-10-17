@@ -351,7 +351,7 @@ func (superMux *SuperMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			http.NotFound(w, r)
 			return
 		}
-		fmt.Println("sub sub domain reply", string(thePacket.Payload))
+		// fmt.Println("sub sub domain reply", string(thePacket.Payload))
 		w.Write(thePacket.Payload)
 		return
 

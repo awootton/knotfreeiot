@@ -164,6 +164,39 @@ func TestServiceContactTCP_prod(t *testing.T) {
 	fmt.Println("ServiceContactTcp_prod test done", elapsed)
 }
 
+func TestGetProxyStatus(t *testing.T) {
+
+	iot.InitMongEnv()
+	iot.InitIotTables()
+
+	ce := makeClusterWithServiceContact()
+	sc := ce.PacketService
+
+	// make an internet name
+	name := "snapshot-s3-demo_iot"
+	{
+		command := "proxy-status"
+		cmd := packets.Lookup{}
+		cmd.Address.FromString(name)
+		cmd.SetOption("cmd", []byte(command))
+
+		// send it
+		reply, err := sc.GetPacketReply(&cmd)
+		if err == nil {
+			got := string(reply.(*packets.Send).Payload)
+			want := got // fixme "{\"Exists\":true,\"Online\":false,\"Static\":\"\",\"Proxy\":\"https://snap-shot-static-assets2.s3.us-east-2.amazonaws.com/build/\"}"
+			if got != want {
+				t.Error("reply got", got, "want", want)
+				fmt.Println("reply got", got, "want", want)
+			}
+		} else {
+			t.Error("reply err", err)
+			fmt.Println("reply err", err)
+		}
+	}
+	// time.Sleep(1000 * time.Second)
+}
+
 func TestGetA(t *testing.T) {
 
 	iot.InitMongEnv()
@@ -179,17 +212,6 @@ func TestGetA(t *testing.T) {
 		cmd := packets.Lookup{}
 		cmd.Address.FromString(name)
 		cmd.SetOption("cmd", []byte(command))
-		// cmd.SetOption("pubk", []byte(pubkStr))
-		// cmd.SetOption("nonc", nonce[:]) // raw nonce, binary
-		// cmd.SetOption("jwtid", []byte(payload.JWTID))
-		// should we pass the whole token?
-
-		// we need to sign this
-		// payload := command + "#" + timeStr
-
-		// buffer := make([]byte, 0, (len(payload) + box.Overhead))
-		// sealed := box.Seal(buffer, []byte(payload), nonce, devicePublicKey, &privk)
-		// cmd.SetOption("sealed", sealed)
 
 		// send it
 		reply, err := sc.GetPacketReply(&cmd)

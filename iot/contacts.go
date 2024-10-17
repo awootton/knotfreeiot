@@ -294,7 +294,7 @@ func PushPacketUpFromBottom2(ssi ContactInterface, p packets.Interface, doSetExp
 			}
 			got, ok := p.GetOption("debg")
 			if ok && string(got) == "12345678" {
-				fmt.Println("PushPacketUpFromBottom con=", ssi.GetConfig().key.Sig(), " ", p.Sig())
+				fmt.Println("Contact PushPacketUpFromBottom con=", ssi.GetConfig().key.Sig(), " ", p.Sig())
 			}
 		},
 	})

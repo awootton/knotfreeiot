@@ -109,7 +109,7 @@ func HandleHttpSubdomainRequest(w http.ResponseWriter, r *http.Request, ex *Exec
 	theStatus := ProxyStatusReturnType{}
 	err = json.Unmarshal([]byte(gotPacketStr), &theStatus)
 	if err != nil {
-		fmt.Println("json unmarshal error ", err)
+		fmt.Println("ProxyStatusReturnType json unmarshal error ", err, []byte(gotPacketStr))
 		http.Error(w, "json unmarshal error "+err.Error(), 500)
 		return
 	}
@@ -120,61 +120,13 @@ func HandleHttpSubdomainRequest(w http.ResponseWriter, r *http.Request, ex *Exec
 	}
 	if theStatus.Static != "" {
 
-		urlString := theStatus.Static
-		urlString = strings.TrimSuffix(urlString, "/")
+		proxyName := theStatus.Static
+		proxyName = strings.TrimSuffix(proxyName, "/")
 		// proxy
-		if r.RequestURI == "/" {
-			urlString += "/index.html"
-		} else {
-			urlString += r.RequestURI
-		}
-		fmt.Println("subdomain serving static ", urlString)
+		requestURI := r.RequestURI
+		fmt.Println("subdomain serving static via HandleByProxy", proxyName, requestURI)
+		HandleByProxy(w, r, ex, subDomain, theHost, proxyName, requestURI)
 
-		// url, err := url.Parse(urlString)
-		// if err != nil {
-		// 	fmt.Println("url.Parse error ", urlString)
-		// 	http.Error(w, "url.Parse "+urlString, 500)
-		// 	return
-
-		//proxy := httputil.NewSingleHostReverseProxy(url)
-		// proxy := &httputil.ReverseProxy{
-		// 	Rewrite: func(r *httputil.ProxyRequest) {
-		// 		r.SetURL(url)
-		// 		r.Out.Host = r.In.Host // if desired
-		// 	},
-		// }
-		// proxy.ServeHTTP(w, r)
-
-		// it's a static file. Just do a get.
-		// resp, err := http.Get(urlString)
-		newRequest, err := http.NewRequest("GET", urlString, nil)
-		if err != nil {
-			fmt.Println("http.Get error ", urlString)
-			http.Error(w, "http.Get "+urlString, 500)
-			return
-		}
-		// copy headers
-		for key, val := range r.Header {
-			for i := 0; i < len(val); i++ {
-				newRequest.Header.Add(key, val[i])
-			}
-		}
-		resp, err := http.DefaultClient.Do(newRequest)
-		if err != nil {
-			fmt.Println("http.Get ", urlString)
-			http.Error(w, "http.Get "+urlString, 500)
-			return
-		}
-
-		defer resp.Body.Close()
-		body, err := io.ReadAll(resp.Body) // what if it's huge?
-		if err != nil {
-			fmt.Println("http.Get io.ReadAllerror ", urlString)
-			http.Error(w, "http.Get io.ReadAll "+urlString, 500)
-			return
-		}
-		w.Header().Set("Content-Type", resp.Header.Get("Content-Type"))
-		w.Write(body)
 		return
 	}
 	fmt.Println("subdomain is online ", theStatus.Online)

@@ -138,10 +138,15 @@ func (sc *ServiceContactTcp) SendPacket(msg packets.Interface, returnChannel cha
 // StartNewServiceClient creates a new ServiceContact and returns it.
 // Starts listening for packets on the pipe.
 func StartNewServiceContactTcp(address string, token string) (*ServiceContactTcp, error) {
-
 	sc := &ServiceContactTcp{}
 	sc.Host = address
 	sc.token = token
+	return sc, InitNewServiceContactTcp(sc)
+}
+
+// StartNewServiceClient creates a new ServiceContact and returns it.
+// Starts listening for packets on the pipe.
+func InitNewServiceContactTcp(sc *ServiceContactTcp) error {
 
 	sc.key2channel = make(map[string]chan packets.Interface)
 	sc.mySubscriptionName = GetRandomB64String()
@@ -151,36 +156,13 @@ func StartNewServiceContactTcp(address string, token string) (*ServiceContactTcp
 	sc.packetsChan = make(chan packets.Interface, 100)
 	sc.outgoing = make(chan packets.Interface, 100)
 
-	// contact := &ContactStruct{}
-	// sc.contact = contact
-	// hook the real writer
-	// myWriter := &myWriterType{}
-	// myWriter.packets = packetsChan
-	//sc.packetsChan = packetsChan
-	// sc.myWriter = myWriter
-	//contact.contactExpires += 60 * 60 * 24 * 365 * 10 // in 10 years
-
-	// myWriter.myPipeReader, myWriter.myPipeWriter = io.Pipe() // this is the pipe that the packets will come in on
-
-	// sc.startReadTheWriterPipe() // reads packets and puts them on the packetsChan forever.
-
 	sc.ConnectLoopForever()
-
-	// contact.SetWriter(myWriter) // myWriter)
-	// AddContactStruct(contact, contact, ex.Config)
-
-	// connect := packets.Connect{}
-	// connect.SetOption("token", []byte(tokens.GetImpromptuGiantToken()))
-	// err := PushPacketUpFromBottom(contact, &connect)
-	// _ = err
 
 	// subscribe to the mySubscriptionName
 	subs := packets.Subscribe{}
 	subs.Address.FromString(sc.mySubscriptionName)
 	subs.Address.EnsureAddressIsBinary()
 	sc.outgoing <- &subs
-	// err = PushPacketUpFromBottom(contact, &subs)
-	// _ = err
 
 	// now we have to wait for the suback to come back
 	haveSuback := false
@@ -210,7 +192,7 @@ func StartNewServiceContactTcp(address string, token string) (*ServiceContactTcp
 			errMsg := "timed out waiting for suback reply "
 			fmt.Println(errMsg)
 			close(sc.closed)
-			return nil, fmt.Errorf(errMsg)
+			return fmt.Errorf(errMsg)
 		}
 	}
 
@@ -225,8 +207,6 @@ func StartNewServiceContactTcp(address string, token string) (*ServiceContactTcp
 			subs := packets.Subscribe{}
 			subs.Address.FromString(sc.mySubscriptionName)
 			subs.Address.EnsureAddressIsBinary()
-			//err := PushPacketUpFromBottom(contact, &subs)
-			//_ = err
 			sc.outgoing <- &subs
 		}
 	}()
@@ -237,12 +217,13 @@ func StartNewServiceContactTcp(address string, token string) (*ServiceContactTcp
 		for {
 			select {
 			case <-sc.closed:
-				return // we're dead as a doornail
+				InitNewServiceContactTcp(sc) // start over?
+				return
 			case p := <-sc.packetsChan:
 				{
 					sessionKey, got := p.GetOption("sessionKey")
 					if !got {
-						fmt.Println("ERROR no sessionKey in packet ", p.Sig())
+						// this happens fmt.Println("ERROR no sessionKey in packet tcp ", p.Sig())
 						continue
 					}
 
@@ -260,33 +241,8 @@ func StartNewServiceContactTcp(address string, token string) (*ServiceContactTcp
 		}
 	}()
 
-	return sc, nil
+	return nil
 }
-
-// func (sc *ServiceContactTcp) startReadTheWriterPipe() {
-// 	go func() {
-// 		for {
-// 			select {
-// 			// case <-sc.contact.ClosedChannel:
-// 			// 	fmt.Println(" handler contact closed")
-// 			// 	return
-// 			default:
-
-// 				packet, err := packets.ReadPacket(sc.myWriter)
-// 				if err != nil || packet == nil {
-// 					// the buffer only had a partial packet
-// 					fmt.Println("ERROR packet read fail ", err)
-// 					sc.contact.DoClose(err)
-// 					return
-// 				}
-// 				if sc.IsDebg {
-// 					fmt.Println("http subdomain handler got packet ", packet.String())
-// 				}
-// 				sc.packetsChan <- packet
-// 			}
-// 		}
-// 	}()
-// }
 
 func (sc *ServiceContactTcp) ConnectLoopForever() {
 

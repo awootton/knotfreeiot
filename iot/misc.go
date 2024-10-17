@@ -7,8 +7,11 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
+	"net/http/httputil"
+	"net/url"
 	"sort"
 	"strings"
 	"time"
@@ -19,6 +22,153 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"golang.org/x/crypto/nacl/box"
 )
+
+func HandleByProxy(w http.ResponseWriter, r *http.Request, ex *Executive, subDomain string, theHost string, proxyName string, requestURI string) {
+
+	requestedType := r.Header.Get("Accept")
+
+	isHtml := strings.HasSuffix(requestURI, ".html") || requestURI == "/"
+	if isHtml {
+		requestedType = "text/html"
+	}
+	// this really stinks but it's the only way to get the right content type
+	if strings.HasSuffix(requestURI, ".js") {
+		requestedType = "application/javascript"
+	}
+
+	fmt.Println("HandleByProxy ", subDomain, theHost, proxyName, requestURI)
+	// fmt.Println("HandleByProxy ", r.RequestURI, r.URL.Path, r.Host, requestedType)
+
+	url, err := url.Parse(proxyName)
+	if err != nil {
+		fmt.Println("url.Parse error ", proxyName)
+		http.Error(w, "url.Parse "+proxyName, 500)
+		return
+	}
+
+	proxy := httputil.NewSingleHostReverseProxy(url)
+
+	originalDirector := proxy.Director
+	proxy.Director = func(req *http.Request) {
+		originalDirector(req)
+		req.Host = url.Host
+		if isHtml {
+			req.Header.Add("Accept", "text/html")
+		}
+		if r.RequestURI == "/" {
+			req.RequestURI = "/index.html"
+			req.URL.Path += "index.html"
+		}
+		// fmt.Println("Director ", req.RequestURI, req.URL.Path, req.Host, req)
+	}
+	proxy.ModifyResponse = func(resp *http.Response) error {
+		// for k, v := range resp.Header {
+		// 	fmt.Println("modifyResponse kv", k, v)
+		// }
+		resp.Header.Set("Content-Type", requestedType)
+		// this is for github nastiness. I don't think they want to be proxied
+		resp.Header.Del("content-security-policy") // why does github set this?
+
+		return nil
+	}
+
+	fmt.Println("HandleByProxy proxy.ServeHTTP")
+
+	proxy.ServeHTTP(w, r)
+
+}
+
+// func AAAotherFail_HandleByProxy(w http.ResponseWriter, r *http.Request, ex *Executive, subDomain string, theHost string, proxyName string, requestURI string) {
+
+// 	// wasHtml := strings.HasSuffix(proxyName, "/index.html")
+// 	// _ = wasHtml
+// 	url, err := url.Parse(proxyName + requestURI)
+// 	if err != nil {
+// 		fmt.Println("url.Parse error ", proxyName)
+// 		http.Error(w, "url.Parse "+proxyName, 500)
+// 		return
+// 	}
+
+// 	// r.URL.Path = requestURI
+// 	r.RequestURI = requestURI
+
+// 	// proxy := httputil.NewSingleHostReverseProxy(url)
+// 	proxy := &httputil.ReverseProxy{
+// 		Rewrite: func(r *httputil.ProxyRequest) {
+// 			r.SetURL(url)
+// 			r.Out.Host = r.In.Host // if desired
+// 		},
+// 	}
+// 	proxy.ServeHTTP(w, r)
+
+// }
+
+func AtwHandleByProxy(w http.ResponseWriter, r *http.Request, ex *Executive, subDomain string, theHost string, proxyName string, requestURI string) {
+
+	urlString := proxyName + requestURI
+	wasHtml := strings.HasSuffix(urlString, "/index.html")
+
+	// url, err := url.Parse(urlString)
+	// if err != nil {
+	// 	fmt.Println("url.Parse error ", urlString)
+	// 	http.Error(w, "url.Parse "+urlString, 500)
+	// 	return
+
+	//proxy := httputil.NewSingleHostReverseProxy(url)
+	// proxy := &httputil.ReverseProxy{
+	// 	Rewrite: func(r *httputil.ProxyRequest) {
+	// 		r.SetURL(url)
+	// 		r.Out.Host = r.In.Host // if desired
+	// 	},
+	// }
+	// proxy.ServeHTTP(w, r)
+
+	// it's a static file. Just do a get.
+	// resp, err := http.Get(urlString)
+	newRequest, err := http.NewRequest("GET", urlString, nil)
+	if err != nil {
+		fmt.Println("http.Get error ", urlString)
+		http.Error(w, "http.Get "+urlString, 500)
+		return
+	}
+	// copy headers
+	for key, val := range r.Header {
+		for i := 0; i < len(val); i++ {
+			newRequest.Header.Add(key, val[i])
+		}
+	}
+	if wasHtml {
+		newRequest.Header.Add("Accept", "text/html")
+		// 	newRequest.Header.Del("Accept-Encoding")
+	}
+	resp, err := http.DefaultClient.Do(newRequest)
+	if err != nil {
+		fmt.Println("http.Get ", urlString)
+		http.Error(w, "http.Get "+urlString, 500)
+		return
+	}
+
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body) // what if it's huge?
+	if err != nil {
+		fmt.Println("http.Get io.ReadAllerror ", urlString)
+		http.Error(w, "http.Get io.ReadAll "+urlString, 500)
+		return
+	}
+	// if wasHtml {
+	// 	resp.Header.Set("Content-Type", "text/html")
+	// }
+	fmt.Println("subdomain Content-Type ", r.Header.Get("Content-Type"), " for ", urlString)
+	w.Header().Set("Content-Type", r.Header.Get("Content-Type"))
+	w.Header().Set("Content-Encoding", resp.Header.Get("Content-Encoding"))
+	if wasHtml {
+		w.Header().Set("Content-Type", "text/html")
+	}
+	// if wasHtml {
+	// 	fmt.Println("subdomain body ", string(body))
+	// }
+	w.Write(body)
+}
 
 func StartAServer(name string, personPubk string) {
 	c := monitor_pod.ThingContext{}
@@ -191,12 +341,15 @@ func (api ApiHandler) ServeMakeToken(w http.ResponseWriter, req *http.Request) {
 		fmt.Println("found saved token ", result.KnotFreeTokenPayload.JWTID, result.IpAddress, result.ExpirationTime)
 		gottokens = append(gottokens, &result)
 	}
+	foundPrevious := false
+	previousJtid := ""
 	if len(gottokens) > 0 {
+		foundPrevious = true
 		sort.Slice(gottokens, func(i, j int) bool {
 			return gottokens[i].ExpirationTime > gottokens[j].ExpirationTime
 		})
 		threeMonths := uint32(60 * 60 * 24 * 90)
-		if gottokens[0].ExpirationTime > (uint32(time.Now().Unix()) + threeMonths) {
+		if false && gottokens[0].ExpirationTime > (uint32(time.Now().Unix())+threeMonths) {
 			// we have a token that's good for 3 months
 			// return it
 			nonce := gottokens[0].JWTID
@@ -205,7 +358,9 @@ func (api ApiHandler) ServeMakeToken(w http.ResponseWriter, req *http.Request) {
 				*tokenRequest, nonce, clientPublicKey)
 			return
 		}
+		previousJtid = gottokens[0].JWTID // use the same one
 	}
+	// else upgrade it.
 
 	now := time.Now().Unix()
 	numberOfMinutesPassed := (now - bootTimeSec) / 6 // now it's 10 sec
@@ -225,7 +380,11 @@ func (api ApiHandler) ServeMakeToken(w http.ResponseWriter, req *http.Request) {
 	payload := tokens.KnotFreeTokenPayload{}
 
 	payload.Issuer = tokens.GetPrivateKeyPrefix(0) //"_9sh"
-	payload.JWTID = tokens.GetRandomB36String()
+	if foundPrevious {
+		payload.JWTID = previousJtid
+	} else {
+		payload.JWTID = tokens.GetRandomB36String()
+	}
 	nonce := payload.JWTID
 	payload.ExpirationTime = uint32(time.Now().Unix()) + 60*60*24*90 // 3 months
 	payload.Pubk = clientPublicKey
@@ -265,13 +424,23 @@ func (api ApiHandler) ServeMakeToken(w http.ResponseWriter, req *http.Request) {
 		saved_token := &SavedToken{}
 		saved_token.KnotFreeTokenPayload = payload
 		saved_token.IpAddress = remoteAddr
-		result, err := saved_tokens.InsertOne(context.TODO(), saved_token)
+		// filter is: bson.D{{Key: "ip", Value: remoteAddr}}
+		if foundPrevious {
+			// replace the old one
+			_, err = saved_tokens.ReplaceOne(context.TODO(), filter, saved_token)
+			fmt.Println("saved_tokens ReplaceOne err", err)
+		} else {
+			// insert a new one
+			_, err = saved_tokens.InsertOne(context.TODO(), saved_token)
+			fmt.Println("saved_tokens InsertOne err", err)
+		}
+
 		if err != nil {
+			fmt.Println("saved_tokens insert/replace err", err.Error())
 			BadTokenRequests.Inc()
-			http.Error(w, err.Error(), 500)
+			// too late for this http.Error(w, err.Error(), 500)
 			return
 		}
-		_ = result
 	}
 }
 
