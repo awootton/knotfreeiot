@@ -488,7 +488,7 @@ func ExampleToJSON() {
 	_ = err
 
 	//  GetIPV6Option
-	fmt.Println(cmd.GetIPV6Option())
+	// fmt.Println(cmd.GetIPV6Option())
 
 	// Output: [P,destaddr,sourceaddr,"some data",AAAA,=IAENuIWjAAAAAIouA3BzNA,option1,test,option2,"На берегу пустынных волн",z,=__8AAAAAAAAAq83v]
 	// [32 1 13 184 133 163 0 0 0 0 138 46 3 112 115 52]
@@ -562,12 +562,12 @@ func TestForZombies(t *testing.T) {
 		t.Errorf("got %v, want %v", got, want)
 	}
 
-	val = cmd.GetIPV6Option()
-	got = string(val)
-	want = ""
-	if got != want {
-		t.Errorf("got %v, want %v", got, want)
-	}
+	// val = cmd.GetIPV6Option()
+	// got = string(val)
+	// want = ""
+	// if got != want {
+	// 	t.Errorf("got %v, want %v", got, want)
+	// }
 
 	var bb bytes.Buffer
 	bb.Reset()

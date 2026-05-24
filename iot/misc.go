@@ -265,6 +265,8 @@ var tokensServed int64 = 0
 
 func (api ApiHandler) ServeMakeToken(w http.ResponseWriter, req *http.Request) {
 
+	// ?? w.Header().Set("Access-Control-Allow-Origin", "*")
+
 	if bootTimeSec == 0 {
 		bootTimeSec = time.Now().Unix()
 	}

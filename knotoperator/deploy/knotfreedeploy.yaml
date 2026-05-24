@@ -21,7 +21,8 @@ spec:
       containers:
       - name: golang
         imagePullPolicy: Always
-        image: gcr.io/fair-theater-238820/knotfreeserver 
+        # image: gcr.io/fair-theater-238820/knotfreeserver 
+        image: docker.io/alanwootton2/knotfreeserver 
         command: ["/knotfreeiot/manager"] # ["sleep","9999999"] # ["/go/bin/linux_386/knotfreeiot"] 
         readinessProbe:
           httpGet:

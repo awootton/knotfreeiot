@@ -47,6 +47,8 @@ func main() {
 		monitor_pod.ServeGetTime(token, &c)
 	}
 
+	monitor_pod.PublishTestTopic(token)
+
 	for {
 		fmt.Println("in monitor_pod, calling ReplaceTempInF ")
 		monitor_pod.ReplaceTempInF()
@@ -59,8 +61,11 @@ func Deploy(TARGET_CLUSTER string) {
 	tokens.LoadPrivateKeys("~/atw/privateKeys4.txt")
 	TOKEN := tokens.GetImpromptuGiantToken() // 256k connections is GiantX32
 
-	kubectl.K("cd ../../;docker build -f DockerfileMonitor -t  gcr.io/fair-theater-238820/monitor_pod .")
-	kubectl.K("cd ../../;docker push gcr.io/fair-theater-238820/monitor_pod")
+	// xxx kubectl.K("cd ../../;docker build -f DockerfileMonitor -t  gcr.io/fair-theater-238820/monitor_pod .")
+	// xxx kubectl.K("cd ../../;docker push gcr.io/fair-theater-238820/monitor_pod")
+
+	kubectl.K("cd ../../;docker build -f DockerfileMonitor -t  docker.io/alanwootton2/monitor_pod .")
+	kubectl.K("cd ../../;docker push docker.io/alanwootton2/monitor_pod")
 
 	data, _ := os.ReadFile("../../monitor_pod/deploy.yaml")
 	sdata := strings.ReplaceAll(string(data), "__TARGET_CLUSTER__", TARGET_CLUSTER)
@@ -72,7 +77,7 @@ func Deploy(TARGET_CLUSTER string) {
 	kubectl.K("kubectl apply -f dummy.yaml")
 }
 
-// Copyright 2022,2023 Alan Tracey Wootton
+// Copyright 2022,2023,2024 Alan Tracey Wootton
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by

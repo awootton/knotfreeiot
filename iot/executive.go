@@ -141,7 +141,7 @@ func MakeSimplestCluster(timegetter func() uint32, isTCP bool, aideCount int, su
 	ce := &ClusterExecutive{}
 	ce.isTCP = isTCP
 	if isTCP {
-		ce.currentPort = 9000
+		ce.currentPort = 19000
 	}
 	ce.timegetter = timegetter
 
@@ -189,7 +189,11 @@ func MakeSimplestCluster(timegetter func() uint32, isTCP bool, aideCount int, su
 			aide1.textAddress = ce.GetNextAddress()
 			aide1.mqttAddress = ce.GetNextAddress()
 			MakeTCPExecutive(aide1, aide1.tcpAddress)
-			MakeTextExecutive(aide1, aide1.textAddress)
+			if i == 0 {
+				MakeTextExecutive(aide1, "localhost:7465")
+			} else {
+				MakeTextExecutive(aide1, aide1.textAddress)
+			}
 			MakeHTTPExecutive(aide1, aide1.httpAddress)
 			// FIXME : MakeMQTTExecutive
 
@@ -303,6 +307,7 @@ func NewExecutive(sizeEstimate int, aname string, timegetter func() uint32, isGu
 	ex.ClusterStatsString = "none-yet"
 	ex.ce = ce
 
+	fmt.Println("executive channelToAnyAide", aname)
 	// why should the channel get behind?
 	ex.channelToAnyAide = make(chan packets.Interface, 1024)
 
@@ -327,7 +332,7 @@ func NewExecutive(sizeEstimate int, aname string, timegetter func() uint32, isGu
 func (ce *ClusterExecutive) GetNextAddress() string {
 
 	if ce.currentPort == 0 {
-		ce.currentPort = 9000
+		ce.currentPort = 19000
 	}
 	address := "localhost:" + strconv.FormatInt(int64(ce.currentPort), 10)
 	ce.currentPort++
@@ -680,7 +685,7 @@ func (ex *Executive) Heartbeat(now uint32) {
 
 		ex.Looker.Heartbeat(now)
 		lock.Lock()
-		log = append(log, "Looker done")
+		log = append(log, "Looker-done")
 		lock.Unlock()
 		// fmt.Println("Heartbeat Executive Looker done", ex.Name, ex.tcpAddress)
 
@@ -700,13 +705,15 @@ func (ex *Executive) Heartbeat(now uint32) {
 		lock.Lock()
 		log = append(log, "clients")
 		lock.Unlock()
+		startTime := time.Now()
 		for _, ci := range contactList {
 			// fmt.Println("Heartbeat client TOP", ci.GetKey().Sig())
 			ci.Heartbeat(now)
 			// fmt.Println("Heartbeat client DONE", ci.GetKey().Sig())
 		}
+		elapsed := strconv.FormatInt(time.Since(startTime).Milliseconds(), 10)
 		lock.Lock()
-		log = append(log, "done")
+		log = append(log, "done"+elapsed)
 		lock.Unlock()
 	}()
 	select {
@@ -830,7 +837,7 @@ func (ce *ClusterExecutive) WaitForActions() {
 		clusterStats.Stats = stats
 
 		for _, ex := range nodes {
-			PostClusterStats(&clusterStats, ex.GetHTTPAddress())
+			PostClusterStats(ex, &clusterStats, ex.GetHTTPAddress())
 		}
 	} else {
 		/// get them directly

@@ -32,8 +32,10 @@ var needtobuild = true
 var alsoDoLibra = false // are deprecating libra due to excessive disk usage.
 // var alsoStartMonitoring = true // once is enough //this is broken from being too old
 
-var buildReactAndCopy = true // true // todo: mount the react static files instead of baking them in the docker.
+// put me back var buildReactAndCopy = true // true // todo: mount the react static files instead of baking them in the docker.
 // TODO: better. redirect to s3 bucket with the files in it.? does this work?
+
+var buildReactAndCopy = true // false // DELETE ME
 
 // var TARGET_CLUSTER = "knotfree.io" // for monitor pod - NOT USED - deploy from monitor project please.
 
@@ -41,7 +43,7 @@ func main() {
 
 	fmt.Println("Starting ", time.Now())
 
-	isKind := false
+	// is mean isKind := false
 
 	kubectl.Quiet = false
 
@@ -50,14 +52,17 @@ func main() {
 	if err != nil {
 		fmt.Println("err quitting", err)
 	}
-	if strings.Contains(nodes, "kind-control-plane") {
-		isKind = true
-	}
+	_ = nodes
+	// if strings.Contains(nodes, "kind-control-plane") {
+	// 	isKind = true
+	// }
 
-	registry := "gcr.io/fair-theater-238820"
-	if isKind {
-		registry = "localhost:5000" // btw. isKind is broken
-	}
+	// registry := "gcr.io/fair- theater-238820" // see below
+	// if isKind {
+	// 	registry = "localhost:5000" // btw. isKind is broken
+	// }
+	// registry := "docker.io/alanwootton2" // TODO: make this a flag
+	registry := "alanwootton2" // TODO: make this a flag
 
 	kubectl.K("kubectl create ns knotspace")
 	kubectl.K("kubectl config set-context --current --namespace=knotspace")
@@ -67,8 +72,8 @@ func main() {
 	// 	TOKEN := tokens.GetImpromptuGiantToken() // 256k connections is GiantX32
 
 	// 	// wtf? hangs kubectl.K("cd ../../monitor_pod;go mod tidy")
-	// 	kubectl.K("cd ../../;docker build -f DockerfileMonitor -t  gcr.io/fair-theater-238820/monitor_pod .")
-	// 	kubectl.K("cd ../../;docker push gcr.io/fair-theater-238820/monitor_pod")
+	// 	kubectl.K("cd ../../;docker build -f DockerfileMonitor -t  gcr.io/fair- theater-238820/monitor_pod .")
+	// 	kubectl.K("cd ../../;docker push gcr.io/fair- theater-238820/monitor_pod")
 
 	// 	data, _ := os.ReadFile("../../monitor_pod/deploy.yaml")
 	// 	sdata := strings.ReplaceAll(string(data), "__TARGET_CLUSTER__", TARGET_CLUSTER)
@@ -120,7 +125,7 @@ func main() {
 	// previousPodNames += previousPodNames3
 
 	hh, _ := os.UserHomeDir()
-	//path2 := hh + "/atw/fair-theater-238820-firebase-adminsdk-uyr4z-63b4da8ff3.json"
+	//path2 := hh + "/atw/fair- theater-238820-firebase-adminsdk-uyr4z-63b4da8ff3.json"
 	//path1 := hh + "/atw/privateKeys4.txt"
 	dir := hh + "/atw"
 	kubectl.K("kubectl delete secret privatekeys4")
@@ -128,12 +133,13 @@ func main() {
 
 	//kubectl.K("kubectl apply -f knotfreedeploy.yaml")
 	data, _ := os.ReadFile("knotfreedeploy.yaml")
-	sdata := strings.ReplaceAll(string(data), "gcr.io/fair-theater-238820", registry)
+	// sdata := strings.ReplaceAll(string(data), "gcr.io/fair- theater-238820", registry)
+	sdata := string(data) // strings.ReplaceAll(string(data), "XXXXXXXXXXXXXXXalanwootton2/knotfreeserver", registry) // why?
 	kubectl.K8s("kubectl apply -f -", sdata)
 
 	//kubectl.K("kubectl apply -f operator.yaml")
 	// data, _ = ioutil.ReadFile("operator.yaml")
-	// sdata = strings.ReplaceAll(string(data), "gcr.io/fair-theater-238820", registry)
+	// sdata = strings.ReplaceAll(string(data), "gcr.io/fair- theater-238820", registry)
 	// if startTheOperator {
 	// 	kubectl.K8s("kubectl apply -f -", sdata)
 	// }
@@ -241,18 +247,5 @@ func buildTheKnotFreeMain(registry string) {
 	kubectl.K("docker push " + registry + "/knotfreeserver")
 	// digest, _ = kubectl.K8s("docker inspect --format='{{.RepoDigests}}' "+registry+"/knotfreeserver", "")
 	// fmt.Println("digest of knotfreeserver 3", digest)
+	fmt.Println("buildTheKnotFreeMain done")
 }
-
-// func buildTheOperator(registry string) {
-// 	digest, _ := kubectl.K8s("docker inspect --format='{{.RepoDigests}}' "+registry+"/knotoperator", "")
-// 	fmt.Println("digest of knotoperator 1", digest)
-// 	//kubectl.K("cd ../;ls -lah")
-// 	// docker build --file knotoperator/Dockerfile .
-// 	kubectl.K("cd ../../;docker build --file knotoperator/Dockerfile -t " + registry + "/knotoperator .")
-// 	//kubectl.K("cd ../;docker build -t " + registry + "/knotoperator .")
-// 	digest, _ = kubectl.K8s("docker inspect --format='{{.RepoDigests}}' "+registry+"/knotoperator", "")
-// 	fmt.Println("digest of knotoperator 2", digest)
-// 	kubectl.K("docker push " + registry + "/knotoperator")
-// 	digest, _ = kubectl.K8s("docker inspect --format='{{.RepoDigests}}' "+registry+"/knotoperator", "")
-// 	fmt.Println("digest of knotoperator 3", digest)
-// }

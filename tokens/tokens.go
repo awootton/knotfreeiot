@@ -565,7 +565,7 @@ func GetImpromptuGiantToken() string {
 	LoadPublicKeys()
 	LoadPrivateKeys("~/atw/privateKeys4.txt")
 
-	payload := GetSampleBigToken(uint32(time.Now().Unix()), "knotfree.net/mqtt")
+	payload := GetSampleBigToken(uint32(time.Now().Unix()), "knotfree.io/mqtt")
 	signingKey := GetPrivateKeyWhole(0)
 	bbb, err := MakeToken(payload, []byte(signingKey))
 	if err != nil {

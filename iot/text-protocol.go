@@ -170,7 +170,7 @@ func textConnection(tcpConn *net.TCPConn, ex *Executive) {
 		}
 		//fmt.Println("waiting for packet")
 		str, err := lineReader.ReadString('\n')
-		//fmt.Println("got line ", str)
+		fmt.Println("text-protocol got line ", str)
 		if len(str) > 0 {
 			str = str[0 : len(str)-1]
 		}

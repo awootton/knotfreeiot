@@ -9,3 +9,4 @@ this does the rest of the cluster that is not an operator.
 
 run apply_namespace.go
 
+Sorry about the confusion.

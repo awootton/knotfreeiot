@@ -259,106 +259,86 @@ func (superMux *SuperMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if !strings.HasPrefix(theHost, "10.") {
 		fmt.Println("ServeHTTP from host ", theHost)
 	}
-	{
+	{ // TODO: use a map.
 		isApiRequest := strings.HasPrefix(r.RequestURI, "/api1/")
 		isApiRequest = isApiRequest || r.RequestURI == "/mqtt"
 		isApiRequest = isApiRequest || r.RequestURI == "/healthz"
 		isApiRequest = isApiRequest || r.RequestURI == "/livez"
-
 		if isApiRequest {
 			superMux.sub.ServeHTTP(w, r)
 			return
 		}
 	}
-	//let's lose the port
-	hh := strings.Split(theHost, ":")
-	theHost = hh[0]
 
-	// should we just do all the TLDs here?
-	if strings.Contains(theHost, ".xyz") {
-		theHost = strings.ReplaceAll(theHost, ".xyz", "_xyz.knotfree.net")
-	}
-	if strings.Contains(theHost, ".iot") {
-		theHost = strings.ReplaceAll(theHost, ".iot", "_iot.knotfree.net")
-	}
-	if strings.Contains(theHost, ".vr") {
-		theHost = strings.ReplaceAll(theHost, ".vr", "_vr.knotfree.net")
-	}
-	if strings.Contains(theHost, ".pod") {
-		theHost = strings.ReplaceAll(theHost, ".pod", "_pod.knotfree.net")
-	}
-	if strings.Contains(theHost, ".test") { // for testing only - pretend .test is .iot
-		theHost = strings.ReplaceAll(theHost, ".test", "_iot.knotfree.net")
-	}
-
+	// Let's do this the other way arounnd.
+	// we will subdomain ALL the TLDs except knotfree hosts which are literally knotfree.xxx
 	domainParts := strings.Split(theHost, ".")
-	// lose the tld
-	tld := domainParts[len(domainParts)-1]
-	domainParts = domainParts[0 : len(domainParts)-1]
-	_ = tld
-	// if len(domainParts) ==  { // dotted quads don't work for what's coming.
-	// 	// fmt.Println("unknown host-dotted", r.Host)
-	// 	// http.NotFound(w, r)
-	// 	// return
-	// 	superMux.sub.ServeHTTP(w, r)
+	{ // lose the port
+		hh := strings.Split(domainParts[len(domainParts)-1], ":")
+		domainParts[len(domainParts)-1] = hh[0]
+	}
+	if len(domainParts) >= 2 {
+		if domainParts[len(domainParts)-2] == "knotfree" {
+			// remove the knotfree
+			domainParts = domainParts[0 : len(domainParts)-2]
+			// if there's nothing before the knotfree.xxx or its www then let it fail in the api.
+			// TODO: maybe we don't need the isApiRequest checks.
+			if len(domainParts) == 0 || (len(domainParts) == 1 && domainParts[0] == "www") {
+				superMux.sub.ServeHTTP(w, r)
+				return
+			}
+		}
+	}
+
+	subDomain := strings.Join(domainParts, "_")
+
+	HandleHttpSubdomainRequest(w, r, superMux.ce.Aides[0], subDomain, theHost)
+
+	//}
+	// else if false && len(domainParts) > 2 {
+
+	// TODO: cleanup. If we're not using this, remove it.
+	// 	// sub sub domain request invokes the lookup api on the name. Discontinued so users can use subdomains.
+	// 	// eg get option a get-unix-time_iot knotfree
+	// 	// we don't need the host
+	// 	host := domainParts[len(domainParts)-1] // eg knotfree
+	// 	_ = host
+	// 	// this is the sub sub domain case and the command goes to the api of the subscription
+	// 	// this will go to the subscription aka name api
+	// 	args := domainParts[0 : len(domainParts)-2] // eg get option a
+	// 	domainParts = domainParts[len(domainParts)-2:]
+	// 	subDomain := domainParts[0]
+	// 	// subSubDomain := domainParts[0]
+	// 	//
+	// 	fmt.Println("sub sub domain ", subDomain, args)
+	// 	command := strings.Join(args, " ")
+	// 	cmd := packets.Lookup{}
+	// 	cmd.Address.FromString(subDomain)
+	// 	cmd.SetOption("cmd", []byte(command))
+	// 	// TODO: handle encoded commands.
+
+	// 	// send it
+	// 	reply, err := superMux.ce.PacketService.GetPacketReply(&cmd)
+	// 	if err != nil {
+	// 		fmt.Println("sub sub domain err", err)
+	// 		http.NotFound(w, r)
+	// 		return
+	// 	}
+	// 	thePacket, ok := reply.(*packets.Send)
+	// 	if !ok {
+	// 		fmt.Println("sub sub domain not a send packet")
+	// 		http.NotFound(w, r)
+	// 		return
+	// 	}
+	// 	// fmt.Println("sub sub domain reply", string(thePacket.Payload))
+	// 	w.Write(thePacket.Payload)
 	// 	return
+
 	// }
-
-	// eg [knotfree net]
-	// eg [subdomain knotfree net]
-	// eg [subdomain knotfree io]
-	// fmt.Println("serving domainParts ", domainParts)
-
-	if len(domainParts) == 2 && domainParts[0] != "www" {
-		// we have a subdomain
-		subDomain := domainParts[0]
-
-		HandleHttpSubdomainRequest(w, r, superMux.ce.Aides[0], subDomain, theHost)
-
-		return
-
-	} else if len(domainParts) > 2 {
-
-		// sub sub domain request invokes the lookup api on the name.
-		// eg get option a get-unix-time_iot knotfree
-		// we don't need the host
-		host := domainParts[len(domainParts)-1] // eg knotfree
-		_ = host
-		// this is the sub sub domain case and the command goes to the api of the subscription
-		// this will go to the subscription aka name api
-		args := domainParts[0 : len(domainParts)-2] // eg get option a
-		domainParts = domainParts[len(domainParts)-2:]
-		subDomain := domainParts[0]
-		// subSubDomain := domainParts[0]
-		//
-		fmt.Println("sub sub domain ", subDomain, args)
-		command := strings.Join(args, " ")
-		cmd := packets.Lookup{}
-		cmd.Address.FromString(subDomain)
-		cmd.SetOption("cmd", []byte(command))
-		// TODO: handle encoded commands.
-
-		// send it
-		reply, err := superMux.ce.PacketService.GetPacketReply(&cmd)
-		if err != nil {
-			fmt.Println("sub sub domain err", err)
-			http.NotFound(w, r)
-			return
-		}
-		thePacket, ok := reply.(*packets.Send)
-		if !ok {
-			fmt.Println("sub sub domain not a send packet")
-			http.NotFound(w, r)
-			return
-		}
-		// fmt.Println("sub sub domain reply", string(thePacket.Payload))
-		w.Write(thePacket.Payload)
-		return
-
-	} //else {
+	//else {
 	// it's not a subdomain pass it to the api.
 	//}
-	superMux.sub.ServeHTTP(w, r)
+	// superMux.sub.ServeHTTP(w, r)
 }
 
 func (api ApiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
@@ -437,13 +417,14 @@ func (api ApiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	path := strings.Split(req.RequestURI, "?")[0]
 	// switch here? TODO: switch
 	// mo., really. make this into a switch statement
-	if path == "/api1/getallstats" {
+	switch path {
+	case "/api1/getallstats":
 
 		stats := api.ce.Aides[0].ClusterStatsString
 
 		w.Write([]byte(stats))
 
-	} else if path == "/api1/getstats" {
+	case "/api1/getstats":
 
 		stats := api.ce.Aides[0].GetExecutiveStats()
 		bytes, err := json.Marshal(stats)
@@ -452,11 +433,11 @@ func (api ApiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		}
 		w.Write(bytes)
 
-	} else if path == "/api1/getToken" {
+	case "/api1/getToken":
 
 		api.ServeMakeToken(w, req)
 
-	} else if path == "/api1/getPublicKey" {
+	case "/api1/getPublicKey":
 
 		//sss := base64.RawURLEncoding.EncodeToString([]byte(tokens.FindPublicKey("yRst")))
 
@@ -467,13 +448,13 @@ func (api ApiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		//w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Write([]byte(sss))
 
-	} else if path == "/api1/getGiantPassword" {
+	case "/api1/getGiantPassword":
 
 		sss := tokens.MakeRandomPhrase(14)
 
 		w.Write([]byte(sss))
 
-	} else if path == "/api1/help" {
+	case "/api1/help":
 
 		//	w.Header().Set("Access-Control-Allow-Origin", "*")
 
@@ -488,15 +469,15 @@ func (api ApiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 		w.Write([]byte(sss))
 
-	} else if path == "/healthz" {
+	case "/healthz":
 
 		w.Write([]byte("ok"))
 
-	} else if path == "/livez" {
+	case "/livez":
 
 		w.Write([]byte("ok"))
 
-	} else if path == "/api1/getNameStatus" {
+	case "/api1/getNameStatus":
 
 		// don't use this. use the nameService
 		name := req.URL.Query().Get("name")
@@ -517,7 +498,7 @@ func (api ApiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		str := string(val.(*packets.Send).Payload)
 		w.Write([]byte(str))
 
-	} else if path == "/api1/getNames" {
+	case "/api1/getNames":
 
 		//  see nameServices.go
 
@@ -609,11 +590,11 @@ func (api ApiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		sealedb64 := base64.RawURLEncoding.EncodeToString(sealed)
 		w.Write([]byte(sealedb64)) // agile rules say no binary
 
-	} else if path == "/api1/nameService" {
+	case "/api1/nameService":
 
 		api.NameService(w, req)
 
-	} else { // default:
+	default: // default:
 		//  This might be unnecessary but I want to see the path if it fails.
 		if req.RequestURI == "/index.html" || req.RequestURI == "/" {
 			indexHtml := getIndexHtml()

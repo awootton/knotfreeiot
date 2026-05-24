@@ -17,6 +17,7 @@ package iot_test
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/awootton/knotfreeiot/iot"
@@ -27,6 +28,7 @@ import (
 // One connection, one subscription.
 var sampleToken1 = `eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJleHAiOjE2OTc5MzE2NjMsImlzcyI6Il85c2giLCJqdGkiOiIxMjM0NTYiLCJpbiI6MjAsIm91dCI6MjAsInN1IjoxLCJjbyI6MSwidXJsIjoia25vdGZyZWUubmV0In0.W6dYgJvedMuolrYXCYzQauaAynu80bmX3Qtq5lSACGxvaro6tqttnGozxXBDVzHO5IYzut9vb5Yi9i-ThCwfBA`
 
+// too slow
 func TestSubscriptionOverrun(t *testing.T) {
 
 	tokens.LoadPublicKeys()
@@ -93,7 +95,12 @@ func TestSubscriptionOverrun(t *testing.T) {
 	fmt.Println("got", got)
 	fmt.Println("subscriptions. aide1", aide1.GetExecutiveStats().Subscriptions*float64(aide1.GetExecutiveStats().Limits.Subscriptions))
 
-	got, _ = c1.(*testContact).popResultAsString()
+	for {
+		got, _ = c1.(*testContact).popResultAsString()
+		if strings.HasPrefix(got, "[P,") {
+			break
+		} // skip the suback
+	}
 	want = `[P,=jZae727K08KaOmKSgOaGzww_XVqGr_PK,ping," BILLING ERROR 2.9 subscriptions > 2",error," BILLING ERROR 2.9 subscriptions > 2"]`
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
@@ -103,6 +110,7 @@ func TestSubscriptionOverrun(t *testing.T) {
 	_ = want
 }
 
+// too slow
 func TestContactTimeout(t *testing.T) {
 
 	tokens.LoadPublicKeys()
@@ -194,6 +202,7 @@ func TestContactTimeout(t *testing.T) {
 
 }
 
+// too slow, it's a demo of the billing system.
 func TestConnectionsOver(t *testing.T) {
 
 	tokens.LoadPublicKeys()

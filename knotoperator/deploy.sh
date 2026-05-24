@@ -2,6 +2,9 @@
 
 this is abandoned? 
 
+we're not using fair-theater-238820/knotfreeserver anymore, but knotfreeserver is the name of the docker image we are using.
+
+
 # run this locally to start the cluster
 
 #!/bin/sh

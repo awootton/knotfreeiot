@@ -37,7 +37,8 @@ func serveBillingCommand(p *packets.Send, billingAccumulator *BillingAccumulator
 	// fmt.Println(" billing channel has command", command)
 	// TODO: make this like the monnitor_pod and lookmsg
 	reply := ""
-	if command == "get max" {
+	switch command {
+	case "get max":
 
 		bytes, err := json.Marshal(billingAccumulator.Max)
 		if err != nil {
@@ -46,7 +47,7 @@ func serveBillingCommand(p *packets.Send, billingAccumulator *BillingAccumulator
 			reply = string(bytes)
 		}
 
-	} else if command == "get stats" {
+	case "get stats":
 		current := &tokens.KnotFreeContactStats{}
 		billingAccumulator.GetStats(seconds, current)
 		bytes, err := json.Marshal(current)
@@ -55,13 +56,13 @@ func serveBillingCommand(p *packets.Send, billingAccumulator *BillingAccumulator
 		} else {
 			reply = string(bytes)
 		}
-	} else if command == "about" {
+	case "about":
 		reply = "billing_v.0.1.2"
-	} else if command == "get pubk" {
+	case "get pubk":
 		reply = "-none"
-	} else if command == "get admin hint" {
+	case "get admin hint":
 		reply = "-none"
-	} else { // if command == "help"
+	default: // if command == "help"
 
 		reply += "[get stats] current usage numbers🔓\n"
 		reply += "[get max] maximum allowed numbers🔓\n"

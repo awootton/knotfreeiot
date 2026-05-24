@@ -36,6 +36,25 @@ var Quiet = true
 // SuperQuiet = Don't even show the stdout
 var SuperQuiet = false
 
+// A command line utility in go.
+func Execute(command string, input string) (string, error) {
+	return K8s(command, input)
+}
+
+// A command line utility in go.
+func Exec(command string) {
+	if !Quiet {
+		fmt.Println(">" + command)
+	}
+	out, err := K8s(command, "")
+	if err != nil {
+		fmt.Println(">ERROR:", err, out)
+	}
+	if !Quiet {
+		fmt.Println("", out)
+	}
+}
+
 // For doing kubernetes cluster namespace configuration using the
 // command line technique. There is also a better technique using go-client.
 

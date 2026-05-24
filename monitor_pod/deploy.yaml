@@ -21,15 +21,16 @@ spec:
       containers:
       - name: golang
         imagePullPolicy: Always
-        image: gcr.io/fair-theater-238820/monitor_pod 
+        # xxx image: gcr.io/fair-theater-238820/monitor_pod 
+        image: docker.io/alanwootton2/monitor_pod 
         command: ["/knotfreeiot/manager"] # ["sleep", "999999"] # ["/knotfreeiot/manager"]  # see the Dockerfile
         resources:
           limits:
-            cpu: 125m  #INSERT_CPU_NEEDED_HERE was 500m
-            memory: 500Mi #INSERT_MEM_NEEDED_HERE was 800Mi
-          #requests:
-            #cpu: 250m  #INSERT_CPU_NEEDED_HERE
-            #memory: 800Mi #INSERT_MEM_NEEDED_HERE
+            cpu: 125m  # was 500m
+            memory: 500Mi # was 800Mi
+          requests:
+            cpu: 125m
+            memory: 500Mi
         env:
         - name: NAME
           value: "monitor-pod"

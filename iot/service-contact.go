@@ -59,7 +59,7 @@ func (sc *ServiceContact) GetPacketReply(msg packets.Interface) (packets.Interfa
 func (sc *ServiceContact) GetPacketReplyLonger(msg packets.Interface, timeout time.Duration) (packets.Interface, error) {
 	returnChannel := make(chan packets.Interface)
 	done := make(chan bool)
-	// this termnates when we close done.
+	// this terminates when we close done.
 	// it might close done if error
 	go sc.SendPacket(msg, returnChannel, done)
 
@@ -72,6 +72,43 @@ func (sc *ServiceContact) GetPacketReplyLonger(msg packets.Interface, timeout ti
 	case <-time.After(timeout):
 		close(done)
 		return nil, fmt.Errorf("ServiceContact timed out waiting for reply")
+	}
+}
+
+// GetPacketGroupReplyLonger watches for an 'ind' or index key and
+// collects packets until an 'of' key says we're done
+// TODO:we have no tests for this.
+func (sc *ServiceContact) GetPacketGroupReplyLonger(msg packets.Interface, timeout time.Duration) ([]packets.Interface, error) {
+	results := make([]packets.Interface, 0, 1)
+	returnChannel := make(chan packets.Interface)
+	done := make(chan bool)
+	// this terminates when we close done.
+	// it might close done if error
+	go sc.SendPacket(msg, returnChannel, done)
+
+	for {
+		select {
+		case <-done:
+			return nil, fmt.Errorf("ServiceContact failed prematurely")
+		case packet := <-returnChannel:
+			results = append(results, packet)
+			_, ok := packet.GetOption("ind")
+			if !ok {
+				close(done)
+				return results, nil
+			}
+			// todo: make sure placement in array matches 'ind'
+			_, ok = packet.GetOption("of")
+			// TODO: make sure size of array marches 'of/
+			if ok {
+				close(done)
+				return results, nil
+			}
+
+		case <-time.After(timeout):
+			close(done)
+			return nil, fmt.Errorf("ServiceContact timed out waiting for reply")
+		}
 	}
 }
 
@@ -95,7 +132,7 @@ func (sc *ServiceContact) SendPacket(msg packets.Interface, returnChannel chan p
 		return
 	}
 
-	fmt.Println("ServiceContact SendPacket ", msg.Sig())
+	// fmt.Println("ServiceContact SendPacket ", msg.Sig())
 
 	sc.key2channelLock.Lock()
 	sc.key2channel[key] = returnChannel

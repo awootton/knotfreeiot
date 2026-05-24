@@ -643,36 +643,77 @@ func TestUrl(t *testing.T) {
 
 	iot.InitMongEnv()
 	iot.InitIotTables()
+	// note: the .com and .test tlds are in /etc/hosts
+	iot.StartAServer("get-unix-time", "")            // start a thing server
+	iot.StartAServer("get-unix-time_iot", "")        // start a thing server
+	iot.StartAServer("subkey_get-unix-time_iot", "") // start a thing server
+	iot.StartAServer("get-unix-time_test", "")       // start a thing server
+	// /etc/hosts must have these entries:
 
 	// note: the .com and .test tlds are in /etc/hosts
 
-	{ // a dns lookup with iot name like get-unix-time.iot
-		val := getVal(t, "http://get.option.a.get-unix-time.test:8085") // note: the .com and .test tlds must be in /etc/hosts
+	{ //  a dns lookup with iot name like get-unix-time.iot
+		// discontinued: val := getVal(t, "http://get.option.a.get-unix-time.test:8085") // note: the .com and .test tlds must be in /etc/hosts
+		// this is now like this:
+		command := "get option a"
+		uri := "http://knotfree.com:8085/api1/nameService?cmd=" + strings.ReplaceAll(command, " ", "%20")
+		uri += "&name=" + "get-unix-time"
+		val := getVal(t, uri) // note: the .com and .test tlds must be in /etc/hosts
 		fmt.Println("get.option.a", val)
 		assert.Equal(t, val, "216.128.128.195")
 	}
 
+	// NOTE: knotfree.com is 127.0.0.1 in /etc/hosts
 	{ // a regular api call
-		val := getVal(t, "http://knotlocal.com:8085/api1/getPublicKey")
+		val := getVal(t, "http://knotfree.com:8085/api1/getPublicKey")
 		fmt.Println("getPublicKey", val)
 		sss := base64.RawURLEncoding.EncodeToString(ce.PublicKeyTemp[:])
 		assert.Equal(t, val, sss) //"-muxcABH_pTsuNqT3yaYfQj-3krwM6XmEu47vTZLSHM")
 	}
-	iot.StartAServer("get-unix-time", "")     // start a thing server
-	iot.StartAServer("get-unix-time_iot", "") // start a thing server
-	{                                         // a device call
-		val := getVal(t, "http://get-unix-time.knotlocal.com:8085/get/pubk")
-		fmt.Println("pubk", val)
-		assert.Equal(t, val, "bht-Ka3j7GKuMFOablMlQnABnBvBeugvSf4CdFV3LXs")
-	}
+
+	// iot.StartAServer("get-unix-time", "")            // start a thing server
+	iot.StartAServer("get-unix-time_iot", "")        // start a thing server
+	iot.StartAServer("subkey_get-unix-time_iot", "") // start a thing server
+	iot.StartAServer("get-unix-time_test", "")       // start a thing server
+	// /etc/hosts must have these entries:
+
 	{ // a device call
-		val := getVal(t, "http://get-unix-time_iot.knotlocal.com:8085/get/pubk")
+		val := getVal(t, "http://get-unix-time.knotfree.com:8085/get/pubk")
 		fmt.Println("pubk", val)
 		assert.Equal(t, val, "bht-Ka3j7GKuMFOablMlQnABnBvBeugvSf4CdFV3LXs")
 	}
 
-	{ // a device call with iot name like get-unix-time.iot
+}
+
+func TestUrlFancy(t *testing.T) {
+
+	ce := makeClusterWithServiceContact()
+	_ = ce
+
+	iot.InitMongEnv()
+	iot.InitIotTables()
+
+	// note: the .com and .test tlds are in /etc/hosts
+	iot.StartAServer("get-unix-time", "")            // start a thing server
+	iot.StartAServer("get-unix-time_iot", "")        // start a thing server
+	iot.StartAServer("subkey_get-unix-time_iot", "") // start a thing server
+	iot.StartAServer("get-unix-time_test", "")       // start a thing server
+	// /etc/hosts must have these entries:
+
+	{ // a device call to get-unix-time_test
+		val := getVal(t, "http://get-unix-time.test.knotfree.com:8085/get/pubk") // note: the .com and .test tlds are in /etc/hosts
+		fmt.Println("pubk", val)
+		assert.Equal(t, val, "bht-Ka3j7GKuMFOablMlQnABnBvBeugvSf4CdFV3LXs")
+	}
+
+	{ // a device call to get-unix-time_test
 		val := getVal(t, "http://get-unix-time.test:8085/get/pubk") // note: the .com and .test tlds are in /etc/hosts
+		fmt.Println("pubk", val)
+		assert.Equal(t, val, "bht-Ka3j7GKuMFOablMlQnABnBvBeugvSf4CdFV3LXs")
+	}
+
+	{ // a device call
+		val := getVal(t, "http://get-unix-time.iot.knotfree.com:8085/get/pubk")
 		fmt.Println("pubk", val)
 		assert.Equal(t, val, "bht-Ka3j7GKuMFOablMlQnABnBvBeugvSf4CdFV3LXs")
 	}

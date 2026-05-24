@@ -6,8 +6,8 @@ The monitor pod is a deployment in the k8s that runs some clients like get-unix-
 
 ### howto: deploy
 ``` 
-docker build -t  gcr.io/fair-theater-238820/monitor_pod .	
-docker push gcr.io/fair-theater-238820/monitor_pod 
+docker build -t  docker.io/alanwootton2/monitor_pod .	
+docker push docker.io/alanwootton2/monitor_pod 
 
 kk apply -f deploy.yaml
 

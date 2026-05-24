@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/awootton/knotfreeiot/iot"
+	"github.com/awootton/knotfreeiot/monitor_pod"
 	"github.com/awootton/knotfreeiot/tokens"
 )
 
@@ -46,8 +47,8 @@ func main() {
 
 	theGuru := ce.Gurus[0]
 
-	fmt.Println("theGuru tcp", theGuru.GetTCPAddress())   // 9001
-	fmt.Println("theGuru http", theGuru.GetHTTPAddress()) // 9000
+	fmt.Println("theGuru tcp", theGuru.GetTCPAddress())   // 19001
+	fmt.Println("theGuru http", theGuru.GetHTTPAddress()) // 19000
 
 	// launch an aide using main.go
 
@@ -64,6 +65,8 @@ func main() {
 	theAide := ce.Aides[0]
 	fmt.Println("theAide tcp", theAide.GetTCPAddress())   // 8384
 	fmt.Println("theAide http", theAide.GetHTTPAddress()) // 8080
+
+	ce.WaitForActions() // force cluster status to go out, normally this is done by the k8s operator.
 
 	// time.Sleep(1 * time.Second)
 
@@ -82,6 +85,9 @@ func main() {
 		}
 
 	}()
+
+	token, _ := tokens.GetImpromptuGiantTokenLocal("", "")
+	monitor_pod.PublishTestTopic(token)
 
 	for {
 		now := getTime()

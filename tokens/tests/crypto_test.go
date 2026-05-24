@@ -20,6 +20,7 @@ import (
 	"golang.org/x/crypto/nacl/box"
 )
 
+// makeToken gettoken Get32xToken GetImpromptuGiantToken GetImpromptuGiantTokenLocal Get32xTokenLocal
 func TestGetGiantTokens(t *testing.T) {
 	fmt.Println("giant token ", tokens.GetImpromptuGiantToken())
 	//fmt.Println("giant local ", tokens.GetImpromptuGiantTokenLocal(""))

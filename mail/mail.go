@@ -6,6 +6,8 @@ import (
 	"strings"
 )
 
+// this is just an experiment. not part of the project. sorry.
+
 func makeEmailMessage(from string, to []string, subject string, body string) string {
 	// 	From: someone@example.com
 	// To: someone_else@example.com

@@ -51,13 +51,13 @@ type Interface interface {
 type AddressType byte
 
 const (
-	// BinaryAddress is whan an AddressUnion is 24 bytes of bits
+	// BinaryAddress is when an AddressUnion is 24 bytes of bits
 	BinaryAddress = AddressType(0)
-	// HexAddress is whan an AddressUnion is 48 bytes of hex bytes
+	// HexAddress is when an AddressUnion is 48 bytes of hex bytes
 	HexAddress = AddressType('$')
-	// Base64Address is whan an AddressUnion is 32 bytes of base64 bytes
+	// Base64Address is when an AddressUnion is 32 bytes of base64 bytes
 	Base64Address = AddressType('=')
-	// Utf8Address is whan an AddressUnion is a utf-8 bytes. The default
+	// Utf8Address is when an AddressUnion is a utf-8 bytes. The default
 	Utf8Address = AddressType(' ')
 )
 
@@ -253,7 +253,7 @@ type Unsubscribe struct {
 // Lookup returns information on the dest to source.
 // Can be used to verify existance of an endpoint prior to subscribe.
 // If the topic metadata has one subscriber and an ipv6 address then this is the same as a dns lookup.
-// there will be commands to add and remove the name in the options under the key "cmd"
+// there will be commands to add and remove the name in the options under the key "cmd" in the options
 // No command means just a lookup.
 type Lookup struct {
 	MessageCommon
@@ -305,21 +305,12 @@ type Universal struct {
 	Args [][]byte
 }
 
-// GetIPV6Option is an example of using options
-func (p *PacketCommon) GetIPV6Option() []byte {
-	got, ok := p.GetOption("AAAA")
-	if !ok {
-		got = []byte("")
-	}
-	return got
-}
-
 // FillPacket construct a packet from supplied Universal
 func FillPacket(uni *Universal) (Interface, error) {
 
 	switch uni.Cmd {
 	case 'P': // Send aka Publish
-		p := new(Send)
+		p := &Send{}
 		err := p.Fill(uni)
 		if err != nil {
 			return nil, err
@@ -847,6 +838,8 @@ func ReadArrayOfByteArray(reader io.Reader) ([][]byte, error) {
 		return nil, errors.New("packet too long for this reality")
 	}
 
+	// fmt.Println("Packet total ", total)
+
 	// now we can read the rest all at once
 	bytes := make([]uint8, total) // alloc the base array
 	//n, err = reader.Read(bytes)   // read it. timeout?
@@ -889,7 +882,7 @@ func (str *Universal) Write(writer io.Writer) error {
 func WriteArrayOfByteArray(args [][]byte, writer io.Writer) error {
 
 	if len(args) >= 128 {
-		return errors.New("Too many args")
+		return errors.New("args>=128")
 	}
 	oneByte := []uint8{0}
 	oneByte[0] = uint8(len(args))

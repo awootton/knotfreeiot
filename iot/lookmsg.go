@@ -58,7 +58,7 @@ type lookupCallContext struct {
 func processLookup(me *LookupTableStruct, bucket *subscribeBucket, lookmsg *lookupMessage) {
 
 	if !me.isGuru {
-		fmt.Println("processLookup PushUp", me.ex.Name)
+		// fmt.Println("processLookup PushUp", me.ex.Name)
 		err := bucket.looker.PushUp(lookmsg.p, lookmsg.topicHash)
 		if err != nil {
 			fmt.Println("processLookup PushUp error: ", err)
@@ -66,7 +66,7 @@ func processLookup(me *LookupTableStruct, bucket *subscribeBucket, lookmsg *look
 		return
 	}
 
-	fmt.Println("processLookup TOP:", me.ex.Name, lookmsg.p.Sig())
+	// fmt.Println("processLookup TOP:", me.ex.Name, lookmsg.p.Sig())
 
 	// else we are the guru or we have no upstream
 	// We will handle it here.
@@ -105,7 +105,7 @@ func processLookup(me *LookupTableStruct, bucket *subscribeBucket, lookmsg *look
 		// Do we need to timeout in here?
 		startTime := time.Now()
 
-		fmt.Println("processLookup have command:", comandStruct.CommandString)
+		// fmt.Println("processLookup have command:", comandStruct.CommandString)
 
 		// does it require encryption?
 		// todo: don't string compare and use a flag and defer the decryption?
@@ -149,6 +149,7 @@ func sendReply(me *LookupTableStruct, lookmsg *lookupMessage, reply string) {
 	if len(me.ex.channelToAnyAide) >= cap(me.ex.channelToAnyAide) {
 		fmt.Println("ERROR me.ex.channelToAnyAide channel full")
 	}
+	// fmt.Println("lookmsg sendReply to channelToAnyAide ", reply, len(me.ex.channelToAnyAide), me.ex.Name)
 	me.ex.channelToAnyAide <- &send
 }
 
@@ -472,12 +473,12 @@ func setupCommands(c *lookupContext) {
 
 			status := ProxyStatusReturnType{false, false, "", ""}
 
-			fmt.Println("proxy-status TOP")
+			// fmt.Println("proxy-status TOP")
 
 			getAndSetWatcher(callContext, func(callContext interface{}, watchedTopic *WatchedTopic) {
 				me, _, lookMsg, _ := getCallContext(callContext)
 
-				fmt.Println("proxy-status watcher", watchedTopic)
+				// fmt.Println("proxy-status has watcher")
 
 				if watchedTopic == nil {
 					bytes, _ := json.Marshal(status)
@@ -597,6 +598,9 @@ func setupCommands(c *lookupContext) {
 		"lists all commands. 🔓 means no encryption required", 0,
 		func(msg string, args []string, callContext interface{}) string {
 			s := ""
+			if msg != "help" {
+				s = "// Unknown command: " + msg + " \n"
+			}
 			keys := make([]string, 0, len(c.CommandMap)) //  maps.Keys(c.CommandMap)
 			for k := range c.CommandMap {
 				keys = append(keys, k)
@@ -610,6 +614,7 @@ func setupCommands(c *lookupContext) {
 				}
 				s += "[" + k + "]" + argCount + " " + command.Description + "\n"
 			}
+
 			me, _, lookMsg, _ := getCallContext(callContext)
 			sendReply(me, lookMsg, s)
 			return ""
@@ -681,126 +686,6 @@ func decryptCommand(me *LookupTableStruct, p *packets.Lookup, command string) bo
 	return true
 }
 
-// watcheditem, ok := getWatcher(bucket, &lookmsg.topicHash)
-// // count := uint32(0) // people watching
-// _ = watcheditem
-// _ = ok
-
-// send := packets.Send{} // this will be the reply
-// send.Address = lookmsg.p.Source
-// send.Source = lookmsg.p.Address
-// send.CopyOptions(&lookmsg.p.PacketCommon)
-
-// if ok {
-// 	send.SetOption("isLookup", []byte("true"))
-
-// 	//
-// 	IsPermanent := len(watcheditem.Owners) > 0
-// 	send.SetOption("perm", []byte(strconv.FormatBool(IsPermanent)))
-// 	send.SetOption("exp", []byte(strconv.FormatUint(uint64(watcheditem.Expires), 10)))
-// 	_, ok := watcheditem.IsBilling()
-// 	if ok {
-// 		send.SetOption("bill", []byte(strconv.FormatBool(ok)))
-// 	}
-// 	if watcheditem.OptionalKeyValues != nil {
-// 		it := watcheditem.OptionalKeyValues.Iterator()
-// 		for it.Next() {
-// 			key := it.Key().(string)
-// 			val := it.Value().([]byte)
-// 			send.SetOption(key, val)
-// 		}
-// 	}
-
-// } else {
-// 	send.SetOption("isLookup", []byte("false"))
-// }
-// // if !ok {
-// // 	// nobody watching
-// // 	lookReplyObject.Null = true
-// // } else {
-// // 	count = uint32(watcheditem.getSize())
-// // 	// todo: add more info
-// // 	lookReplyObject.Null = false
-// // 	lookReplyObject.Count = count
-// // }
-// // // set count, in decimal
-// // str := strconv.FormatUint(uint64(count), 10)
-// // lookmsg.p.SetOption("count", []byte(str))
-// // level := int64(0)
-// // levelBytes, ok := lookmsg.p.GetOption("level")
-// // if ok {
-// // 	level, _ = strconv.ParseInt(string(levelBytes), 10, 32)
-// // }
-// // level += 1
-// // lookmsg.p.SetOption("level", []byte(strconv.FormatUint(uint64(level), 10)))
-
-// // now, reply to the retrun address. With what type of message?
-// // Has to be a send unless we want to add another type
-// send.CopyOptions(&lookmsg.p.PacketCommon)
-// // we have level
-// // we have the count at this level
-// nodeName := me.ex.Name
-
-// // lookReplyObject.Level = uint32(level)
-// // //lookReplyObject.Count = int(count)
-// // lookReplyObject.Node = nodeName
-// // repl, err := json.Marshal(lookReplyObject)
-// // _ = err
-// // send.Payload = repl
-
-// val, ok := lookmsg.p.GetOption("debg")
-// if ok {
-// 	send.SetOption("debg", val)
-// }
-
-// if len(me.ex.channelToAnyAide) >= cap(me.ex.channelToAnyAide) {
-// 	fmt.Println("me.ex.channelToAnyAide channel full")
-// }
-// me.ex.channelToAnyAide <- &send
-
-// SpecialPrint(&lookmsg.p.PacketCommon, func() {
-// 	json, _ := send.ToJSON()
-// 	fmt.Println("Lookup channelToAnyAide because ", string(json), " in ", me.ex.Name, "on")
-// })
-
-// _ = nodeName
-//}
-
-// type xxxLookReply struct {
-// 	Level       uint32
-// 	Count       uint32
-// 	Null        bool
-// 	Node        string // node name
-// 	IsPermanent bool
-
-// 	// What else?
-// }
-
-// TODO: chop out the dead wood in subscribe etc.
-// there is not one of these. Lookup replies to the return address
-//func processLookupDown(me *LookupTableStruct, bucket *subscribeBucket, lookmsg *lookupMessageDown) {
-
-//	fmt.Println("FIXME processLookupDown FIXME processLookupDown FIXME processLookupDown FIXME processLookupDown FIXME processLookupDown ")
-
-// FIXME: needs test. This is not right. there is no processLookupDown
-// the reply doesn't go down - it becomes a publish to a
-// return address.
-
-// watcheditem, ok := getWatcher(bucket, &lookmsg.h)
-// count := uint32(0) // people watching
-// if ok == false {
-// 	// nobody watching
-// } else {
-// 	count = uint32(watcheditem.getSize())
-// 	// todo: add more info
-// }
-// // set count, in decimal
-// str := strconv.FormatUint(uint64(count), 10)
-// lookmsg.p.SetOption("count", []byte(str))
-// lookmsg.ss.WriteDownstream(lookmsg.p)
-
-//}
-
 //	export function StringToMap(str: string): Map<string, string> {
 //	    const map = new Map<string, string>();
 //	    let tmp = str.trim()
@@ -856,51 +741,3 @@ func MapToString(m map[string]string) string {
 	}
 	return str.String()[0 : str.Len()-1]
 }
-
-// monitor_pod.MakeCommand("reser ve",
-// 		"assign a public key to a name, create", 0,
-// 		func(msg string, args []string, callContext interface{}) string {
-// 			changed := false
-// 			me, bucket, lookMsg := getCallContext(callContext)
-// 			pubk, ok := lookMsg.p.GetOption("pubk")
-// 			if !ok {
-// 				return "error pubk not found"
-// 			}
-// 			watchedTopic, ok := getWatcher(bucket, &lookMsg.topicHash)
-// 			if !ok {
-// 				// checkMongo
-// 				str := lookMsg.topicHash.ToBase64()
-// 				watchedTopic, ok = GetSubscription(str)
-// 				if !ok {
-// 					changed = true
-// 					watchedTopic = &WatchedTopic{}
-// 					watchedTopic.Name = lookMsg.topicHash
-// 					watchedTopic.thetree = NewWithInt64Comparator()
-// 					// watchedTopic.Expires = 20*60 + me.getTime() this should match a token
-// 					nameStr, ok := lookMsg.p.GetOption("name")
-// 					if ok {
-// 						watchedTopic.NameStr = string(nameStr)
-// 					}
-
-// 					t, _ := lookMsg.p.GetOption("jwtid") // don't they ALL have this?, except billing topics
-// 					if len(t) != 0 {                     // it's always 64 bytes binary
-// 						watchedTopic.Jwtid = string(t)
-// 					}
-// 					setWatcher(bucket, &lookMsg.topicHash, watchedTopic)
-// 					TopicsAdded.Inc()
-
-// 					now := me.getTime()
-// 					watchedTopic.nextBillingTime = now + 30 // 30 seconds to start with
-// 					watchedTopic.lastBillingTime = now
-// 				}
-// 				setWatcher(bucket, &lookMsg.topicHash, watchedTopic)
-// 			}
-
-// 			watchedTopic.Owner = string(pubk)
-// 			// save to mongo !
-// 			if changed {
-// 				SaveSubscription(watchedTopic)
-// 			}
-
-// 			return "ok"
-// 		}, c.CommandMap)

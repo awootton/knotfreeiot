@@ -508,7 +508,7 @@ func digestPacket(p packets.Interface, c *ThingContext) (packets.Interface, erro
 	sendme.Address = pub.Source
 	sendme.Source = pub.Address
 	sendme.Payload = []byte(reply)
-	sendme.CopyOptions(&pub.PacketCommon) // this is very important. there's a nonce in here
+	sendme.CopyOptions(&pub.PacketCommon) // this is very important. there's a nonce in here. And, 'sessionKey', etc.
 	return sendme, nil
 }
 
@@ -561,7 +561,7 @@ func PublishTestTopic(token string) { // use knotfree format
 			sub := &packets.Send{}
 			sub.Address.FromString(topic)
 			sub.Payload = []byte(message)
-			sub.Source.FromString("random unwatched return address")
+			sub.Source.FromString("random-unwatched-return-address")
 			sub.SetOption("helloKey", []byte("worldValue"))
 			err = sub.Write(conn)
 			if err != nil {

@@ -35,7 +35,6 @@ import (
 type tcpContact struct {
 	ContactStruct
 	netDotTCPConn *net.TCPConn
-	// bufferedWriter *bufio.Writer
 }
 
 // MakeTCPExecutive is a thing like a server, not the exec
@@ -52,9 +51,10 @@ type apiHandler struct { // lose this?
 
 func (api apiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	//fmt.Println("req.RequestURI", req.RequestURI)
-	if req.RequestURI == "/api2/getstats" { // GET
+	switch req.RequestURI {
+	case "/api2/getstats": // GET
 		// return the stats for just me.
-
+		// fmt.Println("GetStats /api2/getstats", api.ex.Name, api.ex.httpAddress)
 		stats := api.ex.GetExecutiveStats()
 		stats.Limits = api.ex.Limits
 		bytes, err := json.Marshal(stats)
@@ -65,7 +65,7 @@ func (api apiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 		API1GetStats.Inc()
 
-	} else if req.RequestURI == "/api2/set" { // POST
+	case "/api2/set": // POST
 		decoder := json.NewDecoder(req.Body)
 		args := &UpstreamNamesArg{}
 		err := decoder.Decode(args)
@@ -84,7 +84,7 @@ func (api apiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		}
 		//fmt.Println("/api2/set done")
 
-	} else if req.RequestURI == "/api2/clusterstats" { // POST
+	case "/api2/clusterstats": // POST
 
 		// todo: add security. no - just keep port 8080 unavailable to the world
 
@@ -110,7 +110,9 @@ func (api apiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		api.ex.ClusterStatsString = string(data)
 		api.ex.statsmu.Unlock()
 
-	} else {
+		// fmt.Println("api2/clusterstats", str, api.ex.Name)
+
+	default:
 		http.NotFound(w, req)
 		IotHTTP404.Inc()
 	}
@@ -131,9 +133,11 @@ func MakeHTTPExecutive(ex *Executive, serverName string) *Executive {
 		MaxHeaderBytes: 1 << 20,
 	}
 	go func(s *http.Server) {
-		fmt.Println("http service " + s.Addr)
+		fmt.Println("http service ", ex.Name, s.Addr)
 		err := s.ListenAndServe()
-		_ = err
+		if err != nil {
+			fmt.Println("ListenAndServe ERROR", err)
+		}
 		fmt.Println("ListenAndServe returned !!!!!  arrrrg", err)
 	}(s)
 	return ex
@@ -164,7 +168,8 @@ func (cc *tcpContact) WriteDownstream(packet packets.Interface) error {
 		return errors.New("tcpContact closed and can't writeDownstream")
 	}
 	got, ok := packet.GetOption("debg")
-	if ok && string(got) == "12345678" {
+	isDebug := ok && string(got) == "12345678"
+	if isDebug {
 		fmt.Println("tcpContact WriteDownstream con=", cc.GetKey().Sig(), packet.Sig())
 	}
 	// var goterr error
@@ -184,35 +189,21 @@ func (cc *tcpContact) WriteDownstream(packet packets.Interface) error {
 				if cc.netDotTCPConn == nil {
 					return
 				}
-				// this must not block, otherwise the whole channel gets stuck.
-				_ = packet.Write(cc)
-				// when do we flush?
-				// if goterr == nil {
-				// 	go func() {
-				// 		time.Sleep(1 * time.Millisecond) // ?
-				// 		cc.bufferedWriter.Flush()
-				// 	}()
+				// if isDebug {
+				// 	fmt.Println("tcpContact in the socket con=", cc.GetKey().Sig(), packet.Sig())
 				// }
+				// this must not block, otherwise the whole channel gets stuck.
+				err := packet.Write(cc)
+				// cc.netDotTCPConn.SetNoDelay(true)
+				// when do we flush? do we need to flush?
+				if err != nil {
+					fmt.Println("tcpContact write ERROR con=", cc.GetKey().Sig(), err)
+					// close the connection???
+				}
 			}
 		},
 	}
-	// wg.Wait()
 	return nil
-
-	//fmt.Println("received from above", packet, reflect.TypeOf(packet))
-	// if !cc.GetClosed() && !cc.GetConfig().lookup.isGuru {
-	// 	u := HasError(packet)
-	// 	if u != nil {
-	// 		u.Write(cc)
-	// 		cc.Close(errors.New(u.String()))
-	// 		return errors.New(u.String()) // ?
-	// 	}
-	// }
-	// err := packet.Write(cc)
-	// if err != nil {
-	// 	cc.Close(err)
-	// }
-	// return nil
 }
 
 func (cc *tcpContact) WriteUpstream(cmd packets.Interface) error {
@@ -255,11 +246,11 @@ func handleConnection(tcpConn *net.TCPConn, ex *Executive) {
 
 	cc := localMakeTCPContact(ex.Config, tcpConn)
 	defer func() {
-		fmt.Println("handleConnection exit close")
+		// fmt.Println("KF native contact handleConnection exit close")
 		cc.DoClose(nil)
 	}()
 
-	fmt.Println("KF native contact add, ", tcpConn.RemoteAddr(), cc.GetKey().Sig(), ex.Name)
+	// fmt.Println("KF native contact add, ", tcpConn.RemoteAddr(), cc.GetKey().Sig(), ex.Name)
 
 	TCPServerNewConnection.Inc()
 
@@ -270,7 +261,7 @@ func handleConnection(tcpConn *net.TCPConn, ex *Executive) {
 		return
 	}
 
-	defer fmt.Println("KF native contact QUIT, ", tcpConn.RemoteAddr(), cc.GetKey().Sig(), ex.Name)
+	// defer fmt.Println("KF native contact QUIT, ", tcpConn.RemoteAddr(), cc.GetKey().Sig(), ex.Name)
 
 	// we might just for over the range of the handler input channel?
 	for !ex.IsClosed() {
@@ -293,11 +284,10 @@ func handleConnection(tcpConn *net.TCPConn, ex *Executive) {
 		}
 
 		// fmt.Println("KF native contact waiting for packet con=", cc.GetKey().Sig(), ex.Name)
-
 		p, err := packets.ReadPacket(cc)
 		if err != nil {
 			//connLogThing.Collect("se err " + err.Error())
-			fmt.Println("KF native contact read err", cc.key.Sig(), err, tcpConn.RemoteAddr(), ex.isGuru)
+			// fmt.Println("KF native contact read err", cc.key.Sig(), err, tcpConn.RemoteAddr(), ex.isGuru)
 			TCPServerPacketReadError.Inc()
 			cc.DoClose(err)
 			return
@@ -350,8 +340,7 @@ func localMakeTCPContact(config *ContactStructConfig, tcpConn *net.TCPConn) *tcp
 	AddContactStruct(&contact1.ContactStruct, &contact1, config)
 	contact1.netDotTCPConn = tcpConn
 	contact1.realReader = tcpConn
-	// contact1.bufferedWriter = bufio.NewWriter(tcpConn)
-	contact1.realWriter = tcpConn // contact1.bufferedWriter // don't forget to flush
+	contact1.realWriter = tcpConn
 
 	return &contact1
 }
@@ -424,7 +413,7 @@ func PostUpstreamNames(guruList []string, addressList []string, addr string) err
 }
 
 // PostClusterStats sends some stats to
-func PostClusterStats(stats *ClusterStats, addr string) error {
+func PostClusterStats(ex *Executive, stats *ClusterStats, addr string) error {
 
 	jbytes, err := json.Marshal(stats)
 	if err != nil {
@@ -433,13 +422,16 @@ func PostClusterStats(stats *ClusterStats, addr string) error {
 	}
 
 	addstr := "http://" + addr + "/api2/clusterstats"
+	fmt.Println("PostClusterStats sending to ", addstr, "from", ex.Name)
 	client := http.Client{Timeout: 1 * time.Second}
 	resp, err := client.Post(addstr, "application/json", bytes.NewReader(jbytes))
 	if err != nil {
+		fmt.Println("PostClusterStats err", err, addstr, "from", ex.Name)
 		return err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
+		fmt.Println("PostClusterStats not 200", resp.StatusCode, addstr, "from", ex.Name)
 		return errors.New("PostClusterStats not 200")
 	}
 	return nil

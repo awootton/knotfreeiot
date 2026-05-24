@@ -318,7 +318,7 @@ func TestMakeLargeTokenAtw(t *testing.T) {
 
 	tokens.LoadPrivateKeys("~/atw/privateKeys4.txt")
 
-	payload := tokens.GetSampleTokenFromStats(uint32(time.Now().Unix()), "knotfree.net/mqtt", tokens.GetTokenStatsAndPrice(tokens.Medium).Stats)
+	payload := tokens.GetSampleTokenFromStats(uint32(time.Now().Unix()), "knotfree.io/mqtt", tokens.GetTokenStatsAndPrice(tokens.Medium).Stats)
 	signingKey := tokens.GetPrivateKeyWhole(0)
 	payload.Pubk = "NEUdZXsPTD-lxGeeHWXG-o_9wlfn_sBSqPqUqzA0HS0"
 	payload.JWTID = "dvaw3z28o8bxqsq6fwozx3hx"

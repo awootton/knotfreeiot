@@ -214,7 +214,7 @@ func setup(t *testing.T) (*iot.ClusterExecutive, []iot.ContactInterface, []strin
 		h.HashBytes([]byte(name))
 		hashedb64 := h.String()
 		got, _ = contact1.(*testContact).popResultAsString() // the suback
-		got = strings.Replace(got, atokenStruct.JWTID, "xxxx", 1)
+		got = strings.Replace(got, atokenStruct.JWTID, "xxxx,pub2self,0", 1)
 		want = "[S,=" + hashedb64 + ",jwtid,xxxx,pub2self,0]" //"no message received"
 		if got != want {
 			t.Errorf("got %v, want %v", got, want)
@@ -284,8 +284,8 @@ func TestSubDomain(t *testing.T) {
 	ce.WaitForActions()
 
 	got, _ = contact1.(*testContact).popResultAsString() // the suback
-	got = strings.Replace(got, atokenStruct.JWTID, "xxxx", 1)
-	want = "[S,=ygRnE97Kfx0usxBqx5cygy4enA1eojeR,debg,12345678,jwtid,xxxx,pub2self,0]" //"no message received"
+	got = strings.Replace(got, atokenStruct.JWTID, "xxxx,pub2self,0", 1)
+	want = "[S,=ygRnE97Kfx0usxBqx5cygy4enA1eojeR,debg,12345678]" //"no message received"
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
 	}
@@ -321,7 +321,7 @@ func TestSubDomain(t *testing.T) {
 	}
 
 	client := http.Client{Timeout: 5 * time.Second}
-	host := "127.0.0.1:8085"
+	host := "get-unix-time.knotfree.com:8085"
 
 	resp, err := client.Get("http://" + host + "/get/pubk?debg=12345678") // eg serves get-unix-time by hack
 	if err != nil {

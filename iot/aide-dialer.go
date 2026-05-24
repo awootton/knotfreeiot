@@ -88,14 +88,16 @@ func (ex *Executive) DialContactToAnyAide(isTCP bool, ce *ClusterExecutive) {
 					fmt.Println("connect problems test dial conn ", err)
 					continue
 				}
-
+				// this is dead code
+				fmt.Println("starting for range channelToAnyAide", ex.Name)
 				for p := range ex.channelToAnyAide {
-					// fmt.Println(" got channelToAnyAide aide ", p)
+					fmt.Println("got channelToAnyAide aide ", ex.Name)
 					err := PushPacketUpFromBottom(contact, p)
 					if err != nil {
 						fmt.Println("err PushPacketUpFromBottom ", err)
 					}
 				}
+				fmt.Println("ending for range channelToAnyAide", ex.Name)
 			} else {
 				fmt.Println("no aides in cluster fail")
 				panic("no aides in cluster fail")
@@ -105,6 +107,7 @@ func (ex *Executive) DialContactToAnyAide(isTCP bool, ce *ClusterExecutive) {
 }
 
 // return index, name, address of a random aide
+// it depends on the ClusterStats being up to date. and can loop in the caller !
 func getTheIndex(ex *Executive) (int, string, string) {
 	index := -1
 
@@ -160,8 +163,14 @@ func (ex *Executive) dialAideAndServe() {
 
 	go func() {
 		for { // forever
+			icount := 0
 			for index == -1 {
 				index, name, address = getTheIndex(ex)
+				icount++
+				if icount > 10 {
+					fmt.Println("dialAideAndServe 1 error waiting for clusterStats too long", ex.Name)
+					time.Sleep(1000 * time.Millisecond)
+				}
 			}
 			var tmp int64
 			dialAideAndServeInvoked.Store(tmp)
@@ -206,7 +215,7 @@ func (ex *Executive) dialAideAndServe() {
 				continue // back to top
 			}
 
-			fmt.Println("dialAideAndServe connected, waiting to write")
+			fmt.Println("dialAideAndServe connected, waiting to write", ex.Name)
 
 			for { // pop packets off the channelToAnyAide and send them to the aide.
 				if index == -1 {
@@ -240,7 +249,9 @@ func (ex *Executive) dialAideAndServe() {
 					fmt.Println("ERROR dialAideAndServe conn nil")
 					break // from pop-packets, back to top of connect
 				}
+				// fmt.Println("dialAideAndServe waiting channelToAnyAide", ex.Name)
 				p := <-ex.channelToAnyAide
+				// fmt.Println("dialAideAndServe got channelToAnyAide", p, ex.Name)
 				err := p.Write(conn)
 				if err != nil {
 					fmt.Println("dialAideAndServe write error", conn, err)
