@@ -189,11 +189,12 @@ func MakeSimplestCluster(timegetter func() uint32, isTCP bool, aideCount int, su
 			aide1.textAddress = ce.GetNextAddress()
 			aide1.mqttAddress = ce.GetNextAddress()
 			MakeTCPExecutive(aide1, aide1.tcpAddress)
-			if i == 0 {
-				MakeTextExecutive(aide1, "localhost:7465")
-			} else {
-				MakeTextExecutive(aide1, aide1.textAddress)
-			}
+			// fixme I think somone is crashing me with a bug in the text protocol.
+			// if i == 0 {
+			// 	MakeTextExecutive(aide1, "localhost:7465")
+			// } else {
+			// 	MakeTextExecutive(aide1, aide1.textAddress)
+			// }
 			MakeHTTPExecutive(aide1, aide1.httpAddress)
 			// FIXME : MakeMQTTExecutive
 
@@ -281,7 +282,7 @@ func MakeTCPMain(name string, limits *ExecutiveLimits, token string, isGuru bool
 	aide1.mqttAddress = myip + ":1883"
 
 	MakeTCPExecutive(aide1, aide1.tcpAddress)
-	MakeTextExecutive(aide1, aide1.textAddress)
+	//  do we need this? MakeTextExecutive(aide1, aide1.textAddress)
 	MakeHTTPExecutive(aide1, aide1.httpAddress)
 	MakeMqttExecutive(aide1, aide1.mqttAddress)
 

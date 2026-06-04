@@ -228,6 +228,13 @@ func SaveSubscription(watchedTopic *WatchedTopic) error {
 	InitMongEnv()
 	InitIotTables()
 
+	if watchedTopic == nil {
+		return fmt.Errorf("watchedTopic is nil")
+	}
+	if watchedTopic.Created == 0 {
+		watchedTopic.Created = uint32(time.Now().Unix())
+	}
+
 	ctx := context.TODO()
 
 	client, err := mongo.Connect(ctx, MongoClientOptions) // is this a new connection each time?

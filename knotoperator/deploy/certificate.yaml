@@ -15,6 +15,7 @@ spec:
     kind: ClusterIssuer
   commonName: "knotfree.net" # knotfree.05548fc2-4953-4209-8299-1241cab85e16.lb.civo.com
   dnsNames:
+  - "gotohere.com"   
   - "knotfree.net"   
   - "*.knotfree.net"   
 

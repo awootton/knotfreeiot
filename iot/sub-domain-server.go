@@ -204,7 +204,7 @@ func HandleHttpSubdomainRequest(w http.ResponseWriter, r *http.Request, ex *Exec
 		}
 	}
 	// add the host back
-	buf.WriteString("Host: " + theHost + "\r\n")
+	buf.WriteString(fmt.Sprintf("Host: %s\r\n", theHost))
 	buf.WriteString("\r\n")
 	// write the body to the buffer
 	n, err := buf.Write(theBody)
@@ -452,7 +452,7 @@ func OldHandleHttpSubdomainRequest(w http.ResponseWriter, r *http.Request, ex *E
 		}
 	}
 	// add the host back
-	buf.WriteString("Host: " + theHost + "\r\n")
+	fmt.Fprintf(buf, "Host: %s\r\n", theHost)
 	buf.WriteString("\r\n")
 	// write the body to the buffer
 	n, err := buf.Write(theBody)

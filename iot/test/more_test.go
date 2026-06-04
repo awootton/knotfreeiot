@@ -149,7 +149,7 @@ func XxxxTestGrowGurus(t *testing.T) {
 }
 
 // test auto scale in the minions and also reconnect when a minion is lost.
-func atw_fixme_TestGrowAides(t *testing.T) {
+func Xatw_fixme_TestGrowAides(t *testing.T) {
 
 	isTCP := false
 	tokens.LoadPublicKeys()

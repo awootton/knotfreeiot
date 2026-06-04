@@ -151,7 +151,7 @@ func textConnection(tcpConn *net.TCPConn, ex *Executive) {
 		}
 		if cc.GetToken() == nil {
 			err := cc.netDotTCPConn.SetDeadline(time.Now().Add(20 * time.Second))
-			//fmt.Println("set deadline SHORT")
+			fmt.Println("set deadline SHORT")
 			if err != nil {
 				//connLogThing.Collect("server err2 " + err.Error())
 				fmt.Println("set deadline err1", err)
@@ -170,9 +170,9 @@ func textConnection(tcpConn *net.TCPConn, ex *Executive) {
 		}
 		//fmt.Println("waiting for packet")
 		str, err := lineReader.ReadString('\n')
-		fmt.Println("text-protocol got line ", str)
+		// fmt.Println("text-protocol got line ", str)
 		if len(str) > 0 {
-			str = str[0 : len(str)-1]
+			str = str[0 : len(str)-1] // strip off the newline.
 		}
 		if len(str) == 0 {
 			continue

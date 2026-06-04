@@ -4,6 +4,7 @@ metadata:
   name: wildcard
 spec:
   dnsNames:
+  - gotohere.com
   - knotfree.net
   - "*.knotfree.net" # Populate with the domain name followed by an asterisk symbol. ? what?
   issuerRef:

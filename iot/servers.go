@@ -26,17 +26,17 @@ import (
 
 type ApiHandler struct {
 	ce                 *ClusterExecutive
-	staticStuffHandler webHandler
+	staticStuffHandler webHandler // move this to the supermux? or remove it and just use the static handler in the supermux?
 	// add long lived mongo connect here?
-
-	// add cache here.
+	// add cache here?
 	cacheClient *cache.Client
 }
 
 type SuperMux struct {
 	ce *ClusterExecutive
 	//super,
-	sub *http.ServeMux
+	sub                        *http.ServeMux
+	staticStuffHandlerGotohere *webHandler
 }
 
 func StartPublicServer(ce *ClusterExecutive) {
@@ -59,13 +59,22 @@ func StartPublicServer(ce *ClusterExecutive) {
 		}
 	}()
 
+	staticStuffHandlerGotohere := webHandler{ce,
+		http.FileServer(http.Dir("./gotohere-static-react-build"))} // FIXME: points to   (a react build)
+	// see the missnamed KnotOperator function which does the react builds.
+	// and copies assets.
+	// serve another way. Serve from memory?
+
 	supermux := &SuperMux{}
 	supermux.ce = ce
+	supermux.staticStuffHandlerGotohere = &staticStuffHandlerGotohere
 
 	supermux.sub = http.NewServeMux()
 
 	staticStuffHandler := webHandler{ce,
-		http.FileServer(http.Dir("./docs"))} // FIXME: points to gotohere static assets (a react build)
+		http.FileServer(http.Dir("./docs"))} // FIXME: points to knotfree.net static assets (a react build)
+	// see the missnamed KnotOperator function which does the react builds.
+	// and copies assets.
 	// serve another way. Serve from memory?
 
 	memcached, err := memory.NewAdapter(
@@ -259,6 +268,12 @@ func (superMux *SuperMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if !strings.HasPrefix(theHost, "10.") {
 		fmt.Println("ServeHTTP from host ", theHost)
 	}
+	if strings.Contains(theHost, "gotohere.") {
+		fmt.Println("ServeHTTP for gotohere ", theHost)
+		superMux.staticStuffHandlerGotohere.ServeHTTP(w, r)
+		return
+	}
+
 	{ // TODO: use a map.
 		isApiRequest := strings.HasPrefix(r.RequestURI, "/api1/")
 		isApiRequest = isApiRequest || r.RequestURI == "/mqtt"
@@ -346,7 +361,7 @@ func (api ApiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if req.RequestURI != "/healthz" && req.RequestURI != "/livez" {
 		tmp := req.RequestURI
 		if len(tmp) > 100 {
-			tmp = tmp[0:100]
+			tmp = tmp[0:100] // why?
 		}
 		fmt.Println("ApiHandler ServeHTTP", tmp, req.Host)
 	}

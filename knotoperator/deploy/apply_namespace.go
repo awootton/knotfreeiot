@@ -226,6 +226,31 @@ func main() {
 
 func buildTheKnotFreeMain(registry string) {
 
+	{ // build meta-proto-one and copy to knotfree main
+		// meta-project-root is /Users/awootton/workspace/metaverse-proto-one
+		// /Users/awootton/workspace/metaverse-proto-one
+		home, _ := os.UserHomeDir()
+		fmt.Println("home is ", home)
+		metaProjectRoot := home + "/workspace/metaverse-proto-one"
+		println("metaProjectRoot is ", metaProjectRoot)
+		kubectl.K("ls -lah " + metaProjectRoot)
+
+		//      /Users/awootton/Documents/workspace/knotfreeiot/gotohere-static-react-build
+		destination := home + "/Documents/workspace/knotfreeiot/gotohere-static-react-build"
+		kubectl.K("ls -lah " + destination)
+		// do we clear it? creepy.
+		kubectl.K("rm -rf " + destination + "/*")
+
+		kubectl.K("cd " + metaProjectRoot + ";yarn build")
+		kubectl.K("ls -lah " + metaProjectRoot + "/build") // see the build files
+
+		// now rsync
+		// eg rsync -av /path/to/source/ /path/to/destination/
+
+		kubectl.K("rsync -av " + metaProjectRoot + "/build/ " + destination + "/") // the trailing / is important to copy the contents of build, not the build dir itself.
+
+	}
+
 	if buildReactAndCopy {
 		val, err := kubectl.K8s("pwd", "")
 		fmt.Println("buildTheKnotFreeMain in ", val, err)

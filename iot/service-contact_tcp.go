@@ -10,7 +10,7 @@ import (
 	"github.com/awootton/knotfreeiot/packets"
 )
 
-// Copyright 2024 Alan Tracey Wootton
+// Copyright 2024-2026 Alan Tracey Wootton
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -150,6 +150,7 @@ func InitNewServiceContactTcp(sc *ServiceContactTcp) error {
 
 	sc.key2channel = make(map[string]chan packets.Interface)
 	sc.mySubscriptionName = GetRandomB64String()
+	println("ServiceContact_tcp mySubscriptionName ", sc.mySubscriptionName)
 	// sc.ex = ex
 	sc.closed = make(chan bool)
 
@@ -163,6 +164,7 @@ func InitNewServiceContactTcp(sc *ServiceContactTcp) error {
 	subs.Address.FromString(sc.mySubscriptionName)
 	subs.Address.EnsureAddressIsBinary()
 	sc.outgoing <- &subs
+	println("ServiceContact_tcp sent subscribe for ", sc.mySubscriptionName)
 
 	// now we have to wait for the suback to come back
 	haveSuback := false
@@ -207,6 +209,7 @@ func InitNewServiceContactTcp(sc *ServiceContactTcp) error {
 			subs := packets.Subscribe{}
 			subs.Address.FromString(sc.mySubscriptionName)
 			subs.Address.EnsureAddressIsBinary()
+			println("ServiceContact_tcp resubscribing ", sc.mySubscriptionName)
 			sc.outgoing <- &subs
 		}
 	}()
@@ -284,6 +287,13 @@ func (sc *ServiceContactTcp) ConnectLoopForever() {
 
 			fmt.Println("connected and waiting..")
 
+			// subscribe to the mySubscriptionName
+			subs := packets.Subscribe{}
+			subs.Address.FromString(sc.mySubscriptionName)
+			subs.Address.EnsureAddressIsBinary()
+			sc.outgoing <- &subs
+			println("connect loop forever sent subscribe for ", sc.mySubscriptionName)
+
 			isBroken := make(chan interface{})
 
 			go func() {
@@ -293,7 +303,7 @@ func (sc *ServiceContactTcp) ConnectLoopForever() {
 						close(isBroken)
 						return
 					case <-isBroken:
-						println("serviceContactTcp isBroken:", err.Error())
+						println("serviceContactTcp isBroken:")
 						return
 					case p := <-sc.outgoing:
 						println("write packet from outgoing:", p.Sig())
@@ -334,7 +344,7 @@ func (sc *ServiceContactTcp) ConnectLoopForever() {
 					done = true                 // break from read loop
 					break                       // from read loop
 				}
-				// println("ReadPacket packet:", p.Sig())
+				println("ReadPacket packet:", p.Sig())
 
 				sc.packetsChan <- p
 				sc.count++

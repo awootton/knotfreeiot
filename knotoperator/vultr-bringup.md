@@ -27,7 +27,7 @@ Dallas |216.128.128.195 |2001:19f0:6402:2:ffff:ffff:ffff:ffff |46d3d919-afb5-4df
 
 add 216.128.128.195 to knotfreeiot startPublicServer. Run apply_namespace.go again to redeploy
 
-// knotoperatorv1 not working. Needs http I think
+// knotoperatorv1 not working. Needs http I think it's now knotoperatorv2
 
 See: https://docs.vultr.com/how-to-install-a-wildcard-let-s-encrypt-ssl-certificate-on-vultr-kubernetes-engine
 
@@ -83,7 +83,7 @@ See: https://docs.vultr.com/how-to-install-a-wildcard-let-s-encrypt-ssl-certific
 
     make 4-nginx.yaml
 
-    kubectl apply -f 4-nginx.yaml
+    not? kubectl apply -f 4-nginx.yaml or not?
 
     make 5-ingress.yaml
 

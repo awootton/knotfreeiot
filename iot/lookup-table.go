@@ -73,6 +73,8 @@ type WatchedTopic struct {
 
 	Expires uint32 `bson:"exp,omitempty" json:"exp,omitempty"`
 
+	Created uint32 `bson:"created,omitempty" json:"created,omitempty"`
+
 	// todo: ttl ?
 
 	// like map[uint64]*watcherItem
