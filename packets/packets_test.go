@@ -671,7 +671,7 @@ func TestForZombies2(t *testing.T) {
 	_ = uni
 	_ = err
 	got = err.Error()
-	want = "unexpected EOF" //Too few bytes18 19"
+	want = "unexpected EOF" // Too few bytes18 19"
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
 	}
@@ -703,7 +703,7 @@ func TestForZombies2(t *testing.T) {
 	bb.Reset()
 	err = (&cmd).Write(&bb)
 	got = err.Error()
-	want = "Too many args"
+	want = "args>=128"
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
 	}

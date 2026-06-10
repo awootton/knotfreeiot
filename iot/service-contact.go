@@ -2,13 +2,15 @@ package iot
 
 import (
 	"fmt"
-	"io"
 	"sync"
 
 	"time"
 
 	"github.com/awootton/knotfreeiot/packets"
 	"github.com/awootton/knotfreeiot/tokens"
+
+	"github.com/djherbis/buffer"
+	"github.com/djherbis/nio/v3"
 )
 
 // Copyright 2024 Alan Tracey Wootton
@@ -74,6 +76,28 @@ func (sc *ServiceContact) GetPacketReplyLonger(msg packets.Interface, timeout ti
 		return nil, fmt.Errorf("ServiceContact timed out waiting for reply")
 	}
 }
+
+// Get is a blocking call that sends a message to the cluster and waits for the reply.
+// it blocks waiting for an answer. Has a smaller timeout than SendPacket
+// This is an example of client code.
+// func (sc *ServiceContactTcp) Get(msg packets.Interface) (packets.Interface, error) {
+// 	returnChannel := make(chan packets.Interface)
+// 	done := make(chan bool)
+// 	// this termnates when we close done.
+// 	// it might close done if error
+// 	go sc.SendPacket(msg, returnChannel, done)
+
+// 	select {
+// 	case <-done:
+// 		return nil, fmt.Errorf("ServiceContact failed prematurely")
+// 	case packet := <-returnChannel:
+// 		close(done)
+// 		return packet, nil
+// 	case <-time.After(2 * time.Second):
+// 		close(done)
+// 		return nil, fmt.Errorf("ServiceContact timed out waiting for reply 2 sec")
+// 	}
+// }
 
 // GetPacketGroupReplyLonger watches for an 'ind' or index key and
 // collects packets until an 'of' key says we're done
@@ -202,12 +226,17 @@ func InitNewServiceContact(sc *ServiceContact) error {
 	sc.myWriter = myWriter
 	contact.contactExpires += 60 * 60 * 24 * 365 * 10 // in 10 years
 
-	myWriter.myPipeReader, myWriter.myPipeWriter = io.Pipe() // this is the pipe that the packets will come in on
+	// Allocate a strict 128KB memory buffer
+	buf := buffer.New(64 * 1024)
+	// Returns a buffered pipe reader and writer
+	myWriter.myPipeReader, myWriter.myPipeWriter = nio.Pipe(buf)
+	// myWriter.myPipeReader, myWriter.myPipeWriter = io.Pipe() // this is the pipe that the packets will come in on
 
 	sc.startReadTheWriterPipe() // reads packets and puts them on the packetsChan forever.
 
 	contact.SetWriter(myWriter) // myWriter)
-	AddContactStruct(contact, contact, sc.ex.Config)
+	// I'm going to need a much bigger buffer for this to run an api
+	AddContactStructSized(contact, contact, sc.ex.Config, 1024*64)
 
 	connect := packets.Connect{}
 	connect.SetOption("token", []byte(tokens.GetImpromptuGiantToken()))
@@ -222,6 +251,7 @@ func InitNewServiceContact(sc *ServiceContact) error {
 	_ = err
 
 	// now we have to wait for the suback to come back
+	fmt.Println("ServiceContact waiting for suback.")
 	haveSuback := false
 	for !haveSuback {
 		select {
@@ -239,16 +269,23 @@ func InitNewServiceContact(sc *ServiceContact) error {
 					fmt.Println("ERROR wrong packet waiting for suback  ")
 				} else {
 					// if isDebg {
-					// 	fmt.Println("http handler have suback  ", subcmd.Sig())
+					fmt.Println("http handler have suback  ", subcmd.Sig())
 					// }
 					haveSuback = true
 				}
 			}
 			// we have to wait for the suback to come back
-		case <-time.After(4 * time.Second):
+		case <-time.After(20 * time.Second):
 			errMsg := "timed out waiting for suback reply "
 			fmt.Println(errMsg)
-			close(sc.closed)
+			// and then we crash and panic and die because sc.closed is already closed.
+			// close(sc.closed)
+			select {
+			case <-sc.closed:
+				// already closed. do nothing.
+			default:
+				close(sc.closed)
+			}
 			return fmt.Errorf(errMsg)
 		}
 	}
@@ -316,9 +353,11 @@ func (sc *ServiceContact) startReadTheWriterPipe() {
 
 				packet, err := packets.ReadPacket(sc.myWriter)
 				if err != nil || packet == nil {
-					// the buffer only had a partial packet
+					// the buffer only had a partial packet. Why?
 					fmt.Println("ERROR packet read fail ", err)
 					sc.contact.DoClose(err)
+					// can we start over? wtf.
+					InitNewServiceContact(sc)
 					return
 				}
 				if sc.IsDebg {

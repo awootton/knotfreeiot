@@ -275,7 +275,7 @@ func setupCommands(c *lookupContext) {
 				subKey = args[1]
 			}
 
-			fmt.Println("get option TOP", key, subKey)
+			// fmt.Println("get option TOP", key, subKey)
 			getAndSetWatcher(callContext, func(callContext interface{}, watchedTopic *WatchedTopic) {
 				me, bucket, lookMsg, _ := getCallContext(callContext)
 				_ = bucket
@@ -294,7 +294,7 @@ func setupCommands(c *lookupContext) {
 						return
 					}
 				}
-				fmt.Println("get option returning", key, subValue)
+				// fmt.Println("get option returning", key, subValue)
 				sendReply(me, lookMsg, subValue)
 			}, nil)
 			return ""
@@ -306,7 +306,7 @@ func setupCommands(c *lookupContext) {
 		func(msg string, args []string, callContext interface{}) string {
 
 			key := "TXT"
-			fmt.Println("get txt")
+			// fmt.Println("get txt")
 			subKey := "@"
 			if len(args) > 0 {
 				subKey = args[0]

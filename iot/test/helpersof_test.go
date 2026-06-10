@@ -320,8 +320,8 @@ func TestMakeLargeTokenAtw(t *testing.T) {
 
 	payload := tokens.GetSampleTokenFromStats(uint32(time.Now().Unix()), "knotfree.io/mqtt", tokens.GetTokenStatsAndPrice(tokens.Medium).Stats)
 	signingKey := tokens.GetPrivateKeyWhole(0)
-	payload.Pubk = "NEUdZXsPTD-lxGeeHWXG-o_9wlfn_sBSqPqUqzA0HS0"
-	payload.JWTID = "dvaw3z28o8bxqsq6fwozx3hx"
+	payload.Pubk = "oXbblDIxBsJSt2tYSt20bNLsqs9vIcvZ-WPfZ2uHGgg"
+	payload.JWTID = "oa6jjafj9asar7vpi15lz2l2"
 	bbb, err := tokens.MakeToken(payload, []byte(signingKey))
 	if err != nil {
 		fmt.Println("Get32xTokenLocal", err)

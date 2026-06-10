@@ -1,0 +1,50 @@
+# while the local server is up
+
+wget -qO- "http://knotfree.com:8085/api1/nameService?cmd=exists&name=get-unix-time"
+
+    {"Exists":true,"Online":true}
+ 
+wget -qO- "http://knotfree.com:8085/api1/nameService?cmd=help&name=none"
+
+    [bulk option] add key kv pairs
+    [delete] delete a name
+    [details] A serialization of the name record
+    [exists] returns true if the name exists 🔓
+    [get option] get key val. eg A 12.34.56.78 🔓
+    [get pubk] device public key 🔓
+    [get random] returns a random integer
+    [get time] seconds since 1970🔓
+    [get txt] get key val. eg A 12.34.56.78 🔓
+    [help] lists all commands. 🔓 means no encryption required
+    [proxy-status] returns ProxyStatusReturnType 🔓
+    [replace options] Replace all the options. Arg is json map in base64.
+    [reserve] assign a public key to a name, create
+    [set option] add key subkey value. eg A @ 12.34.56.78 
+    [version] info about this thing
+
+# at knotfree.net 
+
+wget -qO- "https://knotfree.net/api1/nameService?cmd=exists&name=get-unix-time"
+
+    {"Exists":true,"Online":true}
+
+wget -qO- "https://knotfree.net/api1/nameService?cmd=exists&name=gwenzilla-room"
+
+    {"Exists":true,"Online":true}
+
+wget -qO- "http://knotfree.io/api1/nameService?cmd=exists&name=gwenzilla-room"
+
+    {"Exists":true,"Online":true}
+
+wget -qO- "http://knotfree.com:8085/api1/nameService?cmd=exists&name=gwenzilla-room"
+
+    {"Exists":true,"Online":false}   // not dialed into localhost
+
+wget -qO- "https://gwenzilla-room.knotfree.net/get/humidity"
+
+    Error. ServiceContact timed out waiting for reply 
+
+wget -qO- "http://get-unix-time.knotfree.io/get/pubk"
+
+    bht-Ka3j7GKuMFOablMlQnABnBvBeugvSf4CdFV3LXs
+

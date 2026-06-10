@@ -4,7 +4,8 @@
 
 # bitnami/minideb:bullseye is a debian 11 image 78.5MB
 
-FROM golang:1.19.0-alpine
+#FROM golang:1.19.0-alpine
+FROM golang:1.21-alpine
 
 RUN apk add lsof
 
@@ -29,5 +30,14 @@ RUN go mod download  && go mod verify
 # and then add the code
 ADD . /knotfreeiot
 
-# RUN CGO_ENABLED=0 GOOS=linux GOARCH=386 go build -a -o manager main.go
+# should we use the smaller memory model when not CGO and race?
+# RUN CGO_ENABLED=0 GOOS=linux GOARCH=386 go build -a -race -o  manager main.go
+
+# no race detector: 
 RUN CGO_ENABLED=0 GOOS=linux go build -a -o manager main.go
+
+# with race detector:
+# add this to enable cgo for race detector, otherwise it will fail
+# Install GCC and required dependencies
+# RUN apk add --no-cache build-base
+# RUN CGO_ENABLED=1 GOOS=linux go build -a -race -o manager main.go

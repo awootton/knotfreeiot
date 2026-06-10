@@ -59,6 +59,8 @@ func StartPublicServer(ce *ClusterExecutive) {
 		}
 	}()
 
+	// Can someone please clean this up? It's a mess. We have multiple http servers, some for reverse proxy, some for metrics, some for the api, and it's all over the place. We should have one http server and use different handlers for different paths. And we should use a router instead of manually checking the paths. And we should use a proper logging library instead of fmt.Println. And we should handle errors properly instead of just printing them. And we should... well, you get the idea.
+	// every time I touch it, it breaks.
 	staticStuffHandlerGotohere := webHandler{ce,
 		http.FileServer(http.Dir("./gotohere-static-react-build"))} // FIXME: points to   (a react build)
 	// see the missnamed KnotOperator function which does the react builds.
@@ -268,21 +270,26 @@ func (superMux *SuperMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if !strings.HasPrefix(theHost, "10.") {
 		fmt.Println("ServeHTTP from host ", theHost)
 	}
+
+	isApiRequest := false
+	{ // TODO: use a map.
+		isApiRequest = strings.HasPrefix(r.RequestURI, "/api1/")
+		isApiRequest = isApiRequest || r.RequestURI == "/mqtt"
+		isApiRequest = isApiRequest || r.RequestURI == "/healthz"
+		isApiRequest = isApiRequest || r.RequestURI == "/livez"
+	}
+
 	if strings.Contains(theHost, "gotohere.") {
 		fmt.Println("ServeHTTP for gotohere ", theHost)
 		superMux.staticStuffHandlerGotohere.ServeHTTP(w, r)
 		return
 	}
 
-	{ // TODO: use a map.
-		isApiRequest := strings.HasPrefix(r.RequestURI, "/api1/")
-		isApiRequest = isApiRequest || r.RequestURI == "/mqtt"
-		isApiRequest = isApiRequest || r.RequestURI == "/healthz"
-		isApiRequest = isApiRequest || r.RequestURI == "/livez"
-		if isApiRequest {
-			superMux.sub.ServeHTTP(w, r)
-			return
-		}
+	if isApiRequest {
+		// show the query string parameters for debugging
+		// fmt.Println("ServeHTTP api request ", r.RequestURI, theHost)
+		superMux.sub.ServeHTTP(w, r)
+		return
 	}
 
 	// Let's do this the other way arounnd.
@@ -369,7 +376,7 @@ func (api ApiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	w.Header().Add("Access-Control-Allow-Origin", "*")
 
 	const proxyApiPath = "/api1/rawgithubusercontentproxy/"
-
+	// move this proxy stuff to a less annoying place.
 	if strings.HasPrefix(req.RequestURI, proxyApiPath) {
 
 		path := req.RequestURI[len(proxyApiPath):]
@@ -430,8 +437,7 @@ func (api ApiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	path := strings.Split(req.RequestURI, "?")[0]
-	// switch here? TODO: switch
-	// mo., really. make this into a switch statement
+
 	switch path {
 	case "/api1/getallstats":
 
@@ -439,6 +445,79 @@ func (api ApiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 		w.Write([]byte(stats))
 
+	case "/api1/dns-query":
+
+		// this is a dns over http query. We will parse the query and return a dns response.
+		// note that this will optionally take an array of domains, and return an array of responses. This is to allow for multiple queries in one request, which is a common use case for dns over http.
+		// otherwise it's supposed to look like the cloudflair one and the google one, which only allows one query per request. But we want to allow multiple queries per request to reduce latency and increase cache hits.
+		domains := req.URL.Query().Get("name")
+		domainList := strings.Split(domains, ",")
+		if len(domainList) == 0 {
+			http.Error(w, "no domain provided", 400)
+			return
+		}
+		if len(domainList) > 64 {
+			http.Error(w, "too many domains provided, 64 is the maximum", 400)
+			return
+		}
+
+		recordType := req.URL.Query().Get("type")
+		if recordType != "A" && recordType != "TXT" {
+			http.Error(w, "unsupported type "+recordType, 400)
+			return
+		}
+
+		recordTypeInt := 0
+		switch recordType {
+		case "A":
+			recordTypeInt = 1
+		case "TXT":
+			recordTypeInt = 16
+		}
+		dnsServer := req.URL.Query().Get("dnsserver") // required unless knotfree is used, e.g., dns.gotohere.com or 1.1.1.1 etc
+		// don't use dns.gotohere.com, set the knotfree=1 flag instead.
+		// can we just default to cloudflair?
+		if dnsServer == "" {
+			dnsServer = "1.1.1.1"
+		}
+		isKnotfree := req.URL.Query().Get("knotfree")
+		if dnsServer == "" && isKnotfree != "1" {
+			http.Error(w, "no dns server provided", 400)
+			return
+		}
+		var responses []DnsResponse
+		var err error
+		if isKnotfree == "1" {
+			responses, err = LookupDnsOverHttpKnotfree(api.ce, domainList, recordTypeInt)
+		} else {
+			responses, err = LookupDnsOverHttp(domainList, recordTypeInt, dnsServer)
+		}
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+			return
+		}
+		if len(responses) != len(domainList) {
+			http.Error(w, "responses length mismatch", 500)
+			return
+		}
+		if len(responses) == 1 {
+			jsonBytes, err := json.Marshal(responses[0])
+			// fmt.Println("dns-query response", string(jsonBytes))
+			if err != nil {
+				http.Error(w, err.Error(), 500)
+				return
+			}
+			w.Write(jsonBytes)
+		} else {
+			// multiple responses. return an array of responses.
+			jsonBytes, err := json.Marshal(responses)
+			// too big fmt.Println("dns-query response array", string(jsonBytes))
+			if err != nil {
+				http.Error(w, err.Error(), 500)
+				return
+			}
+			w.Write(jsonBytes)
+		}
 	case "/api1/getstats":
 
 		stats := api.ce.Aides[0].GetExecutiveStats()
@@ -607,6 +686,8 @@ func (api ApiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	case "/api1/nameService":
 
+		// show the query string parameters for debugging
+		//fmt.Println("nameService query", req.URL.Query()) d
 		api.NameService(w, req)
 
 	default: // default:

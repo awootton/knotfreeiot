@@ -34,6 +34,9 @@ import (
 	"github.com/awootton/knotfreeiot/tokens"
 )
 
+// when running?
+// kk exec podname -- wget -o - http://localhost:6080/debug/pprof/heap > heap.profile
+
 // Hint: add "127.0.0.1 knotfreeserver" to /etc/hosts
 func main() {
 
@@ -45,8 +48,33 @@ func main() {
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		<-c
-		fmt.Println("\r- Ctrl+C pressed in Terminal")
+		fmt.Println("\r- Ctrl+C pressed in Terminal. why? why? why? ")
 		runtime.GC()
+
+		// show memory stats
+		var m runtime.MemStats
+		runtime.ReadMemStats(&m)
+		fmt.Printf("Alloc = %v MiB", bToMb(m.Alloc))
+		fmt.Printf("\tTotalAlloc = %v MiB", bToMb(m.TotalAlloc))
+		fmt.Printf("\tSys = %v MiB", bToMb(m.Sys))
+		fmt.Printf("\tNumGC = %v\n", m.NumGC)
+		fmt.Printf("\tHeapSys = %v MiB", bToMb(m.HeapSys))
+
+		// where to put this?
+		// useless. It's binary. pprof.WriteHeapProfile(os.Stdout)
+
+		// we're crashing because of  Warning  Unhealthy  51s   kubelet
+		//  Readiness probe failed: Get "http://10.244.37.232:8085/healthz": dial tcp 10.244.37.232:8085: conn
+		// but why?
+
+		// I'm not sure if this is helping and it's hard to read
+		// // 3. Allocate a buffer large enough for all goroutines
+		// buf := make([]byte, 1024*1024)
+		// n := runtime.Stack(buf, true)
+
+		// // 4. Dump the state to standard error (or your logging system)
+		// os.Stderr.Write(buf[:n])
+
 		os.Exit(0)
 	}()
 
@@ -109,4 +137,8 @@ func main() {
 	for {
 		time.Sleep(999999999 * time.Second)
 	}
+}
+
+func bToMb(u uint64) any {
+	return fmt.Sprintf("%.2f", float64(u)/1024/1024)
 }

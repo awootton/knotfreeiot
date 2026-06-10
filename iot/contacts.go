@@ -180,12 +180,21 @@ func (config *ContactStructConfig) IsGuru() bool {
 
 const COMMANDS_Q_SIZE = 16
 
-// AddContactStruct initializes a contact, and puts the new ss on the global
+// AddContactStruct is the normal one, it uses a default size for the commands channel. If you need a bigger one, use AddContactStructSized
+func AddContactStruct(ss *ContactStruct, ssi ContactInterface, config *ContactStructConfig) *ContactStruct {
+	return AddContactStructSized(ss, ssi, config, COMMANDS_Q_SIZE)
+}
+
+// AddContactStructSized initializes a contact, and puts the new ss on the global
 // list. It also increments the sequence number in SockStructConfig.
 // note that you must pass the same object twice, once as a ContactStruct and once as the Interface
-func AddContactStruct(ss *ContactStruct, ssi ContactInterface, config *ContactStructConfig) *ContactStruct {
+// the service-contact needs much more room in the channel for commands, so it uses a bigger size.
+func AddContactStructSized(ss *ContactStruct, ssi ContactInterface, config *ContactStructConfig, sized int) *ContactStruct {
 
-	size := COMMANDS_Q_SIZE
+	size := sized
+	if size <= 0 {
+		size = COMMANDS_Q_SIZE
+	}
 	if config.IsGuru() {
 		size = 1024
 	}

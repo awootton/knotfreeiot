@@ -310,7 +310,7 @@ func NewExecutive(sizeEstimate int, aname string, timegetter func() uint32, isGu
 
 	fmt.Println("executive channelToAnyAide", aname)
 	// why should the channel get behind?
-	ex.channelToAnyAide = make(chan packets.Interface, 1024)
+	ex.channelToAnyAide = make(chan packets.Interface, 1024*64)
 
 	// if sizeEstimate > 1000 {
 	// 	ex.channelToAnyAide = make(chan packets.Interface, 10)

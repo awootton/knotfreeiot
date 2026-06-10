@@ -29,6 +29,7 @@ spec:
             path: /healthz
             port: 8085
             scheme: HTTP
+          timeoutSeconds: 10  # this would not be good but I'm trying it.
         livenessProbe:
           httpGet:
             path: /livez

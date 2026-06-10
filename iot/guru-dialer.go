@@ -20,7 +20,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"io"
 	"net"
 	"sync"
 	"time"
@@ -28,6 +27,9 @@ import (
 	"github.com/awootton/knotfreeiot/packets"
 	"github.com/awootton/knotfreeiot/tokens"
 	"github.com/dgryski/go-maglev"
+	"github.com/djherbis/buffer"
+
+	"github.com/djherbis/nio/v3"
 )
 
 func (upc *upperChannel) isRunning() bool {
@@ -92,7 +94,7 @@ func (upc *upperChannel) dialGuru() {
 				contact.DoClose(errors.New("finished"))
 			}()
 
-			fmt.Println("upc start from ", upc.ex.Name, " to ", guru.Name)
+			fmt.Println("dialGuruAndServe upc start from ", upc.ex.Name, " to ", guru.Name)
 
 			// when the guru writes we want to get that
 			// and put it in upc.down
@@ -108,17 +110,17 @@ func (upc *upperChannel) dialGuru() {
 					//fmt.Println("upc.down ", p)
 					err := PushDownFromTop(upc.ex.Looker, p)
 					if err != nil {
-						fmt.Println(" UPC err PushDown ", err)
+						fmt.Println("dialGuruAndServe UPC err PushDown ", err)
 					}
 				}
-				fmt.Println("don't to be here. the upc.down channel should never close  ")
+				fmt.Println("dialGuruAndServe don't want to be here. the upc.down channel should never close  ")
 			}()
 
 			connect := packets.Connect{}
 			connect.SetOption("token", []byte(token))
 			err := PushPacketUpFromBottom(contact, &connect)
 			if err != nil {
-				fmt.Println("connect guru test dial conn ", err)
+				fmt.Println("dialGuruAndServe connect guru test dial conn ", err)
 			}
 			for p := range upc.up {
 
@@ -137,7 +139,7 @@ func (upc *upperChannel) dialGuru() {
 				}
 				err = PushPacketUpFromBottom(contact, p2)
 				if err != nil {
-					fmt.Println(" UPC err pushing to aide ", err)
+					fmt.Println("dialGuruAndServe UPC err pushing to aide ", err)
 					break
 				}
 			}
@@ -148,8 +150,9 @@ func (upc *upperChannel) dialGuru() {
 
 // myPipe wrapper of Pipe
 type myPipe struct {
-	pr *io.PipeReader
-	pw *io.PipeWriter
+	// was io.PipeReader
+	pr *nio.PipeReader
+	pw *nio.PipeWriter
 
 	written string
 	readden string
@@ -159,7 +162,11 @@ type myPipe struct {
 
 func newMyPipe() *myPipe {
 	m := &myPipe{}
-	pr, pw := io.Pipe()
+	// Allocate a strict 128KB memory buffer
+	buf := buffer.New(128 * 1024)
+	// big fat buffered pipe reader and writer
+	pr, pw := nio.Pipe(buf)
+	// pr, pw := io.Pipe() was
 	m.pr = pr
 	m.pw = pw
 	m.written = ""
@@ -196,7 +203,7 @@ func (upc *upperChannel) readFromPipe(m *myPipe) {
 		p, err := packets.ReadPacket(m)
 
 		if err != nil {
-			fmt.Println("readFromPipe ReadPacket err  ", err)
+			fmt.Println("dialGuruAndServe readFromPipe ReadPacket err  ", err)
 			break // it will never resync or recover
 		} else {
 			//fmt.Println("test got packet from guru  ", p)
@@ -210,9 +217,13 @@ func (upc *upperChannel) readFromPipe(m *myPipe) {
 			// 	fmt.Println("rp", m)
 			// }
 			if len(upc.down) >= cap(upc.down) {
-				fmt.Println("readFromPipe channel full")
+				fmt.Println("dialGuruAndServe readFromPipe channel full")
 			}
-			upc.down <- p
+			select {
+			case <-upc.stopped:
+				return
+			case upc.down <- p:
+			}
 		}
 	}
 }
@@ -284,9 +295,14 @@ func (upc *upperChannel) dialGuruAndServe() error {
 			time.Sleep(time.Second * 300)
 			p := &packets.Ping{}
 			if len(upc.up)*4 >= cap(upc.up)*3 {
-				fmt.Println("dialGuru channel full")
+				fmt.Println("dialGuruAndServe dialGuru channel full")
 			}
-			upc.up <- p
+			select {
+			case <-upc.stopped:
+				return
+			case upc.up <- p:
+			}
+			// upc.up <- p // atw had a write to close channel once
 		}
 	}()
 
@@ -338,10 +354,10 @@ func (upc *upperChannel) dialGuruAndServe() error {
 	return upc.founderr
 }
 
-// ConnectGuruToSuperAide for testing a cluster with a supercluster
+// xxxxxxxConnectGuruToSuperAide for testing a cluster with a supercluster
 // we need channels from guru to aide.
-// you can be sure that this needs work.
-func ConnectGuruToSuperAide(guru *Executive, aide *Executive) {
+// you can be sure that this needs work. unused.
+func XxxxxxxConnectGuruToSuperAide(guru *Executive, aide *Executive) {
 
 	me := *guru.Looker // *LookupTableStruct
 

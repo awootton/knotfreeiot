@@ -132,8 +132,9 @@ func (me *LookupTableStruct) SetUpstreamNames(names []string, addresses []string
 		if !found {
 			close(upc.stopped)
 			fmt.Println("forgetting upper router ", upc.name)
-			close(upc.up)
-			close(upc.down)
+			// why even close these? upc.stopped is is the signal that we're done here
+			// ?? close(upc.up)
+			// atw not sure ?? close(upc.down) // atw had panic when close of closed channel ?
 			upc.conn.Close()
 			delete(router.name2channel, upc.name)
 		}

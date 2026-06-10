@@ -16,7 +16,6 @@
 package iot_test
 
 import (
-	"fmt"
 	"strconv"
 	"testing"
 	"time"
@@ -53,32 +52,32 @@ func StartClusterOfClusters(timeGetter func() uint32) [][]*iot.ClusterExecutive 
 		clusterExecs = append(clusterExecs, arow)
 	}
 	// now we have to wire up the gurus of the lower levels to the aides of upper levels
-	// TODO:
-	for h := 0; h < superClusterHeight-1; h++ {
-		row := clusterExecs[h]
-		rowAbove := clusterExecs[h+1]
-		var gurusInRow []*iot.Executive
-		for _, ce := range row {
-			for _, exe := range ce.Gurus {
-				gurusInRow = append(gurusInRow, exe)
-			}
-		}
-		var aidesInRowAbove []*iot.Executive
-		for _, ce := range rowAbove {
-			for _, exe := range ce.Aides {
-				aidesInRowAbove = append(aidesInRowAbove, exe)
-			}
-		}
-		for i, guru := range gurusInRow {
-			if i >= len(aidesInRowAbove) {
-				i = len(aidesInRowAbove) - 1
-			}
-			aide := aidesInRowAbove[i]
-			fmt.Println("connecting " + guru.Name + " to " + aide.Name)
+	// TODO: no, we don't
+	// for h := 0; h < superClusterHeight-1; h++ {
+	// 	row := clusterExecs[h]
+	// 	rowAbove := clusterExecs[h+1]
+	// 	var gurusInRow []*iot.Executive
+	// 	for _, ce := range row {
+	// 		for _, exe := range ce.Gurus {
+	// 			gurusInRow = append(gurusInRow, exe)
+	// 		}
+	// 	}
+	// 	var aidesInRowAbove []*iot.Executive
+	// 	for _, ce := range rowAbove {
+	// 		for _, exe := range ce.Aides {
+	// 			aidesInRowAbove = append(aidesInRowAbove, exe)
+	// 		}
+	// 	}
+	// 	for i, guru := range gurusInRow {
+	// 		if i >= len(aidesInRowAbove) {
+	// 			i = len(aidesInRowAbove) - 1
+	// 		}
+	// 		aide := aidesInRowAbove[i]
+	// 		fmt.Println("connecting " + guru.Name + " to " + aide.Name)
 
-			iot.ConnectGuruToSuperAide(guru, aide)
-		}
-	}
+	// 		iot.ConnectGuruToSuperAide(guru, aide)
+	// 	}
+	// }
 
 	return clusterExecs
 }

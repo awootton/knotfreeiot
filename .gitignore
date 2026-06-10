@@ -8,7 +8,10 @@
 # the react build is in here
 **/_site2
 
+# actually the knotfree react build is in here
 docs/
+# the gotohere react build is in here
+Xgotohere-static-react-build/ 
 
 monitor_pod/main/dummy.yaml
 

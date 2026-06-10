@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/awootton/knotfreeiot/tokens"
+	"github.com/hashicorp/golang-lru/v2/expirable"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -82,6 +83,7 @@ var MongoClientOptions *options.ClientOptions
 var clientConnectLock sync.Mutex
 var clientConnectDone = false
 var mongoClient *mongo.Client
+var nonExistingSubsCache *expirable.LRU[string, string]
 
 // GetMongoClient returns THE mongo client. Is this safe to just do once ever?
 // Is it safe to call this multiple times?
@@ -101,6 +103,12 @@ func GetMongoClient() (*mongo.Client, error) {
 		return nil, err
 	}
 	clientConnectDone = true
+
+	// 32K keys that go nowhere and expire after 5 minutes. 
+	// This is for caching the not founds in GetSubscription, so we don't have to hit mongo every time for a non existing topic.
+	// Support won't tell me how to give them my money.	
+	nonExistingSubsCache = expirable.NewLRU[string, string](32 * 1024, nil, time.Second*300)
+
 	return mongoClient, nil
 }
 
@@ -163,8 +171,40 @@ func GetSubscriptionListCount(ownerPubk string) (int, error) {
 	return len(names), nil
 }
 
+func ClearCachedSubscription(hashedTopicStr string) {
+	nonExistingSubsCache.Remove(hashedTopicStr)
+}
+
+// the core of the lookup. Get the subscription from the database. 
+// The most used function.
 func GetSubscription(hashedTopicStr string) (*WatchedTopic, bool) {
 
+	client, err := GetMongoClient() //:= mongo.Connect(ctx, MongoClientOptions)
+	if err != nil {
+		fmt.Println("mongo.Connect err", err)
+		return nil, false
+	}
+	// cache the not founds.
+	// we save the found ones in the cluster.
+	cached, ok := nonExistingSubsCache.Get(hashedTopicStr)
+	if ok {
+		if cached == "0" {
+			// this is a cached not found.
+			return nil, false		
+		}
+	}
+	topic, ok := getSubscriptionInternal(hashedTopicStr, client)
+	if ok {
+		return topic, true
+	}
+	// not found. Cache the not found.
+	nonExistingSubsCache.Add(hashedTopicStr, "0")
+	return nil, false
+}
+
+func getSubscriptionInternal(hashedTopicStr string, client *mongo.Client) (*WatchedTopic, bool) {
+
+	// fmt.Println("Mongo GetSubscription ", hashedTopicStr)
 	startTime := time.Now()
 	defer func() {
 		endTime := time.Now()
@@ -173,13 +213,6 @@ func GetSubscription(hashedTopicStr string) (*WatchedTopic, bool) {
 			fmt.Println("GetSubscription SLOW took ", duration)
 		}
 	}()
-
-	client, err := GetMongoClient() //:= mongo.Connect(ctx, MongoClientOptions)
-	if err != nil {
-		fmt.Println("mongo.Connect err", err)
-		return nil, false
-	}
-	// defer client.Disconnect(ctx)
 
 	subscriptions := client.Database("iot").Collection("subscriptions")
 
@@ -190,14 +223,12 @@ func GetSubscription(hashedTopicStr string) (*WatchedTopic, bool) {
 		return nil, false
 	}
 	found := WatchedTopic{}
-	err = result.Decode(&found)
+	err := result.Decode(&found)
 	if err != nil {
 		fmt.Println("mongo find name Decode err", err)
 		return nil, false
 	}
-
 	// fmt.Println("found watched topic ", found.Name.ToBase64(), found.Jwtid)
-
 	return &found, true
 }
 
@@ -225,6 +256,7 @@ func DeleteSubscription(hashedTopicStr string) error {
 }
 
 func SaveSubscription(watchedTopic *WatchedTopic) error {
+	
 	InitMongEnv()
 	InitIotTables()
 
@@ -246,6 +278,7 @@ func SaveSubscription(watchedTopic *WatchedTopic) error {
 
 	subscriptions := client.Database("iot").Collection("subscriptions")
 	hashedTopicStr := watchedTopic.Name.ToBase64()
+	ClearCachedSubscription(hashedTopicStr) // clear the cache for this topic, since it's being updated. This is to prevent the cache from returning a not found for a topic that now exists.
 	filter := bson.D{{Key: "name", Value: hashedTopicStr}}
 	result := subscriptions.FindOne(context.TODO(), filter) // I hate this.
 	if result.Err() != nil {

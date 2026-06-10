@@ -7,10 +7,12 @@ require (
 	github.com/awootton/libmqtt v0.2.0
 	github.com/aws/aws-sdk-go v1.44.109
 	github.com/dgryski/go-maglev v0.0.0-20200611225407-8961b9b1b8e6
+	github.com/djherbis/buffer v1.2.0
+	github.com/djherbis/nio/v3 v3.0.1
 	github.com/emirpasic/gods v1.18.1
 	github.com/gbrlsnchs/jwt/v3 v3.0.1
 	github.com/gorilla/websocket v1.5.0
-	github.com/maxbrunsfeld/counterfeiter/v6 v6.5.0
+	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/prometheus/client_golang v1.13.0
 	github.com/prometheus/client_model v0.2.0
 	github.com/stretchr/testify v1.9.0
@@ -53,14 +55,12 @@ require (
 	github.com/xdg-go/stringprep v1.0.4 // indirect
 	github.com/youmark/pkcs8 v0.0.0-20181117223130-1be2e3e5546d // indirect
 	go.opencensus.io v0.24.0 // indirect
-	golang.org/x/mod v0.8.0 // indirect
 	golang.org/x/net v0.23.0 // indirect
 	golang.org/x/oauth2 v0.7.0 // indirect
 	golang.org/x/sync v0.1.0 // indirect
 	golang.org/x/sys v0.18.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 	golang.org/x/time v0.1.0 // indirect
-	golang.org/x/tools v0.6.0 // indirect
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20230410155749-daa745c078e1 // indirect
