@@ -21,13 +21,13 @@ import (
 func TestNameApiDeleteName(t *testing.T) {
 
 	ce := makeClusterWithServiceContact()
-	iot.InitMongEnv()
-	iot.InitIotTables()
+	// iot.InitMongEnv()
+	// iot.InitIotTables()
 
-	sc := ce.PacketService
+	// not like this. always refere to the owner sc := ce.PacketService
 	devicePublicKey := ce.PublicKeyTemp
 	_ = devicePublicKey
-	_ = sc
+
 	fmt.Println("devicePublicKey", base64.URLEncoding.EncodeToString(devicePublicKey[:]))
 
 	passphrase := "a-person-passphrase"
@@ -144,10 +144,10 @@ func TestNameApiDeleteName(t *testing.T) {
 		cmd.SetOption("sealed", sealed)
 
 		// send it
-		reply, err := sc.GetPacketReplyLonger(&cmd, time.Duration(5555*time.Second))
+		reply, err := ce.GetPacketService().GetPacketReplyLonger(&cmd, time.Duration(5555*time.Second))
 		if err == nil {
 			got := string(reply.(*packets.Send).Payload)
-			want := `{"Exists":false,"Online":false}`
+			want := `{"Exists":false,"Online":false,"Owner":""}`
 			if got != want {
 				t.Error("reply got", got, "want", want)
 				fmt.Println("reply got", got, "want", want)
@@ -163,10 +163,10 @@ func TestNameApiDeleteName(t *testing.T) {
 func TestNameApiSetOption(t *testing.T) {
 
 	ce := makeClusterWithServiceContact()
-	iot.InitMongEnv()
-	iot.InitIotTables()
+	// iot.InitMongEnv()
+	// iot.InitIotTables()
 
-	sc := ce.PacketService
+	sc := ce.GetPacketService()
 	_ = sc
 	fmt.Println("devicePublicKey", base64.URLEncoding.EncodeToString(ce.PublicKeyTemp[:]))
 
@@ -275,10 +275,10 @@ func TestNameApiSetOption(t *testing.T) {
 func TestNameApiGetOption(t *testing.T) {
 
 	ce := makeClusterWithServiceContact()
-	iot.InitMongEnv()
-	iot.InitIotTables()
+	// iot.InitMongEnv()
+	// iot.InitIotTables()
 
-	sc := ce.PacketService
+	sc := ce.GetPacketService()
 	_ = sc
 	fmt.Println("devicePublicKey", base64.URLEncoding.EncodeToString(ce.PublicKeyTemp[:]))
 
@@ -429,11 +429,11 @@ func TestNameApiGetOption(t *testing.T) {
 func TestNameApiDetails(t *testing.T) {
 
 	ce := makeClusterWithServiceContact()
-	iot.InitMongEnv()
-	iot.InitIotTables()
+	// iot.InitMongEnv()
+	// iot.InitIotTables()
 
-	sc := ce.PacketService
-	_ = sc
+	//	sc := ce.GetPacketService()
+	//	_ = sc // don't do it this way because they swap out as they fail. always use ce.GetPacketService() to get the current one.
 	fmt.Println("devicePublicKey", base64.URLEncoding.EncodeToString(ce.PublicKeyTemp[:]))
 
 	passphrase := "a-person-passphrase"
@@ -502,10 +502,10 @@ func TestNameApiDetails(t *testing.T) {
 func TestNameApiAddName(t *testing.T) {
 
 	ce := makeClusterWithServiceContact()
-	iot.InitMongEnv()
-	iot.InitIotTables()
+	// iot.InitMongEnv()
+	// iot.InitIotTables()
 
-	sc := ce.PacketService
+	sc := ce.GetPacketService()
 	devicePublicKey := ce.PublicKeyTemp
 	_ = devicePublicKey
 	_ = sc
@@ -559,13 +559,13 @@ func TestNameApiAddName(t *testing.T) {
 func TestNameApiList(t *testing.T) {
 
 	ce := makeClusterWithServiceContact()
-	iot.InitMongEnv()
-	iot.InitIotTables()
+	// iot.InitMongEnv()
+	// iot.InitIotTables()
 
-	sc := ce.PacketService
+	// sc := ce.PacketService
 	devicePublicKey := ce.PublicKeyTemp
 	_ = devicePublicKey
-	_ = sc
+	// _ = sc
 	fmt.Println("devicePublicKey", base64.URLEncoding.EncodeToString(devicePublicKey[:]))
 
 	passphrase := "a-person-passphrase"
@@ -641,8 +641,8 @@ func TestUrl(t *testing.T) {
 
 	ce := makeClusterWithServiceContact()
 
-	iot.InitMongEnv()
-	iot.InitIotTables()
+	// iot.InitMongEnv()
+	// iot.InitIotTables()
 	// note: the .com and .test tlds are in /etc/hosts
 	iot.StartAServer("get-unix-time", "")            // start a thing server
 	iot.StartAServer("get-unix-time_iot", "")        // start a thing server
@@ -690,8 +690,8 @@ func TestUrlFancy(t *testing.T) {
 	ce := makeClusterWithServiceContact()
 	_ = ce
 
-	iot.InitMongEnv()
-	iot.InitIotTables()
+	// iot.InitMongEnv()
+	// iot.InitIotTables()
 
 	// note: the .com and .test tlds are in /etc/hosts
 	iot.StartAServer("get-unix-time", "")            // start a thing server

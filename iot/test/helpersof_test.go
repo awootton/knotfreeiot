@@ -1,18 +1,3 @@
-// Copyright 2019,2020,2021 Alan Tracey Wootton
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
 package iot_test
 
 import (
@@ -156,7 +141,7 @@ func (cc *testContact) WriteDownstream(packet packets.Interface) error {
 	cc.IncOutput(len(text))
 
 	// fmt.Println(cc.index, "APPENDING to mostRecent", text)
-
+	iot.CheckSendPacket(packet.(*packets.Send))
 	// cc.mostRecent = append(cc.mostRecent, packet) //use stream instead of array
 	cc.mostRecent <- packet
 
@@ -241,6 +226,7 @@ func readLine(conn *net.TCPConn) string {
 
 func openConnectedSocket(name string, t *testing.T, token string) *net.TCPConn {
 
+	fmt.Println("openConnectedSocket dialing ", name)
 	conn1, err := net.DialTimeout("tcp", name, time.Duration(10*time.Millisecond)) //net.DialTCP("tcp", nil, tcpAddr)
 	if err != nil {
 		println("Dial 1 failed:", err.Error())
@@ -329,3 +315,18 @@ func TestMakeLargeTokenAtw(t *testing.T) {
 	fmt.Println("Get32xTokenLocal", string(bbb))
 
 }
+
+// Copyright 2019,2020,2021,2026 Alan Tracey Wootton
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <http://www.gnu.org/licenses/>.

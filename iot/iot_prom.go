@@ -127,8 +127,8 @@ var (
 		},
 	)
 
-	//TCPServerIotPushEror is
-	TCPServerIotPushEror = promauto.NewCounter(
+	//TCPServerIotPushError is
+	TCPServerIotPushError = promauto.NewCounter(
 		prometheus.CounterOpts{
 			Name: "tcp_server_packet_push_error",
 			Help: "Push error.",

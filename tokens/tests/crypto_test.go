@@ -30,6 +30,9 @@ func TestGetGiantTokens(t *testing.T) {
 	//fmt.Println("giant local ", tokens.GetImpromptuGiantTokenLocal(""))
 	fmt.Println("medium local ", string(tokens.Get32xTokenLocal()))
 
+	// I need one with my pubk in it, and my billing key
+	fmt.Println("giant token atw pubk\n", tokens.GetImpromptuGiantTokenWithPubk("NEUdZXsPTD-lxGeeHWXG-o_9wlfn_sBSqPqUqzA0HS0", "dvaw3z28o8bxqsq6fwozx3hx"))
+	fmt.Println()
 }
 
 func TestMakeGiantTokenToFile(t *testing.T) {
@@ -59,7 +62,7 @@ func TestMakeRandomPhrase(t *testing.T) {
 
 }
 
-func xxxTestMassageWordList(t *testing.T) {
+func XxxxTestMassageWordList(t *testing.T) {
 	_ = t
 	path, err := os.Getwd()
 	if err != nil {
@@ -434,7 +437,7 @@ func ExampleZeroReader() {
 }
 
 // we used this ONCE. It's NOT a test.
-func xxxxTest1(t *testing.T) {
+func XxxxTest1(t *testing.T) {
 	_ = t
 	ExampleZeroReader()
 
@@ -605,7 +608,7 @@ func BenchmarkCheckToken2(b *testing.B) {
 	}
 }
 
-func xxxxnot_TestMakeTok2(t *testing.T) {
+func Xxxxxnot_TestMakeTok2(t *testing.T) {
 	_ = t
 	tokens.LoadPublicKeys()
 
@@ -646,7 +649,7 @@ func Xxxxnot_TestMakeToken1connection(t *testing.T) {
 }
 
 // can't LoadPrivateKeys in test
-func not_TestBox(t *testing.T) {
+func Nnot_TestBox(t *testing.T) {
 	_ = t
 	counter := &tokens.CountReader{}
 
@@ -703,8 +706,8 @@ func not_TestBox(t *testing.T) {
 
 }
 
-func getRandomB64String() string {
-	var tmp [18]byte
-	rand.Read(tmp[:])
-	return base64.RawURLEncoding.EncodeToString(tmp[:])
-}
+// func getRandomB64String() string {
+// 	var tmp [18]byte
+// 	rand.Read(tmp[:])
+// 	return base64.RawURLEncoding.EncodeToString(tmp[:])
+// }

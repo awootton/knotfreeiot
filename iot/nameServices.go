@@ -26,12 +26,12 @@ func (api ApiHandler) NameService(w http.ResponseWriter, req *http.Request) {
 	aName := req.URL.Query().Get("name")     // this has to be text name of the subscription involved
 
 	if len(aName) == 0 {
-		http.Error(w, "no name provided", 500)
+		http.Error(w, "NameService:no name provided", 500)
 		return
 	}
 
-	fmt.Println("NameService command", command)
-	fmt.Println("NameService theirPubk", theirPubk)
+	// fmt.Println("NameService command", command)
+	// fmt.Println("NameService theirPubk", theirPubk)
 
 	look := packets.Lookup{}
 	look.Address.FromString(aName)
@@ -50,9 +50,9 @@ func (api ApiHandler) NameService(w http.ResponseWriter, req *http.Request) {
 	var reply packets.Interface
 	if DEBUG {
 		// have a little more time for debugging
-		reply, err = api.ce.PacketService.GetPacketReplyLonger(&look, time.Duration(50*time.Second))
+		reply, err = api.ce.GetPacketService().GetPacketReplyLonger(&look, time.Duration(50*time.Second))
 	} else {
-		reply, err = api.ce.PacketService.GetPacketReply(&look)
+		reply, err = api.ce.GetPacketService().GetPacketReply(&look)
 	}
 	if err != nil {
 		http.Error(w, "nameservice:"+err.Error(), 500)
@@ -60,7 +60,15 @@ func (api ApiHandler) NameService(w http.ResponseWriter, req *http.Request) {
 	}
 	replyBytes := reply.(*packets.Send).Payload
 
-	fmt.Println("NameService reply", string(replyBytes))
+	CheckSendPacket(reply.(*packets.Send))
+
+	{ // if log reply
+		tmp := string(replyBytes)
+		if len(tmp) > 100 {
+			tmp = tmp[:100] + "..."
+		}
+		fmt.Println("NameService reply", tmp, aName)
+	}
 	// this is httpd so no need to encrypt the reply
 	// the encrypt of the send was to prove ownership
 	n, err := w.Write(replyBytes)
@@ -265,149 +273,6 @@ func deleteNameFunc(msg string, args []string, callContext interface{}) string {
 	return ""
 }
 
-// func (api ApiHandler) XXXaddName(w http.ResponseWriter, req *http.Request, cmdParts []string) (string, error) {
-
-// 	_ = w
-// 	_ = req
-
-// 	// cmdParts[1] is the name to add
-// 	// cmdParts[2] is a token
-// 	if len(cmdParts) < 3 {
-// 		fmt.Println("add name error: no name provided")
-// 		return "add name error: no name provided", errors.New("no name provided")
-// 	}
-// 	name := cmdParts[1]
-// 	token := cmdParts[2]
-// 	// validate token
-// 	payload, err := tokens.ValidateToken(string(token))
-// 	if err != nil {
-// 		fmt.Println("add name error: invalid token", err)
-// 		return "add name error: invalid token", err
-// 	}
-// 	// now count the names for this owner
-// 	list, err := GetSubscriptionList(payload.Pubk) // TODO: just get the count
-// 	if err != nil {
-// 		fmt.Println("getNames GetSubscriptionList", err)
-// 		// http.Error(w, err.Error(), 500)
-// 		return "error GetSubscriptionList", err
-// 	}
-// 	if len(list)+1 > int(payload.Subscriptions) {
-// 		fmt.Println("add name error: too many names")
-// 		return "add name error: too many names", errors.New("too many names")
-// 	}
-
-// 	// now check if exists
-// 	look := packets.Lookup{}
-// 	look.Address.FromString(name)
-// 	look.SetOption("cmd", []byte("exists"))
-// 	val, err := api.ce.PacketService.GetPacketReply(&look)
-// 	if err != nil {
-// 		// http.Error(w, err.Error(), 500)
-// 		return "add name error: ", err
-// 	}
-// 	if val == nil {
-// 		// http.Error(w, "no reply", 500)
-// 		return "add name error: no reply", errors.New("no reply")
-// 	}
-// 	got := string(val.(*packets.Send).Payload)
-// 	exists := LookupNameExistsReturnType{false, false}
-// 	err = json.Unmarshal([]byte(got), &exists)
-// 	if err != nil {
-// 		fmt.Println("add name error: json unmarshal", err)
-// 		return "add name error: json unmarshal", err
-// 	}
-// 	if exists.Exists {
-// 		fmt.Println("add name error: name already exists")
-// 		return "add name error: name already exists", errors.New("name already exists")
-// 	}
-
-// 	// make the watchedItem and mongo insert
-// 	var h HashType
-// 	h.HashString(name)
-
-// 	watchedTopic := WatchedTopic{
-// 		Name:              h,
-// 		NameStr:           name,
-// 		Expires:           payload.ExpirationTime,
-// 		thetree:           NewWithInt64Comparator(),
-// 		OptionalKeyValues: nil,
-// 		Bill:              nil,
-// 		Jwtid:             payload.JWTID,
-// 		Owner:             payload.Pubk,
-// 	}
-// 	err = SaveSubscription(&watchedTopic)
-// 	// did it work?
-// 	if err != nil {
-// 		fmt.Println("add name error: save subscription", err)
-// 		return "add name error: save subscription", err
-// 	}
-
-// 	reply := "ok"
-// 	return reply, nil
-// }
-
-// func (api ApiHandler) XXXdeleteName(w http.ResponseWriter, req *http.Request, cmdParts []string, theirPubk string) (string, error) {
-
-// 	_ = w
-// 	_ = req
-
-// 	// cmdParts[1] is the name to delete
-
-// 	if len(cmdParts) < 2 {
-// 		fmt.Println("delete name error: no name provided")
-// 		return "delete name error: no name provided", errors.New("no name provided")
-// 	}
-// 	name := cmdParts[1]
-
-// 	// now check if it's online and delete
-// 	nonceStr := []byte(tokens.GetRandomB36String())
-// 	nonce := new([24]byte)
-// 	copy(nonce[:], nonceStr[:])
-
-// 	timeStr := strconv.FormatInt(time.Now().Unix(), 10)
-
-// 	command := "delete"
-// 	cmd := packets.Lookup{}
-// 	cmd.Address.FromString(name)
-// 	cmd.SetOption("cmd", []byte(command))
-// 	cmd.SetOption("pubk", []byte(theirPubk))
-// 	cmd.SetOption("nonc", nonce[:]) // raw nonce
-
-// 	// we need to sign this
-// 	payload := command + "#" + timeStr
-
-// 	var privk [32]byte
-// 	var devicePublicKey [32]byte // FIXME: dummy code
-
-// 	buffer := make([]byte, 0, (len(payload) + box.Overhead))
-// 	sealed := box.Seal(buffer, []byte(payload), nonce, &devicePublicKey, &privk)
-// 	cmd.SetOption("sealed", sealed)
-
-// 	val, err := api.ce.PacketService.GetPacketReply(&cmd)
-// 	if err != nil {
-// 		// http.Error(w, err.Error(), 500)
-// 		return "delete name error: ", err
-// 	}
-// 	if val == nil {
-// 		// http.Error(w, "no reply", 500)
-// 		return "delete name error: no reply", errors.New("no reply")
-// 	}
-// 	got := string(val.(*packets.Send).Payload)
-// 	exists := LookupNameExistsReturnType{false, false}
-// 	err = json.Unmarshal([]byte(got), &exists)
-// 	if err != nil {
-// 		fmt.Println("add name error: json unmarshal", err)
-// 		return "add name error: json unmarshal", err
-// 	}
-// 	if exists.Online {
-// 		fmt.Println("add name error: name already exists")
-// 		return "add name error: name already exists", errors.New("name already exists")
-// 	}
-
-// 	reply := "ok"
-// 	return reply, nil
-// }
-
 func (api ApiHandler) NameServiceOLD(w http.ResponseWriter, req *http.Request) {
 	// This function will forward signed requests to the lookup service api.
 
@@ -516,3 +381,18 @@ func (api ApiHandler) NameServiceOLD(w http.ResponseWriter, req *http.Request) {
 	// sealedb64 := base64.RawURLEncoding.EncodeToString(sealed) // agile rules say no binary
 	// w.Write([]byte(sealedb64))
 }
+
+// Copyright 2019,2020,2021,2026 Alan Tracey Wootton
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <http://www.gnu.org/licenses/>.

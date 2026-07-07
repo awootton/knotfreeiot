@@ -1,18 +1,3 @@
-// Copyright 2019,2020,2021 Alan Tracey Wootton
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
 package iot_test
 
 import (
@@ -308,6 +293,7 @@ func TestLookupSubs(t *testing.T) {
 		sendmessage.Source.FromString("contact0_address")
 		sendmessage.Payload = []byte("can you 2 hear me now2 ?")
 		//sendmessage.SetOption("debg", []byte("12345678"))
+		iot.CheckSendPacket(&sendmessage)
 		err = iot.PushPacketUpFromBottom(contact0, &sendmessage)
 		if err != nil {
 			t.Error("got error ")
@@ -340,6 +326,7 @@ func TestLookupSubs(t *testing.T) {
 		sendmessage.Source.FromString("contact9_address")
 		sendmessage.Payload = []byte("message from 0 to 9. message from 0 to 9. ")
 		//sendmessage.SetOption("debg", []byte("12345678"))
+		iot.CheckSendPacket(&sendmessage)
 		err = iot.PushPacketUpFromBottom(contact9, &sendmessage)
 		if err != nil {
 			t.Error("got error ")
@@ -394,3 +381,18 @@ func showBson(bytes []byte) string {
 	}
 	return fmt.Sprintf("%v", result)
 }
+
+// Copyright 2019,2020,2021,2026 Alan Tracey Wootton
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <http://www.gnu.org/licenses/>.

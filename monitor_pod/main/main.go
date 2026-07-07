@@ -47,7 +47,7 @@ func main() {
 		monitor_pod.ServeGetTime(token, &c)
 	}
 
-	monitor_pod.PublishTestTopic(token)
+	// no thank you. monitor_pod.PublishTestTopic(token) it's gaslighting me.
 
 	for {
 		fmt.Println("in monitor_pod, calling ReplaceTempInF ")

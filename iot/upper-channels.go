@@ -58,6 +58,7 @@ func (router *upstreamRouterStruct) getUpperChannel(h uint64) *upperChannel {
 func (me *LookupTableStruct) SetUpstreamNames(names []string, addresses []string) {
 
 	// this is really a function on upstreamRouter:upstreamRouterStruct
+	// fmt.Println("SetUpstreamNames called with ", names, " and ", addresses)
 
 	router := me.upstreamRouter
 	// router.mux.Lock()
@@ -87,8 +88,18 @@ func (me *LookupTableStruct) SetUpstreamNames(names []string, addresses []string
 	// maybe some more verifications?
 	fmt.Println("SetUpstreamNames changed from ", router.channels, " to ", names)
 
-	if me.isGuru {
+	// if me.isGuru { what was this?  atw 6/11/26
+	// 	me.setGuruUpstreamNames(names) // recalc the maglev
+	// 	return
+	// }
+
+	if !me.isGuru {
 		me.setGuruUpstreamNames(names) // recalc the maglev
+		// return
+	}
+
+	if me.isGuru {
+		// don't dial any gurus
 		return
 	}
 

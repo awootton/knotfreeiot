@@ -49,7 +49,7 @@ func (upc *upperChannel) isRunning() bool {
 func (upc *upperChannel) dialGuru() {
 
 	defer func() {
-		fmt.Println("** aren't we supposed to never quit this? **")
+		fmt.Println("dialGuruAndServe exit. ** aren't we supposed to never quit this? **")
 	}()
 
 	isTCP := false
@@ -143,7 +143,7 @@ func (upc *upperChannel) dialGuru() {
 					break
 				}
 			}
-			fmt.Println("don't quit who closed the chan")
+			fmt.Println("dialGuruAndServe don't quit who closed the chan")
 		}
 	}
 }
@@ -163,6 +163,7 @@ type myPipe struct {
 func newMyPipe() *myPipe {
 	m := &myPipe{}
 	// Allocate a strict 128KB memory buffer
+	// that's 2 max size packets.
 	buf := buffer.New(128 * 1024)
 	// big fat buffered pipe reader and writer
 	pr, pw := nio.Pipe(buf)
@@ -240,7 +241,8 @@ func (upc *upperChannel) dialGuruAndServe() error {
 	fmt.Println("starting/restarting dialGuruAndServe ", upc.address, upc.name, " for ", upc.index)
 
 	// todo: tell prometheius we're dialing
-	upc.conn, err = net.DialTimeout("tcp", upc.address, time.Duration(uint64(2*time.Second)))
+
+	upc.conn, err = net.DialTimeout("tcp", upc.address, time.Duration(uint64(2*time.Second))) // atw delete me
 	if err != nil {
 		fmt.Println("dial dialGuruAndServe fail", upc.address, upc.name, " with ", err)
 		TCPNameResolverFail2.Inc()
@@ -250,12 +252,12 @@ func (upc *upperChannel) dialGuruAndServe() error {
 
 	TCPNameResolverConnected.Inc()
 
-	tcpconn := upc.conn.(*net.TCPConn)
-	tcpconn.SetNoDelay(true)
-	tcpconn.SetWriteBuffer(4096)
-
-	fmt.Println("dialGuruAndServe ready to ReadPacket from ", upc.address, upc.name, tcpconn.LocalAddr())
-
+	{
+		tcpconn := upc.conn.(*net.TCPConn)
+		tcpconn.SetNoDelay(true)
+		tcpconn.SetWriteBuffer(64*1024 + 1024) // I like it bigger
+		fmt.Println("dialGuruAndServe ready to ReadPacket from ", upc.address, upc.name, tcpconn.LocalAddr())
+	}
 	upc.down = nil // not used. wut? messages are pushed up directly to tcp
 
 	var mux sync.Mutex // needed?
@@ -297,6 +299,7 @@ func (upc *upperChannel) dialGuruAndServe() error {
 			if len(upc.up)*4 >= cap(upc.up)*3 {
 				fmt.Println("dialGuruAndServe dialGuru channel full")
 			}
+			fmt.Println("dialGuruAndServe dialGuru sending keepalive ping to ", upc.address, upc.name)
 			select {
 			case <-upc.stopped:
 				return

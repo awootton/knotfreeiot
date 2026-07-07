@@ -1,0 +1,49 @@
+
+I logged ALL of these. 
+
+net.DialTCP
+or 
+net.DialTimeout
+net.DialUDP in a test
+serve thing does 
+net.DialTCP
+
+
+aide0 accepted 58499 
+
+aide
+
+    accepts
+
+        localhost:8384
+        MakeHTTPExecutive
+            19004
+
+    dials
+
+        dialAideAndServe
+            aide0  to  aide0 localhost:8384
+
+        SetUpstreamNames starting upper router from  aide0  to  guru0
+
+
+    channels
+
+
+guru
+
+    accepts.
+        localhost:19001
+
+        MakeHTTPExecutive
+            19000
+
+    dials.
+
+        dialAideAndServe
+            dialAideAndServe from  guru0  to  aide0 localhost:8384
+
+    channels
+
+
+

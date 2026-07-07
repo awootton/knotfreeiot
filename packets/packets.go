@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 	"unicode/utf8"
@@ -153,6 +154,8 @@ func (address *AddressUnion) ToBytes() []byte {
 	b.Write(address.Bytes)
 	return (b.Bytes())
 }
+
+// Sig means signature and is a short version of String()
 func (address *AddressUnion) Sig() string {
 	address.EnsureAddressIsBinary()
 	b := make([]byte, 3)
@@ -439,7 +442,7 @@ func (p *Send) Fill(str *Universal) error {
 		// for _, a := range str.Args {
 		// 	fmt.Println("arg", a)
 		// }
-		return errors.New("too few args for Send")
+		return errors.New("too few args for Send: " + strconv.Itoa(len(str.Args)))
 	}
 	p.Address.FromBytes(str.Args[0])
 	p.Source.FromBytes(str.Args[1])
@@ -636,35 +639,41 @@ func (p *Lookup) String() string {
 }
 
 // Sig means signature and is a short version of String()
-
 func (str *Universal) Sig() string {
 	return str.String()
 }
 
+// Sig means signature and is a short version of String()
 func (p *Send) Sig() string {
-	return "send to:" + p.Address.Sig() + " frm:" + p.Source.Sig() + " with:" + strings.Split(string(p.Payload), "\n")[0]
+	return "send to:" + p.Address.Sig() + " frm:" + p.Source.Sig() + " with:\"" + strings.Split(string(p.Payload), "\n")[0] + "\""
 }
 
+// Sig means signature and is a short version of String()
 func (p *Subscribe) Sig() string {
 	return "sub to:" + p.Address.Sig()
 }
 
+// Sig means signature and is a short version of String()
 func (p *Unsubscribe) Sig() string {
 	return "unsub to:" + p.Address.Sig()
 }
 
+// Sig means signature and is a short version of String()
 func (p *Connect) Sig() string {
 	return "connect"
 }
 
+// Sig means signature and is a short version of String()
 func (p *Disconnect) Sig() string {
 	return "Disconnect"
 }
 
+// Sig means signature and is a short version of String()
 func (p *Ping) Sig() string {
 	return "ping"
 }
 
+// Sig means signature and is a short version of String()
 func (p *Lookup) Sig() string {
 	return "Lookup :" + p.Address.Sig() + " frm:" + p.Source.Sig()
 

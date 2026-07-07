@@ -1,18 +1,3 @@
-// Copyright 2019,2020,2021 Alan Tracey Wootton
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
 package iot
 
 import (
@@ -89,7 +74,18 @@ type ClusterExecutive struct {
 	PublicKeyTemp  *[32]byte //curve25519.PublicKey // temporary to this run not ed25519
 	PrivateKeyTemp *[32]byte //curve25519.PrivateKey
 
-	PacketService *ServiceContact
+	// maybe we should have a bunch of these. They are just sockets.
+	// round robin them.
+	// so, use GetPacketService() every time.
+	lastScUsed     int
+	PacketServices [ServiceContactMax]*ServiceContact
+}
+
+const ServiceContactMax int = 20 // atw 7/2/26
+
+func (ce *ClusterExecutive) GetPacketService() *ServiceContact {
+	ce.lastScUsed = (ce.lastScUsed + 1) % ServiceContactMax
+	return ce.PacketServices[ce.lastScUsed]
 }
 
 // ExecutiveLimits will be how we tell if the ex is 'full'
@@ -170,6 +166,8 @@ func MakeSimplestCluster(timegetter func() uint32, isTCP bool, aideCount int, su
 
 		MakeTCPExecutive(guru0, guru0.tcpAddress)
 		MakeHTTPExecutive(guru0, guru0.httpAddress)
+	} else {
+		fmt.Println("never use non-tcp mode anymore. FIXME: ", guru0.Name)
 	}
 	ce.currentGuruList = []string{"guru0" + suffix}
 	ce.currentAddressList = []string{guru0.tcpAddress}
@@ -199,19 +197,21 @@ func MakeSimplestCluster(timegetter func() uint32, isTCP bool, aideCount int, su
 			// FIXME : MakeMQTTExecutive
 
 			// add API to aide
+		} else {
+			fmt.Println("never use non-tcp mode anymore. FIXME: ", guru0.Name)
 		}
-		go aide1.DialContactToAnyAide(isTCP, ce)
+		go aide1.DialContactToAnyAide(isTCP, ce, "aide1 dialing its aide "+aide1.Name)
 	}
 
-	go guru0.DialContactToAnyAide(isTCP, ce)
+	go guru0.DialContactToAnyAide(isTCP, ce, "guru0 dialing its aide "+guru0.Name)
 
 	if isTCP {
 
-		if ce.PacketService == nil {
-			ce.PacketService, _ = StartNewServiceContact(ce.Aides[0])
-		}
+		// if ce.PacketService == nil {
+		// 	ce.PacketService, _ = StartNewServiceContact(ce.Aides[0])
+		// }
 
-		StartPublicServer(ce)
+		// after the upstream names? StartPublicServer(ce)
 
 		// don't cheat: send these by http
 		if len(ce.Gurus) > 0 {
@@ -226,6 +226,34 @@ func MakeSimplestCluster(timegetter func() uint32, isTCP bool, aideCount int, su
 				fmt.Println("post fail2", err)
 			}
 		}
+
+		StartPublicServer(ce)
+
+		ce.InitTheServiceContacts()
+
+		// how do we know? if ce.PacketServices == nil
+		// {
+		// 	for i := 0; i < ServiceContactMax; i++ { // 64 !!
+		// 		{
+		// 			currentIndex := i // does this capture the right i? yes, because of the block scope.
+		// 			StartNewServiceContact(ce.Aides[0], func(sc *ServiceContact, err error) {
+		// 				ce.PacketServices[currentIndex] = sc
+		// 				if err != nil {
+		// 					fmt.Println("StartNewServiceContact failed", err, " index ", currentIndex)
+		// 				}
+		// 			})
+		// 		}
+		// 	}
+		// }
+
+		// ce.PacketService, _ = StartNewServiceContact(ce.Aides[0])
+		// StartNewServiceContact(ce.Aides[0], func(sc *ServiceContact, err error) {
+		// 	ce.PacketService = sc
+		// 	if err != nil {
+		// 		fmt.Println("StartNewServiceContact failed", err)
+		// 	}
+		// })
+
 	} else {
 		if len(ce.Gurus) > 0 {
 			ce.Gurus[0].Looker.SetUpstreamNames(ce.currentGuruList, ce.currentGuruList)
@@ -234,15 +262,30 @@ func MakeSimplestCluster(timegetter func() uint32, isTCP bool, aideCount int, su
 			aide.Looker.SetUpstreamNames(ce.currentGuruList, ce.currentGuruList)
 		}
 	}
-
 	return ce
+}
+
+func (ce *ClusterExecutive) InitTheServiceContacts() {
+	// how do we know? if ce.PacketServices == nil
+	for i := 0; i < ServiceContactMax; i++ { // 16 !!
+		{
+			currentIndex := i // does this capture the right index? yes, because of the block scope.
+			supressLogPlease := false
+			StartAndInitServiceContact(ce.Aides[0], func(sc *ServiceContact, err error) {
+				ce.PacketServices[currentIndex] = sc
+				if err != nil {
+					fmt.Println("StartNewServiceContact failed", err, " index ", currentIndex)
+				}
+			}, currentIndex, supressLogPlease)
+		}
+	}
 }
 
 // MakeTCPMain is called by main(s) and it news a table and contacts list and starts tcp acceptors.
 func MakeTCPMain(name string, limits *ExecutiveLimits, token string, isGuru bool) *ClusterExecutive {
 
 	isTCP := true
-	var err error
+	// var err error
 
 	timegetterReal := func() uint32 {
 		return uint32(time.Now().Unix())
@@ -269,10 +312,15 @@ func MakeTCPMain(name string, limits *ExecutiveLimits, token string, isGuru bool
 	aide1.Config.ce = ce
 	ce.Aides = append(ce.Aides, aide1)
 
-	ce.PacketService, err = StartNewServiceContact(aide1)
-	if err != nil {
-		fmt.Println("StartNewServiceContact failed", err)
-	}
+	// ce.PacketService, err = StartNewServiceContact(aide1)
+	// if err != nil {
+	// 	fmt.Println("StartNewServiceContact failed", err)
+	// }
+	// StartNewServiceContact(ce.Aides[0], func(sc *ServiceContact, err error) {
+	// 	ce.PacketService = sc
+	// })
+
+	ce.InitTheServiceContacts()
 
 	myip := "" //os.Getenv("MY_POD_IP")
 
@@ -286,7 +334,7 @@ func MakeTCPMain(name string, limits *ExecutiveLimits, token string, isGuru bool
 	MakeHTTPExecutive(aide1, aide1.httpAddress)
 	MakeMqttExecutive(aide1, aide1.mqttAddress)
 
-	go aide1.DialContactToAnyAide(isTCP, ce)
+	go aide1.DialContactToAnyAide(isTCP, ce, "aide1 dialing itself? aide "+aide1.Name)
 
 	return ce
 }
@@ -308,15 +356,10 @@ func NewExecutive(sizeEstimate int, aname string, timegetter func() uint32, isGu
 	ex.ClusterStatsString = "none-yet"
 	ex.ce = ce
 
-	fmt.Println("executive channelToAnyAide", aname)
+	fmt.Println("executive channelToAnyAide for", aname)
 	// why should the channel get behind?
-	ex.channelToAnyAide = make(chan packets.Interface, 1024*64)
+	ex.channelToAnyAide = make(chan packets.Interface, 1024*64*2) // I don't know.
 
-	// if sizeEstimate > 1000 {
-	// 	ex.channelToAnyAide = make(chan packets.Interface, 10)
-	// } else {
-	// 	ex.channelToAnyAide = make(chan packets.Interface, 1024)
-	// }
 	look.ex = ex
 
 	// start with some stats - just me.
@@ -712,7 +755,7 @@ func (ex *Executive) Heartbeat(now uint32) {
 			ci.Heartbeat(now)
 			// fmt.Println("Heartbeat client DONE", ci.GetKey().Sig())
 		}
-		elapsed := strconv.FormatInt(time.Since(startTime).Milliseconds(), 10)
+		elapsed := strconv.FormatInt(time.Since(startTime).Milliseconds(), 13) // was 10
 		lock.Lock()
 		log = append(log, "done"+elapsed)
 		lock.Unlock()
@@ -884,3 +927,18 @@ func SpecialPrint(p *packets.PacketCommon, fn func()) {
 		fn()
 	}
 }
+
+// Copyright 2019,2020,2021,2026 Alan Tracey Wootton
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <http://www.gnu.org/licenses/>.

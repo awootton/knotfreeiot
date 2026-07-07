@@ -32,7 +32,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/awootton/knotfreeiot/badjson"
 	"github.com/gbrlsnchs/jwt/v3"
 	"golang.org/x/crypto/curve25519"
 )
@@ -176,78 +175,125 @@ func VerifyNameToken(ticket []byte, publicKey []byte) (*SubscriptionNameReservat
 }
 
 // GetKnotFreePayload returns the trimmed token
-// and the issuer. We allow all kinds of not b64 junk around our JWT's
+// and the issuer. Well, stop that crap. Not anymore: We allow all kinds of not b64 junk around our JWT's
 // it is tolerant of junk before and after the token.
 // Only return the issuer. Let Verify get the claims.
 // yes, we end up unmarshaling KnotFreeTokenPayload twice.
 func GetKnotFreePayload(token string) (string, string, error) {
 
-	issuer := ""
-	tokenStartIndex := 0
-	tokenEndIndex := 0
+	// return trimmedToken, issuer, nil
+
+	trimmed := strings.TrimSpace(token)
+
+	parts := strings.Split(trimmed, ".")
+
+	if len(parts) != 3 {
+		s := "expected 3 parts got " + token
+		return trimmed, "", errors.New(s)
+	}
+
+	claimsPlain, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		return trimmed, "", err
+	}
+	payload := KnotFreeTokenPayload{}
+	err = json.Unmarshal(claimsPlain, &payload)
+	if err != nil {
+		return trimmed, "", err
+	}
+	issuer := payload.Issuer
+
+	return trimmed, issuer, nil
+
+	// trimmed := strings.TrimSpace(token)
+	// maybe we could chop off non base64 junk?
+
+	// 	if badjson.B64DecodeMap[r] == byte(0xFF) {
+	// 		break
+	// 	}
+
+	// we'll split it and then only take the base64 parts from the front and the end.
+
+	// issuer := ""
+	// // tokenStartIndex := 0
+	// // tokenEndIndex := 0
+	// parts := strings.Split(trimmed, ".")
 
 	// part 1 eg eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJleHAiOjE2OTczNDU4OTMsImlzcyI6Il85c2giLCJqdGkiOiJCMEQxT1JoWGVjYnA0anVPSXZKcDQ5ajYiLCJpbiI6MTAwMDAwMCwib3V0IjoxMDAwMDAwLCJzdSI6MjAwMDAwLCJjbyI6MjAwMDAwLCJ1cmwiOiJrbm90ZnJlZS5uZXQifQ.SH47mr46105AL8wxfZkNB0iZMAc-MzpZ1hqzNz3lPa65R8XmR4TXNrzPz3aTVJd5PYXhgXmt0EubSvJB7mqADA
 	// or     eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiSldUIn0.
 	// I don't like this: should just check the front. Too fragile.
-	{
-		firstPart := "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9."     // {"alg":"EdDSA","typ":"JWT"}
-		firstPart2 := "eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiSldUIn0." //{"alg":"Ed25519","typ":"JWT"}
-		index := strings.Index(token, firstPart)
-		flen := len(firstPart)
-		if index < 0 {
-			index = strings.Index(token, firstPart2)
-			flen = len(firstPart2)
-		}
-		tokenStartIndex = index
-		tokenEndIndex = index + flen
-		if index < 0 {
-			s := "expected eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9. OR eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiSldUIn0. got " + token
-			return token, issuer, errors.New(s)
-		}
-	}
-	// part 2
-	{
-		t := token[tokenEndIndex:]
-		index := strings.Index(t, ".")
-		if index < 0 {
-			s := "expected . got " + token
-			return token, issuer, errors.New(s)
-		}
-		part2 := token[tokenEndIndex : tokenEndIndex+index]
-		claimsPlain, err := base64.RawURLEncoding.DecodeString(part2)
-		if err != nil {
-			return token, issuer, err
-		}
-		payload := KnotFreeTokenPayload{}
-		err = json.Unmarshal(claimsPlain, &payload)
-		if err != nil {
-			return token, issuer, err
-		}
-		issuer = payload.Issuer
-		tokenEndIndex += index + 1
-	}
-	// part 3
-	// scan as b64
-	// is it not always the same length? Why are we scanning?
-	// TODO: just get indexof .
-	for {
-		if tokenEndIndex >= len(token) {
-			break
-		}
-		//r, runeLength := utf8.DecodeRuneInString(token[tokenEndIndex:])
-		r := token[tokenEndIndex]
-		runeLength := 1
-		if runeLength != 1 {
-			break
-		}
-		if badjson.B64DecodeMap[r] == byte(0xFF) {
-			break
-		}
-		tokenEndIndex += runeLength
-	}
+	// if false { // this was silly.
+	// 	firstPart := "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9."     // {"alg":"EdDSA","typ":"JWT"}
+	// 	firstPart2 := "eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiSldUIn0." //{"alg":"Ed25519","typ":"JWT"}
+	// 	index := strings.Index(token, firstPart)
+	// 	flen := len(firstPart)
+	// 	if index < 0 {
+	// 		index = strings.Index(token, firstPart2)
+	// 		flen = len(firstPart2)
+	// 	}
+	// 	tokenStartIndex = index
+	// 	tokenEndIndex = index + flen
+	// 	if index < 0 {
+	// 		s := "expected eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9. OR eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiSldUIn0. got " + token
+	// 		return token, issuer, errors.New(s)
+	// 	}
+	// } else
+	// {
+	// 	// parts := strings.Split(token, ".")
+	// 	if len(parts) != 3 {
+	// 		s := "expected 3 parts got " + token
+	// 		return token, issuer, errors.New(s)
+	// 	}
+	// 	//tokenStartIndex = len(parts[0]) + 1             // skip the first part and the dot
+	// 	// tokenEndIndex = tokenStartIndex + len(parts[1]) // include the second part and the dot
+	// }
+	// // part 2
+	// { // just split by "."
+	// 	// t := token[tokenEndIndex:]
+	// 	// index := strings.Index(t, ".")
+	// 	// if index < 0 {
+	// 	// 	s := "expected . got " + token
+	// 	// 	return token, issuer, errors.New(s)
+	// 	// }
 
-	trimmedToken := token[tokenStartIndex:tokenEndIndex]
-	return trimmedToken, issuer, nil
+	// 	part1 := parts[0]
+	// 	part2 := parts[1]
+
+	// 	//part2 := token[tokenEndIndex : tokenEndIndex+index]
+	// 	claimsPlain, err := base64.RawURLEncoding.DecodeString(part2)
+	// 	if err != nil {
+	// 		return token, issuer, err
+	// 	}
+	// 	payload := KnotFreeTokenPayload{}
+	// 	err = json.Unmarshal(claimsPlain, &payload)
+	// 	if err != nil {
+	// 		return token, issuer, err
+	// 	}
+	// 	issuer = payload.Issuer
+	// 	tokenEndIndex += index + 1
+	// }
+	// // part 3
+	// // scan as b64
+	// // is it not always the same length? Why are we scanning?
+	// // TODO: just get indexof .
+	// for {
+	// 	if tokenEndIndex >= len(token) {
+	// 		break
+	// 	}
+	// 	//r, runeLength := utf8.DecodeRuneInString(token[tokenEndIndex:])
+	// 	r := token[tokenEndIndex]
+	// 	runeLength := 1
+	// 	if runeLength != 1 {
+	// 		break
+	// 	}
+	// 	if badjson.B64DecodeMap[r] == byte(0xFF) {
+	// 		break
+	// 	}
+	// 	tokenEndIndex += runeLength
+	// }
+
+	// trimmedToken := parts[1] //token[tokenStartIndex:tokenEndIndex]
+	// return trimmedToken, issuer, nil
 }
 
 // AllThePublicKeys is a globalservice with a list of public keys that
@@ -575,6 +621,29 @@ func GetImpromptuGiantToken() string {
 	return giantToken
 }
 
+func GetImpromptuGiantTokenWithPubk(pubk string, jwtid string) string {
+	// giantTokenLock.Lock()
+	// defer giantTokenLock.Unlock()
+	// if giantToken != "" {
+	// 	return giantToken
+	// }
+	fmt.Println("GetImpromptuGiantTokenWithPubk")
+
+	LoadPublicKeys()
+	LoadPrivateKeys("~/atw/privateKeys4.txt")
+
+	payload := GetSampleBigToken(uint32(time.Now().Unix()), "knotfree.io/mqtt")
+	payload.Pubk = pubk
+	payload.JWTID = jwtid
+	signingKey := GetPrivateKeyWhole(0)
+	bbb, err := MakeToken(payload, []byte(signingKey))
+	if err != nil {
+		fmt.Println("error GetImpromptuGiantToken", err)
+	}
+	giantToken = string(bbb)
+	return giantToken
+}
+
 func GetImpromptuGiantTokenLocal(personPubk string, jwtid string) (string, *KnotFreeTokenPayload) {
 
 	giantTokenLocalLock.Lock()
@@ -695,17 +764,10 @@ var e_words []string
 
 func MakeRandomPhrase(amount int) string {
 
-	var tmp [8]byte
-	rand.Read(tmp[:])
-	rand64 := int64(0)
-	for i := 0; i < len(tmp); i++ {
-		rand64 = rand64<<8 + int64(tmp[i])
-	}
-	mathrand.Seed(rand64)
-
 	if len(e_words) == 0 {
 		str := English_words
 		e_words = strings.Split(str, "\n")
+		fmt.Println("Our random word generater uses a discionary of ", len(e_words), " words")
 	}
 	result := ""
 	for i := 0; i < amount; i++ {

@@ -10,14 +10,13 @@ import (
 	"time"
 
 	"github.com/awootton/knotfreeiot/iot"
-	"github.com/awootton/knotfreeiot/monitor_pod"
 	"github.com/awootton/knotfreeiot/tokens"
 )
 
 func main() {
 
-	iot.InitMongEnv()
-	iot.InitIotTables()
+	// iot.InitMongEnv()
+	// iot.InitIotTables()
 
 	// var err error
 
@@ -34,11 +33,13 @@ func main() {
 	tokens.LoadPublicKeys()
 	tokens.LoadPrivateKeys("~/atw/privateKeys4.txt")
 
-	fmt.Println("Hello, World!")
+	fmt.Println("StartCluster Hello, World!")
 
 	getTime := func() uint32 {
 		return uint32(time.Now().Unix())
 	}
+
+	_ = tokens.MakeRandomPhrase(1) // force init of the gadget.
 
 	isTCP := true
 	// launch a guru
@@ -47,8 +48,8 @@ func main() {
 
 	theGuru := ce.Gurus[0]
 
-	fmt.Println("theGuru tcp", theGuru.GetTCPAddress())   // 19001
-	fmt.Println("theGuru http", theGuru.GetHTTPAddress()) // 19000
+	fmt.Println("StartClustertheGuru tcp", theGuru.GetTCPAddress())    // 19001
+	fmt.Println("StartCluster theGuru http", theGuru.GetHTTPAddress()) // 19000
 
 	// launch an aide using main.go
 
@@ -63,8 +64,14 @@ func main() {
 	// iot.StartPublicServer(ce2) // this will heartbeat the theAide
 
 	theAide := ce.Aides[0]
-	fmt.Println("theAide tcp", theAide.GetTCPAddress())   // 8384
-	fmt.Println("theAide http", theAide.GetHTTPAddress()) // 8080
+	fmt.Println("StartClustertheAide tcp", theAide.GetTCPAddress())    // 8384
+	fmt.Println("StartCluster theAide http", theAide.GetHTTPAddress()) // 8080
+
+	// init the stupid DB so we don't get a fail on the first request. this is a hack.
+	_, ok := iot.GetSubscription("xOZPbNiNsA_lM_6xJEwM1C7YmVMGlDpA")
+	if !ok {
+		fmt.Println("subscription not found, xOZPbNiNsA_lM_6xJEwM1C7YmVMGlDpA during startCluster init.")
+	}
 
 	ce.WaitForActions() // force cluster status to go out, normally this is done by the k8s operator.
 
@@ -78,16 +85,18 @@ func main() {
 	// err = iot.PostUpstreamNames(guruList, guruAddress, theAide.GetHTTPAddress())
 	// checkerr(err)
 
-	go func() {
+	token, _ := tokens.GetImpromptuGiantTokenLocal("", "")
+	// what a confusing mess. monitor_pod.PublishTestTopic(token)
+	_ = token
+
+	startSomeServers := func() {
 		namesList := []string{"get-unix-time", "get-unix-time_iot", "a-thermometer-demo_iot"}
 		for _, name := range namesList {
 			iot.StartAServer(name, "")
 		}
-
-	}()
-
-	token, _ := tokens.GetImpromptuGiantTokenLocal("", "")
-	monitor_pod.PublishTestTopic(token)
+	}
+	_ = startSomeServers
+	startSomeServers()
 
 	for {
 		now := getTime()
@@ -96,9 +105,3 @@ func main() {
 	}
 	// fmt.Println("the bottom of the world!")
 }
-
-// func checkerr(err error) {
-// 	if err != nil {
-// 		fmt.Println("error", err)
-// 	}
-// }

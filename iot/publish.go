@@ -23,6 +23,8 @@ import (
 	"github.com/awootton/knotfreeiot/packets"
 )
 
+// aka Send. A Send packet.
+
 func processPublish(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *publishMessage) {
 
 	wereSpecial := false
@@ -32,6 +34,14 @@ func processPublish(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *publ
 
 	if wereSpecial {
 		fmt.Println(me.ex.Name, "processPublish top con=", pubmsg.ss.GetKey().Sig(), " to:", pubmsg.p.Sig())
+	}
+
+	{
+		// it's a send.
+		payload := string(pubmsg.p.Payload)
+		if len(payload) == 0 { // with no payload. Who would do that? It could be really hard to figure out.
+			fmt.Println(me.ex.Name, "processPublish empty payload con=", pubmsg.ss.GetKey().Sig(), " to:", pubmsg.p.Sig())
+		}
 	}
 
 	watchedTopic, ok := getWatcher(bucket, &pubmsg.topicHash)
@@ -48,6 +58,9 @@ func processPublish(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *publ
 				// we should die and reconnect
 				fmt.Println(me.ex.Name, "when a q push fails", string(pubmsg.p.Payload))
 			}
+		} else {
+			//  we're the guru and there's no topic.
+			fmt.Println(me.ex.Name, "processPublish no watcher, no upstream, guru", pubmsg.p.Sig())
 		}
 	} else {
 

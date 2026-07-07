@@ -1,18 +1,3 @@
-// Copyright 2019,2020,2021 Alan Tracey Wootton
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
 package iot
 
 import (
@@ -95,6 +80,8 @@ func (cc *textContact) WriteDownstream(packet packets.Interface) error {
 	if ok {
 		_ = s // ??
 	}
+
+	CheckSendPacket(s)
 
 	text := packet.String()
 	bytes := []byte(text + "\n")
@@ -213,3 +200,18 @@ func localMakeTextContact(config *ContactStructConfig, tcpConn *net.TCPConn) *te
 	contact1.realWriter = tcpConn
 	return &contact1
 }
+
+// Copyright 2019,2020,2021,2026 Alan Tracey Wootton
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <http://www.gnu.org/licenses/>.

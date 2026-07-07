@@ -241,6 +241,7 @@ func MQTTHandlePacket(cc *mqttContact, control libmqtt.Packet) {
 				replyApiNumber, ok := p.GetOption("nonc")
 				if ok {
 					p.SetOption("api1", replyApiNumber)
+					CheckSendPacket(p)
 					_ = PushPacketUpFromBottom(cc, p)
 					return
 				}

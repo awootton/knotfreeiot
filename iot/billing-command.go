@@ -93,6 +93,8 @@ func serveBillingCommand(p *packets.Send, billingAccumulator *BillingAccumulator
 	pub.Source = p.Address
 	pub.CopyOptions(&p.PacketCommon)
 
+	CheckSendPacket(&pub)
+
 	return pub
 
 }

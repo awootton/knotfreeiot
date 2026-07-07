@@ -30,6 +30,8 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
+// TODO: cleanup
+
 // tables
 /**
 subscription aka  watched item
@@ -80,51 +82,82 @@ var mongoInited = false
 var mongoInitedLock sync.Mutex
 var MongoClientOptions *options.ClientOptions
 
-var clientConnectLock sync.Mutex
-var clientConnectDone = false
 var mongoClient *mongo.Client
-var nonExistingSubsCache *expirable.LRU[string, string]
+
+var gNonExistingSubsCache *expirable.LRU[string, string]
+
+// var mongoTablesInited = false
+// var mongoTablesInitedLock sync.Mutex
+var subscriptionsDb *mongo.Collection
+
+func InitMongo() {
+	if mongoInited {
+		return
+	}
+	// one gets the lock and finishes. The others wait and see that the init is done and return.
+	mongoInitedLock.Lock()
+	defer mongoInitedLock.Unlock()
+	if mongoInited {
+		return
+	}
+	startTime := time.Now()
+	defer func() {
+		endTime := time.Now()
+		duration := endTime.Sub(startTime)
+		fmt.Println("InitMongo took ", duration)
+	}()
+	fmt.Println("InitMongo starting")
+
+	MongoClientOptions = initMongEnv()
+	_ = MongoClientOptions
+	initIotTables()
+
+	gNonExistingSubsCache = expirable.NewLRU[string, string](32*1024, nil, time.Second*300)
+
+	mongoInited = true
+}
 
 // GetMongoClient returns THE mongo client. Is this safe to just do once ever?
 // Is it safe to call this multiple times?
-func GetMongoClient() (*mongo.Client, error) {
+// unused  atw delete me clean up the trash
+// func XXlocalGetMongoClient() (*mongo.Client, error) {
 
-	InitMongEnv()
-	InitIotTables()
+// 	// InitMongEnv()
+// 	// InitIotTables()
 
-	clientConnectLock.Lock()
-	defer clientConnectLock.Unlock()
-	if clientConnectDone {
-		return mongoClient, nil
-	}
-	var err error
-	mongoClient, err = mongo.Connect(context.TODO(), MongoClientOptions)
-	if err != nil {
-		return nil, err
-	}
-	clientConnectDone = true
+// 	clientConnectLock.Lock()
+// 	defer clientConnectLock.Unlock()
+// 	if clientConnectDone {
+// 		return mongoClient, nil
+// 	}
+// 	var err error
+// 	mongoClient, err = mongo.Connect(context.TODO(), MongoClientOptions)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	clientConnectDone = true
 
-	// 32K keys that go nowhere and expire after 5 minutes. 
-	// This is for caching the not founds in GetSubscription, so we don't have to hit mongo every time for a non existing topic.
-	// Support won't tell me how to give them my money.	
-	nonExistingSubsCache = expirable.NewLRU[string, string](32 * 1024, nil, time.Second*300)
+// 	// 32K keys that go nowhere and expire after 5 minutes.
+// 	// This is for caching the not founds in GetSubscription, so we don't have to hit mongo every time for a non existing topic.
+// 	//
+// 	gNonExistingSubsCache = expirable.NewLRU[string, string](32*1024, nil, time.Second*300)
 
-	return mongoClient, nil
-}
+// 	return mongoClient, nil
+// }
 
 func GetSubscriptionList(ownerPubk string) ([]WatchedTopic, error) {
 
-	client, err := GetMongoClient()
-	if err != nil {
-		fmt.Println("mongo.Connect err", err)
-		return nil, err
-	}
-	// defer client.Disconnect(ctx)
+	// client, err := GetMongoClient()
+	// if err != nil {
+	// 	fmt.Println("mongo.Connect err", err)
+	// 	return nil, err
+	// }
+	// // defer client.Disconnect(ctx)
 
-	subscriptions := client.Database("iot").Collection("subscriptions")
+	InitMongo()
 
 	filter := bson.D{{Key: "own", Value: ownerPubk}}
-	cursor, err := subscriptions.Find(context.TODO(), filter)
+	cursor, err := subscriptionsDb.Find(context.TODO(), filter)
 	if err != nil {
 		fmt.Println("mongo find err", err)
 		return nil, err
@@ -142,17 +175,10 @@ func GetSubscriptionList(ownerPubk string) ([]WatchedTopic, error) {
 
 func GetSubscriptionListCount(ownerPubk string) (int, error) {
 
-	client, err := GetMongoClient()
-	if err != nil {
-		fmt.Println("mongo.Connect err", err)
-		return 0, err
-	}
-	// defer client.Disconnect(ctx)
-
-	subscriptions := client.Database("iot").Collection("subscriptions")
+	InitMongo()
 
 	filter := bson.D{{Key: "own", Value: ownerPubk}}
-	cursor, err := subscriptions.Find(context.TODO(), filter)
+	cursor, err := subscriptionsDb.Find(context.TODO(), filter)
 	if err != nil {
 		fmt.Println("mongo find err", err)
 		return 0, err
@@ -172,52 +198,63 @@ func GetSubscriptionListCount(ownerPubk string) (int, error) {
 }
 
 func ClearCachedSubscription(hashedTopicStr string) {
-	nonExistingSubsCache.Remove(hashedTopicStr)
+	gNonExistingSubsCache.Remove(hashedTopicStr)
 }
 
-// the core of the lookup. Get the subscription from the database. 
+// the core of the lookup. Get the subscription from the database.
 // The most used function.
 func GetSubscription(hashedTopicStr string) (*WatchedTopic, bool) {
 
-	client, err := GetMongoClient() //:= mongo.Connect(ctx, MongoClientOptions)
-	if err != nil {
-		fmt.Println("mongo.Connect err", err)
-		return nil, false
-	}
-	// cache the not founds.
-	// we save the found ones in the cluster.
-	cached, ok := nonExistingSubsCache.Get(hashedTopicStr)
+	InitMongo()
+
+	cached, ok := gNonExistingSubsCache.Get(hashedTopicStr)
 	if ok {
 		if cached == "0" {
-			// this is a cached not found.
-			return nil, false		
+			// this is a cached "not found" which happens a lot because of the way an OctTree works.
+			return nil, false
 		}
 	}
-	topic, ok := getSubscriptionInternal(hashedTopicStr, client)
+	topic, ok := getSubscriptionInternal(hashedTopicStr)
 	if ok {
+		// fmt.Println("GetSubscription found topic for ", hashedTopicStr)
 		return topic, true
 	}
 	// not found. Cache the not found.
-	nonExistingSubsCache.Add(hashedTopicStr, "0")
+	gNonExistingSubsCache.Add(hashedTopicStr, "0")
 	return nil, false
 }
 
-func getSubscriptionInternal(hashedTopicStr string, client *mongo.Client) (*WatchedTopic, bool) {
+// GetNoneSubscription will see if the cache already knows full well that this topic doesn't
+// exist. What do I return? lol.
+// GetNoneSubscription returns true if the topic is unknown and false if it MIGHT exist.
+func GetNoneSubscription(hashedTopicStr string) bool {
+
+	InitMongo()
+
+	cached, ok := gNonExistingSubsCache.Get(hashedTopicStr)
+	if ok {
+		if cached == "0" {
+			// this is a cached "not found" which happens a lot because of the way an OctTree works.
+			return true
+		}
+	}
+	return false
+}
+
+func getSubscriptionInternal(hashedTopicStr string) (*WatchedTopic, bool) {
 
 	// fmt.Println("Mongo GetSubscription ", hashedTopicStr)
 	startTime := time.Now()
 	defer func() {
 		endTime := time.Now()
 		duration := endTime.Sub(startTime)
-		if duration > 500*time.Millisecond {
-			fmt.Println("GetSubscription SLOW took ", duration)
+		if duration > 1000*time.Millisecond {
+			fmt.Println("GetSubscription SLOW took ", duration) // I can't live like this. FML.
 		}
 	}()
 
-	subscriptions := client.Database("iot").Collection("subscriptions")
-
 	filter := bson.D{{Key: "name", Value: hashedTopicStr}}
-	result := subscriptions.FindOne(context.TODO(), filter)
+	result := subscriptionsDb.FindOne(context.TODO(), filter)
 	if result.Err() != nil {
 		// fmt.Println("mongo find name err", result.Err())
 		return nil, false
@@ -236,14 +273,15 @@ func getSubscriptionInternal(hashedTopicStr string, client *mongo.Client) (*Watc
 // hashedTopicStr is the base64 encoded topic name.
 func DeleteSubscription(hashedTopicStr string) error {
 
-	client, err := GetMongoClient() //:= mongo.Connect(ctx, MongoClientOptions)
-	if err != nil {
-		fmt.Println("mongo.Connect err", err)
-		return err
-	}
+	// client, err := GetMongoClient() //:= mongo.Connect(ctx, MongoClientOptions)
+	// if err != nil {
+	// 	fmt.Println("mongo.Connect err", err)
+	// 	return err
+	// }
 	// defer client.Disconnect(ctx)
 
-	subscriptions := client.Database("iot").Collection("subscriptions")
+	InitMongo()
+	subscriptions := subscriptionsDb
 
 	filter := bson.D{{Key: "name", Value: hashedTopicStr}}
 	result, err := subscriptions.DeleteOne(context.TODO(), filter)
@@ -256,9 +294,8 @@ func DeleteSubscription(hashedTopicStr string) error {
 }
 
 func SaveSubscription(watchedTopic *WatchedTopic) error {
-	
-	InitMongEnv()
-	InitIotTables()
+
+	InitMongo()
 
 	if watchedTopic == nil {
 		return fmt.Errorf("watchedTopic is nil")
@@ -267,31 +304,32 @@ func SaveSubscription(watchedTopic *WatchedTopic) error {
 		watchedTopic.Created = uint32(time.Now().Unix())
 	}
 
-	ctx := context.TODO()
+	// ctx := context.TODO()
 
-	client, err := mongo.Connect(ctx, MongoClientOptions) // is this a new connection each time?
-	if err != nil {
-		fmt.Println("mongo.Connect err", err)
-		return err
-	}
-	defer client.Disconnect(ctx)
+	// client, err := mongo.Connect(ctx, MongoClientOptions) // is this a new connection each time?
+	// if err != nil {
+	// 	fmt.Println("mongo.Connect err", err)
+	// 	return err
+	// }
+	// defer client.Disconnect(ctx)
 
-	subscriptions := client.Database("iot").Collection("subscriptions")
+	// subscriptions := client.Database("iot").Collection("subscriptions")
+
 	hashedTopicStr := watchedTopic.Name.ToBase64()
 	ClearCachedSubscription(hashedTopicStr) // clear the cache for this topic, since it's being updated. This is to prevent the cache from returning a not found for a topic that now exists.
 	filter := bson.D{{Key: "name", Value: hashedTopicStr}}
-	result := subscriptions.FindOne(context.TODO(), filter) // I hate this.
+	result := subscriptionsDb.FindOne(context.TODO(), filter) // I hate this.
 	if result.Err() != nil {
 		// not found
 		// insert
-		result, err := subscriptions.InsertOne(context.TODO(), watchedTopic)
+		result, err := subscriptionsDb.InsertOne(context.TODO(), watchedTopic)
 		_ = result
 		return err
 
 	} else {
 		// found
 		// replace
-		result, err := subscriptions.ReplaceOne(context.TODO(), filter, watchedTopic)
+		result, err := subscriptionsDb.ReplaceOne(context.TODO(), filter, watchedTopic)
 		_ = result
 		return err
 	}
@@ -305,17 +343,82 @@ func SaveSubscription(watchedTopic *WatchedTopic) error {
 	// return nil
 }
 
-func InitMongEnv() *options.ClientOptions {
+type ChildBitsCache struct {
+	WorldName string `bson:"world"`
+	Timestamp int64  `bson:"timestamp"`
+	Data      []byte `bson:"data"`
+}
 
-	mongoInitedLock.Lock()
-	defer mongoInitedLock.Unlock()
-	if mongoInited {
-		return MongoClientOptions
+func SaveChildBitsNameAndData(world string, data string) bool {
+	cache := &ChildBitsCache{
+		WorldName: world,
+		Timestamp: time.Now().Unix(),
+		Data:      []byte(data),
 	}
-	mongoInited = true
+	return SaveChildBitsCache(world, cache)
+}
 
-	url := "mongodb+srv://knot-mongo-cluster-0.dclqni1.mongodb.net/?authSource=%24external&authMechanism=MONGODB-X509&retryWrites=true&w=majority&appName=knot-mongo-cluster-0"
+func SaveChildBitsCache(world string, cache *ChildBitsCache) bool {
+	InitMongo()
 
+	if world == "" {
+		return false
+	}
+
+	if cache.Timestamp == 0 {
+		cache.Timestamp = time.Now().Unix()
+	}
+
+	childBitsCacheColl := mongoClient.Database("iot").Collection("child-bits-cache")
+	filter := bson.D{{Key: "world", Value: world}}
+	result := childBitsCacheColl.FindOne(context.TODO(), filter)
+	if result.Err() != nil {
+		// not found, insert
+		_, err := childBitsCacheColl.InsertOne(context.TODO(), cache)
+		if err != nil {
+			fmt.Println("mongo insert child bits cache err", err)
+			return false
+		}
+		return true
+	} else {
+		// found, replace
+		_, err := childBitsCacheColl.ReplaceOne(context.TODO(), filter, cache)
+		if err != nil {
+			fmt.Println("mongo replace child bits cache err", err)
+			return false
+		}
+	}
+	return true
+}
+
+func GetChildBitsCache(world string) (*ChildBitsCache, bool) {
+	// implementation goes here
+	InitMongo()
+
+	if world == "" {
+		return nil, false
+	}
+
+	childBitsCacheColl := mongoClient.Database("iot").Collection("child-bits-cache")
+	filter := bson.D{{Key: "world", Value: world}}
+	result := childBitsCacheColl.FindOne(context.TODO(), filter)
+	if result.Err() != nil {
+		return nil, false
+	}
+	found := ChildBitsCache{}
+	err := result.Decode(&found)
+	if err != nil {
+		fmt.Println("mongo find child bits cache Decode err", err)
+		return nil, false
+	}
+	return &found, true
+}
+
+func initMongEnv() *options.ClientOptions {
+
+	// old url := "mongodb+srv://knot-mongo-cluster-0.dclqni1.mongodb.net/?authSource=%24external&authMechanism=MONGODB-X509&retryWrites=true&w=majority&appName=knot-mongo-cluster-0"
+	// and i replaced the cert 6/11/26
+	url := "mongodb+srv://knot-mongo-cluster-0.dclqni1.mongodb.net/?authSource=%24external&authMechanism=MONGODB-X509&appName=knot-mongo-cluster-0"
 	err := os.Setenv("MONGODB_URI", url)
 	if err != nil {
 		log.Println("Setenv err", err)
@@ -341,33 +444,31 @@ func InitMongEnv() *options.ClientOptions {
 	return MongoClientOptions
 }
 
-var mongoTablesInited = false
-var mongoTablesInitedLock sync.Mutex
+func initIotTables() error {
 
-func InitIotTables() error {
-
-	mongoTablesInitedLock.Lock()
-	defer mongoTablesInitedLock.Unlock()
-	if mongoTablesInited {
-		return nil
-	}
-	mongoTablesInited = true
+	// mongoTablesInitedLock.Lock()
+	// defer mongoTablesInitedLock.Unlock()
+	// if mongoTablesInited {
+	// 	return nil
+	// }
+	// mongoTablesInited = true
 
 	ctx := context.TODO()
 
-	client, err := mongo.Connect(ctx, MongoClientOptions)
+	var err error
+	mongoClient, err = mongo.Connect(ctx, MongoClientOptions)
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer client.Disconnect(ctx)
+	// defer mongoClient.Disconnect(ctx)
 
-	subscriptions := client.Database("iot").Collection("subscriptions")
+	subscriptionsDb = mongoClient.Database("iot").Collection("subscriptions")
 
 	indexModel := mongo.IndexModel{
 		Keys:    bson.D{{Key: "name", Value: 1}},
 		Options: options.Index().SetUnique(true),
 	}
-	name, err := subscriptions.Indexes().CreateOne(context.TODO(), indexModel)
+	name, err := subscriptionsDb.Indexes().CreateOne(context.TODO(), indexModel)
 	if err != nil {
 		return err
 	}
@@ -378,7 +479,7 @@ func InitIotTables() error {
 		Keys:    bson.D{{Key: "jwtid", Value: 1}},
 		Options: options.Index().SetUnique(false), // many subs can have same jwtid
 	}
-	name, err = subscriptions.Indexes().CreateOne(context.TODO(), indexModel)
+	name, err = subscriptionsDb.Indexes().CreateOne(context.TODO(), indexModel)
 	if err != nil {
 		return err
 	}
@@ -389,7 +490,7 @@ func InitIotTables() error {
 		Keys:    bson.D{{Key: "own", Value: 1}},
 		Options: options.Index().SetUnique(false), // many subs can have same owner
 	}
-	name, err = subscriptions.Indexes().CreateOne(context.TODO(), indexModel)
+	name, err = subscriptionsDb.Indexes().CreateOne(context.TODO(), indexModel)
 	if err != nil {
 		return err
 	}
@@ -399,7 +500,7 @@ func InitIotTables() error {
 	// now do the tokens
 	// now do the tokens
 	// now do the tokens
-	savedTokensColl := client.Database("iot").Collection("saved-tokens")
+	savedTokensColl := mongoClient.Database("iot").Collection("saved-tokens")
 	indexModel = mongo.IndexModel{
 		Keys:    bson.D{{Key: "knotfreetokenpayload.jti", Value: 1}},
 		Options: options.Index().SetUnique(true),
@@ -433,6 +534,26 @@ func InitIotTables() error {
 	}
 	_ = name
 	// fmt.Println("Name of tokens Index Created: " + name)
+
+	// now do the child bits cash
+	// now do the child bits cash
+	// now do the child bits cash
+	childBitsCacheColl := mongoClient.Database("iot").Collection("child-bits-cache")
+	// the schema is
+	// a world name, a timestamp, and an big array of mongo bytes.
+
+	indexModel = mongo.IndexModel{
+		Keys:    bson.D{{Key: "world", Value: 1}},
+		Options: options.Index().SetUnique(true),
+	}
+	name, err = childBitsCacheColl.Indexes().CreateOne(context.TODO(), indexModel)
+	if err != nil {
+		return err
+	}
+	_ = name
+	// fmt.Println("Name of child bits cache Index Created: " + name)
+
+	// that might be it.
 
 	return nil
 }

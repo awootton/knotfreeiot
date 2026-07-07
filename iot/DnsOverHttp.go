@@ -40,9 +40,9 @@ var dnsResponseCache *expirable.LRU[string, DnsResponse]
 
 func init() {
 	// 32K keys that go nowhere and expire after 5 minutes. why 5 min?
-	dnsResponseCache = expirable.NewLRU[string, DnsResponse](4 * 1024, nil, time.Second*300)
+	dnsResponseCache = expirable.NewLRU[string, DnsResponse](32*1024, nil, time.Second*300)
 	// I don't want to make Cloudflair mad at me.
-	// I just want to survive an alpha stage 
+	// I just want to survive an alpha stage
 }
 
 // Status codes for DoH responses (based on DNS response codes):
@@ -88,13 +88,13 @@ func LookupDnsOverHttp(domains []string, recordType int, dnsServer string) ([]Dn
 				recordTypeStr = fmt.Sprintf("%d", recordType)
 			}
 
-			cachekey :=  domain + "____" + recordTypeStr
+			cachekey := domain + "____" + recordTypeStr
 			if cachedResponse, found := dnsResponseCache.Get(cachekey); found {
-				fmt.Println("Cache hit for ", cachekey, ": ", cachedResponse)
+				// fmt.Println("Cache hit for ", cachekey, ": ", cachedResponse)
 				answers[i] = cachedResponse
 				return
 			}
-			fmt.Println("LookupDnsOverHttp Resolving ", cachekey) // eg testmain-0n1u1e15p.xyz_1
+			// fmt.Println("LookupDnsOverHttp Resolving ", cachekey) // eg testmain-0n1u1e15p.xyz_1
 
 			response, err := lookupOne(domain, recordType, resolver) // this is just a placeholder for now, we will implement it later. It will query the DoH server and return the response.
 			if err != nil {
@@ -108,7 +108,10 @@ func LookupDnsOverHttp(domains []string, recordType int, dnsServer string) ([]Dn
 				}
 				response.Comment = err.Error()
 			}
-			dnsResponseCache.Add(cachekey, response)
+			// only add the 0 and the 3's to the cache. The 2's are probably temporary errors and the 4's are unsupported record types that we don't want to cache.
+			if response.Status == 0 || response.Status == 3 {
+				dnsResponseCache.Add(cachekey, response)
+			}
 			answers[i] = response
 		}(i, domain)
 	}

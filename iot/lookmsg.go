@@ -1,18 +1,3 @@
-// Copyright 2019,2020,2021-2024 Alan Tracey Wootton
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
 package iot
 
 import (
@@ -51,11 +36,37 @@ type lookupCallContext struct {
 	pubk    string
 }
 
-// processLookup  executes the lookup api.
+// It's little convoluted.
+// processLookup is the entry point for executing the lookup API.
+// When the lookup-table, which precesses all the packets directed at the buckets, gets a
+// packets.Lookup it calls in here.
+// There is a channel involved so for the duration we are in here we have exclusive access to the bucket.
+// We get the 'cmd' option from the packet and look it up in the command map. If it's not found we use the 'help' command which just lists the commands.
+// if the command map has it marked as requiring encryption we try to decrypt it with the public key of the owner of the name record.
+// If decryption fails we return an error.
+// Then we execute the command: comandStruct.Execute(cmd, args, &lcxt) where cmd is the command string, args are the arguments and
+// lcxt is the lookupCallContext which has the bucket, the message and the public key of the sender.
+// still in the main thread.
+// this will execute the func declared in monitor_pod.MakeCommand
+// Which MAY call getAndSetWatcher as a go routine in a new thread.
+// one must not send a reply in that case and must wait for the getAndSetWatcher
+// which MUST send a reply.
+
 // When we come in here we have exclusive access to the bucket. Otherwise not.
 // The trick is that we want to return control of the bucket before any database (mongo) access.
 // If we do this when we'll have to re-q to get accress again. See callBackCommand
+
+// NEW RULE. No lookmsg come in here without a proper session value. This means that the service-contact has to have a session Value for every packet it sends.
+// If you need to call this somehow not from the service-contact then you need to make a session Value and put it in the packet.
+// No, Copilot, this is NOT a security measure: Copilot:This is a security measure to prevent replay attacks.
+// The sessionValue is a random 28 byte value that is unique for each packet.
+
 func processLookup(me *LookupTableStruct, bucket *subscribeBucket, lookmsg *lookupMessage) {
+
+	_, ok := lookmsg.p.GetOption(SessionKeyString)
+	if !ok {
+		fmt.Println("processLookup ERROR lookmsg has no sessionValue. Very naughty. This is a violation of the new rules. This should never happen. ", lookmsg.p.Sig())
+	}
 
 	if !me.isGuru {
 		// fmt.Println("processLookup PushUp", me.ex.Name)
@@ -66,7 +77,7 @@ func processLookup(me *LookupTableStruct, bucket *subscribeBucket, lookmsg *look
 		return
 	}
 
-	// fmt.Println("processLookup TOP:", me.ex.Name, lookmsg.p.Sig())
+	// fmt.Println("processLookup TOP:", me.ex.Name, lookmsg.p.Sig(), " v", version)
 
 	// else we are the guru or we have no upstream
 	// We will handle it here.
@@ -101,11 +112,15 @@ func processLookup(me *LookupTableStruct, bucket *subscribeBucket, lookmsg *look
 
 	lcxt := lookupCallContext{me, bucket, lookmsg, string(pubk)}
 
+	RewriteSessionKeyToCheckLookup(lookmsg.p) // make sure the session value is copied to the send packet so we can match the reply to the request.
+
 	{
 		// Do we need to timeout in here?
 		startTime := time.Now()
 
-		// fmt.Println("processLookup have command:", comandStruct.CommandString)
+		if serviceDebugSession1 {
+			fmt.Println("processLookup have command:", comandStruct.CommandString)
+		}
 
 		// does it require encryption?
 		// todo: don't string compare and use a flag and defer the decryption?
@@ -117,6 +132,17 @@ func processLookup(me *LookupTableStruct, bucket *subscribeBucket, lookmsg *look
 
 		reply := ""
 		if encryptedGood {
+			// let's base64 decode any args that start with '='
+			for i, arg := range args {
+				if strings.HasPrefix(arg, "=") {
+					decoded, err := base64.RawURLEncoding.DecodeString(arg[1:])
+					if err != nil {
+						sendReply(me, lookmsg, "error: invalid base64 encoding")
+						return
+					}
+					args[i] = string(decoded)
+				}
+			}
 			comandStruct.Execute(cmd, args, &lcxt)
 			return
 		}
@@ -134,10 +160,15 @@ func processLookup(me *LookupTableStruct, bucket *subscribeBucket, lookmsg *look
 		delta := time.Since(startTime)
 		fmt.Println("processLookup BOTTOM:", lookmsg.p.Sig(), delta, reply)
 		if len(me.ex.channelToAnyAide) >= cap(me.ex.channelToAnyAide) {
-			fmt.Println("ERROR me.ex.channelToAnyAide channel full")
+			fmt.Println("processLookup ERROR me.ex.channelToAnyAide channel full")
 		}
+		// can we have just ONE sendReply please?
+		send.DeleteOption("cmd")
+		send.SetOption("processed_by_lookup", []byte("1"))
+
+		CheckSendPacket(&send)
 		me.ex.channelToAnyAide <- &send
-	} // (comandStruct, lcxt)
+	}
 }
 
 func sendReply(me *LookupTableStruct, lookmsg *lookupMessage, reply string) {
@@ -147,9 +178,25 @@ func sendReply(me *LookupTableStruct, lookmsg *lookupMessage, reply string) {
 	send.CopyOptions(&lookmsg.p.PacketCommon)
 	send.Payload = []byte(reply)
 	if len(me.ex.channelToAnyAide) >= cap(me.ex.channelToAnyAide) {
-		fmt.Println("ERROR me.ex.channelToAnyAide channel full")
+		fmt.Println("processLookup sendReply ERROR me.ex.channelToAnyAide channel full")
 	}
-	// fmt.Println("lookmsg sendReply to channelToAnyAide ", reply, len(me.ex.channelToAnyAide), me.ex.Name)
+
+	if serviceDebugSession1 {
+		cmd, _ := lookmsg.p.GetOption("cmd")
+		fmt.Println("processLookup sending reply to:", string(cmd), "reply:", reply)
+	}
+
+	// you know, we don't really need the "cmd" key in the reply option's.
+	// Sometimes the service-command is getting an echo back from aide instead of this proper reply.
+	// That echo is eating the real reply. 	So, let's remove the "cmd" option from the reply. It's not needed anyway.
+	// we should add a definitive "processed by lookup" option to the reply so the service-command can tell the difference between a real reply and an echo from aide.
+	send.DeleteOption("cmd")
+	send.SetOption("processed_by_lookup", []byte("1"))
+
+	RewriteSessionKeyToCheck(&send)
+	CheckSendPacket(&send) // always?
+
+	// now, service-command can throw any replies with a "cmd" option away and not get confused.
 	me.ex.channelToAnyAide <- &send
 }
 
@@ -161,6 +208,7 @@ func getCallContext(calContest interface{}) (*LookupTableStruct, *subscribeBucke
 type LookupNameExistsReturnType struct {
 	Exists bool
 	Online bool
+	Owner  string // is it safe to publically return the owner pubk?
 }
 
 type ProxyStatusReturnType struct {
@@ -182,9 +230,8 @@ func (cb *lookBackCommand) Run(me *LookupTableStruct, bucket *subscribeBucket) {
 	cb.callback(me, bucket, nil)
 }
 
-func getAndSetWatcher(callContext interface{},
-	finish func(callContext interface{}, watchedTopic *WatchedTopic),
-	makeName func(callContext interface{}, name string)) {
+// we must NOT both send a reply and also re-q something in bucket.incoming
+func getAndSetWatcher(callContext interface{}, finish func(callContext interface{}, watchedTopic *WatchedTopic), makeName func(callContext interface{}, name string)) {
 	// get the watcher
 	// set the watcher, as necessary
 	// call finish
@@ -193,11 +240,21 @@ func getAndSetWatcher(callContext interface{},
 	_ = pubk
 	watchedTopic, ok := getWatcher(bucket, &lookMsg.topicHash)
 	if ok { // we have it
-		// we can be done now
+		// we can be done now. no need to q to bucket.incoming
 		finish(callContext, watchedTopic)
 		return
 	}
+	// ok, we don't have it and that means we'll be going to mongo. But, mongo might already know,
+	// right away that it diesn;t exist.
 	str := lookMsg.topicHash.ToBase64()
+
+	notgonna := GetNoneSubscription(str)
+	if notgonna {
+		sendReply(me, lookMsg, "status: topic not found errid=bvBbhJawYXIMWsxJOWHt")
+		return
+	}
+	// we're going to end up in the q to bucket.incoming. Blech.
+	// we'll call this and heaven help who's waiting.
 	go func() {
 		// checkMongo
 		gotwatchedTopic, ok := GetSubscription(str)
@@ -213,7 +270,7 @@ func getAndSetWatcher(callContext interface{},
 				}
 			} else {
 				// don't make a new one
-				sendReply(me, lookMsg, "error: topic not found")
+				sendReply(me, lookMsg, "status: topic not found errid=bvBbhJawYXIMWsxJOWHt")
 				return
 			}
 		}
@@ -228,6 +285,7 @@ func getAndSetWatcher(callContext interface{},
 				finish(callContext, watchedTopic)
 			},
 		}
+		// fmt.Println("sending to incoming q whose length is now ", len(bucket.incoming))
 		bucket.incoming <- &mmm
 	}()
 }
@@ -262,6 +320,9 @@ func setupCommands(c *lookupContext) {
 			return ""
 		}, c.CommandMap)
 
+	// how does this work. When there's no watcher it will have to re-q and thencall mongo GetSubscription to get the subscription.
+	// Then it will have to re-q the bucket to set the watcher. Then it will have to call the callback function.
+	// This is dumb if the the mongo cache already know this thing doesn't exist and that happens 87.5% of of the time.
 	monitor_pod.MakeCommand("get option",
 		"get key val. eg A 12.34.56.78 🔓", 0,
 		func(msg string, args []string, callContext interface{}) string {
@@ -290,7 +351,7 @@ func setupCommands(c *lookupContext) {
 					if key == "A" && subKey == "@" { // a total hack where the default of A,@ is knotfree.io
 						subValue = "216.128.128.195"
 					} else {
-						sendReply(me, lookMsg, "error: not found"+key+" "+subKey)
+						sendReply(me, lookMsg, "error: not found errid=nGToaKwTIhaIxBmgxjvY "+key+" "+subKey)
 						return
 					}
 				}
@@ -323,7 +384,7 @@ func setupCommands(c *lookupContext) {
 				optionMap := StringToMap(string(val))
 				subValue, ok := optionMap[subKey]
 				if !ok {
-					sendReply(me, lookMsg, "error: get txt not found"+subKey)
+					sendReply(me, lookMsg, "status: not found"+key+" "+subKey)
 					return
 				}
 				sendReply(me, lookMsg, subValue)
@@ -352,7 +413,17 @@ func setupCommands(c *lookupContext) {
 			key := strings.ToUpper(args[0])
 			subKey := args[1]
 			newOptionVal := args[2]
-			fmt.Println("set option", key, newOptionVal, subKey)
+			// this was done to ALL the args.
+			// if strings.HasPrefix(newOptionVal, "=") {
+			// 	// it's base 64 encoded. decode it.
+			// 	decoded, err := base64.RawURLEncoding.DecodeString(newOptionVal[1:])
+			// 	if err != nil {
+			// 		sendReply(me, lookMsg, "error: invalid base64 encoding")
+			// 	}
+			// 	newOptionVal = string(decoded)
+			// }
+
+			fmt.Println("processLookup set option", key, newOptionVal, subKey)
 
 			getAndSetWatcher(callContext, func(callContext interface{}, watchedTopic *WatchedTopic) {
 				me, bucket, lookMsg, pubk := getCallContext(callContext)
@@ -391,7 +462,7 @@ func setupCommands(c *lookupContext) {
 			}
 			key := strings.ToUpper(args[0])
 			bulkVals := args[1:]
-			fmt.Println("bulk option", key, bulkVals)
+			fmt.Println("processLookup bulk option", key, bulkVals)
 
 			getAndSetWatcher(callContext, func(callContext interface{}, watchedTopic *WatchedTopic) {
 				me, bucket, lookMsg, pubk := getCallContext(callContext)
@@ -441,7 +512,7 @@ func setupCommands(c *lookupContext) {
 				sendReply(me, lookMsg, "replace options error: "+err.Error())
 				return ""
 			}
-			fmt.Println("replace options", newOptionsString)
+			fmt.Println("processLookup replace options", newOptionsString)
 
 			getAndSetWatcher(callContext, func(callContext interface{}, watchedTopic *WatchedTopic) {
 				me, bucket, lookMsg, pubk := getCallContext(callContext)
@@ -509,7 +580,7 @@ func setupCommands(c *lookupContext) {
 		"returns true if the name exists 🔓", 0,
 		func(msg string, args []string, callContext interface{}) string {
 
-			exists := LookupNameExistsReturnType{false, false}
+			exists := LookupNameExistsReturnType{false, false, ""}
 			me, bucket, lookMsg, _ := getCallContext(callContext)
 
 			fmt.Println("top of exists")
@@ -520,6 +591,7 @@ func setupCommands(c *lookupContext) {
 				exists.Exists = true
 				//it's loaded but no subscribers?
 				exists.Online = !watchedTopic.thetree.Empty()
+				exists.Owner = watchedTopic.Owner
 				s, _ := json.Marshal(exists)
 				sendReply(me, lookMsg, string(s))
 				return ""
@@ -536,6 +608,7 @@ func setupCommands(c *lookupContext) {
 				if !ok {
 					exists.Exists = false
 					exists.Online = false
+					exists.Owner = ""
 					s, _ := json.Marshal(exists)
 					sendReply(me, lookMsg, string(s))
 					return
@@ -549,10 +622,13 @@ func setupCommands(c *lookupContext) {
 						setWatcher(bucket, &lookMsg.topicHash, gotwatchedTopic)
 						exists.Exists = true
 						exists.Online = false
+						exists.Owner = watchedTopic.Owner
 						s, _ := json.Marshal(exists)
 						sendReply(me, lookMsg, string(s))
 					},
 				}
+				fmt.Println("sending to incoming q (2) whose length is now ", len(bucket.incoming))
+
 				bucket.incoming <- &mmm
 			}()
 			return ""
@@ -678,6 +754,8 @@ func decryptCommand(me *LookupTableStruct, p *packets.Lookup, command string) bo
 		return false
 	}
 	cmdtmp := parts[0]
+	command = strings.TrimSpace(command)
+	cmdtmp = strings.TrimSpace(cmdtmp)
 	// check the command.
 	if command != cmdtmp {
 		fmt.Println("command mismatch", cmdtmp, command)
@@ -741,3 +819,18 @@ func MapToString(m map[string]string) string {
 	}
 	return str.String()[0 : str.Len()-1]
 }
+
+// Copyright 2019,2020,2021,2026 Alan Tracey Wootton
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <http://www.gnu.org/licenses/>.

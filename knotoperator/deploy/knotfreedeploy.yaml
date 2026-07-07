@@ -62,12 +62,12 @@ spec:
         - containerPort: 9102 
           name : prom
         resources:
-          limits:
-            cpu: 1000m   
-            memory: 1000Mi  
+          limits:         # I doubled these 7/7/26
+            cpu: 2000m   
+            memory: 2000Mi  
           requests:
-            cpu: 500m   
-            memory: 500Mi 
+            cpu: 1000m   
+            memory: 1000Mi 
         env:
         - name: NAME
           value: "knotfreeaide"
@@ -134,11 +134,6 @@ spec:
     port: 3000
     targetPort: 3000
     protocol: TCP 
-
-  # - name: libra
-  #   port: 8000
-  #   targetPort: 8000
-  #   protocol: TCP 
 
   selector:
     run: "knotfreeaide"

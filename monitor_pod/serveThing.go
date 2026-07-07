@@ -84,8 +84,7 @@ type Command struct {
 	ArgCount      int
 }
 
-func MakeCommand(commandString string, description string, argCount int,
-	execute func(msg string, args []string, callContext interface{}) string,
+func MakeCommand(commandString string, description string, argCount int, execute func(msg string, args []string, callContext interface{}) string,
 	ourMap map[string]Command) Command {
 	cmd := Command{
 		CommandString: commandString,
@@ -128,7 +127,7 @@ func ServeGetTime(token string, c *ThingContext) { // use knotfree format
 			conn, err := net.DialTCP("tcp", nil, tcpAddr)
 			if err != nil {
 				println("dial failed:", err.Error())
-				time.Sleep(10 * time.Second)
+				time.Sleep(17 * time.Second)
 				c.fail++
 				continue // to connect loop
 			}
@@ -205,7 +204,6 @@ func ServeGetTime(token string, c *ThingContext) { // use knotfree format
 						fmt.Println("serveThing reply ", c.Topic, strings.Split(string(pub.Payload), "\n")[0])
 					})
 				}
-
 				err = sendme.Write(conn)
 				if err != nil {
 					println("send err:", c.Topic, err)
@@ -514,7 +512,7 @@ func digestPacket(p packets.Interface, c *ThingContext) (packets.Interface, erro
 
 var testtopicCount = 0
 
-func PublishTestTopic(token string) { // use knotfree format
+func XXXxxxPublishTestTopic(token string) { // use knotfree format
 
 	target_cluster := os.Getenv("TARGET_CLUSTER")
 
@@ -529,11 +527,11 @@ func PublishTestTopic(token string) { // use knotfree format
 				fail++
 				continue
 			}
-			// println("testtopic Dialing ")
+			fmt.Println("PublishTestTopic Dialing ", tcpAddr)
 			conn, err := net.DialTCP("tcp", nil, tcpAddr)
 			if err != nil {
 				println("Dial failed:", err.Error())
-				time.Sleep(10 * time.Second)
+				time.Sleep(13 * time.Second)
 				fail++
 				continue
 			}
@@ -543,7 +541,7 @@ func PublishTestTopic(token string) { // use knotfree format
 			if err != nil {
 				println("testtopic Write C to server failed:", err.Error())
 				conn.Close()
-				time.Sleep(10 * time.Second)
+				time.Sleep(18 * time.Second)
 				fail++
 				continue
 			}

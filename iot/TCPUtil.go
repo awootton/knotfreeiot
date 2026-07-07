@@ -1,18 +1,3 @@
-// Copyright 2019,2020,2021 Alan Tracey Wootton
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
 package iot
 
 import (
@@ -21,21 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
-	"reflect"
 	"strings"
 	"time"
-
-	"github.com/awootton/knotfreeiot/packets"
 )
-
-// The functions here describe a server of the 'packets' protocol.
-
-type tcpContact struct {
-	ContactStruct
-	netDotTCPConn *net.TCPConn
-}
 
 // MakeTCPExecutive is a thing like a server, not the exec
 func MakeTCPExecutive(ex *Executive, serverName string) *Executive {
@@ -143,208 +117,6 @@ func MakeHTTPExecutive(ex *Executive, serverName string) *Executive {
 	return ex
 }
 
-func (cc *tcpContact) DoClosingWork(err error) {
-	// do we need a mutex here?
-	// No, it is only called from the one place and only once
-	fmt.Println("tcpContact DoClosingWork con=", cc.GetKey().Sig(), err)
-	if cc.netDotTCPConn != nil {
-		//fmt.Println("close tcp ", cc.netDotTCPConn.RemoteAddr())
-		cc.netDotTCPConn.Close()
-		cc.netDotTCPConn = nil
-	}
-	ss := &cc.ContactStruct
-	ss.DoClosingWork(err) // close my parent too
-}
-
-func (cc *tcpContact) IsClosed() bool {
-	return cc.ContactStruct.IsClosed()
-}
-
-// WriteDownstream writes a packet to the tcp connection going towards the user.
-// error returned always nil
-func (cc *tcpContact) WriteDownstream(packet packets.Interface) error {
-
-	if cc.IsClosed() {
-		return errors.New("tcpContact closed and can't writeDownstream")
-	}
-	got, ok := packet.GetOption("debg")
-	isDebug := ok && string(got) == "12345678"
-	if isDebug {
-		fmt.Println("tcpContact WriteDownstream con=", cc.GetKey().Sig(), packet.Sig())
-	}
-	// var goterr error
-	// var wg sync.WaitGroup we don't need to wait. It's in the Q and that's enough.
-	// wg.Add(1)
-	cc.commands <- ContactCommander{
-		who: "tcp WriteDownstream",
-		fn: func(ss *ContactStruct) {
-			//defer wg.Done()
-			u := HasError(packet)
-			if u != nil && !cc.config.IsGuru() {
-				fmt.Println("tcpContact ERROR write disconnect con=", cc.GetKey().Sig(), packet.Sig())
-				u.Write(cc) // write disconnect
-				cc.DoClose(errors.New(u.String()))
-				_ = errors.New(u.String())
-			} else {
-				if cc.netDotTCPConn == nil {
-					return
-				}
-				// if isDebug {
-				// 	fmt.Println("tcpContact in the socket con=", cc.GetKey().Sig(), packet.Sig())
-				// }
-				// this must not block, otherwise the whole channel gets stuck.
-				err := packet.Write(cc)
-				// cc.netDotTCPConn.SetNoDelay(true)
-				// when do we flush? do we need to flush?
-				if err != nil {
-					fmt.Println("tcpContact write ERROR con=", cc.GetKey().Sig(), err)
-					// close the connection???
-				}
-			}
-		},
-	}
-	return nil
-}
-
-func (cc *tcpContact) WriteUpstream(cmd packets.Interface) error {
-	fmt.Println("FIXME tcp received from below dead code ERROR delete me", cmd, reflect.TypeOf(cmd))
-	err := cmd.Write(cc)
-	if err != nil {
-		cc.DoClose(err)
-	}
-	return err
-}
-
-func listenForPacketsConnect(ex *Executive, name string) {
-	fmt.Println("knotfree native server starting", name, ex.GetTCPAddress())
-	ln, err := net.Listen("tcp", name)
-	if err != nil {
-		// handle error
-		//srvrLogThing.Collect(err.Error())
-		//fmt.Println("server didnt' stary ", err)
-		TCPServerDidntStart.Inc()
-		return
-	}
-	for {
-		//fmt.Println("Server listening")
-		tmpconn, err := ln.Accept()
-		if err != nil {
-			//	srvrLogThing.Collect(err.Error())
-			//fmt.Println("accept err ", err)
-			TCPServerAcceptError.Inc()
-			continue
-		}
-		go handleConnection(tmpconn.(*net.TCPConn), ex)
-	}
-}
-
-func handleConnection(tcpConn *net.TCPConn, ex *Executive) {
-
-	// FIXME: all the *LogThing expressions in package need to be re-written for prom
-	//srvrLogThing.Collect("Conn Accept")
-	TCPServerConnAccept.Inc() // <-- like this
-
-	cc := localMakeTCPContact(ex.Config, tcpConn)
-	defer func() {
-		// fmt.Println("KF native contact handleConnection exit close")
-		cc.DoClose(nil)
-	}()
-
-	// fmt.Println("KF native contact add, ", tcpConn.RemoteAddr(), cc.GetKey().Sig(), ex.Name)
-
-	TCPServerNewConnection.Inc()
-
-	err := SocketSetup(tcpConn)
-	if err != nil {
-		//connLogThing.Collect("server err " + err.Error())
-		fmt.Println("setup err", err)
-		return
-	}
-
-	// defer fmt.Println("KF native contact QUIT, ", tcpConn.RemoteAddr(), cc.GetKey().Sig(), ex.Name)
-
-	// we might just for over the range of the handler input channel?
-	for !ex.IsClosed() {
-
-		// SetReadDeadline
-		if cc.GetToken() == nil {
-			err := cc.netDotTCPConn.SetDeadline(time.Now().Add(2 * time.Second))
-			if err != nil {
-				fmt.Println("KF native contact deadline err 3", err)
-				cc.DoClose(err)
-				return // quit, close the sock, be forgotten
-			}
-		} else {
-			err := cc.netDotTCPConn.SetDeadline(time.Now().Add(30 * time.Minute))
-			if err != nil {
-				fmt.Println("KF native contact deadline err 4", err, tcpConn.RemoteAddr())
-				cc.DoClose(err)
-				return // quit, close the sock, be forgotten, start over
-			}
-		}
-
-		// fmt.Println("KF native contact waiting for packet con=", cc.GetKey().Sig(), ex.Name)
-		p, err := packets.ReadPacket(cc)
-		if err != nil {
-			//connLogThing.Collect("se err " + err.Error())
-			// fmt.Println("KF native contact read err", cc.key.Sig(), err, tcpConn.RemoteAddr(), ex.isGuru)
-			TCPServerPacketReadError.Inc()
-			cc.DoClose(err)
-			return
-		}
-		// fmt.Println("KF native contact got packet con=", cc.GetKey().Sig(), p.Sig(), ex.Name)
-
-		err = PushPacketUpFromBottom(cc, p)
-		if err != nil {
-			//connLogThing.Collect("se err " + err.Error())
-			fmt.Println("iot.push err", err, tcpConn.RemoteAddr())
-			TCPServerIotPushEror.Inc()
-			cc.DoClose(err)
-			return
-		}
-	}
-}
-
-// SocketSetup sets common options
-func SocketSetup(tcpConn *net.TCPConn) error {
-	//tcpConn := conn.(*net.TCPConn)
-	err := tcpConn.SetReadBuffer(4096)
-	if err != nil {
-		fmt.Println("SS err1 " + err.Error())
-		return err
-	}
-	err = tcpConn.SetWriteBuffer(4096)
-	if err != nil {
-		fmt.Println("SS err2 " + err.Error())
-		return err
-	}
-	err = tcpConn.SetNoDelay(true)
-	if err != nil {
-		fmt.Println("SS err3 " + err.Error())
-		return err
-	}
-	// SetReadDeadline and SetWriteDeadline
-
-	err = tcpConn.SetDeadline(time.Now().Add(20 * time.Minute))
-	if err != nil {
-		fmt.Println("cl err4 " + err.Error())
-		return err
-	}
-	return nil
-}
-
-// localMakeTCPContact is a factory
-func localMakeTCPContact(config *ContactStructConfig, tcpConn *net.TCPConn) *tcpContact {
-	contact1 := tcpContact{}
-
-	AddContactStruct(&contact1.ContactStruct, &contact1, config)
-	contact1.netDotTCPConn = tcpConn
-	contact1.realReader = tcpConn
-	contact1.realWriter = tcpConn
-
-	return &contact1
-}
-
 // GetServerStats asks nicely over http
 func GetServerStats(addr string) (*ExecutiveStats, error) {
 
@@ -415,6 +187,8 @@ func PostUpstreamNames(guruList []string, addressList []string, addr string) err
 // PostClusterStats sends some stats to
 func PostClusterStats(ex *Executive, stats *ClusterStats, addr string) error {
 
+	fmt.Println("PostClusterStats sending to ", addr, "from", ex.Name)
+
 	jbytes, err := json.Marshal(stats)
 	if err != nil {
 		fmt.Println("unreachable ? PostClusterStats marshal fail")
@@ -437,26 +211,17 @@ func PostClusterStats(ex *Executive, stats *ClusterStats, addr string) error {
 	return nil
 }
 
-// ByteCountingReader keeps track of how much was read.
-// type ByteCountingReader struct {
-// 	count      int
-// 	realReader io.Reader
-// }
+// Copyright 2019,2020,2021,2026 Alan Tracey Wootton
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
 
-// func (bcr *ByteCountingReader) Read(p []byte) (int, error) {
-// 	n, err := bcr.realReader.Read(p)
-// 	bcr.count += n
-// 	return n, err
-// }
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
 
-// // ByteCountingWriter keeps track of how much was written.
-// type ByteCountingWriter struct {
-// 	count      int
-// 	realWriter io.Writer
-// }
-
-// func (bcw *ByteCountingWriter) Write(p []byte) (int, error) {
-// 	n, err := bcw.realWriter.Write(p)
-// 	bcw.count += n
-// 	return n, err
-// }
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <http://www.gnu.org/licenses/>.

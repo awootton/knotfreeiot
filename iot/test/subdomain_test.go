@@ -310,6 +310,7 @@ func TestSubDomain(t *testing.T) {
 	sendmessage.Payload = []byte("get pubk")
 	sendmessage.SetOption("debg", []byte("12345678"))
 
+	iot.CheckSendPacket(&sendmessage)
 	iot.PushPacketUpFromBottom(contact1, &sendmessage)
 
 	ce.WaitForActions()

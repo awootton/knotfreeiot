@@ -1,18 +1,3 @@
-// Copyright 2019,2020,2021 Alan Tracey Wootton
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
 // Package iot comments. TODO: package comments for this pub/sub system.
 package iot
 
@@ -63,6 +48,9 @@ type ContactStruct struct {
 	who           string
 	ClosedChannel chan interface{}
 	once          sync.Once
+
+	// changed by SetReader and SetWriter]. see newMyPipe in guru-dialer.go
+	// see makeTestContact. see InitNewServiceContact
 
 	realReader io.Reader // usually tcpConn
 	realWriter io.Writer // usually tcpConn
@@ -196,7 +184,7 @@ func AddContactStructSized(ss *ContactStruct, ssi ContactInterface, config *Cont
 		size = COMMANDS_Q_SIZE
 	}
 	if config.IsGuru() {
-		size = 1024
+		size = 4096
 	}
 
 	ss.config = config
@@ -269,7 +257,7 @@ func NewContactStructConfig(looker *LookupTableStruct) *ContactStructConfig {
 	config.listOfCi = list.New()
 	config.key.Random()
 	config.sequence = 1
-	config.defaultTimeoutSeconds = 10
+	config.defaultTimeoutSeconds = 14 // make it unique
 	return &config
 }
 
@@ -280,6 +268,7 @@ func PushPacketUpFromBottom(ssi ContactInterface, p packets.Interface) error {
 // PushPacketUpFromBottom to deal with an incoming message on a bottom contact heading up.
 // it expects a token before anything else.
 // the packets are sent up to the looker where they are separated into buckets and dealt with.
+// they must wait to get into a q
 func PushPacketUpFromBottom2(ssi ContactInterface, p packets.Interface, doSetExpires bool) error {
 
 	isDebug := false
@@ -349,7 +338,7 @@ func PushPacketUpFromBottom2(ssi ContactInterface, p packets.Interface, doSetExp
 		_, ok := v.GetOption("statsmax")
 		if !ok && !config.IsGuru() {
 			// it's a non-billing topic.
-			// later, during heartbeat, it will send messages to this address
+			// later, during heartbeat, it will send messages to this address. 7/1/26 NO, we won't.
 			tok := ssi.GetToken()
 			if tok != nil {
 				id := tok.JWTID
@@ -367,10 +356,15 @@ func PushPacketUpFromBottom2(ssi ContactInterface, p packets.Interface, doSetExp
 		v.Address.EnsureAddressIsBinary()
 		looker.sendLookupMessage(ssi, v)
 	case *packets.Send:
+		v.Address.EnsureAddressIsBinary()
+
+		if len(v.Payload) == 0 {
+			fmt.Println("PushPacketUpFromBottom send channel towards the guru has no payload wtf. ", ssi, v.Sig())
+		}
 		if isDebug {
 			fmt.Println("KF native contact send", v.String(), ssi.GetConfig().Name)
 		}
-		v.Address.EnsureAddressIsBinary()
+		CheckSendPacket(v)
 		looker.sendPublishMessage(ssi, v)
 	case *packets.Ping:
 		ssi.WriteDownstream(v)
@@ -410,6 +404,7 @@ func PushDownFromTop(looker *LookupTableStruct, p packets.Interface) error {
 	// 	looker.sendLookupMessageDown(v)
 	case *packets.Send:
 		v.Address.EnsureAddressIsBinary()
+		CheckSendPacket(v)
 		looker.sendPublishMessageDown(v)
 	case *packets.Ping:
 		// nothing
@@ -668,48 +663,86 @@ func expectToken(ssi ContactInterface, p packets.Interface) error {
 		}
 		b64Token, ok := connectPacket.GetOption("token")
 		if !ok || b64Token == nil {
-			return makeErrorAndDisconnect(ssi, "expected token", nil)
+			return makeErrorAndDisconnect(ssi, "expectToken expected token", nil)
 		}
 		comment, hasComment := connectPacket.GetOption("comment")
 		if hasComment {
-			fmt.Println("comment", string(comment), "from", ssi.GetKey().Sig())
+			fmt.Println("expectToken comment", string(comment), "from", ssi.GetKey().Sig())
 		}
 		trimmedToken, issuer, err := tokens.GetKnotFreePayload(string(b64Token))
 		if err != nil {
-			return makeErrorAndDisconnect(ssi, "", err)
+			return makeErrorAndDisconnect(ssi, "expectToken error getting payload", err)
 		}
+
 		// find the public key that matches.
 		publicKeyBytes := tokens.FindPublicKey(issuer)
 		if len(publicKeyBytes) != 32 {
-			return makeErrorAndDisconnect(ssi, "token bad issuer "+issuer, nil)
+			return makeErrorAndDisconnect(ssi, "expectToken token bad issuer "+issuer, nil)
 		}
 		foundPayload, ok := tokens.VerifyToken([]byte(trimmedToken), []byte(publicKeyBytes))
 		if !ok {
-			return makeErrorAndDisconnect(ssi, "token not verified", nil)
+			return makeErrorAndDisconnect(ssi, "expectToken not verified", nil)
 		}
 		nowsec := ssi.GetConfig().GetCe().timegetter() // uint32(time.Now().Unix())
 		if nowsec > foundPayload.ExpirationTime {
-			// atw hack alert I have turned off exporation time for now because it's a pain now. FIXME: turn it back on and test it.
-			fmt.Println("WARNING token expired but we're ignoring it for now")
-			// return makeErrorAndDisconnect(ssi, "token expired", nil)
+			// atw hack alert I have turned off expiration time for now because it's a pain now. FIXME: turn it back on and test it.
+			fmt.Println("expectToken WARNING token expired but we're ignoring it for now")
+			// return makeErrorAndDisconnect(ssi, "expectToken token expired", nil)
+		}
+		// if we have a huge token then it's probably dialAideAndServe or dialGuruAndServe calling us up.
+		// or service-contact which has an unknown_port.
+		// we would like to mark it somenow and also make sure it has HUGE buffers.
+		// it will be a GetImpromptuGiantToken with p.KnotFreeContactStats = GetTokenStatsAndPrice(GiantX32).Stats
+		//
+		if foundPayload.Subscriptions > 500*1000 {
+			// what's our port?
+			havePort := ""
+			// can we make this a tcpContact.
+			tcpContact, ok := ssi.(*tcpContact)
+			if ok {
+				havePort = tcpContact.netDotTCPConn.LocalAddr().String()
+				tcpContact.netDotTCPConn.SetNoDelay(true) // we want to send the packets immediately.
+				havePort = havePort + " to " + tcpContact.netDotTCPConn.RemoteAddr().String()
+			}
+			if len(havePort) > 0 { // don't log the port if we don't have it. it will be empty for service-contact.
+				fmt.Println("expectToken INFO token has huge Subscriptions, probably dialAideAndServe or dialGuruAndServe port ", havePort)
+			}
+			// we would like to mark it somehow and also make sure it has HUGE buffers.
+			// kinda late though since we just got this through the wire.
+			// FIXME: maybe we can set a flag in the contact and then later check it and if it's huge then we can set the buffers to huge.
+			if ok {
+				err := tcpContact.netDotTCPConn.SetReadBuffer(1024 * 1024 * 16) // 16 MB
+				if err != nil {
+					fmt.Println("expectToken ERROR setting read buffer:", err)
+				}
+				err = tcpContact.netDotTCPConn.SetWriteBuffer(1024 * 1024 * 16) // 16 MB
+				if err != nil {
+					fmt.Println("expectToken ERROR setting write buffer:", err)
+				}
+			}
 		}
 
 		ssi.SetToken(foundPayload) // we're already in the contact loop thread
 		{                          // subscribe to token for billing
 			foundPayload.KnotFreeContactStats.Subscriptions += 1 // for billing subscription
-			billstr, err := json.Marshal(foundPayload.KnotFreeContactStats)
-			if err != nil {
-				return makeErrorAndDisconnect(ssi, "", nil)
-			}
-			sub := packets.Subscribe{}
-			id := ssi.GetToken().JWTID
-			sub.Address.FromString(id) // the billing channel real name JWTID
-			// fmt.Println("contact subscribing to ", ssi.GetToken().JWTID)
-			sub.SetOption("statsmax", billstr)
-			sub.SetOption("noack", []byte("1"))
-			go PushPacketUpFromBottom(ssi, &sub)
+
+			// don't subscribe to billing anymore for now. 7/1/26
+
+			// billstr, err := json.Marshal(foundPayload.KnotFreeContactStats)
+			// if err != nil {
+			// 	return makeErrorAndDisconnect(ssi, "", nil)
+			// }
+			// sub := packets.Subscribe{}
+			// id := ssi.GetToken().JWTID
+			// sub.Address.FromString(id) // the billing channel real name JWTID
+			// // fmt.Println("contact subscribing to ", ssi.GetToken().JWTID)
+			// sub.SetOption("statsmax", billstr)
+			// sub.SetOption("noack", []byte("1"))
+			// go PushPacketUpFromBottom(ssi, &sub)
 		}
 		return nil
+	} else {
+
 	}
 	return nil
 }
@@ -776,11 +809,13 @@ func (ss *ContactStruct) SetWriter(w io.Writer) {
 	ss.realWriter = w
 }
 
-func (ss *ContactStruct) sendBillingInfo(now uint32) {
+func (ss *ContactStruct) XX_unused_sendBillingInfo(now uint32) {
 
 	if ss.IsClosed() {
 		return
 	}
+	// fmt.Println("ContactStruct contact sending billing info")
+
 	var config *ContactStructConfig
 	// var tok *tokens.KnotFreeTokenPayload
 	msg := &Stats{}
@@ -788,7 +823,7 @@ func (ss *ContactStruct) sendBillingInfo(now uint32) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	ss.commands <- ContactCommander{
-		who: "sendBillingInfp",
+		who: "sendBillingInfo",
 		fn: func(ss *ContactStruct) {
 
 			config = ss.config
@@ -808,34 +843,38 @@ func (ss *ContactStruct) sendBillingInfo(now uint32) {
 		},
 	}
 	wg.Wait()
-	go func() {
-		// also send to exec
-		config.lookup.ex.Billing.AddUsage(&msg.KnotFreeContactStats, now, int(deltaTime))
+	if false { // don't call billing now. Maybe later if anyone actually uses gotohere.
+		go func() {
+			// also send to exec
+			config.lookup.ex.Billing.AddUsage(&msg.KnotFreeContactStats, now, int(deltaTime))
 
-		// Subscriptions handled elsewhere.
-		p := &packets.Send{}
-		// fmt.Println("contact publishing to ", ss.token.JWTID)
-		p.Address.FromString(ss.token.JWTID)
-		p.Source.FromString("billing_stats_return_address_contact")
-		str, err := json.Marshal(msg)
-		if err != nil {
-			fmt.Println("impossible#3")
-		}
-		p.SetOption("add-stats", str)
-		p.SetOption("stats-deltat", []byte(strconv.FormatInt(int64(deltaTime), 10)))
+			// Subscriptions handled elsewhere.
+			p := &packets.Send{}
+			// fmt.Println("contact publishing to ", ss.token.JWTID)
+			p.Address.FromString(ss.token.JWTID)
+			p.Source.FromString("billing_stats_return_address_contact")
+			str, err := json.Marshal(msg)
+			if err != nil {
+				fmt.Println("impossible#3")
+			}
+			p.SetOption("add-stats", str)
+			p.SetOption("stats-deltat", []byte(strconv.FormatInt(int64(deltaTime), 10)))
 
-		//fmt.Println("contact heartbeat sending stats", p, "from", ss.config.Name)
+			//fmt.Println("contact heartbeat sending stats", p, "from", ss.config.Name)
 
-		// don't bill a billing subscripton for the guru.
+			// don't bill a billing subscripton for the guru.
 
-		if !config.IsGuru() {
-			doSetExpires := false
-			err = PushPacketUpFromBottom2(ss, p, doSetExpires)
-		}
-		if err != nil {
-			fmt.Println("things before")
-		}
-	}()
+			CheckSendPacket(p)
+
+			if !config.IsGuru() {
+				doSetExpires := false
+				err = PushPacketUpFromBottom2(ss, p, doSetExpires)
+			}
+			if err != nil {
+				fmt.Println("things before")
+			}
+		}()
+	}
 	// don't wait
 }
 
@@ -871,7 +910,7 @@ func (ss *ContactStruct) Heartbeat(now uint32) {
 	}
 	// Guru clients don't bill. ? FIXME:
 	if nextBillingTime < now { // && !ss.GetConfig().IsGuru() {
-		ss.sendBillingInfo(now)
+		// not now 7/1/26 ss.sendBillingInfo(now)
 	}
 	if !config.IsGuru() {
 		if expires < now {
@@ -891,3 +930,18 @@ func (ss *ContactStruct) IncOutput(amt int) {
 	// }
 	ss.output.Add(int64(amt))
 }
+
+// Copyright 2019,2020,2021,2026 Alan Tracey Wootton
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <http://www.gnu.org/licenses/>.

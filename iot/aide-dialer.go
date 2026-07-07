@@ -1,18 +1,3 @@
-// Copyright 2019,2020,2021 Alan Tracey Wootton
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
 package iot
 
 import (
@@ -29,12 +14,12 @@ import (
 // DialContactToAnyAide is a utility to wait until we have a reference to
 // an aide address and then get a tcp conn and keep it up and retry and keep it up forever.
 // In test there is a ClusterExecutive struct that has references to all the names and addresses
-// In k8s there is an operator that is periodically sending
-func (ex *Executive) DialContactToAnyAide(isTCP bool, ce *ClusterExecutive) {
+// In k8s there is an operator that is periodically sending. Who dials from guru to aide?
+func (ex *Executive) DialContactToAnyAide(isTCP bool, ce *ClusterExecutive, comment string) {
 
 	// count := 0
 	if isTCP {
-		ex.dialAideAndServe()
+		ex.dialAideAndServe("dialAideAndServe DialContactToAnyAide Executive initial call " + comment)
 		// for {
 		// 	if ex.ClusterStats != nil {
 		// 		if len(ex.ClusterStats.Stats) > 0 {
@@ -49,11 +34,11 @@ func (ex *Executive) DialContactToAnyAide(isTCP bool, ce *ClusterExecutive) {
 		// 				if len(aide.TCPAddress) > 4 {
 		// 					if !strings.HasPrefix(aide.TCPAddress, ":") {
 		// 						// we have a tcp address, dial it.
-		// 						err := ex.dialAideAndServe(aide.TCPAddress, ce)
+		// 						err := ex.dial Aide AndServe(aide.TCPAddress, ce)
 		// 						if err != nil {
-		// 							fmt.Println("DialContactToAnyAide dialAideAndServe returned")
+		// 							fmt.Println("DialContactToAnyAide dial AideAndServe returned")
 		// 						} //else {
-		// 						// there's always an error or else we'd still be in dialAideAndServe
+		// 						// there's always an error or else we'd still be in dial AideAndServe
 		// 						//}
 		// 					}
 		// 				}
@@ -67,38 +52,40 @@ func (ex *Executive) DialContactToAnyAide(isTCP bool, ce *ClusterExecutive) {
 		// 	}
 		// } // for
 	} else { // isTCP == false
+		fmt.Println("DON'T use non TCP mode anymore. Delete this code. ")
 		for { // not the ClusterStats technique. for unit test only.
-			if len(ce.Aides) > 0 {
-				aide := ce.Aides[rand.Intn(len(ce.Aides))]
-				//  because we're in test
-				// with no tcp
-				token := tokens.GetImpromptuGiantToken()
+			// if len(ce.Aides) > 0 {
+			// 	aide := ce.Aides[rand.Intn(len(ce.Aides))]
+			// 	//  because we're in test
+			// 	// with no tcp
+			// 	token := tokens.GetImpromptuGiantToken()
 
-				contact := &ContactStruct{}
-				AddContactStruct(contact, contact, aide.Config)
-				contact.SetExpires(contact.contactExpires + 60*60*24*365*10) // in 10 years
+			// 	contact := &ContactStruct{}
+			// 	AddContactStruct(contact, contact, aide.Config)
+			// 	contact.SetExpires(contact.contactExpires + 60*60*24*365*10) // in 10 years
 
-				// define a reader and a writer
-				contact.realWriter = &DevNull{} // we don't subscribe or care what they say
+			// 	// define a reader and a writer
+			// 	contact.realWriter = &DevNull{} // we don't subscribe or care what they say
 
-				connect := packets.Connect{}
-				connect.SetOption("token", []byte(token)) //SampleSmallToken))
-				err := PushPacketUpFromBottom(contact, &connect)
-				if err != nil {
-					fmt.Println("connect problems test dial conn ", err)
-					continue
-				}
-				// this is dead code
-				fmt.Println("starting for range channelToAnyAide", ex.Name)
-				for p := range ex.channelToAnyAide {
-					fmt.Println("got channelToAnyAide aide ", ex.Name)
-					err := PushPacketUpFromBottom(contact, p)
-					if err != nil {
-						fmt.Println("err PushPacketUpFromBottom ", err)
-					}
-				}
-				fmt.Println("ending for range channelToAnyAide", ex.Name)
-			} else {
+			// 	connect := packets.Connect{}
+			// 	connect.SetOption("token", []byte(token))
+			// 	err := PushPacketUpFromBottom(contact, &connect)
+			// 	if err != nil {
+			// 		fmt.Println("connect problems test dial conn ", err)
+			// 		continue
+			// 	}
+			// 	// this is dead code
+			// 	fmt.Println("starting for range channelToAnyAide", ex.Name)
+			// 	for p := range ex.channelToAnyAide {
+			// 		fmt.Println("got channelToAnyAide aide ", ex.Name)
+			// 		err := PushPacketUpFromBottom(contact, p)
+			// 		if err != nil {
+			// 			fmt.Println("err PushPacketUpFromBottom ", err)
+			// 		}
+			// 	}
+			// 	fmt.Println("ending for range channelToAnyAide", ex.Name)
+			// } else
+			{
 				fmt.Println("no aides in cluster fail")
 				panic("no aides in cluster fail")
 			}
@@ -144,7 +131,7 @@ func getTheIndex(ex *Executive) (int, string, string) {
 // how can we be sure to not call this twice?
 var dialAideAndServeInvoked atomic.Int64
 
-func (ex *Executive) dialAideAndServe() {
+func (ex *Executive) dialAideAndServe(comment string) {
 
 	// TODO: do this with channels and not these racey vars
 	index := -1
@@ -153,7 +140,7 @@ func (ex *Executive) dialAideAndServe() {
 	count := 0
 	address := ""
 
-	fmt.Println("top of dialAideAndServe ONE TOP ONCE", ex.Name)
+	fmt.Println("top of dialAideAndServe ONE TOP ONCE", ex.Name, comment)
 
 	startReader := make(chan bool)
 
@@ -168,7 +155,7 @@ func (ex *Executive) dialAideAndServe() {
 				index, name, address = getTheIndex(ex)
 				icount++
 				if icount > 10 {
-					fmt.Println("dialAideAndServe 1 error waiting for clusterStats too long", ex.Name)
+					fmt.Println("dialAideAndServe 1 error waiting for clusterStats too long", ex.Name, index, name, address)
 					time.Sleep(1000 * time.Millisecond)
 				}
 			}
@@ -189,6 +176,8 @@ func (ex *Executive) dialAideAndServe() {
 					fmt.Println("dialAideAndServe 2 error", address, err)
 				}
 				TCPNameResolverFail2.Inc()
+				fmt.Println("dialAideAndServe top of dial timeout (2sec) ", ex.Name, " to ", name, address, tmp, index)
+
 				time.Sleep(100 * time.Millisecond) // try hard. There's a q filling up.
 				continue                           // back to top
 			}
@@ -196,16 +185,22 @@ func (ex *Executive) dialAideAndServe() {
 			startReader <- true
 
 			add := conn.(*net.TCPConn).LocalAddr().String()
-			fmt.Println("dialAideAndServe tcp ", add)
+			add2 := conn.(*net.TCPConn).RemoteAddr().String()
+			helpful_comment := "dialAideAndServe " + ex.Name + " to " + name + " " + address + " from " + add + " to " + add2
+			fmt.Println("dialAideAndServe connected to tcp ", add, " to ", add2, " from ", ex.Name, " to ", name, address, index)
 
 			TCPNameResolverConnected.Inc()
 
 			conn.(*net.TCPConn).SetNoDelay(true)
-			conn.(*net.TCPConn).SetWriteBuffer(4096)
+			// this seems small? It's not like we have a large number or any-aide connection channels.
+
+			var write_buffer_size int = 4096
+			write_buffer_size = 1024 * 64 * 2 // 128k
+			conn.(*net.TCPConn).SetWriteBuffer(write_buffer_size)
 
 			connect := &packets.Connect{}
 			connect.SetOption("token", []byte(tokens.GetImpromptuGiantToken()))
-			connect.SetOption("comment", []byte("dialAideAndServe"+ex.Name))
+			connect.SetOption("helpful_comment", []byte(helpful_comment))
 			err = connect.Write(conn)
 			if err != nil {
 				fmt.Println("dialAideAndServe connect error", conn, err)
@@ -216,6 +211,10 @@ func (ex *Executive) dialAideAndServe() {
 			}
 
 			fmt.Println("dialAideAndServe connected, waiting to write", ex.Name)
+
+			// we pop them off the huge channelToAnyAide and write them to this socket.
+			// they reappear in other machine and turn back into packets to get processed
+			// by the contact over there. Does that contact have a big enough TCP buffer?
 
 			for { // pop packets off the channelToAnyAide and send them to the aide.
 				if index == -1 {
@@ -242,6 +241,8 @@ func (ex *Executive) dialAideAndServe() {
 
 				if oops {
 					index = -1
+					fmt.Println("dialAideAndServe have index -1", name, index)
+
 					conn.Close()
 					break // from pop-packets, back to top of connect
 				}
@@ -251,7 +252,9 @@ func (ex *Executive) dialAideAndServe() {
 				}
 				// fmt.Println("dialAideAndServe waiting channelToAnyAide", ex.Name)
 				p := <-ex.channelToAnyAide
-				// fmt.Println("dialAideAndServe got channelToAnyAide", p, ex.Name)
+				if serviceDebugSession1 {
+					fmt.Println("dialAideAndServe got from channelToAnyAide and writing", p.Sig(), ex.Name)
+				}
 				err := p.Write(conn)
 				if err != nil {
 					fmt.Println("dialAideAndServe write error", conn, err)
@@ -263,6 +266,7 @@ func (ex *Executive) dialAideAndServe() {
 					break // from pop-packets, back to top of connect
 				}
 			}
+			fmt.Println("dialAideAndServe pop then write loop exiting", ex.Name)
 		}
 	}()
 
@@ -303,7 +307,9 @@ func (ex *Executive) dialAideAndServe() {
 					// }
 					//if wasStarted {
 					fmt.Println("dialAideAndServe packets.ReadPacket error ", err, count, address)
-					conn.Close()
+					if conn != nil {
+						conn.Close()
+					}
 					conn = nil
 					index = -1
 					//}
@@ -312,7 +318,23 @@ func (ex *Executive) dialAideAndServe() {
 				}
 				_ = p // drop it on the floor
 			}
+			fmt.Println("dialAideAndServe reader loop exiting")
 		}
 	}()
 
 }
+
+// Copyright 2019,2020,2021 Alan Tracey Wootton
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <http://www.gnu.org/licenses/>.

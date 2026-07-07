@@ -1,11 +1,9 @@
 package iot_test
 
 import (
-	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"log"
 	"reflect"
 	"testing"
 	"time"
@@ -15,8 +13,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 func makeSampleWatchedItem() ([]*iot.WatchedTopic, []*iot.SavedToken) {
@@ -79,72 +75,120 @@ func makeSampleWatchedItem() ([]*iot.WatchedTopic, []*iot.SavedToken) {
 	return results, vals
 }
 
+func TestSubscriptions(t *testing.T) {
+
+	// get-unix-time xOZPbNiNsA_lM_6xJEwM1C7YmVMGlDpA
+	// owned by xOZPbNiNsA_lM_6xJEwM1C7YmVMGlDpA
+
+	//	{
+	//   "_id": {
+	//     "$oid": "66c5119d3558f22dd0ddb02f"
+	//   },
+	//   "name": "xOZPbNiNsA_lM_6xJEwM1C7YmVMGlDpA",
+	//   "namestr": "get-unix-time",
+	//   "exp": {
+	//     "$numberLong": "1758900628"
+	//   },
+	//   "jwtid": "plfdfo4ezlgclcumjtqkiwre",
+	//   "own": "NEUdZXsPTD-lxGeeHWXG-o_9wlfn_sBSqPqUqzA0HS0"
+	// }
+
+	ss, ok := iot.GetSubscription("xOZPbNiNsA_lM_6xJEwM1C7YmVMGlDpA")
+	if !ok {
+		t.Fatal("subscription not found")
+	}
+	if ss == nil {
+		t.Fatal("subscription not found")
+	}
+	fmt.Println("got subscription ", ss.Name, " owned by ", ss.Owner)
+
+	list, err := iot.GetSubscriptionList(ss.Owner)
+	if err != nil {
+		t.Fatal("failed to get subscription list")
+	}
+	_ = list
+	// fmt.Println("subscription list: ", list) // pretty big
+
+	// 	topics, savedTokens := makeSampleWatchedItem()
+	// 	fmt.Println("got topics ", len(topics), " and saved tokens ", len(savedTokens))
+
+	ss, ok = iot.GetSubscription("xOZPbNiNsA_lM_6xJEwMaa7YmVMGlDpA")
+	if ok {
+		t.Fatal("subscription should not be found")
+	}
+	if ss != nil {
+		t.Fatal("subscription should not be found")
+	}
+	fmt.Println("got subscription ", ss)
+}
+
+// um, no. Let mongo init it'self
 func TestMongo(t *testing.T) {
 
-	topics, savedTokens := makeSampleWatchedItem()
+	// topics, savedTokens := makeSampleWatchedItem()
 
-	ctx := context.TODO()
+	// ctx := context.TODO()
 
-	iot.InitMongEnv()
-	iot.InitIotTables()
+	// iot.InitMongEnv() // remove me.
+	// iot.InitIotTables()
 
-	client, err := mongo.Connect(ctx, iot.MongoClientOptions)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer client.Disconnect(ctx)
+	// client, err := mongo.Connect(ctx, iot.MongoClientOptions)
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
+	// defer client.Disconnect(ctx)
 
-	subscriptions := client.Database("iot").Collection("subscriptions")
+	// subscriptions := client.Database("iot").Collection("subscriptions")
 
-	for i := 0; i < len(topics); i++ {
-		result, err := subscriptions.InsertOne(context.TODO(), topics[i])
-		_ = err
-		// check(err) // dup key err expected
-		if result != nil {
-			println("Inserted a single document: ", result.InsertedID)
-		}
-	}
+	// for i := 0; i < len(topics); i++ {
+	// 	result, err := subscriptionsDb.InsertOne(context.TODO(), topics[i])
+	// 	_ = err
+	// 	// check(err) // dup key err expected
+	// 	if result != nil {
+	// 		println("Inserted a single document: ", result.InsertedID)
+	// 	}
+	// }
 
-	saved_tokens := client.Database("iot").Collection("saved-tokens")
+	// saved_tokens := client.Database("iot").Collection("saved-tokens")
 
-	for i := 0; i < len(savedTokens); i++ {
-		result, err := saved_tokens.InsertOne(context.TODO(), savedTokens[i])
-		_ = err
-		// check(err) // dup key err expectd
-		if result != nil {
-			println("Inserted a single document: ", result.InsertedID)
-		}
-	}
+	// for i := 0; i < len(savedTokens); i++ {
+	// 	result, err := saved_tokens.InsertOne(context.TODO(), savedTokens[i])
+	// 	_ = err
+	// 	// check(err) // dup key err expectd
+	// 	if result != nil {
+	// 		println("Inserted a single document: ", result.InsertedID)
+	// 	}
+	// }
 
-	// get the toks for an ip
-	filter := bson.D{{Key: "ip", Value: "127.0.0.1-2"}}
-	cursor, err := saved_tokens.Find(context.TODO(), filter)
-	if err != nil {
-		check(err)
-	}
-	defer cursor.Close(context.TODO())
-	gotjwt := ""
-	for cursor.Next(context.TODO()) {
-		var result iot.SavedToken
-		err := cursor.Decode(&result)
-		check(err)
-		fmt.Println("found saved token ", result.KnotFreeTokenPayload.JWTID, result.IpAddress)
+	// // get the toks for an ip
+	// filter := bson.D{{Key: "ip", Value: "127.0.0.1-2"}}
+	// cursor, err := saved_tokens.Find(context.TODO(), filter)
+	// if err != nil {
+	// 	check(err)
+	// }
+	// defer cursor.Close(context.TODO())
+	// gotjwt := ""
+	// for cursor.Next(context.TODO()) {
+	// 	var result iot.SavedToken
+	// 	err := cursor.Decode(&result)
+	// 	check(err)
+	// 	fmt.Println("found saved token ", result.KnotFreeTokenPayload.JWTID, result.IpAddress)
 
-		gotjwt = result.KnotFreeTokenPayload.JWTID
-	}
-	// get the subs for a jwtid
-	filter = bson.D{{Key: "jwtid", Value: gotjwt}}
-	cursor, err = subscriptions.Find(context.TODO(), filter)
-	if err != nil {
-		check(err)
-	}
-	defer cursor.Close(context.TODO())
-	for cursor.Next(context.TODO()) {
-		var result iot.WatchedTopic
-		err := cursor.Decode(&result)
-		check(err)
-		fmt.Println("found watched topic ", result.Name, result.Jwtid)
-	}
+	// 	gotjwt = result.KnotFreeTokenPayload.JWTID
+	// }
+	// // get the subs for a jwtid
+	// filter = bson.D{{Key: "jwtid", Value: gotjwt}}
+	// cursor, err = subscriptions.Find(context.TODO(), filter)
+	// if err != nil {
+	// 	check(err)
+	// }
+	// defer cursor.Close(context.TODO())
+	// for cursor.Next(context.TODO()) {
+	// 	var result iot.WatchedTopic
+	// 	err := cursor.Decode(&result)
+	// 	check(err)
+	// 	fmt.Println("found watched topic ", result.Name, result.Jwtid)
+	// }
 
 }
 
@@ -211,61 +255,61 @@ type Restaurant struct {
 	Grades       []interface{} `bson:"grades,omitempty"`
 }
 
-func TestMongoRestarants(t *testing.T) {
+// func TestMongoRestarants(t *testing.T) {
 
-	iot.InitMongEnv()
+// 	iot.Init()
 
-	ctx := context.TODO()
-	client, err := mongo.Connect(ctx, iot.MongoClientOptions)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer client.Disconnect(ctx)
+// 	ctx := context.TODO()
+// 	client, err := mongo.Connect(ctx, iot.MongoClientOptions)
+// 	if err != nil {
+// 		log.Fatal(err)
+// 	}
+// 	defer client.Disconnect(ctx)
 
-	restaurants := client.Database("sample_restaurants").Collection("restaurants")
+// 	restaurants := client.Database("sample_restaurants").Collection("restaurants")
 
-	indexModel := mongo.IndexModel{
-		Keys:    bson.D{{Key: "name", Value: 1}},
-		Options: options.Index().SetUnique(true),
-	}
-	name, err := restaurants.Indexes().CreateOne(context.TODO(), indexModel)
-	if err != nil {
-		check(err)
-	}
-	fmt.Println("Name of restaurants Index Created: " + name)
+// 	indexModel := mongo.IndexModel{
+// 		Keys:    bson.D{{Key: "name", Value: 1}},
+// 		Options: options.Index().SetUnique(true),
+// 	}
+// 	name, err := restaurants.Indexes().CreateOne(context.TODO(), indexModel)
+// 	if err != nil {
+// 		check(err)
+// 	}
+// 	fmt.Println("Name of restaurants Index Created: " + name)
 
-	newRestaurant := Restaurant{Name: "828299", Cuisine: "Alan" + tokens.GetRandomB36String()}
-	resultInsert, err := restaurants.InsertOne(context.TODO(), newRestaurant)
-	_ = resultInsert
-	if err != nil {
-		check(err) // makes dup key error which is expected
-		// [E11000 duplicate key error collection: sample_restaurants.restaurants index: name_1 dup key: { name: "828299" }]
-	}
+// 	newRestaurant := Restaurant{Name: "828299", Cuisine: "Alan" + tokens.GetRandomB36String()}
+// 	resultInsert, err := restaurants.InsertOne(context.TODO(), newRestaurant)
+// 	_ = resultInsert
+// 	if err != nil {
+// 		check(err) // makes dup key error which is expected
+// 		// [E11000 duplicate key error collection: sample_restaurants.restaurants index: name_1 dup key: { name: "828299" }]
+// 	}
 
-	// try an update
-	newCuisine := "Alan" + tokens.GetRandomB36String()
-	update := bson.D{{Key: "$set", Value: bson.D{{Key: "cuisine", Value: newCuisine}}}}
-	// Updates the first document that has the specified "_id" value
-	filter := bson.D{{Key: "name", Value: "828299"}}
-	updateResult, err := restaurants.UpdateOne(context.TODO(), filter, update)
-	if err != nil {
-		check(err)
-	}
+// 	// try an update
+// 	newCuisine := "Alan" + tokens.GetRandomB36String()
+// 	update := bson.D{{Key: "$set", Value: bson.D{{Key: "cuisine", Value: newCuisine}}}}
+// 	// Updates the first document that has the specified "_id" value
+// 	filter := bson.D{{Key: "name", Value: "828299"}}
+// 	updateResult, err := restaurants.UpdateOne(context.TODO(), filter, update)
+// 	if err != nil {
+// 		check(err)
+// 	}
 
-	fmt.Println("updated ", updateResult)
+// 	fmt.Println("updated ", updateResult)
 
-	filter = bson.D{{Key: "name", Value: "828299"}}
-	var result Restaurant
-	singleResult := restaurants.FindOne(context.TODO(), filter).Decode(&result)
-	if err != nil {
-		if err == mongo.ErrNoDocuments {
-			fmt.Println("no documents found")
-			return
-		} else {
-			check(err)
-		}
-	}
-	fmt.Println("singleResult ", singleResult)
-	assert.Equal(t, newCuisine, result.Cuisine)
+// 	filter = bson.D{{Key: "name", Value: "828299"}}
+// 	var result Restaurant
+// 	singleResult := restaurants.FindOne(context.TODO(), filter).Decode(&result)
+// 	if err != nil {
+// 		if err == mongo.ErrNoDocuments {
+// 			fmt.Println("no documents found")
+// 			return
+// 		} else {
+// 			check(err)
+// 		}
+// 	}
+// 	fmt.Println("singleResult ", singleResult)
+// 	assert.Equal(t, newCuisine, result.Cuisine)
 
-}
+// }

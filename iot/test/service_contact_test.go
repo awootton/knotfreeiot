@@ -15,14 +15,18 @@ import (
 	"golang.org/x/crypto/nacl/box"
 )
 
+// I don't think the "run file tests" is going to work because there's sockets that need to
+// SO_LINGER or something. I've wasted enough time of this. The tests run separately.
+
 func TestReserveOneName(t *testing.T) {
 
-	iot.InitMongEnv()
-	iot.InitIotTables()
+	// iot.InitMongEnv()
+	// iot.InitIotTables()
 
 	ce := makeClusterWithServiceContact()
-	sc := ce.PacketService
-	_ = sc
+	// don't do it this way sc := ce.PacketService
+	// use GetPacketService()
+	// _ = sc
 
 	devicePublicKey := ce.PublicKeyTemp
 	devicePublicKeyStr := base64.URLEncoding.EncodeToString(devicePublicKey[:])
@@ -77,7 +81,7 @@ func TestReserveOneName(t *testing.T) {
 			cmd.SetOption("sealed", sealed)
 
 			// send it
-			reply, err := sc.GetPacketReplyLonger(&cmd, time.Duration(5555*time.Second))
+			reply, err := ce.GetPacketService().GetPacketReplyLonger(&cmd, time.Duration(5555*time.Second))
 			if err == nil {
 				got := string(reply.(*packets.Send).Payload)
 				want := "ok"
@@ -93,8 +97,9 @@ func TestReserveOneName(t *testing.T) {
 	}
 }
 
+// requires running server.
 // TestServiceContactTCP_prod will sometime fail the first time it is run.
-func TestServiceContactTCP_prod(t *testing.T) {
+func XxxxTestServiceContactTCP_prod(t *testing.T) {
 
 	address := "knotfree.io:8384"
 	token, _ := tokens.GetImpromptuGiantTokenLocal("", "")
@@ -166,11 +171,11 @@ func TestServiceContactTCP_prod(t *testing.T) {
 
 func TestGetProxyStatus(t *testing.T) {
 
-	iot.InitMongEnv()
-	iot.InitIotTables()
+	// iot.InitMongEnv()
+	// iot.InitIotTables()
 
 	ce := makeClusterWithServiceContact()
-	sc := ce.PacketService
+	// sc := ce.PacketService
 
 	// make an internet name
 	name := "snapshot-s3-demo_iot"
@@ -181,7 +186,7 @@ func TestGetProxyStatus(t *testing.T) {
 		cmd.SetOption("cmd", []byte(command))
 
 		// send it
-		reply, err := sc.GetPacketReply(&cmd)
+		reply, err := ce.GetPacketService().GetPacketReply(&cmd)
 		if err == nil {
 			got := string(reply.(*packets.Send).Payload)
 			want := got // fixme "{\"Exists\":true,\"Online\":false,\"Static\":\"\",\"Proxy\":\"https://snap-shot-static-assets2.s3.us-east-2.amazonaws.com/build/\"}"
@@ -199,11 +204,11 @@ func TestGetProxyStatus(t *testing.T) {
 
 func TestGetA(t *testing.T) {
 
-	iot.InitMongEnv()
-	iot.InitIotTables()
+	// iot.InitMongEnv()
+	// iot.InitIotTables()
 
 	ce := makeClusterWithServiceContact()
-	sc := ce.PacketService
+	//sc := ce.PacketService
 
 	// make an internet name
 	name := "a-person-channel_iot"
@@ -214,7 +219,7 @@ func TestGetA(t *testing.T) {
 		cmd.SetOption("cmd", []byte(command))
 
 		// send it
-		reply, err := sc.GetPacketReply(&cmd)
+		reply, err := ce.GetPacketService().GetPacketReply(&cmd)
 		if err == nil {
 			got := string(reply.(*packets.Send).Payload)
 			want := "216.128.128.195"
@@ -234,11 +239,11 @@ func TestGetA(t *testing.T) {
 // with 3 names. I am concerned about the time it takes to run.
 func TestReserve(t *testing.T) {
 
-	iot.InitMongEnv()
-	iot.InitIotTables()
+	// iot.InitMongEnv()
+	// iot.InitIotTables()
 
 	ce := makeClusterWithServiceContact()
-	sc := ce.PacketService
+	// nope sc := ce.PacketService
 
 	devicePublicKey := ce.PublicKeyTemp
 	// devicePublicKeyStr := base64.URLEncoding.EncodeToString(devicePublicKey[:])
@@ -293,7 +298,7 @@ func TestReserve(t *testing.T) {
 			cmd.SetOption("sealed", sealed)
 
 			// send it
-			reply, err := sc.GetPacketReply(&cmd)
+			reply, err := ce.GetPacketService().GetPacketReply(&cmd)
 			if err == nil {
 				got := string(reply.(*packets.Send).Payload)
 				want := "ok"
@@ -326,7 +331,7 @@ func TestReserve(t *testing.T) {
 			cmd.SetOption("sealed", sealed)
 
 			// send it
-			reply, err := sc.GetPacketReply(&cmd)
+			reply, err := ce.GetPacketService().GetPacketReply(&cmd)
 			if err == nil {
 				got := string(reply.(*packets.Send).Payload)
 				want := "ok"
@@ -359,7 +364,7 @@ func TestReserve(t *testing.T) {
 			cmd.SetOption("sealed", sealed)
 
 			// send it
-			reply, err := sc.GetPacketReply(&cmd)
+			reply, err := ce.GetPacketService().GetPacketReply(&cmd)
 			if err == nil {
 				got := string(reply.(*packets.Send).Payload)
 				want := "ok"
@@ -393,7 +398,7 @@ func TestReserve(t *testing.T) {
 			cmd.SetOption("sealed", sealed)
 
 			// send it
-			reply, err := sc.GetPacketReply(&cmd)
+			reply, err := ce.GetPacketService().GetPacketReply(&cmd)
 			if err == nil {
 				got := string(reply.(*packets.Send).Payload)
 				want := "ok"
@@ -412,7 +417,6 @@ func TestReserve(t *testing.T) {
 
 	// and fetch from mongo.
 
-	_ = sc
 	_ = privk
 	// time.Sleep(1000 * time.Second)
 }
@@ -420,11 +424,11 @@ func TestReserve(t *testing.T) {
 // this soiuld be a bulk set if we impleme ted it
 func XxxxTestSetLongOption(t *testing.T) {
 
-	iot.InitMongEnv()
-	iot.InitIotTables()
+	// iot.InitMongEnv()
+	// iot.InitIotTables()
 
 	ce := makeClusterWithServiceContact()
-	sc := ce.PacketService
+	// don't do it this way sc := ce.PacketService
 
 	devicePublicKey := ce.PublicKeyTemp
 	// devicePublicKeyStr := base64.URLEncoding.EncodeToString(devicePublicKey[:])
@@ -477,7 +481,7 @@ func XxxxTestSetLongOption(t *testing.T) {
 			cmd.SetOption("sealed", sealed)
 
 			// send it
-			reply, err := sc.GetPacketReply(&cmd)
+			reply, err := ce.GetPacketService().GetPacketReply(&cmd)
 			if err == nil {
 				got := string(reply.(*packets.Send).Payload)
 				want := "ok"
@@ -495,7 +499,6 @@ func XxxxTestSetLongOption(t *testing.T) {
 
 	// and fetch from mongo.
 
-	_ = sc
 	_ = privk
 	// time.Sleep(1000 * time.Second)
 }
@@ -506,7 +509,7 @@ func XxxxTestSetLongOption(t *testing.T) {
 func TestSubs(t *testing.T) {
 
 	ce := makeClusterWithServiceContact()
-	sc := ce.PacketService
+	// don't do it this way sc := ce.PacketService
 
 	devicePublicKey := ce.PublicKeyTemp
 	devicePublicKeyStr := base64.URLEncoding.EncodeToString(devicePublicKey[:])
@@ -544,10 +547,10 @@ func TestSubs(t *testing.T) {
 		cmd.SetOption("sealed", sealed)
 
 		// send it
-		reply, err := sc.GetPacketReplyLonger(&cmd, time.Duration(5555*time.Second))
+		reply, err := ce.GetPacketService().GetPacketReplyLonger(&cmd, time.Duration(5555*time.Second))
 		if err == nil {
 			got := string(reply.(*packets.Send).Payload)
-			want := `{"Exists":true,"Online":false}`
+			want := `{"Exists":true,"Online":false,"Owner":"NEUdZXsPTD-lxGeeHWXG-o_9wlfn_sBSqPqUqzA0HS0"}`
 			if got != want {
 				t.Error("reply got", got, "want", want)
 				fmt.Println("reply got", got, "want", want)
@@ -574,7 +577,7 @@ func TestSubs(t *testing.T) {
 		cmd.SetOption("sealed", sealed)
 
 		// send it
-		reply, err := sc.GetPacketReplyLonger(&cmd, time.Duration(5555*time.Second))
+		reply, err := ce.GetPacketService().GetPacketReplyLonger(&cmd, time.Duration(5555*time.Second))
 		if err == nil {
 			got := string(reply.(*packets.Send).Payload)
 			want := devicePublicKeyStr
@@ -606,11 +609,11 @@ func TestSubs(t *testing.T) {
 		cmd.SetOption("sealed", sealed)
 
 		// send it
-		reply, err := sc.GetPacketReply(&cmd)
+		reply, err := ce.GetPacketService().GetPacketReply(&cmd)
 		if err == nil {
 			got := string(reply.(*packets.Send).Payload)
 			// this time it's online
-			want := `{"Exists":true,"Online":true}`
+			want := `{"Exists":true,"Online":true,"Owner":"NEUdZXsPTD-lxGeeHWXG-o_9wlfn_sBSqPqUqzA0HS0"}`
 			if got != want {
 				t.Error("reply got", got, "want", want)
 				fmt.Println("reply got", got, "want", want)
@@ -621,13 +624,12 @@ func TestSubs(t *testing.T) {
 		}
 	}
 
-	_ = sc
 	_ = privk
 }
 func TestServiceContact(t *testing.T) {
 
 	ce := makeClusterWithServiceContact()
-	sc := ce.PacketService
+	// sc := ce.PacketService
 
 	var reply packets.Interface
 	reply = &packets.Send{}
@@ -663,7 +665,7 @@ func TestServiceContact(t *testing.T) {
 	// msg := packets.Send{}
 	// msg.Address.FromString("get-unix-time")
 	// msg.Payload = []byte("get time")
-	reply, err = sc.GetPacketReply(&msg)
+	reply, err = ce.GetPacketService().GetPacketReply(&msg)
 	if err != nil {
 		fmt.Println("SendPacket returned error and that's bad", err)
 		t.Error("SendPacket returned wanted timeout", string(reply.(*packets.Send).Payload))
@@ -692,7 +694,17 @@ func makeClusterWithServiceContact() *iot.ClusterExecutive {
 	}
 
 	ce := iot.MakeSimplestCluster(getTime, true, 1, "")
-	ce.PacketService, err = iot.StartNewServiceContact(ce.Aides[0])
+
+	ce.InitTheServiceContacts()
+
+	// // ce.PacketService, err = iot.StartNewServiceContact(ce.Aides[0])
+	// iot.StartNewServiceContact(ce.Aides[0], func(sc *iot.ServiceContact, err error) {
+	// 	ce.PacketService = sc
+	// 	if err != nil {
+	// 		fmt.Println("StartNewServiceContact failed", err)
+	// 	}
+	// })
+
 	check(err)
 
 	return ce
@@ -739,8 +751,8 @@ func TestServiceContactTCP(t *testing.T) {
 func TestServiceContactTCP_DNS(t *testing.T) {
 
 	tokens.LoadPublicKeys()
-	iot.InitMongEnv()
-	iot.InitIotTables()
+	// iot.InitMongEnv()
+	// iot.InitIotTables()
 
 	var err error
 	localtime := starttime

@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// we have to be awake? ok.
 func TestQueryCallOverHttp3native(t *testing.T) {
 	url := "http://knotfree.com:8085/api1/dns-query?name=alan-t-wootton.iot,NOTtestmain-0n0u0e16p-0.vr,get-unix-time.iot&type=A&knotfree=1"
 
@@ -122,7 +123,7 @@ func TestLookupDnsOverHttpNativeNotFound(t *testing.T) {
 
 	assert.Equal(t, 3, response.Status) // NXDOMAIN not found
 	assert.Equal(t, recordType, response.Answer[0].Type)
-	assert.Equal(t, "error: topic not found", response.Answer[0].Data)
+	assert.Equal(t, "status: topic not found", response.Answer[0].Data)
 }
 
 // now let's do the endpoint.
@@ -553,3 +554,18 @@ func TestDNSResolveGotohere(t *testing.T) {
 //   ],
 //   "Comment": "Response from 192.54.112.30."
 // }
+
+// Copyright 2019,2020,2021,2026 Alan Tracey Wootton
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <http://www.gnu.org/licenses/>.

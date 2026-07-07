@@ -308,8 +308,8 @@ func (api ApiHandler) ServeMakeToken(w http.ResponseWriter, req *http.Request) {
 	fmt.Println("token req RemoteAddr", remoteAddr)
 
 	// check mongo
-	InitMongEnv()
-	InitIotTables()
+	// InitMongEnv()
+	// InitIotTables()
 
 	client, err := mongo.Connect(ctx, MongoClientOptions)
 	if err != nil {

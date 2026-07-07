@@ -227,6 +227,7 @@ func main() {
 func buildTheKnotFreeMain(registry string) {
 
 	{ // build meta-proto-one and copy to knotfree main
+
 		// meta-project-root is /Users/awootton/workspace/metaverse-proto-one
 		// /Users/awootton/workspace/metaverse-proto-one
 		home, _ := os.UserHomeDir()
@@ -241,7 +242,9 @@ func buildTheKnotFreeMain(registry string) {
 		// do we clear it? creepy.
 		kubectl.K("rm -rf " + destination + "/*")
 
-		kubectl.K("cd " + metaProjectRoot + ";yarn build")
+		// kubectl.K("cd " + metaProjectRoot + ";yarn build")
+		kubectl.K("cd " + metaProjectRoot + "; ./build_to_s3_docs.sh")
+
 		kubectl.K("ls -lah " + metaProjectRoot + "/build") // see the build files
 
 		// now rsync

@@ -19,12 +19,12 @@ import (
 // Using the look api.
 func XxxxTestReserveNames(t *testing.T) {
 
-	iot.InitMongEnv()
-	iot.InitIotTables()
+	// iot.InitMongEnv()
+	// iot.InitIotTables()
 
 	ce := makeClusterWithServiceContact()
-	sc := ce.PacketService
-	_ = sc
+	// don't do it this way sc := ce.PacketService
+	// use GetPacketService()
 
 	devicePublicKey := ce.PublicKeyTemp
 	devicePublicKeyStr := base64.URLEncoding.EncodeToString(devicePublicKey[:])
@@ -85,7 +85,7 @@ func XxxxTestReserveNames(t *testing.T) {
 			cmd.SetOption("sealed", sealed)
 
 			// send it
-			reply, err := sc.GetPacketReply(&cmd)
+			reply, err := ce.GetPacketService().GetPacketReply(&cmd)
 			if err == nil {
 				got := string(reply.(*packets.Send).Payload)
 				want := "ok"
@@ -93,6 +93,7 @@ func XxxxTestReserveNames(t *testing.T) {
 					t.Error("reply got", got, "want", want)
 					fmt.Println("reply got", got, "want", want)
 				}
+				iot.CheckSendPacket(reply.(*packets.Send))
 			} else {
 				t.Error("reply err", err)
 				fmt.Println("reply err", err)

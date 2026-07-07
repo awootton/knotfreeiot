@@ -139,8 +139,15 @@ func (me *LookupTableStruct) PushUp(p packets.Interface, h HashType) error {
 			fmt.Println("upc pushing up from ", me.ex.Name, " to ", upc.name, p)
 		})
 		if len(upc.up) >= cap(upc.up) {
-			fmt.Println("me.ex.channelToAnyAide channel full")
+			fmt.Println("LookupTableStruct PushUp  channel to the guru full")
 		}
+
+		// does it have any payload? Who does that?
+		snd, ok := p.(*packets.Send)
+		if ok && len(snd.Payload) == 0 {
+			fmt.Println("LookupTableStruct PushUp  channel to the guru has no payload wtf. ", p.Sig())
+		}
+
 		upc.up <- p
 
 	} else {
@@ -258,6 +265,8 @@ func (me *LookupTableStruct) sendLookupMessage(ss ContactInterface, p *packets.L
 // SendPublishMessage will create a message object, copy pointers to it so it'll own them now, and queue the message.
 func (me *LookupTableStruct) sendPublishMessageDown(p *packets.Send) {
 
+	CheckSendPacket(p)
+
 	msg := publishMessageDown{}
 	//msg.ss = ss
 	msg.p = p
@@ -289,6 +298,10 @@ func (me *LookupTableStruct) sendSubscriptionMessageDown(p *packets.Subscribe) {
 
 // SendPublishMessage will create a message object, copy pointers to it so it'll own them now, and queue the message.
 func (me *LookupTableStruct) sendPublishMessage(ss ContactInterface, p *packets.Send) {
+
+	if len(p.Payload) == 0 {
+		fmt.Println("sendPublishMessage channel towards the guru has no payload wtf. ")
+	}
 
 	msg := publishMessage{}
 	msg.ss = ss
@@ -374,6 +387,8 @@ func (bucket *subscribeBucket) processMessages(me *LookupTableStruct) {
 	for {
 		msg := <-bucket.incoming // wait right here
 
+		// now that we have it, comeback QUICK for another.
+
 		// if bucket.index == 49 {
 		// 	fmt.Println("have processMessages ", reflect.TypeOf(msg), "bucket", bucket.index)
 		// }
@@ -384,6 +399,8 @@ func (bucket *subscribeBucket) processMessages(me *LookupTableStruct) {
 
 		// TODO: use virtual methods or function pointers to avoid this switch.
 		// eg use the CallBackInterface for everything.
+
+		// fmt.Println("lookup-table have msg from bucket.incoming", msg)
 
 		switch v := msg.(type) {
 

@@ -1,20 +1,5 @@
 package iot
 
-// Copyright 2024 Alan Tracey Wootton
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
 import (
 	"bytes"
 	"crypto/rand"
@@ -24,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	mathrand "math/rand"
 	"net/http"
 	"reflect"
 	"strconv"
@@ -34,10 +20,41 @@ import (
 	"github.com/awootton/knotfreeiot/tokens"
 )
 
+// GetRandomB64String is a slower, more cryptographically secure random string generator. 18 bytes is 144 bits, which is more than enough for a session key.
+// We use them for the sub of a service-contact, which happens infrequently.
 func GetRandomB64String() string {
 	var tmp [18]byte
 	rand.Read(tmp[:])
 	return base64.RawURLEncoding.EncodeToString(tmp[:])
+}
+
+const anArrayOf64Chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789QZ"
+
+// GetRandomStringOf28 returns a random string of 28 NOT base64 characters.
+// much faster. We use these for session key/val and have to make one up for every packet sent.
+// 28 bytes is 224 bits, which is more than enough for a session key (it keeps telling this lie, sigh).
+func GetRandomStringOf28() [28]byte {
+
+	// go faster, be less cryptographically secure. 28 bytes is 224 bits, which is more than enough for a session key.
+	// silly AI, it's 6 * 28 = 168 bits, not 224.
+	var destination [28]byte
+
+	bigint := mathrand.Uint64()
+	for i := 0; i < 10; i++ { // 10, really? lol.
+		destination[i] = anArrayOf64Chars[bigint&0x3F]
+		bigint >>= 6
+	}
+	bigint = mathrand.Uint64()
+	for i := 10; i < 20; i++ {
+		destination[i] = anArrayOf64Chars[bigint&0x3F]
+		bigint >>= 6
+	}
+	bigint = mathrand.Uint64()
+	for i := 20; i < 28; i++ {
+		destination[i] = anArrayOf64Chars[bigint&0x3F]
+		bigint >>= 6
+	}
+	return destination
 }
 
 type pinfo struct {
@@ -101,7 +118,7 @@ func HandleHttpSubdomainRequest(w http.ResponseWriter, r *http.Request, ex *Exec
 	look := packets.Lookup{}
 	look.Address.FromString(subDomain)
 	look.SetOption("cmd", []byte("proxy-status"))
-	gotPacket, err := ex.ce.PacketService.GetPacketReply(&look)
+	gotPacket, err := ex.ce.GetPacketService().GetPacketReply(&look)
 	if err != nil {
 		fmt.Println("PacketService error ", err)
 		http.Error(w, "PacketService error "+err.Error(), 500)
@@ -175,7 +192,7 @@ func HandleHttpSubdomainRequest(w http.ResponseWriter, r *http.Request, ex *Exec
 
 	//fmt.Println("http header ", r.Header) // it's a map with Cookie
 	// write the header to a buffer
-	firstLine := r.Method + " " + r.URL.String() + " " + r.Proto + "\n"
+	firstLine := r.Method + " " + r.URL.String() + " " + r.Proto + "\r\n"
 	// fmt.Println("first line", firstLine[0:len(firstLine)-2])
 	if strings.Contains(firstLine, "debg=12345678") {
 		isDebg = true
@@ -287,7 +304,9 @@ func HandleHttpSubdomainRequest(w http.ResponseWriter, r *http.Request, ex *Exec
 		fmt.Println("sub-domain sending hex", hex.EncodeToString(buffer.Bytes()))
 	}
 	//err = PushPacketUpFromBottom(contact, &pub)
-	gotPackets, err := ex.ce.PacketService.GetPacketGroupReplyLonger(&pub, time.Duration(5*time.Second))
+	// no, just no.
+	//gotPackets, err := ex.ce.GetPacketService().GetPacketGroupReplyLonger(&pub, time.Duration(5*time.Second))
+	gotPackets, err := ex.ce.GetPacketService().GetPacketReplyLonger(&pub, time.Duration(5*time.Second))
 	if err != nil {
 		errMsg := "Error. " + err.Error() // + contact.GetKey().Sig() + " " + firstLine[0:len(firstLine)-2]
 		fmt.Println(errMsg)
@@ -295,15 +314,15 @@ func HandleHttpSubdomainRequest(w http.ResponseWriter, r *http.Request, ex *Exec
 		responseBuffer.WriteString(errMsg)
 		return
 	}
-	if len(gotPackets) != 1 {
-		errMsg := "Error. More than one response" // + contact.GetKey().Sig() + " " + firstLine[0:len(firstLine)-2]
-		// FIXME: write tests and implement.
-		fmt.Println(errMsg)
-		// http.Error(responseBuffer, errMsg, 500)
-		responseBuffer.WriteString(errMsg)
-		return
-	}
-	snd := gotPackets[0].(*packets.Send)
+	// if len(gotPackets) != 1 {
+	// 	errMsg := "Error. More than one response" // + contact.GetKey().Sig() + " " + firstLine[0:len(firstLine)-2]
+	// 	// FIXME: write tests and implement.
+	// 	fmt.Println(errMsg)
+	// 	// http.Error(responseBuffer, errMsg, 500)
+	// 	responseBuffer.WriteString(errMsg)
+	// 	return
+	// }
+	snd := gotPackets.(*packets.Send)
 	builder := InsertAdditionalHeaders(snd.Payload, *snd)
 	responseBuffer.Write(builder.Bytes())
 	responseBuffer.Flush()
@@ -347,7 +366,7 @@ func OldHandleHttpSubdomainRequest(w http.ResponseWriter, r *http.Request, ex *E
 	look := packets.Lookup{}
 	look.Address.FromString(subDomain)
 	look.SetOption("cmd", []byte("proxy-status"))
-	gotPacket, err := ex.ce.PacketService.GetPacketReply(&look)
+	gotPacket, err := ex.ce.GetPacketService().GetPacketReply(&look)
 	if err != nil {
 		fmt.Println("PacketService error ", err)
 		http.Error(w, "PacketService error "+err.Error(), 500)
@@ -423,7 +442,7 @@ func OldHandleHttpSubdomainRequest(w http.ResponseWriter, r *http.Request, ex *E
 	// r.RequtURI is "/"
 	// r.URL is "/"
 	// write the header to a buffer
-	firstLine := r.Method + " " + r.URL.String() + " " + r.Proto + "\n"
+	firstLine := r.Method + " " + r.URL.String() + " " + r.Proto + "\r\n"
 	// fmt.Println("first line", firstLine[0:len(firstLine)-2])
 	if strings.Contains(firstLine, "debg=12345678") {
 		isDebg = true
@@ -459,6 +478,8 @@ func OldHandleHttpSubdomainRequest(w http.ResponseWriter, r *http.Request, ex *E
 	if err != nil || (n != len(theBody)) {
 		http.Error(w, "http theBody write ", 500)
 	}
+	// add w.Header().Add("Access-Control-Allow-Origin", "*")
+	buf.WriteString("Access-Control-Allow-Origin: *\r\n")
 
 	// fmt.Println("http is requestbuff ", buf.String())
 	fmt.Println("http is request ", firstLine[0:len(firstLine)-2])
@@ -619,10 +640,10 @@ func OldHandleHttpSubdomainRequest(w http.ResponseWriter, r *http.Request, ex *E
 
 		pub.Address.FromString(subDomain) // !!!!!
 		pub.Source = subs.Address
-		// fmt.Println(" our send addr is ", pub.Address.String()) // atw delete
+		// fmt.Println(" our send addr is ", pub.Address.String())
 		pub.Address.EnsureAddressIsBinary()
-		// fmt.Println(" our send addr is ", pub.Address.String())  // atw delete
-		// fmt.Println(" our return addr is ", pub.Source.String()) // atw delete
+		// fmt.Println(" our send addr is ", pub.Address.String())
+		// fmt.Println(" our return addr is ", pub.Source.String())
 		// pub.Payload = []byte("GET " + r.URL.String() + " HTTP/1.1\n\n")
 		pub.Payload = buf.Bytes()
 
@@ -634,6 +655,7 @@ func OldHandleHttpSubdomainRequest(w http.ResponseWriter, r *http.Request, ex *E
 			pub.Write(&buffer)
 			fmt.Println("sub-domain sending hex", hex.EncodeToString(buffer.Bytes()))
 		}
+		CheckSendPacket(&pub)
 		err = PushPacketUpFromBottom(contact, &pub)
 		_ = err
 		servedCount++
@@ -867,3 +889,18 @@ func OldHandleHttpSubdomainRequest(w http.ResponseWriter, r *http.Request, ex *E
 		_ = err
 	}
 }
+
+// Copyright 2024.2026 Alan Tracey Wootton
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <http://www.gnu.org/licenses/>.
