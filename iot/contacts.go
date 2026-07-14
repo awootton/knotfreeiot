@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"reflect"
 	"strconv"
 	"sync"
@@ -203,7 +204,7 @@ func AddContactStructSized(ss *ContactStruct, ssi ContactInterface, config *Cont
 
 	now := config.GetLookup().getTime()
 	ss.contactExpires = 20*60 + now // stale contacts expire in 20 min. contact timeout
-	// fmt.Println("contactExpires 20 min")
+	// log.Println("contactExpires 20 min")
 
 	ss.nextBillingTime = now + 30 // 30 seconds to start with
 	ss.lastBillingTime = now
@@ -215,20 +216,20 @@ func AddContactStructSized(ss *ContactStruct, ssi ContactInterface, config *Cont
 			select {
 			case <-ss.ClosedChannel:
 				if ss.LogMeVerbose {
-					fmt.Println("writechan error closing now", ss.GetKey().Sig())
+					log.Println("writechan error closing now", ss.GetKey().Sig())
 				}
 				if config.IsGuru() {
-					fmt.Println("writechan error closed Guru socket")
+					log.Println("writechan error closed Guru socket")
 				}
 				// stop looping, we're done
 				return
 			case cmd = <-ss.commands:
-				//fmt.Println("WriteCommand pop")
+				//log.Println("WriteCommand pop")
 				if !ss.IsClosed() {
-					// fmt.Println("WriteCommand fn TOP", cmd.who) // for debug FIXME: use debug print or something
+					// log.Println("WriteCommand fn TOP", cmd.who) // for debug FIXME: use debug print or something
 					ss.who = cmd.who
 					cmd.fn(ss)
-					// fmt.Println("WriteCommand fn DONE", cmd.who)
+					// log.Println("WriteCommand fn DONE", cmd.who)
 				}
 				//  done by some commands --->  p.Write(ss)
 			}
@@ -242,7 +243,7 @@ func (ss *ContactStruct) WriteCommand(cmd ContactCommander) {
 	length := len(ss.commands)
 	capacity := cap(ss.commands)
 	if length > (capacity - 2) {
-		fmt.Println("ERROR contact WriteCommand channel full", ss.who, "seems stuck")
+		log.Println("ERROR contact WriteCommand channel full", ss.who, "seems stuck")
 	}
 	ss.commands <- cmd
 }
@@ -277,7 +278,7 @@ func PushPacketUpFromBottom2(ssi ContactInterface, p packets.Interface, doSetExp
 		isDebug = true
 	}
 	if isDebug {
-		fmt.Println("Contact PushPacketUpFromBottom2 con=", ssi.GetConfig().key.Sig(), " ", p.Sig())
+		log.Println("Contact PushPacketUpFromBottom2 con=", ssi.GetConfig().key.Sig(), " ", p.Sig())
 	}
 
 	var err error
@@ -296,7 +297,7 @@ func PushPacketUpFromBottom2(ssi ContactInterface, p packets.Interface, doSetExp
 			}
 			config = ssi.GetConfig()
 			if config == nil {
-				fmt.Println("no way there's no config")
+				log.Println("no way there's no config")
 				return
 			}
 			looker = config.GetLookup()
@@ -310,7 +311,7 @@ func PushPacketUpFromBottom2(ssi ContactInterface, p packets.Interface, doSetExp
 				return
 			}
 			if isDebug {
-				fmt.Println("PushPacketUpFromBottom2 ContactCommander con=", ssi.GetConfig().key.Sig(), " ", p.Sig())
+				log.Println("PushPacketUpFromBottom2 ContactCommander con=", ssi.GetConfig().key.Sig(), " ", p.Sig())
 			}
 		},
 	})
@@ -326,11 +327,11 @@ func PushPacketUpFromBottom2(ssi ContactInterface, p packets.Interface, doSetExp
 		// handled the first time by expectToken(ssi, p)
 	case *packets.Disconnect:
 		ssi.WriteDownstream(v)
-		fmt.Println("contact closing on disconnect")
+		log.Println("contact closing on disconnect")
 		ssi.DoClose(errors.New("closing on disconnect"))
 	case *packets.Subscribe:
 		if isDebug {
-			fmt.Println("KF native contact subscribe", v.String(), ssi.GetConfig().Name)
+			log.Println("KF native contact subscribe", v.String(), ssi.GetConfig().Name)
 		}
 		v.Address.EnsureAddressIsBinary()
 
@@ -351,7 +352,7 @@ func PushPacketUpFromBottom2(ssi ContactInterface, p packets.Interface, doSetExp
 		looker.sendUnsubscribeMessage(ssi, v)
 	case *packets.Lookup:
 		if isDebug {
-			fmt.Println("KF native contact lookup", v.String(), ssi.GetConfig().Name)
+			log.Println("KF native contact lookup", v.String(), ssi.GetConfig().Name)
 		}
 		v.Address.EnsureAddressIsBinary()
 		looker.sendLookupMessage(ssi, v)
@@ -359,10 +360,10 @@ func PushPacketUpFromBottom2(ssi ContactInterface, p packets.Interface, doSetExp
 		v.Address.EnsureAddressIsBinary()
 
 		if len(v.Payload) == 0 {
-			fmt.Println("PushPacketUpFromBottom send channel towards the guru has no payload wtf. ", ssi, v.Sig())
+			log.Println("PushPacketUpFromBottom send channel towards the guru has no payload wtf. ", ssi, v.Sig())
 		}
 		if isDebug {
-			fmt.Println("KF native contact send", v.String(), ssi.GetConfig().Name)
+			log.Println("KF native contact send", v.String(), ssi.GetConfig().Name)
 		}
 		CheckSendPacket(v)
 		looker.sendPublishMessage(ssi, v)
@@ -370,7 +371,7 @@ func PushPacketUpFromBottom2(ssi ContactInterface, p packets.Interface, doSetExp
 		ssi.WriteDownstream(v)
 
 	default:
-		fmt.Printf("I don't know about native type : %T!\n", v)
+		log.Printf("I don't know about native type : %T!\n", v)
 	}
 	return nil
 }
@@ -384,14 +385,14 @@ func PushDownFromTop(looker *LookupTableStruct, p packets.Interface) error {
 
 	got, ok := p.GetOption("debg")
 	if ok && string(got) == "12345678" {
-		fmt.Println("PushDownFromTop ", p.Sig())
+		log.Println("PushDownFromTop ", p.Sig())
 	}
 
 	switch v := p.(type) {
 	case *packets.Connect:
-		fmt.Println("got connect we don't need ", v)
+		log.Println("got connect we don't need ", v)
 	case *packets.Disconnect:
-		fmt.Println("PushDownFromTop got disconnect from guru is this for us?  ", v) // this is really bad.
+		log.Println("PushDownFromTop got disconnect from guru is this for us?  ", v) // this is really bad.
 		//ignore it? ssi.Close(errors.New("got disconnect from guru"))
 	case *packets.Subscribe:
 		v.Address.EnsureAddressIsBinary()
@@ -409,7 +410,7 @@ func PushDownFromTop(looker *LookupTableStruct, p packets.Interface) error {
 	case *packets.Ping:
 		// nothing
 	default:
-		fmt.Printf("PushDownFromTop donesn't know about type %T!\n", v)
+		log.Printf("PushDownFromTop donesn't know about type %T!\n", v)
 	}
 	return nil
 }
@@ -434,11 +435,11 @@ func (ss *ContactStruct) WriteDownstream(p packets.Interface) error {
 	}
 	got, ok := p.GetOption("debg")
 	if ok && string(got) == "12345678" {
-		fmt.Println("ContactStruct WriteDownstream con=", ss.GetKey().Sig(), p.Sig())
+		log.Println("ContactStruct WriteDownstream con=", ss.GetKey().Sig(), p.Sig())
 	}
 
 	go func() {
-		// fmt.Println("ContactStruct WriteDownstream 2 con=", ss.GetKey().Sig(), p.Sig())
+		// log.Println("ContactStruct WriteDownstream 2 con=", ss.GetKey().Sig(), p.Sig())
 		p.Write(ss)
 	}()
 	// Don't wait.
@@ -469,7 +470,7 @@ func (ss *ContactStruct) DoClose(err error) {
 		fn: func(ss *ContactStruct) {
 			defer wg.Done()
 			if ss.LogMeVerbose {
-				fmt.Println("Closing special ", ss.GetKey().Sig(), " with err ", err)
+				log.Println("Closing special ", ss.GetKey().Sig(), " with err ", err)
 			}
 			ss.once.Do(func() {
 				close(ss.ClosedChannel)
@@ -486,7 +487,7 @@ func (ss *ContactStruct) DoClose(err error) {
 // You can override it though.
 func (ss *ContactStruct) DoClosingWork(err error) {
 
-	// fmt.Println("ContactStruct DoClosingWork con=", ss.GetKey().Sig(), err)
+	// log.Println("ContactStruct DoClosingWork con=", ss.GetKey().Sig(), err)
 
 	_ = err
 	config := ss.config
@@ -518,7 +519,7 @@ func (config *ContactStructConfig) Len() int {
 // WriteUpstream will be overridden
 // this is used by an upper contact and is overridden. See tcpUpperContact
 func (ss *ContactStruct) WriteUpstream(cmd packets.Interface) error {
-	fmt.Println("FIXME unused", cmd, reflect.TypeOf(cmd)) // fixme panic
+	log.Println("FIXME unused", cmd, reflect.TypeOf(cmd)) // fixme panic
 	return errors.New("FIXME unused WriteUpstream")
 }
 
@@ -550,7 +551,7 @@ func (ss *ContactStruct) SetToken(t *tokens.KnotFreeTokenPayload) {
 	// need to keep this because it's the billing topic: t.JWTID
 	//var wg sync.WaitGroup
 	//wg.Add(1)
-	// fmt.Println("WriteCommand push set token")
+	// log.Println("WriteCommand push set token")
 	//ss.commands <- func(ss *ContactStruct)
 	{
 		t.URL = ""
@@ -611,7 +612,7 @@ func (ss *ContactStruct) Write(p []byte) (int, error) {
 		// panic("ss.realWriter == nil")
 		return 0, errors.New("ss.realWriter == nil")
 	}
-	// fmt.Println("contact write", string(p))
+	// log.Println("contact write", string(p))
 	n, err := ss.realWriter.Write(p)
 	// ss.commands <- ContactCommander{ // would fill the channel
 	// 	who: "Write",
@@ -658,7 +659,7 @@ func expectToken(ssi ContactInterface, p packets.Interface) error {
 		// we can't do anything if we're not 'checked in'
 		connectPacket, ok := p.(*packets.Connect)
 		if !ok {
-			fmt.Println("ERROR expected Connect packet")
+			log.Println("ERROR expected Connect packet")
 			return makeErrorAndDisconnect(ssi, "expected Connect packet", nil)
 		}
 		b64Token, ok := connectPacket.GetOption("token")
@@ -667,7 +668,7 @@ func expectToken(ssi ContactInterface, p packets.Interface) error {
 		}
 		comment, hasComment := connectPacket.GetOption("comment")
 		if hasComment {
-			fmt.Println("expectToken comment", string(comment), "from", ssi.GetKey().Sig())
+			log.Println("expectToken comment", string(comment), "from", ssi.GetKey().Sig())
 		}
 		trimmedToken, issuer, err := tokens.GetKnotFreePayload(string(b64Token))
 		if err != nil {
@@ -686,7 +687,7 @@ func expectToken(ssi ContactInterface, p packets.Interface) error {
 		nowsec := ssi.GetConfig().GetCe().timegetter() // uint32(time.Now().Unix())
 		if nowsec > foundPayload.ExpirationTime {
 			// atw hack alert I have turned off expiration time for now because it's a pain now. FIXME: turn it back on and test it.
-			fmt.Println("expectToken WARNING token expired but we're ignoring it for now")
+			log.Println("expectToken WARNING token expired but we're ignoring it for now")
 			// return makeErrorAndDisconnect(ssi, "expectToken token expired", nil)
 		}
 		// if we have a huge token then it's probably dialAideAndServe or dialGuruAndServe calling us up.
@@ -705,7 +706,7 @@ func expectToken(ssi ContactInterface, p packets.Interface) error {
 				havePort = havePort + " to " + tcpContact.netDotTCPConn.RemoteAddr().String()
 			}
 			if len(havePort) > 0 { // don't log the port if we don't have it. it will be empty for service-contact.
-				fmt.Println("expectToken INFO token has huge Subscriptions, probably dialAideAndServe or dialGuruAndServe port ", havePort)
+				log.Println("expectToken INFO token has huge Subscriptions, probably dialAideAndServe or dialGuruAndServe port ", havePort)
 			}
 			// we would like to mark it somehow and also make sure it has HUGE buffers.
 			// kinda late though since we just got this through the wire.
@@ -713,11 +714,11 @@ func expectToken(ssi ContactInterface, p packets.Interface) error {
 			if ok {
 				err := tcpContact.netDotTCPConn.SetReadBuffer(1024 * 1024 * 16) // 16 MB
 				if err != nil {
-					fmt.Println("expectToken ERROR setting read buffer:", err)
+					log.Println("expectToken ERROR setting read buffer:", err)
 				}
 				err = tcpContact.netDotTCPConn.SetWriteBuffer(1024 * 1024 * 16) // 16 MB
 				if err != nil {
-					fmt.Println("expectToken ERROR setting write buffer:", err)
+					log.Println("expectToken ERROR setting write buffer:", err)
 				}
 			}
 		}
@@ -735,7 +736,7 @@ func expectToken(ssi ContactInterface, p packets.Interface) error {
 			// sub := packets.Subscribe{}
 			// id := ssi.GetToken().JWTID
 			// sub.Address.FromString(id) // the billing channel real name JWTID
-			// // fmt.Println("contact subscribing to ", ssi.GetToken().JWTID)
+			// // log.Println("contact subscribing to ", ssi.GetToken().JWTID)
 			// sub.SetOption("statsmax", billstr)
 			// sub.SetOption("noack", []byte("1"))
 			// go PushPacketUpFromBottom(ssi, &sub)
@@ -755,7 +756,7 @@ func makeErrorAndDisconnect(ssi ContactInterface, str string, err error) error {
 		dis := &packets.Disconnect{}
 		dis.SetOption("error", []byte(err.Error()))
 		ssi.WriteDownstream(dis)
-		fmt.Println("contacts makeErrorAndDisconnect", str, err)
+		log.Println("contacts makeErrorAndDisconnect", str, err)
 		ssi.DoClose(err)
 	}()
 	return err
@@ -814,7 +815,7 @@ func (ss *ContactStruct) XX_unused_sendBillingInfo(now uint32) {
 	if ss.IsClosed() {
 		return
 	}
-	// fmt.Println("ContactStruct contact sending billing info")
+	// log.Println("ContactStruct contact sending billing info")
 
 	var config *ContactStructConfig
 	// var tok *tokens.KnotFreeTokenPayload
@@ -850,17 +851,17 @@ func (ss *ContactStruct) XX_unused_sendBillingInfo(now uint32) {
 
 			// Subscriptions handled elsewhere.
 			p := &packets.Send{}
-			// fmt.Println("contact publishing to ", ss.token.JWTID)
+			// log.Println("contact publishing to ", ss.token.JWTID)
 			p.Address.FromString(ss.token.JWTID)
 			p.Source.FromString("billing_stats_return_address_contact")
 			str, err := json.Marshal(msg)
 			if err != nil {
-				fmt.Println("impossible#3")
+				log.Println("impossible#3")
 			}
 			p.SetOption("add-stats", str)
 			p.SetOption("stats-deltat", []byte(strconv.FormatInt(int64(deltaTime), 10)))
 
-			//fmt.Println("contact heartbeat sending stats", p, "from", ss.config.Name)
+			//log.Println("contact heartbeat sending stats", p, "from", ss.config.Name)
 
 			// don't bill a billing subscripton for the guru.
 
@@ -871,7 +872,7 @@ func (ss *ContactStruct) XX_unused_sendBillingInfo(now uint32) {
 				err = PushPacketUpFromBottom2(ss, p, doSetExpires)
 			}
 			if err != nil {
-				fmt.Println("things before")
+				log.Println("things before")
 			}
 		}()
 	}
@@ -914,7 +915,7 @@ func (ss *ContactStruct) Heartbeat(now uint32) {
 	}
 	if !config.IsGuru() {
 		if expires < now {
-			fmt.Println("contact timed out in heartbeat")
+			log.Println("contact timed out in heartbeat")
 			ss.DoClose(errors.New("timed out in heartbeat "))
 		}
 	}

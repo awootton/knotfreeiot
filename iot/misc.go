@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -36,12 +37,12 @@ func HandleByProxy(w http.ResponseWriter, r *http.Request, ex *Executive, subDom
 		requestedType = "application/javascript"
 	}
 
-	fmt.Println("HandleByProxy ", subDomain, theHost, proxyName, requestURI)
-	// fmt.Println("HandleByProxy ", r.RequestURI, r.URL.Path, r.Host, requestedType)
+	log.Println("HandleByProxy ", subDomain, theHost, proxyName, requestURI)
+	// log.Println("HandleByProxy ", r.RequestURI, r.URL.Path, r.Host, requestedType)
 
 	url, err := url.Parse(proxyName)
 	if err != nil {
-		fmt.Println("url.Parse error ", proxyName)
+		log.Println("url.Parse error ", proxyName)
 		http.Error(w, "url.Parse "+proxyName, 500)
 		return
 	}
@@ -59,11 +60,11 @@ func HandleByProxy(w http.ResponseWriter, r *http.Request, ex *Executive, subDom
 			req.RequestURI = "/index.html"
 			req.URL.Path += "index.html"
 		}
-		// fmt.Println("Director ", req.RequestURI, req.URL.Path, req.Host, req)
+		// log.Println("Director ", req.RequestURI, req.URL.Path, req.Host, req)
 	}
 	proxy.ModifyResponse = func(resp *http.Response) error {
 		// for k, v := range resp.Header {
-		// 	fmt.Println("modifyResponse kv", k, v)
+		// 	log.Println("modifyResponse kv", k, v)
 		// }
 		resp.Header.Set("Content-Type", requestedType)
 		// this is for github nastiness. I don't think they want to be proxied
@@ -72,7 +73,7 @@ func HandleByProxy(w http.ResponseWriter, r *http.Request, ex *Executive, subDom
 		return nil
 	}
 
-	fmt.Println("HandleByProxy proxy.ServeHTTP")
+	log.Println("HandleByProxy proxy.ServeHTTP")
 
 	proxy.ServeHTTP(w, r)
 
@@ -84,7 +85,7 @@ func HandleByProxy(w http.ResponseWriter, r *http.Request, ex *Executive, subDom
 // 	// _ = wasHtml
 // 	url, err := url.Parse(proxyName + requestURI)
 // 	if err != nil {
-// 		fmt.Println("url.Parse error ", proxyName)
+// 		log.Println("url.Parse error ", proxyName)
 // 		http.Error(w, "url.Parse "+proxyName, 500)
 // 		return
 // 	}
@@ -110,7 +111,7 @@ func AtwHandleByProxy(w http.ResponseWriter, r *http.Request, ex *Executive, sub
 
 	// url, err := url.Parse(urlString)
 	// if err != nil {
-	// 	fmt.Println("url.Parse error ", urlString)
+	// 	log.Println("url.Parse error ", urlString)
 	// 	http.Error(w, "url.Parse "+urlString, 500)
 	// 	return
 
@@ -127,7 +128,7 @@ func AtwHandleByProxy(w http.ResponseWriter, r *http.Request, ex *Executive, sub
 	// resp, err := http.Get(urlString)
 	newRequest, err := http.NewRequest("GET", urlString, nil)
 	if err != nil {
-		fmt.Println("http.Get error ", urlString)
+		log.Println("http.Get error ", urlString)
 		http.Error(w, "http.Get "+urlString, 500)
 		return
 	}
@@ -143,7 +144,7 @@ func AtwHandleByProxy(w http.ResponseWriter, r *http.Request, ex *Executive, sub
 	}
 	resp, err := http.DefaultClient.Do(newRequest)
 	if err != nil {
-		fmt.Println("http.Get ", urlString)
+		log.Println("http.Get ", urlString)
 		http.Error(w, "http.Get "+urlString, 500)
 		return
 	}
@@ -151,21 +152,21 @@ func AtwHandleByProxy(w http.ResponseWriter, r *http.Request, ex *Executive, sub
 	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body) // what if it's huge?
 	if err != nil {
-		fmt.Println("http.Get io.ReadAllerror ", urlString)
+		log.Println("http.Get io.ReadAllerror ", urlString)
 		http.Error(w, "http.Get io.ReadAll "+urlString, 500)
 		return
 	}
 	// if wasHtml {
 	// 	resp.Header.Set("Content-Type", "text/html")
 	// }
-	fmt.Println("subdomain Content-Type ", r.Header.Get("Content-Type"), " for ", urlString)
+	log.Println("subdomain Content-Type ", r.Header.Get("Content-Type"), " for ", urlString)
 	w.Header().Set("Content-Type", r.Header.Get("Content-Type"))
 	w.Header().Set("Content-Encoding", resp.Header.Get("Content-Encoding"))
 	if wasHtml {
 		w.Header().Set("Content-Type", "text/html")
 	}
 	// if wasHtml {
-	// 	fmt.Println("subdomain body ", string(body))
+	// 	log.Println("subdomain body ", string(body))
 	// }
 	w.Write(body)
 }
@@ -178,7 +179,7 @@ func StartAServer(name string, personPubk string) {
 	c.Token, _ = tokens.GetImpromptuGiantTokenLocal(personPubk, "")
 	c.LogMeVerbose = true
 	c.Host = "localhost" + ":8384" //
-	fmt.Println("monitor main c.Host", c.Host)
+	log.Println("monitor main c.Host", c.Host)
 	monitor_pod.ServeGetTime(c.Token, &c)
 }
 
@@ -325,7 +326,7 @@ func (api ApiHandler) ServeMakeToken(w http.ResponseWriter, req *http.Request) {
 	cursor, err := saved_tokens.Find(context.TODO(), filter)
 	if err != nil {
 		BadTokenRequests.Inc()
-		fmt.Println("saved_tokens find err", err.Error())
+		log.Println("saved_tokens find err", err.Error())
 		http.Error(w, err.Error(), 500)
 		return
 	}
@@ -336,11 +337,11 @@ func (api ApiHandler) ServeMakeToken(w http.ResponseWriter, req *http.Request) {
 		err := cursor.Decode(&result)
 		if err != nil {
 			BadTokenRequests.Inc()
-			fmt.Println("saved_tokens cursor err", err.Error())
+			log.Println("saved_tokens cursor err", err.Error())
 			http.Error(w, err.Error(), 500)
 			return
 		}
-		fmt.Println("found saved token ", result.KnotFreeTokenPayload.JWTID, result.IpAddress, result.ExpirationTime)
+		log.Println("found saved token ", result.KnotFreeTokenPayload.JWTID, result.IpAddress, result.ExpirationTime)
 		gottokens = append(gottokens, &result)
 	}
 	foundPrevious := false
@@ -355,7 +356,7 @@ func (api ApiHandler) ServeMakeToken(w http.ResponseWriter, req *http.Request) {
 			// we have a token that's good for 3 months
 			// return it
 			nonce := gottokens[0].JWTID
-			fmt.Println("returning found token ", gottokens[0].JWTID, gottokens[0].IpAddress, gottokens[0].ExpirationTime)
+			log.Println("returning found token ", gottokens[0].JWTID, gottokens[0].IpAddress, gottokens[0].ExpirationTime)
 			api.signAndReturnToken(w, gottokens[0].KnotFreeTokenPayload, gottokens[0].ExpirationTime,
 				*tokenRequest, nonce, clientPublicKey)
 			return
@@ -408,18 +409,18 @@ func (api ApiHandler) ServeMakeToken(w http.ResponseWriter, req *http.Request) {
 	if exp > uint32(time.Now().Unix()+60*60*24*365) {
 		// more than a year in the future not allowed now.
 		exp = uint32(time.Now().Unix() + 60*60*24*365)
-		fmt.Println("had long token ", string(payload.JWTID)) // TODO: store in db
+		log.Println("had long token ", fmt.Sprintf("%s", payload.JWTID)) // TODO: store in db
 	}
 
 	cost := priceThing.Price // tokens.CalcTokenPrice(&payload, uint32(time.Now().Unix()))
-	fmt.Println("token cost is " + fmt.Sprintf("%f", cost))
+	log.Println("token cost is " + fmt.Sprintf("%f", cost))
 
 	// if cost > 0.012 {
-	// 	http.Error(w, "token too expensive at "+fmt.Sprintf("%f", cost), 500)
+	// 	http.Error(w, "token too expensive at "+log.Sprintf("%f", cost), 500)
 	// 	return
 	// }
 
-	fmt.Println("returning new token ", payload.JWTID, remoteAddr, payload.ExpirationTime)
+	log.Println("returning new token ", payload.JWTID, remoteAddr, payload.ExpirationTime)
 
 	err = api.signAndReturnToken(w, payload, exp, *tokenRequest, nonce, clientPublicKey)
 	if err == nil {
@@ -430,15 +431,15 @@ func (api ApiHandler) ServeMakeToken(w http.ResponseWriter, req *http.Request) {
 		if foundPrevious {
 			// replace the old one
 			_, err = saved_tokens.ReplaceOne(context.TODO(), filter, saved_token)
-			fmt.Println("saved_tokens ReplaceOne err", err)
+			log.Println("saved_tokens ReplaceOne err", err)
 		} else {
 			// insert a new one
 			_, err = saved_tokens.InsertOne(context.TODO(), saved_token)
-			fmt.Println("saved_tokens InsertOne err", err)
+			log.Println("saved_tokens InsertOne err", err)
 		}
 
 		if err != nil {
-			fmt.Println("saved_tokens insert/replace err", err.Error())
+			log.Println("saved_tokens insert/replace err", err.Error())
 			BadTokenRequests.Inc()
 			// too late for this http.Error(w, err.Error(), 500)
 			return
@@ -468,7 +469,7 @@ func (api ApiHandler) signAndReturnToken(w http.ResponseWriter, payload tokens.K
 	_ = err
 	//returnval = []byte(strings.ReplaceAll(string(returnval), `"`, ``))
 	// returnval = []byte(strings.ReplaceAll(string(returnval), ` `, `_`))
-	//fmt.Println("sending token package ", string(returnval))
+	//log.Println("sending token package ", string(returnval))
 
 	returnval := tokenString
 
@@ -488,7 +489,8 @@ func (api ApiHandler) signAndReturnToken(w http.ResponseWriter, payload tokens.K
 	temp, err := base64.RawURLEncoding.DecodeString(clientPublicKey)
 	_ = err
 	if len(temp) != 32 {
-		return fmt.Errorf("bad size, need 32 has %v", tmp)
+		fmt.Println("bad size, need 32 has ", len(temp))
+		return fmt.Errorf("bad size, need 32 has %v", len(temp))
 	}
 	copy(clipub[:], temp)
 	sealed := box.Seal(boxout, returnval, &jwtid, &clipub, api.ce.PrivateKeyTemp)

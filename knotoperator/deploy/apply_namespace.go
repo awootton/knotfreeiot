@@ -1,7 +1,7 @@
 package main
 
 import (
-	"fmt"
+	"log"
 	"os"
 	"strings"
 	"sync"
@@ -41,7 +41,7 @@ var buildReactAndCopy = true // false // DELETE ME
 
 func main() {
 
-	fmt.Println("Starting ", time.Now())
+	log.Println("Starting ", time.Now())
 
 	// is mean isKind := false
 
@@ -50,7 +50,7 @@ func main() {
 	kubectl.K("pwd") // /Users/awootton/Documents/workspace/knotfreeiot/knotoperator/deploy
 	nodes, err := kubectl.K8s("kubectl get no", "")
 	if err != nil {
-		fmt.Println("err quitting", err)
+		log.Println("err quitting", err)
 	}
 	_ = nodes
 	// if strings.Contains(nodes, "kind-control-plane") {
@@ -80,7 +80,7 @@ func main() {
 	// 	sdata = strings.ReplaceAll(sdata, "__TOKEN__", TOKEN)
 	// 	err := os.WriteFile("dummy.yaml", []byte(sdata), 0644)
 	// 	if err != nil {
-	// 		fmt.Println("fail flail 888")
+	// 		log.Println("fail flail 888")
 	// 	}
 	// 	kubectl.K("kubectl apply -f dummy.yaml")
 	// }
@@ -219,9 +219,9 @@ func main() {
 	}
 	kubectl.K("kubectl config set-context --current --namespace=knotspace")
 
-	fmt.Println("apply_namespace finished apply_namespace finished apply_namespace finished apply_namespace finished ")
-	fmt.Println(time.Now())
-	fmt.Println("apply_namespace finished apply_namespace finished apply_namespace finished apply_namespace finished ")
+	log.Println("apply_namespace finished apply_namespace finished apply_namespace finished apply_namespace finished ")
+	log.Println(time.Now())
+	log.Println("apply_namespace finished apply_namespace finished apply_namespace finished apply_namespace finished ")
 }
 
 func buildTheKnotFreeMain(registry string) {
@@ -231,7 +231,7 @@ func buildTheKnotFreeMain(registry string) {
 		// meta-project-root is /Users/awootton/workspace/metaverse-proto-one
 		// /Users/awootton/workspace/metaverse-proto-one
 		home, _ := os.UserHomeDir()
-		fmt.Println("home is ", home)
+		log.Println("home is ", home)
 		metaProjectRoot := home + "/workspace/metaverse-proto-one"
 		println("metaProjectRoot is ", metaProjectRoot)
 		kubectl.K("ls -lah " + metaProjectRoot)
@@ -256,7 +256,7 @@ func buildTheKnotFreeMain(registry string) {
 
 	if buildReactAndCopy {
 		val, err := kubectl.K8s("pwd", "")
-		fmt.Println("buildTheKnotFreeMain in ", val, err)
+		log.Println("buildTheKnotFreeMain in ", val, err)
 
 		// /Users/awootton/Documents/workspace/knotfree-net-homepage/build_to_knotfree_docs.sh
 
@@ -268,12 +268,12 @@ func buildTheKnotFreeMain(registry string) {
 	}
 
 	// digest, _ := kubectl.K8s("docker inspect --format='{{.RepoDigests}}' "+registry+"/knotfreeserver", "")
-	// fmt.Println("digest of knotfreeserver 1", digest)
+	// log.Println("digest of knotfreeserver 1", digest)
 	kubectl.K("cd ../..;docker build -t " + registry + "/knotfreeserver .")
 	// digest, _ = kubectl.K8s("docker inspect --format='{{.RepoDigests}}' "+registry+"/knotfreeserver", "")
-	// fmt.Println("digest of knotoperator 2", digest)
+	// log.Println("digest of knotoperator 2", digest)
 	kubectl.K("docker push " + registry + "/knotfreeserver")
 	// digest, _ = kubectl.K8s("docker inspect --format='{{.RepoDigests}}' "+registry+"/knotfreeserver", "")
-	// fmt.Println("digest of knotfreeserver 3", digest)
-	fmt.Println("buildTheKnotFreeMain done")
+	// log.Println("digest of knotfreeserver 3", digest)
+	log.Println("buildTheKnotFreeMain done")
 }

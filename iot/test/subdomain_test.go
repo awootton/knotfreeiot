@@ -42,7 +42,7 @@ func GetLocalIP() (string, string) {
 	ipv6 := ""
 	i := 0
 	for _, address := range addrs {
-		// fmt.Println("address", address)
+		// log.Println("address", address)
 		if ipv4 == "" {
 			if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
 				if ipnet.IP.To4() != nil {
@@ -51,7 +51,7 @@ func GetLocalIP() (string, string) {
 			}
 		}
 		if ipnet6, ok := address.(*net.IPNet); ok && !ipnet6.IP.IsLoopback() {
-			// fmt.Println(ipnet6.Mask)
+			// log.Println(ipnet6.Mask)
 			if ipnet6.IP.To16() != nil {
 				if ipv6 == "" {
 					ipv6 = ipnet6.IP.String()
@@ -70,7 +70,7 @@ func TestLookup(t *testing.T) {
 	}()
 
 	ip4, xxip6 := GetLocalIP()
-	fmt.Println("localIP", ip4, xxip6)
+	log.Println("localIP", ip4, xxip6)
 	// TODO: get ipv 6 to work
 
 	var port int
@@ -97,8 +97,8 @@ func TestLookup(t *testing.T) {
 
 		port = connection.LocalAddr().(*net.UDPAddr).Port
 		addr = connection.LocalAddr().(*net.UDPAddr).AddrPort().String()
-		fmt.Println("Using port:", port) // eg Using port: 62823
-		fmt.Println("Using addr:", addr) // Using addr: 0.0.0.0:62823
+		log.Println("Using port:", port) // eg Using port: 62823
+		log.Println("Using addr:", addr) // Using addr: 0.0.0.0:62823
 
 		started <- true
 		defer connection.Close()
@@ -112,7 +112,7 @@ func TestLookup(t *testing.T) {
 			buffer := make([]byte, 1024)
 			n, _, err := connection.ReadFromUDP(buffer)
 			check(err)
-			fmt.Println("received", string(buffer[:n]))
+			log.Println("received", string(buffer[:n]))
 			received <- buffer[:n]
 		}
 	}()
@@ -125,23 +125,23 @@ func TestLookup(t *testing.T) {
 		check(err)
 		c, err := net.DialUDP("udp4", nil, s)
 		check(err)
-		fmt.Printf("The UDP server is %s\n", c.RemoteAddr().String())
+		log.Printf("The UDP server is %s\n", c.RemoteAddr().String())
 		defer c.Close()
 
 		data := []byte("dummy message")
 		_, err = c.Write(data)
 		check(err)
-		fmt.Println("sent", string(data))
+		log.Println("sent", string(data))
 	}
 
 	got := <-received
 
-	fmt.Println("received", got)
+	log.Println("received", got)
 	// makereader of got
 	reader := bytes.NewReader(got)
 	p, err := packets.ReadPacket(reader)
 
-	fmt.Println("packet", p.Sig())
+	log.Println("packet", p.Sig())
 
 	_ = received
 
@@ -154,7 +154,7 @@ func TestLookup(t *testing.T) {
 
 	bytes := <-received
 
-	fmt.Println("received", bytes)
+	log.Println("received", bytes)
 
 	_ = err
 }
@@ -200,8 +200,8 @@ func setup(t *testing.T) (*iot.ClusterExecutive, []iot.ContactInterface, []strin
 		subs.Address.FromString(names[i])
 		// subs.SetOption("debg", []byte("12345678"))
 		iot.PushPacketUpFromBottom(contact1, &subs)
-		// fmt.Println("contact1 subscribed contact", contact1.GetKey().Sig())
-		// fmt.Println("contact1 subscribed    subs", subs.Address.Sig())
+		// log.Println("contact1 subscribed contact", contact1.GetKey().Sig())
+		// log.Println("contact1 subscribed    subs", subs.Address.Sig())
 	}
 
 	ce.WaitForActions()
@@ -257,15 +257,15 @@ func TestSubDomain(t *testing.T) {
 	})
 	contact0 := makeTestContact(ce.Aides[0].Config, "")
 	if contact0.IsClosed() {
-		fmt.Println("contact1 closed")
+		log.Println("contact1 closed")
 	}
 	contact0.DoClose(nil)
 	if contact0.IsClosed() {
-		fmt.Println("contact1 closed")
+		log.Println("contact1 closed")
 	}
 	contact0.DoClose(nil)
 	if contact0.IsClosed() {
-		fmt.Println("contact1 closed")
+		log.Println("contact1 closed")
 	}
 
 	contact1 := makeTestContact(ce.Aides[0].Config, "")
@@ -279,8 +279,8 @@ func TestSubDomain(t *testing.T) {
 	subs.SetOption("debg", []byte("12345678"))
 	iot.PushPacketUpFromBottom(contact1, &subs)
 
-	fmt.Println("contact1 subscribed contact", contact1.GetKey().Sig())
-	fmt.Println("contact1 subscribed    subs", subs.Address.Sig())
+	log.Println("contact1 subscribed contact", contact1.GetKey().Sig())
+	log.Println("contact1 subscribed    subs", subs.Address.Sig())
 	ce.WaitForActions()
 
 	got, _ = contact1.(*testContact).popResultAsString() // the suback
@@ -326,19 +326,19 @@ func TestSubDomain(t *testing.T) {
 
 	resp, err := client.Get("http://" + host + "/get/pubk?debg=12345678") // eg serves get-unix-time by hack
 	if err != nil {
-		fmt.Println("aide0 get-unix-time err", err)
+		log.Println("aide0 get-unix-time err", err)
 		t.Errorf("got error %v", err)
 		return
 	}
 	if resp.StatusCode != 200 {
-		fmt.Println("get pubk not 200", resp.StatusCode)
+		log.Println("get pubk not 200", resp.StatusCode)
 	}
 	defer resp.Body.Close()
 
 	buf := new(bytes.Buffer)
 	buf.ReadFrom(resp.Body)
 	got = buf.String()
-	fmt.Println("aide0 get pubk", got)
+	log.Println("aide0 get pubk", got)
 
 	want = "bht-Ka3j7GKuMFOablMlQnABnBvBeugvSf4CdFV3LXs"
 	if got != want {
@@ -351,19 +351,19 @@ func TestSubDomain(t *testing.T) {
 
 		resp, err := client.Get("http://" + host + "/help") // eg serves get-unix-time by hack
 		if err != nil {
-			fmt.Println("aide0 get-unix-time err", err)
+			log.Println("aide0 get-unix-time err", err)
 			t.Errorf("got error %v", err)
 			return
 		}
 		if resp.StatusCode != 200 {
-			fmt.Println("get pubk not 200", resp.StatusCode)
+			log.Println("get pubk not 200", resp.StatusCode)
 		}
 		defer resp.Body.Close()
 
 		buf := new(bytes.Buffer)
 		buf.ReadFrom(resp.Body)
 		got = buf.String()
-		fmt.Println("aide0 help", got)
+		log.Println("aide0 help", got)
 
 		tmp := len(got)
 		if tmp < 500 {
@@ -406,59 +406,59 @@ func TestSomeApis(t *testing.T) {
 	aide1 := ce.Aides[1]
 
 	addr0 := aide0.GetHTTPAddress()
-	fmt.Println("aide0 tcp", addr0) // 8384
+	log.Println("aide0 tcp", addr0) // 8384
 
 	client := http.Client{Timeout: 1 * time.Second}
 	resp, err := client.Get("http://" + addr0 + "/api2/getstats")
 	if err != nil {
-		fmt.Println("aide0 getstats err", err)
+		log.Println("aide0 getstats err", err)
 		t.Errorf("got error %v", err)
 		return
 
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
-		fmt.Println("getstats not 200")
+		log.Println("getstats not 200")
 	}
 	buf := new(bytes.Buffer)
 	buf.ReadFrom(resp.Body)
 	got = buf.String()
-	fmt.Println("aide0 stats", got)
+	log.Println("aide0 stats", got)
 
 	client = http.Client{Timeout: 1 * time.Second}
 	resp, err = client.Get("http://localhost:8085/api1/getallstats")
 	if err != nil {
-		fmt.Println("aide0 getallstats err", err)
+		log.Println("aide0 getallstats err", err)
 		t.Errorf("got error %v", err)
 		return
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
-		fmt.Println("clusterstats not 200", resp.StatusCode)
+		log.Println("clusterstats not 200", resp.StatusCode)
 	}
 	buf = new(bytes.Buffer)
 	buf.ReadFrom(resp.Body)
 	got = buf.String()
-	fmt.Println("aide0 clusterstats", got)
+	log.Println("aide0 clusterstats", got)
 
 	client = http.Client{Timeout: 1 * time.Second}
 	resp, err = client.Get("http://localhost:8085/api1/getGiantPassword")
 	if err != nil {
-		fmt.Println("aide0 getGiantPassword err", err)
+		log.Println("aide0 getGiantPassword err", err)
 		t.Errorf("got error %v", err)
 		return
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
-		fmt.Println("getGiantPassword not 200", resp.StatusCode)
+		log.Println("getGiantPassword not 200", resp.StatusCode)
 	}
 	buf = new(bytes.Buffer)
 	buf.ReadFrom(resp.Body)
 	got = buf.String()
-	fmt.Println("aide0 getGiantPassword", got)
+	log.Println("aide0 getGiantPassword", got)
 
 	contact := getNewContactFromSlackestAide(ce, string(atoken))
-	fmt.Println("contact", contact)
+	log.Println("contact", contact)
 
 	_ = aide0
 	_ = aide1
@@ -488,6 +488,6 @@ func captureStdout(f func()) string {
 
 func check(e error) {
 	if e != nil {
-		fmt.Println("ERROR because ", e)
+		log.Println("ERROR because ", e)
 	}
 }

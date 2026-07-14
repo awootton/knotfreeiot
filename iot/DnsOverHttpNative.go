@@ -2,6 +2,7 @@ package iot
 
 import (
 	"fmt"
+	"log"
 	"strings"
 	"sync"
 	"time"
@@ -36,8 +37,8 @@ func LookupDnsOverHttpKnotfree(ce *ClusterExecutive, domainstrings []string, rec
 	var wg sync.WaitGroup
 	responses := make([]DnsResponse, len(domainstrings))
 
-	fmt.Println("LookupDnsOverHttpKnotfree starting, looking up ", len(domainstrings), " domains with record type ", recordType)
-	defer fmt.Println("LookupDnsOverHttpKnotfree found ", len(responses), " domains with record type ", recordType)
+	log.Println("LookupDnsOverHttpKnotfree starting, looking up ", len(domainstrings), " domains with record type ", recordType)
+	defer log.Println("LookupDnsOverHttpKnotfree found ", len(responses), " domains with record type ", recordType)
 
 	for i, domain := range domainstrings {
 
@@ -58,22 +59,22 @@ func LookupDnsOverHttpKnotfree(ce *ClusterExecutive, domainstrings []string, rec
 
 			cachekey := domain + "____" + typeStr
 
-			// fmt.Println("LookupDnsOverHttpKnotfree Cache check for ", cachekey)
+			// log.Println("LookupDnsOverHttpKnotfree Cache check for ", cachekey)
 
 			if cachedResponse, found := dnsResponseCacheN.Get(cachekey); found {
-				// fmt.Println("LookupDnsOverHttpKnotfree Cache hit for ", cachekey, ": ", cachedResponse)
+				// log.Println("LookupDnsOverHttpKnotfree Cache hit for ", cachekey, ": ", cachedResponse)
 				responses[i] = cachedResponse
 				return
 			}
-			// fmt.Println("LookupDnsOverHttpKnotfree Resolving ", cachekey) // eg testmain-0n1u1e15p.xyz_1
+			// log.Println("LookupDnsOverHttpKnotfree Resolving ", cachekey) // eg testmain-0n1u1e15p.xyz_1
 
 			response, err := LookupDnsOverHttpKnotfreeOnce(ce, domain, recordType)
 			if err != nil {
-				fmt.Println("Error looking up DNS over HTTP for domain", domain, ":", err)
+				log.Println("Error looking up DNS over HTTP for domain", domain, ":", err)
 				// response status will be 2
 			}
 
-			// fmt.Println("LookupDnsOverHttpKnotfree Response for ", cachekey, ": ", response.Status)
+			// log.Println("LookupDnsOverHttpKnotfree Response for ", cachekey, ": ", response.Status)
 
 			// only add the 0 and the 3's to the cache. The 2's are probably temporary errors and the 4's are unsupported record types that we don't want to cache.
 			if response.Status == 0 || response.Status == 3 {
@@ -129,7 +130,7 @@ func LookupDnsOverHttpKnotfreeOnce(ce *ClusterExecutive, domainstring string, re
 
 	command := "get option " + typeStr + " " + subkey // eg get option A
 	// this has overloaded and crashed the server !
-	// fmt.Println("Sending command to knotfree: ", command, " for domain ", domainstring, " with subscription name ", subscriptionName)
+	// log.Println("Sending command to knotfree: ", command, " for domain ", domainstring, " with subscription name ", subscriptionName)
 
 	cmd := packets.Lookup{}
 	cmd.Address.FromString(subscriptionName)
@@ -138,7 +139,7 @@ func LookupDnsOverHttpKnotfreeOnce(ce *ClusterExecutive, domainstring string, re
 	replyPacket, err := ce.GetPacketService().GetPacketReplyLonger(&cmd, 5*time.Second) // 2*time.Second)
 
 	if err != nil {
-		fmt.Println("LookupDnsOverHttpKnotfree to get from service contact", err)
+		log.Println("LookupDnsOverHttpKnotfree to get from service contact", err)
 		resp.Status = 2 // SERVFAIL
 		resp.Comment = "Server failure"
 		return resp, err
@@ -149,7 +150,7 @@ func LookupDnsOverHttpKnotfreeOnce(ce *ClusterExecutive, domainstring string, re
 	stringReturned := len(sendPacket.Payload) > 0
 	if !ok || !stringReturned {
 		// weird
-		fmt.Println("LookupDnsOverHttpKnotfree failed to get a valid send packet from service contact", err, replyPacket.Sig())
+		log.Println("LookupDnsOverHttpKnotfree failed to get a valid send packet from service contact", err, replyPacket.Sig())
 		resp.Status = 2 // SERVFAIL
 		resp.Comment = "Server failure"
 		return resp, errors.New("Invalid response from server")
@@ -158,7 +159,7 @@ func LookupDnsOverHttpKnotfreeOnce(ce *ClusterExecutive, domainstring string, re
 		// either 216.128.128.195
 		// or topic not found errid=bvBbhJawYXIMWsxJOWHt
 		// or maybe empty string?
-		//fmt.Println("LookupDnsOverHttpKnotfree returned message ", string(sendPacket.Payload))
+		//log.Println("LookupDnsOverHttpKnotfree returned message ", string(sendPacket.Payload))
 		// it's just a string. It's not json.
 		resp.Answer = []DnsAnswer{
 			{
@@ -178,7 +179,7 @@ func LookupDnsOverHttpKnotfreeOnce(ce *ClusterExecutive, domainstring string, re
 		return resp, nil
 
 	} else {
-		fmt.Println("LookupDnsOverHttpKnotfree returned empty response", replyPacket.Sig())
+		log.Println("LookupDnsOverHttpKnotfree returned empty response", replyPacket.Sig())
 		resp.Status = 2 // SERVFAIL
 		resp.Comment = "Empty response from server"
 		return resp, errors.New("Empty response from server")

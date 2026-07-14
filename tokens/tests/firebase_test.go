@@ -31,14 +31,14 @@ func Xnot_TestLogTok(t *testing.T) { // fixme
 // 	app, err := tokens.GetFirebaseApp(ctx)
 // 	_ = err
 
-// 	fmt.Println("jello ")
+// 	log.Println("jello ")
 
 // 	client, err := app.Database(ctx)
 // 	if err != nil {
 // 		log.Fatalf("app.Firestore: %v", err)
 // 	}
 
-// 	fmt.Println("cc ", client)
+// 	log.Println("cc ", client)
 
 // 	data := map[string]string{
 // 		"msg": "a message",
@@ -47,7 +47,7 @@ func Xnot_TestLogTok(t *testing.T) { // fixme
 
 // 	d2, err := json.Marshal(data)
 // 	want := string(d2)
-// 	fmt.Println("json data ", want)
+// 	log.Println("json data ", want)
 
 // 	dbref := client.NewRef(("k1/k2/k3"))
 // 	seterr := dbref.Set(ctx, data)
@@ -62,7 +62,7 @@ func Xnot_TestLogTok(t *testing.T) { // fixme
 // 	}
 
 // 	d3, err := json.Marshal(got)
-// 	fmt.Println("got json data ", string(d3))
+// 	log.Println("got json data ", string(d3))
 // 	if want != string(d3) {
 // 		t.Errorf("got %v, want %v", string(d3), want)
 // 	}
@@ -77,7 +77,7 @@ func Xnot_TestLogTok(t *testing.T) { // fixme
 // 		log.Fatalf("app.Firestore: set %v", err)
 // 	}
 // 	d3, err = json.Marshal(got)
-// 	fmt.Println("got removed json data ", string(d3))
+// 	log.Println("got removed json data ", string(d3))
 // 	if string(d3) != "null" {
 // 		t.Errorf("got %v, want %v", string(d3), string(d2))
 // 	}

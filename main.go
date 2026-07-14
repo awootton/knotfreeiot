@@ -48,17 +48,17 @@ func main() {
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		<-c
-		fmt.Println("\r- Ctrl+C pressed in Terminal. why? why? why? ")
+		log.Println("\r- Ctrl+C pressed in Terminal. why? why? why? ")
 		runtime.GC()
 
 		// show memory stats
 		var m runtime.MemStats
 		runtime.ReadMemStats(&m)
-		fmt.Printf("Alloc = %v MiB", bToMb(m.Alloc))
-		fmt.Printf("\tTotalAlloc = %v MiB", bToMb(m.TotalAlloc))
-		fmt.Printf("\tSys = %v MiB", bToMb(m.Sys))
-		fmt.Printf("\tNumGC = %v\n", m.NumGC)
-		fmt.Printf("\tHeapSys = %v MiB", bToMb(m.HeapSys))
+		log.Printf("Alloc = %v MiB", bToMb(m.Alloc))
+		log.Printf("\tTotalAlloc = %v MiB", bToMb(m.TotalAlloc))
+		log.Printf("\tSys = %v MiB", bToMb(m.Sys))
+		log.Printf("\tNumGC = %v\n", m.NumGC)
+		log.Printf("\tHeapSys = %v MiB", bToMb(m.HeapSys))
 
 		// where to put this?
 		// useless. It's binary. pprof.WriteHeapProfile(os.Stdout)
@@ -82,21 +82,21 @@ func main() {
 
 	tokens.LoadPrivateKeys("~/atw/privateKeys4.txt")
 
-	fmt.Println("Hello knotfreeserver")
+	log.Println("Hello knotfreeserver")
 
 	// no need to keep doing this mainhelpers.TrySomeS3Stuff()
 
 	h := sha256.New()
 	h.Write([]byte("AnonymousAnonymous"))
 	hashBytes := h.Sum(nil)
-	fmt.Println("Hello. sha256 of AnonymousAnonymous is " + base64.RawURLEncoding.EncodeToString(hashBytes))
+	log.Println("Hello. sha256 of AnonymousAnonymous is " + base64.RawURLEncoding.EncodeToString(hashBytes))
 
 	var htmp iot.HashType
 	hptr := &htmp
 	hptr.HashBytes([]byte("alice_vociferous_mcgrath"))
 	var tmpbuf [24]byte
 	hptr.GetBytes(tmpbuf[:])
-	fmt.Println("Hello. fyi, standard hash of alice_vociferous_mcgrath is " + base64.RawURLEncoding.EncodeToString(tmpbuf[:]))
+	log.Println("Hello. fyi, standard hash of alice_vociferous_mcgrath is " + base64.RawURLEncoding.EncodeToString(tmpbuf[:]))
 
 	isGuru := flag.Bool("isguru", false, "")
 
@@ -129,7 +129,7 @@ func main() {
 
 	if *nano {
 		limits = &iot.TestLimits
-		fmt.Println("nano limits")
+		log.Println("nano limits")
 	}
 
 	ce := iot.MakeTCPMain(name, limits, *token, *isGuru)

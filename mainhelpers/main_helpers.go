@@ -57,7 +57,7 @@ import (
 
 // 	clen := r.ContentLength
 // 	if clen > 63*1024 {
-// 		fmt.Println("http packet too long ")
+// 		log.Println("http packet too long ")
 // 		http.Error(w, "http packet too long ", 500)
 // 		return
 // 	}
@@ -72,15 +72,15 @@ import (
 // 	}
 // 	isDebg := false
 
-// 	//fmt.Println("http header ", r.Header) // it's a map with Cookie
+// 	//log.Println("http header ", r.Header) // it's a map with Cookie
 // 	// r.RequtURI is "/"
 // 	// r.URL is "/"
 // 	// write the header to a buffer
 // 	firstLine := r.Method + " " + r.URL.String() + " " + r.Proto + "\n"
-// 	// fmt.Println("first line", firstLine[0:len(firstLine)-2])
+// 	// log.Println("first line", firstLine[0:len(firstLine)-2])
 // 	if strings.Contains(firstLine, "debg=12345678") {
 // 		isDebg = true
-// 		fmt.Println("first line", firstLine[0:len(firstLine)-2])
+// 		log.Println("first line", firstLine[0:len(firstLine)-2])
 // 	}
 // 	buf := new(bytes.Buffer)
 // 	buf.WriteString(firstLine)
@@ -100,7 +100,7 @@ import (
 // 		http.Error(w, "http theBody write ", 500)
 // 	}
 
-// 	// fmt.Println("http is request ", firstLine[0:len(firstLine)-2])
+// 	// log.Println("http is request ", firstLine[0:len(firstLine)-2])
 
 // 	pastWritesIndex := 0
 // 	packetStruct := &RequestReplyStruct{}
@@ -133,7 +133,7 @@ import (
 // 			default:
 // 				packet, err := packets.ReadPacket(&myWriter.buffer)
 // 				if err != nil || packet == nil {
-// 					fmt.Println("ERROR nil packet in http handler", err)
+// 					log.Println("ERROR nil packet in http handler", err)
 // 					return
 // 				}
 // 				packetsChan <- packet
@@ -145,11 +145,11 @@ import (
 // 		contact.LogMeVerbose = true
 // 	}
 
-// 	fmt.Println("serving subdomain ", subDomain, "  of "+r.Host+r.RequestURI, "con=", contact.GetKey().Sig())
+// 	log.Println("serving subdomain ", subDomain, "  of "+r.Host+r.RequestURI, "con=", contact.GetKey().Sig())
 
 // 	defer func() {
 // 		if isDebg {
-// 			fmt.Println("contact normal close", contact.GetKey().Sig())
+// 			log.Println("contact normal close", contact.GetKey().Sig())
 // 		}
 // 		contact.DoClose(errors.New("normal close"))
 // 	}()
@@ -166,7 +166,7 @@ import (
 // 	}
 // 	err = iot.PushPacketUpFromBottom(contact, &connect)
 // 	if err != nil {
-// 		fmt.Println("connect problems subdomain dial conn ", err)
+// 		log.Println("connect problems subdomain dial conn ", err)
 // 		http.Error(w, err.Error(), 500)
 // 		return
 // 	}
@@ -176,7 +176,7 @@ import (
 // 	subs := packets.Subscribe{}
 // 	subs.Address.FromString(myRandomAddress)
 // 	subs.Address.EnsureAddressIsBinary()
-// 	//fmt.Println(" our return addr will be ", subs.Address.String())
+// 	//log.Println(" our return addr will be ", subs.Address.String())
 // 	if isDebg {
 // 		subs.SetOption("debg", []byte("12345678"))
 // 	}
@@ -191,16 +191,16 @@ import (
 // 			break
 // 		case packet := <-packetsChan:
 // 			// see if it's a suback
-// 			// fmt.Println("waiting for suback on gotDataChan.TheChan got ", cmd.Sig())
+// 			// log.Println("waiting for suback on gotDataChan.TheChan got ", cmd.Sig())
 // 			if packet == nil {
-// 				fmt.Println("ERROR nil packet waiting for suback. Never happens.")
+// 				log.Println("ERROR nil packet waiting for suback. Never happens.")
 // 			} else {
 // 				subcmd, ok := packet.(*packets.Subscribe)
 // 				if !ok {
-// 					fmt.Println("ERROR wrong packet waiting for suback  ")
+// 					log.Println("ERROR wrong packet waiting for suback  ")
 // 				} else {
 // 					if isDebg {
-// 						fmt.Println("http handler have suback  ", subcmd.Sig())
+// 						log.Println("http handler have suback  ", subcmd.Sig())
 // 					}
 // 					haveSuback = true
 // 				}
@@ -208,7 +208,7 @@ import (
 // 			// we have to wait for the suback to come back
 // 		case <-time.After(4 * time.Second):
 // 			errMsg := "timed out waiting for suback reply " + firstLine[0:len(firstLine)-2]
-// 			fmt.Println(errMsg)
+// 			log.Println(errMsg)
 // 			http.Error(w, errMsg, 500)
 // 			return
 // 		}
@@ -216,7 +216,7 @@ import (
 
 // 	if buf.Len() > 60*1024 {
 // 		// stream it
-// 		fmt.Println("ERROR fixme: implement this streaming thing")
+// 		log.Println("ERROR fixme: implement this streaming thing")
 // 	} else {
 
 // 		// just send it all at once in one Send
@@ -241,14 +241,14 @@ import (
 
 // 		pub.Address.FromString(subDomain) // !!!!!
 // 		pub.Source = subs.Address
-// 		//fmt.Println(" our send addr is ", pub.Address.String())
+// 		//log.Println(" our send addr is ", pub.Address.String())
 // 		pub.Address.EnsureAddressIsBinary()
-// 		//fmt.Println(" our send addr is ", pub.Address.String())
-// 		//fmt.Println(" our return addr is ", pub.Source.String())
+// 		//log.Println(" our send addr is ", pub.Address.String())
+// 		//log.Println(" our return addr is ", pub.Source.String())
 // 		//pub.Payload = []byte("GET " + r.URL.String() + " HTTP/1.1\n\n")
 // 		pub.Payload = buf.Bytes()
 
-// 		// fmt.Println("publish  PushPacketUpFromBottom") // , string(pub.Payload))
+// 		// log.Println("publish  PushPacketUpFromBottom") // , string(pub.Payload))
 // 		err = iot.PushPacketUpFromBottom(contact, &pub)
 // 		_ = err
 // 	}
@@ -260,10 +260,10 @@ import (
 // 	}
 // 	conn, responseBuffer, err := hj.Hijack()
 // 	if err != nil {
-// 		fmt.Println("hijack error  ", err)
+// 		log.Println("hijack error  ", err)
 // 	}
 // 	defer func() {
-// 		// fmt.Println("closing hijack socket " + r.URL.String() + "\n")
+// 		// log.Println("closing hijack socket " + r.URL.String() + "\n")
 // 		conn.Close()
 // 	}()
 
@@ -275,12 +275,12 @@ import (
 // 		for running {
 // 			select {
 // 			case <-contact.ClosedChannel:
-// 				//fmt.Println("contact closed")
+// 				//log.Println("contact closed")
 // 				running = false
 // 				break
 // 			case packet := <-packetsChan:
 
-// 				//fmt.Println("Receive-a-packet loop got ", cmd.Sig())
+// 				//log.Println("Receive-a-packet loop got ", cmd.Sig())
 // 				_, ok := packet.(*packets.Subscribe)
 // 				if ok {
 // 					continue // excess subacks are expected. why?
@@ -290,7 +290,7 @@ import (
 // 					snd := v
 // 					packetCountStr, ok := snd.GetOption("of")
 // 					if ok {
-// 						fmt.Println("packet count total= ", packetCountStr)
+// 						log.Println("packet count total= ", packetCountStr)
 // 						// we have the last packet.
 // 						running = false
 // 						break
@@ -306,9 +306,9 @@ import (
 // 						packetCountStr = packetCountStr[0 : len(packetCountStr)-1]
 // 					}
 // 					packetIncomingIndex, _ := strconv.Atoi(string(packetCountStr))
-// 					//fmt.Println("packet count is ", packetCount)
+// 					//log.Println("packet count is ", packetCount)
 // 					//if packetCount != packetsReceived {
-// 					//	fmt.Println("we seem to have lost a PACKET:", packetCount, packetsReceived)
+// 					//	log.Println("we seem to have lost a PACKET:", packetCount, packetsReceived)
 // 					//} pastWritesIndex
 // 					// pad out the buffer
 // 					for packetIncomingIndex >= len(packetStruct.replyParts) {
@@ -318,30 +318,30 @@ import (
 // 					//packetStruct.replyParts[packetIncomingIndex].buff = snd.Payload
 // 					currentPayload := snd.Payload
 
-// 					// fmt.Println("have http reply packet #", packetIncomingIndex, "for ", firstLine)
+// 					// log.Println("have http reply packet #", packetIncomingIndex, "for ", firstLine)
 // 					if packetIncomingIndex == 0 {
 // 						headerEndBytes := []byte("\r\n\r\n")
 // 						headerPos := bytes.Index(snd.Payload, headerEndBytes)
 // 						if headerPos <= 0 {
-// 							fmt.Println("no header was found in first packet")
+// 							log.Println("no header was found in first packet")
 // 						} else {
 // 							// parse the header
 // 							header := snd.Payload[0:headerPos]
 // 							clStr := "Content-Length:"
 // 							clPos := bytes.Index(header, []byte(clStr))
 // 							if clPos <= 0 {
-// 								fmt.Println("no Content-Length was found in first packet")
+// 								log.Println("no Content-Length was found in first packet")
 // 							}
 // 							hpart := header[clPos+len(clStr):]
 // 							lineEndBytes := []byte("\r\n")
 // 							endPos := bytes.Index(hpart, lineEndBytes)
-// 							//fmt.Println("is this a number? ", hpart[0:endPos])
+// 							//log.Println("is this a number? ", hpart[0:endPos])
 // 							cldigits := string(hpart[0:endPos])
 // 							i, err := strconv.Atoi(strings.Trim(cldigits, " "))
 // 							if err != nil {
-// 								fmt.Println("ERROR finding Content-Length", hpart[0:endPos])
+// 								log.Println("ERROR finding Content-Length", hpart[0:endPos])
 // 							}
-// 							// fmt.Println("theLengthWeNeed is ", i)
+// 							// log.Println("theLengthWeNeed is ", i)
 // 							theLengthWeNeed = i + len(header) + 4
 
 // 							// we have to transfer the user options to the header
@@ -355,42 +355,42 @@ import (
 // 								k := keys[n]
 // 								v := bvalues[n]
 // 								values[n] = string(v)
-// 								// fmt.Println("Options k v ", k, values[n])
+// 								// log.Println("Options k v ", k, values[n])
 // 								_ = k
 // 							}
 
-// 							// fmt.Println("headerStart  ", string(headerStart))
-// 							// fmt.Println("pastHeader  ", string(pastHeader))
+// 							// log.Println("headerStart  ", string(headerStart))
+// 							// log.Println("pastHeader  ", string(pastHeader))
 // 							if len(keys) > 0 {
 // 								headerStart += "\r\n"
 // 								theLengthWeNeed += 2
 // 							}
-// 							// fmt.Println("headerStart 2 ", string(headerStart)+"\n\n")
+// 							// log.Println("headerStart 2 ", string(headerStart)+"\n\n")
 // 							for i := 0; i < len(keys); i++ {
 // 								k := keys[i]
 // 								v := values[i]
 
-// 								// fmt.Println("adding ", k, ":", string(v))
+// 								// log.Println("adding ", k, ":", string(v))
 // 								headerStart += k
 // 								theLengthWeNeed += len(k)
-// 								//fmt.Println("headerStart 3 ", string(headerStart)+"\n\n")
+// 								//log.Println("headerStart 3 ", string(headerStart)+"\n\n")
 // 								headerStart += ": "
 // 								theLengthWeNeed += 2
-// 								//fmt.Println("headerStart 4 ", string(headerStart)+"\n\n")
+// 								//log.Println("headerStart 4 ", string(headerStart)+"\n\n")
 
-// 								// fmt.Println("addingvalue  ", string(values[i])+"\n\n")
+// 								// log.Println("addingvalue  ", string(values[i])+"\n\n")
 // 								headerStart += v
 // 								theLengthWeNeed += len(v)
-// 								//fmt.Println("headerStart 5 ", string(headerStart)+"\n\n")
+// 								//log.Println("headerStart 5 ", string(headerStart)+"\n\n")
 // 								if i < len(keys)-1 {
 // 									headerStart += "\r\n"
 // 									theLengthWeNeed += 2
 // 								}
-// 								// fmt.Println("headerStart 6 ", string(headerStart)+"\n\n")
+// 								// log.Println("headerStart 6 ", string(headerStart)+"\n\n")
 // 							}
-// 							// fmt.Println("headerStart  ", string(headerStart)+"\n\n")
+// 							// log.Println("headerStart  ", string(headerStart)+"\n\n")
 // 							currentPayload = append([]byte(headerStart), pastHeader...)
-// 							// fmt.Println("new payload is ", string(currentPayload)+"\n\n")
+// 							// log.Println("new payload is ", string(currentPayload)+"\n\n")
 // 						}
 // 					}
 // 					packetStruct.replyParts[packetIncomingIndex].buff = currentPayload
@@ -402,27 +402,27 @@ import (
 // 						nextPi := packetStruct.replyParts[pastWritesIndex]
 
 // 						if isDebg {
-// 							fmt.Println(contact.GetKey().Sig(), " got a reply payload packet index ", pastWritesIndex)
+// 							log.Println(contact.GetKey().Sig(), " got a reply payload packet index ", pastWritesIndex)
 // 						}
 // 						n, err := responseBuffer.Write(nextPi.buff)
 // 						pastWritesIndex += 1
 // 						theAmountWeGot += len(nextPi.buff)
 // 						if err != nil {
-// 							fmt.Println("got a reply write err:", err)
+// 							log.Println("got a reply write err:", err)
 // 							running = false
 // 							break
 // 						}
 // 						if n != len(nextPi.buff) {
-// 							fmt.Println("writing len wanted, needed:", len(nextPi.buff), n)
+// 							log.Println("writing len wanted, needed:", len(nextPi.buff), n)
 // 						}
-// 						//fmt.Println("So far we have got", theAmountWeGot, " of ", theLengthWeNeed, "for", packetStruct.firstLine)
+// 						//log.Println("So far we have got", theAmountWeGot, " of ", theLengthWeNeed, "for", packetStruct.firstLine)
 // 						if theAmountWeGot >= theLengthWeNeed {
-// 							// fmt.Println("looks like we made it ! :")
+// 							// log.Println("looks like we made it ! :")
 // 							responseBuffer.Flush()
 // 							// push a close packet or something
 // 							// close the connection -- below
 
-// 							fmt.Println("Request complete", packetStruct.firstLine)
+// 							log.Println("Request complete", packetStruct.firstLine)
 // 							running = false
 // 						}
 // 						//responseBuffer.Flush()
@@ -430,7 +430,7 @@ import (
 
 // 				default:
 // 					// no match. do nothing. panic?
-// 					fmt.Println("got weird packet instead of publish ", reflect.TypeOf(packet))
+// 					log.Println("got weird packet instead of publish ", reflect.TypeOf(packet))
 // 					w.Write([]byte("error got weird packet"))
 // 					running = false
 // 					break
@@ -438,13 +438,13 @@ import (
 // 			// is this the only way to know that we're done??
 // 			case <-time.After(5 * time.Second):
 // 				errMsg := "timed out waiting for html reply " + contact.GetKey().Sig() + " " + firstLine[0:len(firstLine)-2]
-// 				fmt.Println(errMsg)
+// 				log.Println(errMsg)
 // 				// http.Error(w, errMsg, 500)
 // 				running = false
 // 			}
 // 		}
 
-// 		//fmt.Println("closing html write ")
+// 		//log.Println("closing html write ")
 // 		responseBuffer.Flush()
 // 		// un sub
 // 		// close the contact
@@ -469,7 +469,7 @@ func MakeMedium32cToken() (string, tokens.KnotFreeTokenPayload) {
 	// tokens.LoadPublicKeys()
 	// tokens.LoadPrivateKeys("~/atw/privateKeys4.txt")
 
-	fmt.Println("in MakeMedium32cToken")
+	log.Println("in MakeMedium32cToken")
 
 	// tokenRequest := &tokens.TokenRequest{}
 	payload := tokens.KnotFreeTokenPayload{}
@@ -501,22 +501,22 @@ func MakeMedium32cToken() (string, tokens.KnotFreeTokenPayload) {
 	// if exp > uint32(time.Now().Unix()+60*60*24*365) {
 	// 	// more than a year in the future not allowed now.
 	// 	exp = uint32(time.Now().Unix() + 60*60*24*365)
-	// 	fmt.Println("had long token ", string(payload.JWTID)) // TODO: store in db
+	// 	log.Println("had long token ", string(payload.JWTID)) // TODO: store in db
 	// }
 
 	cost := tokens.GetTokenStatsAndPrice(tokens.Medium).Price * 12 //tokens.CalcTokenPrice(&payload, uint32(time.Now().Unix()))
 	jsonstr, _ := json.Marshal(payload)
-	fmt.Println("token cost is "+fmt.Sprintf("%f", cost), string(jsonstr))
+	log.Println("token cost is "+fmt.Sprintf("%f", cost), string(jsonstr))
 
 	// large32x := ScaleTokenPayload(&payload, 8*32)
 	// cost = tokens.CalcTokenPrice(large32x, uint32(time.Now().Unix()))
 	// jsonstr, _ = json.Marshal(large32x)
-	// fmt.Println("token cost is "+fmt.Sprintf("%f", cost), string(jsonstr))
+	// log.Println("token cost is "+log.Sprintf("%f", cost), string(jsonstr))
 
 	signingKey := tokens.GetPrivateKeyWhole(0)
 	bbb, err := tokens.MakeToken(&payload, []byte(signingKey))
 	if err != nil {
-		fmt.Println("Make32xLargeToken ", err)
+		log.Println("Make32xLargeToken ", err)
 	}
 	exptime := time.Unix(int64(exp), 0)
 	formatted := exptime.Format("Jan/_2/2006")
@@ -532,14 +532,14 @@ const S3_BUCKET = "gotoherestatic"
 
 func TrySomeS3Stuff() {
 
-	fmt.Println("in TrySomeS3Stuff")
+	log.Println("in TrySomeS3Stuff")
 
 	dirname, err := os.UserHomeDir()
 	if err != nil {
 		log.Fatal(err)
 	}
 	credsName := dirname + "/atw/credentials"
-	fmt.Println("Using", dirname)
+	log.Println("Using", dirname)
 
 	// the default location ~/.aws/credentials is not mapped by k8s
 	// we use this path:
@@ -548,17 +548,17 @@ func TrySomeS3Stuff() {
 
 	sess, err := session.NewSession(&aws.Config{Region: aws.String("us-east-1")})
 
-	fmt.Println("in TrySomeS3Stuff bottom   err ", err)
+	log.Println("in TrySomeS3Stuff bottom   err ", err)
 
 	ccc, err2 := sess.Config.Credentials.Get()
-	fmt.Println("in TrySomeS3Stuff ccc ", ccc, err2)
+	log.Println("in TrySomeS3Stuff ccc ", ccc, err2)
 
 	svc := s3.New(sess)
 
 	input := &s3.ListBucketsInput{}
 	result, err := svc.ListBuckets(input)
 	_ = result
-	fmt.Println("in TrySomeS3Stuff get bucket list  ", err, result)
+	log.Println("in TrySomeS3Stuff get bucket list  ", err, result)
 
 	// S3_BUCKET aka gotoherestatic will be our cache.
 
@@ -580,7 +580,7 @@ func TrySomeS3Stuff() {
 
 	log.Println("The URL is", urlStr)
 
-	fmt.Println("in TrySomeS3Stuff bottom ", fname)
+	log.Println("in TrySomeS3Stuff bottom ", fname)
 }
 
 func getRandomString() string {
@@ -684,7 +684,7 @@ func XXX_ScaleTokenPayload(token *tokens.KnotFreeTokenPayload, scale float64) *t
 // 		size += len(databuf.buff)
 // 	}
 
-// 	fmt.Println("serving from cache ", firstLine, size)
+// 	log.Println("serving from cache ", firstLine, size)
 
 // 	hj, ok := w.(http.Hijacker)
 // 	if !ok {
@@ -693,17 +693,17 @@ func XXX_ScaleTokenPayload(token *tokens.KnotFreeTokenPayload, scale float64) *t
 // 	}
 // 	conn, responseBuffer, err := hj.Hijack()
 // 	if err != nil {
-// 		fmt.Println("hijack error  ", err)
+// 		log.Println("hijack error  ", err)
 // 	}
 // 	defer func() {
-// 		fmt.Println("closing hijack socket from cache " + r.URL.String() + "\n\n")
+// 		log.Println("closing hijack socket from cache " + r.URL.String() + "\n\n")
 // 		conn.Close()
 // 	}()
 
 // 	for i, databuf := range haveAlready.replyParts {
 // 		n, err := responseBuffer.Write(databuf.buff[:])
 // 		if err != nil {
-// 			fmt.Println("responseBuffer.Write ERROR ", firstLine[0:len(firstLine)-2])
+// 			log.Println("responseBuffer.Write ERROR ", firstLine[0:len(firstLine)-2])
 // 		}
 // 		_ = i
 // 		_ = n
@@ -717,7 +717,7 @@ func XXX_ScaleTokenPayload(token *tokens.KnotFreeTokenPayload, scale float64) *t
 // 		size += len(databuf.buff)
 // 	}
 // 	if size > 1500 {
-// 		fmt.Println("adding to cache ", firstLine, size)
+// 		log.Println("adding to cache ", firstLine, size)
 // 		servedMap[firstLine] = packetStruct
 // 	}
 // }

@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	mathrand "math/rand"
 	"net/http"
 	"reflect"
@@ -90,11 +91,11 @@ func printBinary(bytes []byte) string {
 
 func (w *myWriterType) Write(p []byte) (n int, err error) {
 
-	// fmt.Println("myWriterType write:", printBinary(p))
+	// log.Println("myWriterType write:", printBinary(p))
 
 	n, err = w.myPipeWriter.Write(p)
 	if err != nil {
-		fmt.Println("myWriterType write err:", err)
+		log.Println("myWriterType write err:", err)
 	}
 	return n, err
 }
@@ -102,9 +103,9 @@ func (w *myWriterType) Write(p []byte) (n int, err error) {
 func (w *myWriterType) Read(p []byte) (n int, err error) {
 	n, err = w.myPipeReader.Read(p)
 	if err != nil {
-		fmt.Println("myWriterType read err:", err)
+		log.Println("myWriterType read err:", err)
 	}
-	//	fmt.Println("myWriterType read:", printBinary(p[0:n]))
+	//	log.Println("myWriterType read:", printBinary(p[0:n]))
 	return n, err
 }
 
@@ -120,33 +121,33 @@ func HandleHttpSubdomainRequest(w http.ResponseWriter, r *http.Request, ex *Exec
 	look.SetOption("cmd", []byte("proxy-status"))
 	gotPacket, err := ex.ce.GetPacketService().GetPacketReply(&look)
 	if err != nil {
-		fmt.Println("PacketService error ", err)
+		log.Println("PacketService error ", err)
 		http.Error(w, "PacketService error "+err.Error(), 500)
 		return
 	}
 	theStatus := ProxyStatusReturnType{}
 	gotPacketStr := string(gotPacket.(*packets.Send).Payload)
 	if gotPacketStr[0] != '{' { // usually "error:" strings.HasPrefix("error", gotPacketStr) {
-		// fmt.Println("PacketService error ", gotPacketStr)
+		// log.Println("PacketService error ", gotPacketStr)
 		// http.Error(w, "HandleHttpSubdomainRequest "+gotPacketStr, 500)
 		// return
 	} else {
 		err = json.Unmarshal([]byte(gotPacketStr), &theStatus)
 		if err != nil {
-			fmt.Println("ProxyStatusReturnType json unmarshal error ", err, []byte(gotPacketStr))
+			log.Println("ProxyStatusReturnType json unmarshal error ", err, []byte(gotPacketStr))
 			http.Error(w, "json unmarshal error "+err.Error(), 500)
 			return
 		}
 	}
 	if theStatus.Exists {
-		fmt.Println("subdomain DOES exist ", subDomain)
+		log.Println("subdomain DOES exist ", subDomain)
 	} else {
-		fmt.Println("subdomain does NOT exist ", subDomain)
+		log.Println("subdomain does NOT exist ", subDomain)
 	}
 
 	if !theStatus.Exists {
 		message := "This thing does not exist or is not currently online: " + subDomain
-		fmt.Println(message)
+		log.Println(message)
 		http.Error(w, message, 500)
 		return
 	}
@@ -156,26 +157,26 @@ func HandleHttpSubdomainRequest(w http.ResponseWriter, r *http.Request, ex *Exec
 		proxyName = strings.TrimSuffix(proxyName, "/")
 		// proxy
 		requestURI := r.RequestURI
-		fmt.Println("subdomain serving static via HandleByProxy", proxyName, requestURI)
+		log.Println("subdomain serving static via HandleByProxy", proxyName, requestURI)
 		HandleByProxy(w, r, ex, subDomain, theHost, proxyName, requestURI)
 
 		return
 	}
 	if theStatus.Online {
-		fmt.Println("subdomain IS online ", subDomain)
+		log.Println("subdomain IS online ", subDomain)
 	} else {
-		fmt.Println("subdomain NOT online ", subDomain)
+		log.Println("subdomain NOT online ", subDomain)
 	}
 	if !theStatus.Online {
 		message := "This thing is known but is not currently online: " + subDomain
-		fmt.Println(message)
+		log.Println(message)
 		http.Error(w, message, 404)
 		return
 	}
 
 	clen := r.ContentLength
 	if clen > 63*1024 {
-		fmt.Println("http request packet too long ")
+		log.Println("http request packet too long ")
 		http.Error(w, "http request packet too long ", 500)
 		return
 	}
@@ -190,13 +191,13 @@ func HandleHttpSubdomainRequest(w http.ResponseWriter, r *http.Request, ex *Exec
 	}
 	isDebg := false
 
-	//fmt.Println("http header ", r.Header) // it's a map with Cookie
+	//log.Println("http header ", r.Header) // it's a map with Cookie
 	// write the header to a buffer
 	firstLine := r.Method + " " + r.URL.String() + " " + r.Proto + "\r\n"
-	// fmt.Println("first line", firstLine[0:len(firstLine)-2])
+	// log.Println("first line", firstLine[0:len(firstLine)-2])
 	if strings.Contains(firstLine, "debg=12345678") {
 		isDebg = true
-		fmt.Println("first line", firstLine[0:len(firstLine)-2])
+		log.Println("first line", firstLine[0:len(firstLine)-2])
 	}
 	buf := new(bytes.Buffer)
 	buf.WriteString(firstLine)
@@ -228,12 +229,12 @@ func HandleHttpSubdomainRequest(w http.ResponseWriter, r *http.Request, ex *Exec
 	if err != nil || (n != len(theBody)) {
 		http.Error(w, "http theBody write ", 500)
 	}
-	// fmt.Println("http is requestbuff ", buf.String())
-	fmt.Println("http is request ", firstLine[0:len(firstLine)-2])
+	// log.Println("http is requestbuff ", buf.String())
+	log.Println("http is request ", firstLine[0:len(firstLine)-2])
 
 	startTime := time.Now()
 	_ = startTime
-	fmt.Println("serving subdomain ", subDomain, "  of "+theHost+r.RequestURI)
+	log.Println("serving subdomain ", subDomain, "  of "+theHost+r.RequestURI)
 
 	hj, ok := w.(http.Hijacker)
 	if !ok {
@@ -243,7 +244,7 @@ func HandleHttpSubdomainRequest(w http.ResponseWriter, r *http.Request, ex *Exec
 	hijackedconn, responseBuffer, err := hj.Hijack()
 	_ = hijackedconn
 	if err != nil {
-		fmt.Println("hijack error  ", err)
+		log.Println("hijack error  ", err)
 		http.Error(w, "hijack error "+err.Error(), 500)
 		return
 
@@ -252,21 +253,21 @@ func HandleHttpSubdomainRequest(w http.ResponseWriter, r *http.Request, ex *Exec
 	defer func() {
 		// trying to make the nginx ingress happy. It never is.
 		// it keeps acting like it's not getting the whole response.
-		// fmt.Println("flushing hijack socket ", r.URL.String(), contact.GetKey().Sig(), time.Since(startTime))
+		// log.Println("flushing hijack socket ", r.URL.String(), contact.GetKey().Sig(), time.Since(startTime))
 		responseBuffer.Flush()
 		// time.Sleep(1 * time.Millisecond) // superstition ain't the way
 		// responseBuffer.Flush()
 		r.Close = true // see above also
 		err = hijackedconn.Close()
 		if err != nil {
-			fmt.Println("hijackedconn close error  ", err)
+			log.Println("hijackedconn close error  ", err)
 		}
 	}()
 
 	if buf.Len() > 60*1024 {
 		// stream it
 		errMsg := ("ERROR fixme: implement a streaming thing")
-		fmt.Println(errMsg)
+		log.Println(errMsg)
 		// http.Error(responseBuffer, errMsg, 500)
 		responseBuffer.WriteString(errMsg)
 		return
@@ -298,10 +299,10 @@ func HandleHttpSubdomainRequest(w http.ResponseWriter, r *http.Request, ex *Exec
 	// pub.SetOption("count", []byte(strconv.FormatInt(int64(servedCount), 10)))
 
 	if isDebg {
-		fmt.Println("sub-domain sending", pub.Sig())
+		log.Println("sub-domain sending", pub.Sig())
 		var buffer bytes.Buffer
 		pub.Write(&buffer)
-		fmt.Println("sub-domain sending hex", hex.EncodeToString(buffer.Bytes()))
+		log.Println("sub-domain sending hex", hex.EncodeToString(buffer.Bytes()))
 	}
 	//err = PushPacketUpFromBottom(contact, &pub)
 	// no, just no.
@@ -309,7 +310,7 @@ func HandleHttpSubdomainRequest(w http.ResponseWriter, r *http.Request, ex *Exec
 	gotPackets, err := ex.ce.GetPacketService().GetPacketReplyLonger(&pub, time.Duration(5*time.Second))
 	if err != nil {
 		errMsg := "Error. " + err.Error() // + contact.GetKey().Sig() + " " + firstLine[0:len(firstLine)-2]
-		fmt.Println(errMsg)
+		log.Println(errMsg)
 		// http.Error(responseBuffer, errMsg, 500)
 		responseBuffer.WriteString(errMsg)
 		return
@@ -317,7 +318,7 @@ func HandleHttpSubdomainRequest(w http.ResponseWriter, r *http.Request, ex *Exec
 	// if len(gotPackets) != 1 {
 	// 	errMsg := "Error. More than one response" // + contact.GetKey().Sig() + " " + firstLine[0:len(firstLine)-2]
 	// 	// FIXME: write tests and implement.
-	// 	fmt.Println(errMsg)
+	// 	log.Println(errMsg)
 	// 	// http.Error(responseBuffer, errMsg, 500)
 	// 	responseBuffer.WriteString(errMsg)
 	// 	return
@@ -353,8 +354,8 @@ func InsertAdditionalHeaders(buffer []byte, snd packets.Send) bytes.Buffer {
 		builder.Write(buffer[pos+4:])
 	}
 	// str := builder.String()
-	// fmt.Println("InsertAdditionalHeaders: ", str)
-	// fmt.Println("InsertAdditionalHeaders from: ", string(buffer))
+	// log.Println("InsertAdditionalHeaders: ", str)
+	// log.Println("InsertAdditionalHeaders from: ", string(buffer))
 	return builder
 }
 
@@ -368,33 +369,33 @@ func OldHandleHttpSubdomainRequest(w http.ResponseWriter, r *http.Request, ex *E
 	look.SetOption("cmd", []byte("proxy-status"))
 	gotPacket, err := ex.ce.GetPacketService().GetPacketReply(&look)
 	if err != nil {
-		fmt.Println("PacketService error ", err)
+		log.Println("PacketService error ", err)
 		http.Error(w, "PacketService error "+err.Error(), 500)
 		return
 	}
 	theStatus := ProxyStatusReturnType{}
 	gotPacketStr := string(gotPacket.(*packets.Send).Payload)
 	if gotPacketStr[0] != '{' { // usually "error:" strings.HasPrefix("error", gotPacketStr) {
-		// fmt.Println("PacketService error ", gotPacketStr)
+		// log.Println("PacketService error ", gotPacketStr)
 		// http.Error(w, "HandleHttpSubdomainRequest "+gotPacketStr, 500)
 		// return
 	} else {
 		err = json.Unmarshal([]byte(gotPacketStr), &theStatus)
 		if err != nil {
-			fmt.Println("ProxyStatusReturnType json unmarshal error ", err, []byte(gotPacketStr))
+			log.Println("ProxyStatusReturnType json unmarshal error ", err, []byte(gotPacketStr))
 			http.Error(w, "json unmarshal error "+err.Error(), 500)
 			return
 		}
 	}
 	if theStatus.Exists {
-		fmt.Println("subdomain DOES exist ", subDomain)
+		log.Println("subdomain DOES exist ", subDomain)
 	} else {
-		fmt.Println("subdomain does NOT exist ", subDomain)
+		log.Println("subdomain does NOT exist ", subDomain)
 	}
 
 	if !theStatus.Exists {
 		message := "This thing does not exist or is not currently online: " + subDomain
-		fmt.Println(message)
+		log.Println(message)
 		http.Error(w, message, 500)
 		return
 	}
@@ -404,26 +405,26 @@ func OldHandleHttpSubdomainRequest(w http.ResponseWriter, r *http.Request, ex *E
 		proxyName = strings.TrimSuffix(proxyName, "/")
 		// proxy
 		requestURI := r.RequestURI
-		fmt.Println("subdomain serving static via HandleByProxy", proxyName, requestURI)
+		log.Println("subdomain serving static via HandleByProxy", proxyName, requestURI)
 		HandleByProxy(w, r, ex, subDomain, theHost, proxyName, requestURI)
 
 		return
 	}
 	if theStatus.Online {
-		fmt.Println("subdomain IS online ", subDomain)
+		log.Println("subdomain IS online ", subDomain)
 	} else {
-		fmt.Println("subdomain NOT online ", subDomain)
+		log.Println("subdomain NOT online ", subDomain)
 	}
 	if !theStatus.Online {
 		message := "This thing is known but is not currently online: " + subDomain
-		fmt.Println(message)
+		log.Println(message)
 		http.Error(w, message, 404)
 		return
 	}
 
 	clen := r.ContentLength
 	if clen > 63*1024 {
-		fmt.Println("http packet too long ")
+		log.Println("http packet too long ")
 		http.Error(w, "http packet too long ", 500)
 		return
 	}
@@ -438,15 +439,15 @@ func OldHandleHttpSubdomainRequest(w http.ResponseWriter, r *http.Request, ex *E
 	}
 	isDebg := false
 
-	//fmt.Println("http header ", r.Header) // it's a map with Cookie
+	//log.Println("http header ", r.Header) // it's a map with Cookie
 	// r.RequtURI is "/"
 	// r.URL is "/"
 	// write the header to a buffer
 	firstLine := r.Method + " " + r.URL.String() + " " + r.Proto + "\r\n"
-	// fmt.Println("first line", firstLine[0:len(firstLine)-2])
+	// log.Println("first line", firstLine[0:len(firstLine)-2])
 	if strings.Contains(firstLine, "debg=12345678") {
 		isDebg = true
-		fmt.Println("first line", firstLine[0:len(firstLine)-2])
+		log.Println("first line", firstLine[0:len(firstLine)-2])
 	}
 	buf := new(bytes.Buffer)
 	buf.WriteString(firstLine)
@@ -481,8 +482,8 @@ func OldHandleHttpSubdomainRequest(w http.ResponseWriter, r *http.Request, ex *E
 	// add w.Header().Add("Access-Control-Allow-Origin", "*")
 	buf.WriteString("Access-Control-Allow-Origin: *\r\n")
 
-	// fmt.Println("http is requestbuff ", buf.String())
-	fmt.Println("http is request ", firstLine[0:len(firstLine)-2])
+	// log.Println("http is requestbuff ", buf.String())
+	log.Println("http is request ", firstLine[0:len(firstLine)-2])
 
 	pastWritesIndex := 0
 	packetStruct := &RequestReplyStruct{}
@@ -516,19 +517,19 @@ func OldHandleHttpSubdomainRequest(w http.ResponseWriter, r *http.Request, ex *E
 		for {
 			select {
 			case <-contact.ClosedChannel:
-				fmt.Println("http subdomain handler contact closed", contact.GetKey().Sig())
+				log.Println("http subdomain handler contact closed", contact.GetKey().Sig())
 				return
 			default:
 
 				packet, err := packets.ReadPacket(myWriter)
 				if err != nil || packet == nil {
 					// the buffer only had a partial packet
-					fmt.Println("ERROR packet read fail ", err)
+					log.Println("ERROR packet read fail ", err)
 					contact.DoClose(err)
 					return
 				}
 				if isDebg {
-					fmt.Println("http subdomain handler got packet ", packet.String())
+					log.Println("http subdomain handler got packet ", packet.String())
 				}
 				packetsChan <- packet
 			}
@@ -539,13 +540,13 @@ func OldHandleHttpSubdomainRequest(w http.ResponseWriter, r *http.Request, ex *E
 		contact.LogMeVerbose = true
 	}
 	startTime := time.Now()
-	fmt.Println("serving subdomain ", subDomain, "  of "+theHost+r.RequestURI, "con=", contact.GetKey().Sig())
+	log.Println("serving subdomain ", subDomain, "  of "+theHost+r.RequestURI, "con=", contact.GetKey().Sig())
 
 	defer func() {
-		fmt.Println("DONE subdomain ", subDomain, "con=", contact.GetKey().Sig(), "time=", time.Since(startTime))
+		log.Println("DONE subdomain ", subDomain, "con=", contact.GetKey().Sig(), "time=", time.Since(startTime))
 
 		if isDebg {
-			fmt.Println("contact normal close", contact.GetKey().Sig())
+			log.Println("contact normal close", contact.GetKey().Sig())
 		}
 		contact.DoClose(errors.New("normal close"))
 	}()
@@ -562,7 +563,7 @@ func OldHandleHttpSubdomainRequest(w http.ResponseWriter, r *http.Request, ex *E
 	}
 	err = PushPacketUpFromBottom(contact, &connect)
 	if err != nil {
-		fmt.Println("connect problems subdomain dial conn ", err)
+		log.Println("connect problems subdomain dial conn ", err)
 		http.Error(w, err.Error(), 500)
 		return
 	}
@@ -572,12 +573,12 @@ func OldHandleHttpSubdomainRequest(w http.ResponseWriter, r *http.Request, ex *E
 	subs := packets.Subscribe{}
 	subs.Address.FromString(myRandomName)
 	subs.Address.EnsureAddressIsBinary()
-	// fmt.Println(" our return address will be ", hex.EncodeToString(subs.Address.Bytes))
+	// log.Println(" our return address will be ", hex.EncodeToString(subs.Address.Bytes))
 	subs.SetOption("xxxx", []byte("TODO: reuse the same contact"))
 	//
 	if isDebg {
 		subs.SetOption("debg", []byte("12345678"))
-		fmt.Println("sub-domain our address will be ", subs.Address.String())
+		log.Println("sub-domain our address will be ", subs.Address.String())
 	}
 	err = PushPacketUpFromBottom(contact, &subs)
 	_ = err
@@ -590,16 +591,16 @@ func OldHandleHttpSubdomainRequest(w http.ResponseWriter, r *http.Request, ex *E
 			haveSuback = true
 		case packet := <-packetsChan:
 			// see if it's a suback
-			// fmt.Println("waiting for suback on gotDataChan.TheChan got ", cmd.Sig())
+			// log.Println("waiting for suback on gotDataChan.TheChan got ", cmd.Sig())
 			if packet == nil {
-				fmt.Println("ERROR nil packet waiting for suback. Never happens.")
+				log.Println("ERROR nil packet waiting for suback. Never happens.")
 			} else {
 				subcmd, ok := packet.(*packets.Subscribe)
 				if !ok {
-					fmt.Println("ERROR wrong packet waiting for suback  ")
+					log.Println("ERROR wrong packet waiting for suback  ")
 				} else {
 					if isDebg {
-						fmt.Println("sub-domain http handler have suback  ", subcmd.Sig())
+						log.Println("sub-domain http handler have suback  ", subcmd.Sig())
 					}
 					haveSuback = true
 				}
@@ -607,7 +608,7 @@ func OldHandleHttpSubdomainRequest(w http.ResponseWriter, r *http.Request, ex *E
 			// we have to wait for the suback to come back
 		case <-time.After(4 * time.Second):
 			errMsg := "timed out waiting for suback reply " + firstLine[0:len(firstLine)-2]
-			fmt.Println(errMsg)
+			log.Println(errMsg)
 			http.Error(w, errMsg, 500)
 			return
 		}
@@ -615,7 +616,7 @@ func OldHandleHttpSubdomainRequest(w http.ResponseWriter, r *http.Request, ex *E
 
 	if buf.Len() > 60*1024 {
 		// stream it
-		fmt.Println("ERROR fixme: implement this streaming thing")
+		log.Println("ERROR fixme: implement this streaming thing")
 	} else {
 
 		// just send it all at once in one Send
@@ -640,20 +641,20 @@ func OldHandleHttpSubdomainRequest(w http.ResponseWriter, r *http.Request, ex *E
 
 		pub.Address.FromString(subDomain) // !!!!!
 		pub.Source = subs.Address
-		// fmt.Println(" our send addr is ", pub.Address.String())
+		// log.Println(" our send addr is ", pub.Address.String())
 		pub.Address.EnsureAddressIsBinary()
-		// fmt.Println(" our send addr is ", pub.Address.String())
-		// fmt.Println(" our return addr is ", pub.Source.String())
+		// log.Println(" our send addr is ", pub.Address.String())
+		// log.Println(" our return addr is ", pub.Source.String())
 		// pub.Payload = []byte("GET " + r.URL.String() + " HTTP/1.1\n\n")
 		pub.Payload = buf.Bytes()
 
 		pub.SetOption("count", []byte(strconv.FormatInt(int64(servedCount), 10)))
 
 		if isDebg {
-			fmt.Println("sub-domain sending", servedCount, pub.Sig())
+			log.Println("sub-domain sending", servedCount, pub.Sig())
 			var buffer bytes.Buffer
 			pub.Write(&buffer)
-			fmt.Println("sub-domain sending hex", hex.EncodeToString(buffer.Bytes()))
+			log.Println("sub-domain sending hex", hex.EncodeToString(buffer.Bytes()))
 		}
 		CheckSendPacket(&pub)
 		err = PushPacketUpFromBottom(contact, &pub)
@@ -669,19 +670,19 @@ func OldHandleHttpSubdomainRequest(w http.ResponseWriter, r *http.Request, ex *E
 	hijackedconn, responseBuffer, err := hj.Hijack()
 	_ = hijackedconn
 	if err != nil {
-		fmt.Println("hijack error  ", err)
+		log.Println("hijack error  ", err)
 	}
 	defer func() {
 		// trying to make the nginx ingress happy. It never is.
 		// it keeps acting like it's not getting the whole response.
-		// fmt.Println("flushing hijack socket ", r.URL.String(), contact.GetKey().Sig(), time.Since(startTime))
+		// log.Println("flushing hijack socket ", r.URL.String(), contact.GetKey().Sig(), time.Since(startTime))
 		responseBuffer.Flush()
 		time.Sleep(1 * time.Millisecond) // superstition ain't the way
 		responseBuffer.Flush()
 		r.Close = true // see above also
 		err = hijackedconn.Close()
 		if err != nil {
-			fmt.Println("hijackedconn close error  ", err)
+			log.Println("hijackedconn close error  ", err)
 		}
 	}()
 
@@ -693,12 +694,12 @@ func OldHandleHttpSubdomainRequest(w http.ResponseWriter, r *http.Request, ex *E
 		for running {
 			select {
 			case <-contact.ClosedChannel:
-				// fmt.Println("contact closed")
+				// log.Println("contact closed")
 				running = false
 			case packet := <-packetsChan:
 
 				if isDebg {
-					fmt.Println("Receive-a-packet loop got ", packet.Sig())
+					log.Println("Receive-a-packet loop got ", packet.Sig())
 				}
 				_, ok := packet.(*packets.Subscribe)
 				if ok {
@@ -721,7 +722,7 @@ func OldHandleHttpSubdomainRequest(w http.ResponseWriter, r *http.Request, ex *E
 						// packetOfStr, ok := snd.GetOption("of")
 						if hasOf {
 							_ = packetOfStr
-							// fmt.Println("packet count total= ", packetCountStr)
+							// log.Println("packet count total= ", packetCountStr)
 							// we have the last packet.
 							running = false
 							break
@@ -737,9 +738,9 @@ func OldHandleHttpSubdomainRequest(w http.ResponseWriter, r *http.Request, ex *E
 							packetCountStr = packetCountStr[0 : len(packetCountStr)-1]
 						}
 						packetIncomingIndex, _ := strconv.Atoi(string(packetCountStr))
-						// fmt.Println("packet count is ", packetCountStr)
+						// log.Println("packet count is ", packetCountStr)
 						//if packetCount != packetsReceived {
-						//	fmt.Println("we seem to have lost a PACKET:", packetCount, packetsReceived)
+						//	log.Println("we seem to have lost a PACKET:", packetCount, packetsReceived)
 						//} pastWritesIndex
 						// pad out the buffer
 						for packetIncomingIndex >= len(packetStruct.replyParts) {
@@ -748,7 +749,7 @@ func OldHandleHttpSubdomainRequest(w http.ResponseWriter, r *http.Request, ex *E
 						}
 						currentPayload := snd.Payload
 
-						// fmt.Println("have http reply packet #", packetIncomingIndex, "for ", firstLine)
+						// log.Println("have http reply packet #", packetIncomingIndex, "for ", firstLine)
 						// TODO: don't parse the reply packet at all. Just send it.
 						// the sender will tell us when we have the last packet.
 						// needs tests.
@@ -756,7 +757,7 @@ func OldHandleHttpSubdomainRequest(w http.ResponseWriter, r *http.Request, ex *E
 							headerEndBytes := []byte("\r\n\r\n")
 							headerPos := bytes.Index(snd.Payload, headerEndBytes)
 							if headerPos <= 0 {
-								fmt.Println("no header was found in first packet", string(snd.Payload))
+								log.Println("no header was found in first packet", string(snd.Payload))
 							} else {
 								// parse the header
 								header := snd.Payload[0:headerPos]
@@ -764,22 +765,22 @@ func OldHandleHttpSubdomainRequest(w http.ResponseWriter, r *http.Request, ex *E
 								lowheader := strings.ToLower(string(header))
 								clPos := bytes.Index([]byte(lowheader), []byte(clStr))
 								if clPos <= 0 {
-									fmt.Println("no Content-Length was found in the header", string(header))
+									log.Println("no Content-Length was found in the header", string(header))
 								}
 								hpart := header[clPos+len(clStr):]
 								lineEndBytes := []byte("\r\n")
 								endPos := bytes.Index(hpart, lineEndBytes)
 								if endPos <= 0 {
-									fmt.Println("no end of line was found in the header", string(hpart), lowheader)
+									log.Println("no end of line was found in the header", string(hpart), lowheader)
 									endPos = len(hpart)
-									fmt.Println("is this a number? ", hpart[0:endPos])
+									log.Println("is this a number? ", hpart[0:endPos])
 								}
 								cldigits := string(hpart[0:endPos])
 								i, err := strconv.Atoi(strings.Trim(cldigits, " "))
 								if err != nil {
-									fmt.Println("ERROR finding Content-Length", string(hpart[0:endPos]))
+									log.Println("ERROR finding Content-Length", string(hpart[0:endPos]))
 								}
-								// fmt.Println("theLengthWeNeed is ", i)
+								// log.Println("theLengthWeNeed is ", i)
 								theLengthWeNeed = i + len(header) + 4
 
 								// we have to transfer the user options to the header
@@ -793,42 +794,42 @@ func OldHandleHttpSubdomainRequest(w http.ResponseWriter, r *http.Request, ex *E
 									k := keys[n]
 									v := bvalues[n]
 									values[n] = string(v)
-									// fmt.Println("Options k v ", k, values[n])
+									// log.Println("Options k v ", k, values[n])
 									_ = k
 								}
 
-								// fmt.Println("headerStart  ", string(headerStart))
-								// fmt.Println("pastHeader  ", string(pastHeader))
+								// log.Println("headerStart  ", string(headerStart))
+								// log.Println("pastHeader  ", string(pastHeader))
 								if len(keys) > 0 {
 									headerStart += "\r\n"
 									theLengthWeNeed += 2
 								}
-								// fmt.Println("headerStart 2 ", string(headerStart)+"\n\n")
+								// log.Println("headerStart 2 ", string(headerStart)+"\n\n")
 								for i := 0; i < len(keys); i++ {
 									k := keys[i]
 									v := values[i]
 
-									// fmt.Println("adding ", k, ":", string(v))
+									// log.Println("adding ", k, ":", string(v))
 									headerStart += k
 									theLengthWeNeed += len(k)
-									//fmt.Println("headerStart 3 ", string(headerStart)+"\n\n")
+									//log.Println("headerStart 3 ", string(headerStart)+"\n\n")
 									headerStart += ": "
 									theLengthWeNeed += 2
-									//fmt.Println("headerStart 4 ", string(headerStart)+"\n\n")
+									//log.Println("headerStart 4 ", string(headerStart)+"\n\n")
 
-									// fmt.Println("addingvalue  ", string(values[i])+"\n\n")
+									// log.Println("addingvalue  ", string(values[i])+"\n\n")
 									headerStart += v
 									theLengthWeNeed += len(v)
-									//fmt.Println("headerStart 5 ", string(headerStart)+"\n\n")
+									//log.Println("headerStart 5 ", string(headerStart)+"\n\n")
 									if i < len(keys)-1 {
 										headerStart += "\r\n"
 										theLengthWeNeed += 2
 									}
-									// fmt.Println("headerStart 6 ", string(headerStart)+"\n\n")
+									// log.Println("headerStart 6 ", string(headerStart)+"\n\n")
 								}
-								// fmt.Println("headerStart  ", string(headerStart)+"\n\n")
+								// log.Println("headerStart  ", string(headerStart)+"\n\n")
 								currentPayload = append([]byte(headerStart), pastHeader...)
-								// fmt.Println("new payload is ", string(currentPayload)+"\n\n")
+								// log.Println("new payload is ", string(currentPayload)+"\n\n")
 							}
 						}
 						packetStruct.replyParts[packetIncomingIndex].buff = currentPayload
@@ -840,24 +841,24 @@ func OldHandleHttpSubdomainRequest(w http.ResponseWriter, r *http.Request, ex *E
 							nextPi := packetStruct.replyParts[pastWritesIndex]
 
 							if isDebg {
-								fmt.Println(contact.GetKey().Sig(), " got a reply payload packet index ", pastWritesIndex)
+								log.Println(contact.GetKey().Sig(), " got a reply payload packet index ", pastWritesIndex)
 							}
 							n, err := responseBuffer.Write(nextPi.buff)
 							pastWritesIndex += 1
 							theAmountWeGot += len(nextPi.buff)
 							if err != nil {
-								fmt.Println("got a reply write err:", err)
+								log.Println("got a reply write err:", err)
 								running = false
 								break
 							}
 							if n != len(nextPi.buff) {
-								fmt.Println("writing len wanted, needed:", len(nextPi.buff), n)
+								log.Println("writing len wanted, needed:", len(nextPi.buff), n)
 							}
-							//fmt.Println("So far we have got", theAmountWeGot, " of ", theLengthWeNeed, "for", packetStruct.firstLine)
+							//log.Println("So far we have got", theAmountWeGot, " of ", theLengthWeNeed, "for", packetStruct.firstLine)
 							if theAmountWeGot >= theLengthWeNeed {
-								// fmt.Println("looks like we made it ! :")
+								// log.Println("looks like we made it ! :")
 								if isDebg {
-									fmt.Println("Request complete", packetStruct.firstLine)
+									log.Println("Request complete", packetStruct.firstLine)
 								}
 								running = false
 							}
@@ -866,14 +867,14 @@ func OldHandleHttpSubdomainRequest(w http.ResponseWriter, r *http.Request, ex *E
 					}
 				default:
 					// no match. do nothing. panic?
-					fmt.Println("got weird packet instead of publish ", reflect.TypeOf(packet))
+					log.Println("got weird packet instead of publish ", reflect.TypeOf(packet))
 					responseBuffer.Write([]byte("error got weird packet"))
 					running = false
 				}
 			//
 			case <-time.After(4567 * time.Millisecond): // sooner than nginx
 				errMsg := "Error. Knotfree timed out waiting for reply (receiver offline)" // + contact.GetKey().Sig() + " " + firstLine[0:len(firstLine)-2]
-				fmt.Println(errMsg)
+				log.Println(errMsg)
 				// http.Error(responseBuffer, errMsg, 500)
 				responseBuffer.WriteString(errMsg)
 				running = false

@@ -1,7 +1,7 @@
 package main
 
 import (
-	"fmt"
+	"log"
 	"os"
 	"strings"
 	"sync"
@@ -41,7 +41,7 @@ func main() {
 
 		err := os.WriteFile("dummy.yaml", []byte(sdata), 0644)
 		if err != nil {
-			fmt.Println("fail flail 888")
+			log.Println("fail flail 888")
 		}
 		kubectl.K("kubectl apply -f dummy.yaml")
 	}
@@ -80,7 +80,7 @@ func main() {
 	sdata = strings.ReplaceAll(sdata, "imagePullPolicy: Always", "imagePullPolicy: Never")
 	sdata = strings.ReplaceAll(sdata, `["/knotfreeiot/manager"]`, `["/knotfreeiot/manager","-nano"]`)
 
-	fmt.Println(sdata)
+	log.Println(sdata)
 	kubectl.K8s("kubectl apply -f -", sdata)
 
 	if !strings.Contains(previousPodNames, "No resources found") {
@@ -131,16 +131,16 @@ func main() {
 
 	kubectl.K("kubectl config set-context --current --namespace=knotspace")
 
-	fmt.Println("apply_namespace finished apply_namespace finished apply_namespace finished apply_namespace finished ")
-	fmt.Println(time.Now())
-	fmt.Println("apply_namespace finished apply_namespace finished apply_namespace finished apply_namespace finished ")
+	log.Println("apply_namespace finished apply_namespace finished apply_namespace finished apply_namespace finished ")
+	log.Println(time.Now())
+	log.Println("apply_namespace finished apply_namespace finished apply_namespace finished apply_namespace finished ")
 }
 
 func buildTheKnotFreeMain(registry string) {
 
 	if false {
 		val, err := kubectl.K8s("pwd", "")
-		fmt.Println("buildTheKnotFreeMain in ", val, err)
+		log.Println("buildTheKnotFreeMain in ", val, err)
 
 		// /Users/awootton/Documents/workspace/knotfree-net-homepage/build_to_knotfree_docs.sh
 
@@ -163,14 +163,14 @@ func buildTheKnotFreeMain(registry string) {
 
 // func buildTheOperator(registry string) {
 // 	digest, _ := kubectl.K8s("docker inspect --format='{{.RepoDigests}}' "+registry+"/knotoperator", "")
-// 	fmt.Println("digest of knotoperator 1", digest)
+// 	log.Println("digest of knotoperator 1", digest)
 // 	//kubectl.K("cd ../;ls -lah")
 // 	// docker build --file knotoperator/Dockerfile .
 // 	kubectl.K("cd ../../;docker build --file knotoperator/Dockerfile -t " + registry + "/knotoperator .")
 // 	//kubectl.K("cd ../;docker build -t " + registry + "/knotoperator .")
 // 	digest, _ = kubectl.K8s("docker inspect --format='{{.RepoDigests}}' "+registry+"/knotoperator", "")
-// 	fmt.Println("digest of knotoperator 2", digest)
+// 	log.Println("digest of knotoperator 2", digest)
 // 	kubectl.K("docker push " + registry + "/knotoperator")
 // 	digest, _ = kubectl.K8s("docker inspect --format='{{.RepoDigests}}' "+registry+"/knotoperator", "")
-// 	fmt.Println("digest of knotoperator 3", digest)
+// 	log.Println("digest of knotoperator 3", digest)
 // }

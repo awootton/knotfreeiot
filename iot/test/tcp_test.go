@@ -17,6 +17,7 @@ package iot_test
 
 import (
 	"fmt"
+	"log"
 	"strings"
 	"testing"
 	"time"
@@ -44,9 +45,9 @@ func TestTwoTierTcp(t *testing.T) {
 	ce.WaitForActions()
 
 	sss, _ := iot.GetServerStats(ce.Aides[0].GetHTTPAddress())
-	fmt.Println("aide stats", sss)
+	log.Println("aide stats", sss)
 	sss, _ = iot.GetServerStats(ce.Gurus[0].GetHTTPAddress())
-	fmt.Println("guru stats", sss)
+	log.Println("guru stats", sss)
 
 	n := sss.Subscriptions * float64(ce.Gurus[0].Limits.Subscriptions)
 	if n != 0 {
@@ -82,9 +83,9 @@ func TestTwoTierTcp(t *testing.T) {
 	}
 
 	aideStats, _ := iot.GetServerStats(ce.Aides[0].GetHTTPAddress())
-	fmt.Println("aide stats2", aideStats)
+	log.Println("aide stats2", aideStats)
 	guruStats, _ := iot.GetServerStats(ce.Gurus[0].GetHTTPAddress())
-	fmt.Println("guru stats2", guruStats)
+	log.Println("guru stats2", guruStats)
 
 	// the guru gained a subscription because the aide connected to it.
 	n = guruStats.Subscriptions * float64(ce.Gurus[0].Limits.Subscriptions)

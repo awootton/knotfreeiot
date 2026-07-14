@@ -2,7 +2,7 @@ package main
 
 import (
 	"encoding/base64"
-	"fmt"
+	"log"
 	"os"
 	"strings"
 	"testing"
@@ -20,7 +20,7 @@ func TestGetIotResponseReno(t *testing.T) {
 	home, _ := os.UserHomeDir()
 	tmp, err := os.ReadFile(home + "/atw/renoIotpass.txt")
 	if err != nil {
-		fmt.Println("TestGetIotResponseReno err", err)
+		log.Println("TestGetIotResponseReno err", err)
 		t.Fail()
 	}
 
@@ -47,7 +47,7 @@ func TestGetIotResponseReno(t *testing.T) {
 
 	r := monitor_pod.GetIotResponse(server, thing, cmd, c.PubStr, c.AdminPrivStr, c.AdminPubStr)
 
-	fmt.Println("TestGetIotResponseReno r", r)
+	log.Println("TestGetIotResponseReno r", r)
 
 	// depends on the weather assert.Equal(t, "v0.1.5", r)
 }
@@ -64,7 +64,7 @@ func TestGetIotResponseBoxed(t *testing.T) {
 
 	r := monitor_pod.GetIotResponse(server, thing, cmd, c.PubStr, c.AdminPrivStr, c.AdminPubStr)
 
-	fmt.Println("TestGetIotResponseBoxed r", r)
+	log.Println("TestGetIotResponseBoxed r", r)
 
 	assert.Equal(t, "v0.1.5", r)
 
@@ -80,7 +80,7 @@ func TestGetIotResponse(t *testing.T) {
 	adminprivk := ""
 	r := monitor_pod.GetIotResponse(server, thing, cmd, pubk, adminprivk, "")
 
-	// fmt.Println("TestGetFromThing r", r)
+	// log.Println("TestGetFromThing r", r)
 
 	assert.Equal(t, "bht-Ka3j7GKuMFOablMlQnABnBvBeugvSf4CdFV3LXs", r)
 

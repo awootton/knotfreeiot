@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"runtime"
@@ -167,7 +168,7 @@ func MakeSimplestCluster(timegetter func() uint32, isTCP bool, aideCount int, su
 		MakeTCPExecutive(guru0, guru0.tcpAddress)
 		MakeHTTPExecutive(guru0, guru0.httpAddress)
 	} else {
-		fmt.Println("never use non-tcp mode anymore. FIXME: ", guru0.Name)
+		log.Println("never use non-tcp mode anymore. FIXME: ", guru0.Name)
 	}
 	ce.currentGuruList = []string{"guru0" + suffix}
 	ce.currentAddressList = []string{guru0.tcpAddress}
@@ -198,7 +199,7 @@ func MakeSimplestCluster(timegetter func() uint32, isTCP bool, aideCount int, su
 
 			// add API to aide
 		} else {
-			fmt.Println("never use non-tcp mode anymore. FIXME: ", guru0.Name)
+			log.Println("never use non-tcp mode anymore. FIXME: ", guru0.Name)
 		}
 		go aide1.DialContactToAnyAide(isTCP, ce, "aide1 dialing its aide "+aide1.Name)
 	}
@@ -217,13 +218,13 @@ func MakeSimplestCluster(timegetter func() uint32, isTCP bool, aideCount int, su
 		if len(ce.Gurus) > 0 {
 			err := PostUpstreamNames(ce.currentGuruList, ce.currentAddressList, ce.Gurus[0].httpAddress)
 			if err != nil {
-				fmt.Println("post fail1", err)
+				log.Println("post fail1", err)
 			}
 		}
 		for _, aide := range ce.Aides {
 			err := PostUpstreamNames(ce.currentGuruList, ce.currentAddressList, aide.httpAddress)
 			if err != nil {
-				fmt.Println("post fail2", err)
+				log.Println("post fail2", err)
 			}
 		}
 
@@ -239,7 +240,7 @@ func MakeSimplestCluster(timegetter func() uint32, isTCP bool, aideCount int, su
 		// 			StartNewServiceContact(ce.Aides[0], func(sc *ServiceContact, err error) {
 		// 				ce.PacketServices[currentIndex] = sc
 		// 				if err != nil {
-		// 					fmt.Println("StartNewServiceContact failed", err, " index ", currentIndex)
+		// 					log.Println("StartNewServiceContact failed", err, " index ", currentIndex)
 		// 				}
 		// 			})
 		// 		}
@@ -250,7 +251,7 @@ func MakeSimplestCluster(timegetter func() uint32, isTCP bool, aideCount int, su
 		// StartNewServiceContact(ce.Aides[0], func(sc *ServiceContact, err error) {
 		// 	ce.PacketService = sc
 		// 	if err != nil {
-		// 		fmt.Println("StartNewServiceContact failed", err)
+		// 		log.Println("StartNewServiceContact failed", err)
 		// 	}
 		// })
 
@@ -274,7 +275,7 @@ func (ce *ClusterExecutive) InitTheServiceContacts() {
 			StartAndInitServiceContact(ce.Aides[0], func(sc *ServiceContact, err error) {
 				ce.PacketServices[currentIndex] = sc
 				if err != nil {
-					fmt.Println("StartNewServiceContact failed", err, " index ", currentIndex)
+					log.Println("StartNewServiceContact failed", err, " index ", currentIndex)
 				}
 			}, currentIndex, supressLogPlease)
 		}
@@ -314,7 +315,7 @@ func MakeTCPMain(name string, limits *ExecutiveLimits, token string, isGuru bool
 
 	// ce.PacketService, err = StartNewServiceContact(aide1)
 	// if err != nil {
-	// 	fmt.Println("StartNewServiceContact failed", err)
+	// 	log.Println("StartNewServiceContact failed", err)
 	// }
 	// StartNewServiceContact(ce.Aides[0], func(sc *ServiceContact, err error) {
 	// 	ce.PacketService = sc
@@ -356,7 +357,7 @@ func NewExecutive(sizeEstimate int, aname string, timegetter func() uint32, isGu
 	ex.ClusterStatsString = "none-yet"
 	ex.ce = ce
 
-	fmt.Println("executive channelToAnyAide for", aname)
+	log.Println("executive channelToAnyAide for", aname)
 	// why should the channel get behind?
 	ex.channelToAnyAide = make(chan packets.Interface, 1024*64*2) // I don't know.
 
@@ -554,7 +555,7 @@ func (ce *ClusterExecutive) Operate() {
 			ce.Aides = ce.Aides[:len(ce.Aides)-1]   // shorten list
 
 			// close them all
-			fmt.Println("executive closing all contacts")
+			log.Println("executive closing all contacts")
 			for _, cc := range contactList {
 				cc.DoClose(errors.New("routine maintainance a1"))
 			}
@@ -613,7 +614,7 @@ func (ce *ClusterExecutive) Operate() {
 				aide.Looker.SetUpstreamNames(ce.currentGuruList, ce.currentGuruList)
 			}
 			// we need to wait?
-			fmt.Println("executive closing all contacts2")
+			log.Println("executive closing all contacts2")
 			for _, cc := range contactList {
 				cc.DoClose(errors.New("routine maintainance g1"))
 			}
@@ -672,9 +673,9 @@ func (ex *Executive) GetExecutiveStats() *ExecutiveStats {
 	var gstats runtime.MemStats
 	runtime.ReadMemStats(&gstats)
 	stats.Memory = int64(gstats.HeapAlloc) // is insane HeapAlloc too large to be meaningful?
-	// fmt.Println("memory ", stats.Memory)
+	// log.Println("memory ", stats.Memory)
 
-	// fmt.Println("HeapSys ", gstats.HeapSys)
+	// log.Println("HeapSys ", gstats.HeapSys)
 
 	stats.Input = stats.Input / ex.Limits.Input
 	stats.Output = stats.Output / ex.Limits.Output
@@ -694,7 +695,7 @@ func (ex *Executive) GetExecutiveStats() *ExecutiveStats {
 	stdout, err := cmd.Output()
 	if err == nil {
 		parts := strings.Split(string(stdout), "\n")
-		// fmt.Println("lsof len ", len(parts))
+		// log.Println("lsof len ", len(parts))
 		//if err == nil {
 		stats.OpenConnections = len(parts)
 		//}
@@ -714,7 +715,7 @@ func (ex *Executive) Heartbeat(now uint32) {
 	go func() {
 
 		defer func() { isDone <- true }()
-		// fmt.Println("Heartbeat Executive START", ex.Name, ex.tcpAddress)
+		// log.Println("Heartbeat Executive START", ex.Name, ex.tcpAddress)
 
 		lock.Lock()
 		log = append(log, "START")
@@ -725,35 +726,35 @@ func (ex *Executive) Heartbeat(now uint32) {
 		// subscriptions, queuefraction := ex.Looker.GetAllSubsCount()
 		// topicsTotal.Set(float64(subscriptions))
 		// qFullness.Set(float64(queuefraction))
-		// fmt.Println("Heartbeat Executive LOOKER", ex.Name, ex.tcpAddress)
+		// log.Println("Heartbeat Executive LOOKER", ex.Name, ex.tcpAddress)
 
 		ex.Looker.Heartbeat(now)
 		lock.Lock()
 		log = append(log, "Looker-done")
 		lock.Unlock()
-		// fmt.Println("Heartbeat Executive Looker done", ex.Name, ex.tcpAddress)
+		// log.Println("Heartbeat Executive Looker done", ex.Name, ex.tcpAddress)
 
 		timer := prometheus.NewTimer(heartbeatContactsDuration)
 		defer timer.ObserveDuration()
 
-		//fmt.Println("Heartbeat copy clients", ex.Name)
-		// fmt.Println("Heartbeat Executive CONTACTS getcopy", ex.Name, ex.tcpAddress)
+		//log.Println("Heartbeat copy clients", ex.Name)
+		// log.Println("Heartbeat Executive CONTACTS getcopy", ex.Name, ex.tcpAddress)
 		lock.Lock()
 		log = append(log, "copy")
 		lock.Unlock()
 		contactList := ex.Config.GetContactsListCopy() // could be 20k contacts!
 
-		// fmt.Println("Heartbeat Executive CONTACTS", ex.Name, ex.tcpAddress)
+		// log.Println("Heartbeat Executive CONTACTS", ex.Name, ex.tcpAddress)
 
-		//fmt.Println("Heartbeat clients", len(contactList), ex.Name)
+		//log.Println("Heartbeat clients", len(contactList), ex.Name)
 		lock.Lock()
 		log = append(log, "clients")
 		lock.Unlock()
 		startTime := time.Now()
 		for _, ci := range contactList {
-			// fmt.Println("Heartbeat client TOP", ci.GetKey().Sig())
+			// log.Println("Heartbeat client TOP", ci.GetKey().Sig())
 			ci.Heartbeat(now)
-			// fmt.Println("Heartbeat client DONE", ci.GetKey().Sig())
+			// log.Println("Heartbeat client DONE", ci.GetKey().Sig())
 		}
 		elapsed := strconv.FormatInt(time.Since(startTime).Milliseconds(), 13) // was 10
 		lock.Lock()
@@ -764,12 +765,17 @@ func (ex *Executive) Heartbeat(now uint32) {
 	case <-isDone:
 	case <-time.After(5 * time.Second):
 		lock.Lock()
-		fmt.Println("Heartbeat Executive timeout ERROR", ex.Name, log) // this is fatal. we're stuck.
+		arratAsStr := ""
+		for _, s := range log {
+			arratAsStr += s + " "
+		}
+		tmp := fmt.Sprintf("Heartbeat Executive timeout ERROR %s %s", ex.Name, arratAsStr)
+		fmt.Println(tmp) // this is fatal. we're stuck.
 		lock.Unlock()
 	}
 	elapsed := time.Since(startTime)
 	_ = elapsed
-	// fmt.Println("Heartbeat Executive DONE", ex.Name, elapsed)
+	// log.Println("Heartbeat Executive DONE", ex.Name, elapsed)
 }
 
 // Heartbeat everyone when testing
@@ -872,7 +878,7 @@ func (ce *ClusterExecutive) WaitForActions() {
 			if err == nil {
 				stats = append(stats, stat)
 			} else {
-				fmt.Println("GetServerStats fail", err)
+				log.Println("GetServerStats fail", err)
 			}
 			when = ex.getTime()
 		}

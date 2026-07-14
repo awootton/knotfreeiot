@@ -19,7 +19,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"errors"
-	"fmt"
+	"log"
 	"net"
 	"sync"
 	"time"
@@ -49,7 +49,7 @@ func (upc *upperChannel) isRunning() bool {
 func (upc *upperChannel) dialGuru() {
 
 	defer func() {
-		fmt.Println("dialGuruAndServe exit. ** aren't we supposed to never quit this? **")
+		log.Println("dialGuruAndServe exit. ** aren't we supposed to never quit this? **")
 	}()
 
 	isTCP := false
@@ -60,14 +60,14 @@ func (upc *upperChannel) dialGuru() {
 	upc.stopped = make(chan interface{})
 	if isTCP {
 		// in prod:
-		fmt.Println("dialGuruAndServe started with", upc.address, upc.name)
+		log.Println("dialGuruAndServe started with", upc.address, upc.name)
 		for upc.isRunning() {
 			err := upc.dialGuruAndServe()
 			if err != nil {
-				fmt.Println("dialGuruAndServe returned err", err, upc.address, upc.name)
+				log.Println("dialGuruAndServe returned err", err, upc.address, upc.name)
 			} else {
 				// there's always an error or else we'd still be in dialGureAndServe?
-				fmt.Println("dialGuruAndServe returned noerr", upc.address, upc.name)
+				log.Println("dialGuruAndServe returned noerr", upc.address, upc.name)
 			}
 			time.Sleep(time.Second * 1)
 		}
@@ -90,11 +90,11 @@ func (upc *upperChannel) dialGuru() {
 			contact.SetExpires(contact.contactExpires + 60*60*24*365*10) // in 10 years
 
 			defer func() {
-				fmt.Println("dialGuruAndServe FINISHED")
+				log.Println("dialGuruAndServe FINISHED")
 				contact.DoClose(errors.New("finished"))
 			}()
 
-			fmt.Println("dialGuruAndServe upc start from ", upc.ex.Name, " to ", guru.Name)
+			log.Println("dialGuruAndServe upc start from ", upc.ex.Name, " to ", guru.Name)
 
 			// when the guru writes we want to get that
 			// and put it in upc.down
@@ -107,24 +107,24 @@ func (upc *upperChannel) dialGuru() {
 
 			go func() {
 				for p := range upc.down {
-					//fmt.Println("upc.down ", p)
+					//log.Println("upc.down ", p)
 					err := PushDownFromTop(upc.ex.Looker, p)
 					if err != nil {
-						fmt.Println("dialGuruAndServe UPC err PushDown ", err)
+						log.Println("dialGuruAndServe UPC err PushDown ", err)
 					}
 				}
-				fmt.Println("dialGuruAndServe don't want to be here. the upc.down channel should never close  ")
+				log.Println("dialGuruAndServe don't want to be here. the upc.down channel should never close  ")
 			}()
 
 			connect := packets.Connect{}
 			connect.SetOption("token", []byte(token))
 			err := PushPacketUpFromBottom(contact, &connect)
 			if err != nil {
-				fmt.Println("dialGuruAndServe connect guru test dial conn ", err)
+				log.Println("dialGuruAndServe connect guru test dial conn ", err)
 			}
 			for p := range upc.up {
 
-				//fmt.Println("UPC pushing to guru ", p)
+				//log.Println("UPC pushing to guru ", p)
 				// needs to be cloned because it's still also in aide
 
 				buff := &bytes.Buffer{}
@@ -139,11 +139,11 @@ func (upc *upperChannel) dialGuru() {
 				}
 				err = PushPacketUpFromBottom(contact, p2)
 				if err != nil {
-					fmt.Println("dialGuruAndServe UPC err pushing to aide ", err)
+					log.Println("dialGuruAndServe UPC err pushing to aide ", err)
 					break
 				}
 			}
-			fmt.Println("dialGuruAndServe don't quit who closed the chan")
+			log.Println("dialGuruAndServe don't quit who closed the chan")
 		}
 	}
 }
@@ -192,7 +192,7 @@ func (m *myPipe) Read(data []byte) (int, error) {
 func (m *myPipe) Write(data []byte) (int, error) {
 
 	// m.written = m.written + string(data)
-	// fmt.Println("pw", m)
+	// log.Println("pw", m)
 
 	n, err := m.pw.Write(data)
 
@@ -204,21 +204,21 @@ func (upc *upperChannel) readFromPipe(m *myPipe) {
 		p, err := packets.ReadPacket(m)
 
 		if err != nil {
-			fmt.Println("dialGuruAndServe readFromPipe ReadPacket err  ", err)
+			log.Println("dialGuruAndServe readFromPipe ReadPacket err  ", err)
 			break // it will never resync or recover
 		} else {
-			//fmt.Println("test got packet from guru  ", p)
+			//log.Println("test got packet from guru  ", p)
 
-			// fmt.Println("rp", m)
+			// log.Println("rp", m)
 			// buff := &bytes.Buffer{}
 			// p.Write(buff)
 			// s := string(buff.Bytes())
 			// if strings.HasPrefix(m.readden, s) {
 			// 	m.readden = m.readden[len(s):]
-			// 	fmt.Println("rp", m)
+			// 	log.Println("rp", m)
 			// }
 			if len(upc.down) >= cap(upc.down) {
-				fmt.Println("dialGuruAndServe readFromPipe channel full")
+				log.Println("dialGuruAndServe readFromPipe channel full")
 			}
 			select {
 			case <-upc.stopped:
@@ -238,13 +238,13 @@ func (upc *upperChannel) dialGuruAndServe() error {
 	upc.founderr = nil
 	upc.conn = nil
 
-	fmt.Println("starting/restarting dialGuruAndServe ", upc.address, upc.name, " for ", upc.index)
+	log.Println("starting/restarting dialGuruAndServe ", upc.address, upc.name, " for ", upc.index)
 
 	// todo: tell prometheius we're dialing
 
 	upc.conn, err = net.DialTimeout("tcp", upc.address, time.Duration(uint64(2*time.Second))) // atw delete me
 	if err != nil {
-		fmt.Println("dial dialGuruAndServe fail", upc.address, upc.name, " with ", err)
+		log.Println("dial dialGuruAndServe fail", upc.address, upc.name, " with ", err)
 		TCPNameResolverFail2.Inc()
 		return err
 	}
@@ -256,7 +256,7 @@ func (upc *upperChannel) dialGuruAndServe() error {
 		tcpconn := upc.conn.(*net.TCPConn)
 		tcpconn.SetNoDelay(true)
 		tcpconn.SetWriteBuffer(64*1024 + 1024) // I like it bigger
-		fmt.Println("dialGuruAndServe ready to ReadPacket from ", upc.address, upc.name, tcpconn.LocalAddr())
+		log.Println("dialGuruAndServe ready to ReadPacket from ", upc.address, upc.name, tcpconn.LocalAddr())
 	}
 	upc.down = nil // not used. wut? messages are pushed up directly to tcp
 
@@ -269,7 +269,7 @@ func (upc *upperChannel) dialGuruAndServe() error {
 	err = connect.Write(upc.conn)
 	mux.Unlock()
 	if err != nil {
-		fmt.Println("dialGuruAndServe packets.Connect fail", upc.conn, err)
+		log.Println("dialGuruAndServe packets.Connect fail", upc.conn, err)
 		upc.conn.Close()
 		upc.founderr = err
 		return err
@@ -284,22 +284,22 @@ func (upc *upperChannel) dialGuruAndServe() error {
 	for _, bucket := range upc.ex.Looker.allTheSubscriptions {
 		command.wg.Add(1)
 		if len(bucket.incoming)*4 >= cap(bucket.incoming)*3 {
-			fmt.Println("dialGuru bucket.incoming channel full", bucket.index)
+			log.Println("dialGuru bucket.incoming channel full", bucket.index)
 		}
 		bucket.incoming <- &command
 	}
 	command.wg.Wait()
 	//	}()
-	fmt.Println("dialGuruAndServe finished pushing subscriptions", upc.address, upc.name)
+	log.Println("dialGuruAndServe finished pushing subscriptions", upc.address, upc.name)
 
 	go func() {
 		for upc.founderr == nil && upc.isRunning() {
 			time.Sleep(time.Second * 300)
 			p := &packets.Ping{}
 			if len(upc.up)*4 >= cap(upc.up)*3 {
-				fmt.Println("dialGuruAndServe dialGuru channel full")
+				log.Println("dialGuruAndServe dialGuru channel full")
 			}
-			fmt.Println("dialGuruAndServe dialGuru sending keepalive ping to ", upc.address, upc.name)
+			log.Println("dialGuruAndServe dialGuru sending keepalive ping to ", upc.address, upc.name)
 			select {
 			case <-upc.stopped:
 				return
@@ -314,18 +314,18 @@ func (upc *upperChannel) dialGuruAndServe() error {
 		for upc.founderr == nil && upc.isRunning() {
 			p, err := packets.ReadPacket(upc.conn) // guru sent this down to us
 			if err != nil {
-				fmt.Println("dialGuruAndServe readPacket err", p, err, upc.address, upc.name)
+				log.Println("dialGuruAndServe readPacket err", p, err, upc.address, upc.name)
 				upc.founderr = err
 				upc.conn.Close()
 				return
 			}
 			got, ok := p.GetOption("debg")
 			if ok && string(got) == "12345678" {
-				fmt.Println("dialguru receive", p.Sig())
+				log.Println("dialguru receive", p.Sig())
 			}
 			err = PushDownFromTop(upc.ex.Looker, p)
 			if err != nil {
-				fmt.Println("dialGuruAndServe PushDownFromTop error ", err)
+				log.Println("dialGuruAndServe PushDownFromTop error ", err)
 				upc.founderr = err
 				upc.conn.Close()
 				return
@@ -337,23 +337,23 @@ func (upc *upperChannel) dialGuruAndServe() error {
 		var err error
 		select {
 		case p := <-upc.up:
-			//fmt.Println("dialGuruAndServe pushing to guru ", p.Sig())
+			//log.Println("dialGuruAndServe pushing to guru ", p.Sig())
 
 			err = p.Write(upc.conn)
 
-			//fmt.Println("dialGuruAndServe pushed to guru ", p.Sig())
+			//log.Println("dialGuruAndServe pushed to guru ", p.Sig())
 		case <-time.After(time.Millisecond * 100):
-			// fmt.Println("dialGuruAndServe timeout")
+			// log.Println("dialGuruAndServe timeout")
 			// check the upc.founderr and upc.running
 		}
 		if err != nil {
 			upc.founderr = err
-			fmt.Println("dialGuruAndServe err pushing to guru ", err, upc.address, upc.name, upc.conn.RemoteAddr())
+			log.Println("dialGuruAndServe err pushing to guru ", err, upc.address, upc.name, upc.conn.RemoteAddr())
 			upc.conn.Close()
 			return err
 		}
 	}
-	fmt.Println("dialGuruAndServe exiting ", upc.address, upc.name, upc.conn.RemoteAddr())
+	log.Println("dialGuruAndServe exiting ", upc.address, upc.name, upc.conn.RemoteAddr())
 	return upc.founderr
 }
 
@@ -377,7 +377,7 @@ func XxxxxxxConnectGuruToSuperAide(guru *Executive, aide *Executive) {
 	// defer router.mux.Unlock()
 
 	if len(names) != len(addresses) {
-		fmt.Println("error len(names) != len(addresses) panic")
+		log.Println("error len(names) != len(addresses) panic")
 		return
 	}
 
@@ -413,7 +413,7 @@ func XxxxxxxConnectGuruToSuperAide(guru *Executive, aide *Executive) {
 		if found && upc.isRunning() {
 			router.channels[i] = upc
 		} else {
-			fmt.Println("starting dialGuru from ", me.ex.Name, " to ", name)
+			log.Println("starting dialGuru from ", me.ex.Name, " to ", name)
 			upc = &upperChannel{}
 			upc.name = name
 			upc.address = address
@@ -430,7 +430,7 @@ func XxxxxxxConnectGuruToSuperAide(guru *Executive, aide *Executive) {
 		_, found := theNamesThisTime[upc.name]
 		if !found {
 			close(upc.stopped)
-			fmt.Println("forgetting upper router ", upc.name)
+			log.Println("forgetting upper router ", upc.name)
 			close(upc.up)
 			close(upc.down)
 			delete(router.name2channel, upc.name)
@@ -457,7 +457,7 @@ func XxxxxxxConnectGuruToSuperAide(guru *Executive, aide *Executive) {
 		for _, bucket := range me.allTheSubscriptions {
 			command.wg.Add(1)
 			if len(bucket.incoming)*4 >= cap(bucket.incoming)*3 {
-				fmt.Println("super aide bucket.incoming is full error")
+				log.Println("super aide bucket.incoming is full error")
 			}
 			bucket.incoming <- &command
 		}

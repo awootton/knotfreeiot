@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"log"
 	"strconv"
 	"time"
 
@@ -19,7 +20,7 @@ func processSubscribe(me *LookupTableStruct, bucket *subscribeBucket, submsg *su
 
 	wereSpecial := false
 	SpecialPrint(&submsg.p.PacketCommon, func() {
-		fmt.Println(me.ex.Name, "processSubscribe top con= ", submsg.ss.GetKey().Sig(), submsg.p.Sig())
+		log.Println(me.ex.Name, "processSubscribe top con= ", submsg.ss.GetKey().Sig(), submsg.p.Sig())
 		wereSpecial = true
 	})
 
@@ -38,7 +39,7 @@ func processSubscribe(me *LookupTableStruct, bucket *subscribeBucket, submsg *su
 			watchedTopic.Jwtid = string(t)
 		}
 		// if watchedTopic.jwtid == "123456" {
-		// 	fmt.Println("have 123456 in new watcher", me.myname)
+		// 	log.Println("have 123456 in new watcher", me.myname)
 		// }
 		setWatcher(bucket, &submsg.topicHash, watchedTopic)
 		TopicsAdded.Inc()
@@ -79,7 +80,7 @@ func processSubscribe(me *LookupTableStruct, bucket *subscribeBucket, submsg *su
 		// check if there's already a BillingAccumulator
 		_, haveBilling := watchedTopic.IsBilling()
 		if !haveBilling {
-			//fmt.Println("new BillingAccumulator", watchedTopic.name)
+			//log.Println("new BillingAccumulator", watchedTopic.name)
 			stats := &tokens.KnotFreeContactStats{}
 			err := json.Unmarshal(val, stats)
 			if err == nil {
@@ -90,7 +91,7 @@ func processSubscribe(me *LookupTableStruct, bucket *subscribeBucket, submsg *su
 			}
 		}
 		// else {
-		// 	//fmt.Println("found BillingAccumulator", watchedTopic.name)
+		// 	//log.Println("found BillingAccumulator", watchedTopic.name)
 		// }
 		watchedTopic.Expires = 60*60 + me.getTime()
 	}
@@ -124,7 +125,7 @@ func processSubscribe(me *LookupTableStruct, bucket *subscribeBucket, submsg *su
 	nonce, ok3 := subs.GetOption("nonce")
 	if false && ok1 && ok2 && ok3 {
 
-		fmt.Println(me.ex.Name, "Subscribe setting permanent node=", me.ex.Name)
+		log.Println(me.ex.Name, "Subscribe setting permanent node=", me.ex.Name)
 
 		hadError := ""
 
@@ -140,22 +141,22 @@ func processSubscribe(me *LookupTableStruct, bucket *subscribeBucket, submsg *su
 		open_bytes, err := box.Open(dest_buffer, box_bytes2, &nonce2, &pubk2, clusterSecret)
 		_ = err
 		// this should be our original jwt for a name res
-		//fmt.Println("recovered name jwt", string(open_bytes))
+		//log.Println("recovered name jwt", string(open_bytes))
 
 		publicKeyBytes := tokens.FindPublicKey("yRst")
 		namePayload, ok := tokens.VerifyNameToken([]byte(open_bytes), []byte(publicKeyBytes))
 		if !ok {
-			fmt.Printf("ERROR tokens.VerifyNameToken got %v, want %v", "false", "true")
+			log.Printf("ERROR tokens.VerifyNameToken got %v, want %v", "false", "true")
 			hadError += fmt.Sprintf("ERROR tokens.VerifyNameToken got %v, want %v", "false", "true")
 		}
-		//fmt.Println("payload of name token ", namePayload)
+		//log.Println("payload of name token ", namePayload)
 
 		// and here's the trick
 		// the public key in the namePayload must
 		// match the pubk for the box FIXME:
 
 		if namePayload.JWTID != base64.RawURLEncoding.EncodeToString(pubk) {
-			fmt.Printf(" pub key should match got %v, want %v", base64.RawURLEncoding.EncodeToString(pubk), namePayload.JWTID)
+			log.Printf(" pub key should match got %v, want %v", base64.RawURLEncoding.EncodeToString(pubk), namePayload.JWTID)
 			hadError += fmt.Sprintf(" pub key should match got %v, want %v", base64.RawURLEncoding.EncodeToString(pubk), namePayload.JWTID)
 		}
 
@@ -164,7 +165,7 @@ func processSubscribe(me *LookupTableStruct, bucket *subscribeBucket, submsg *su
 		unused.Address.FromString(namePayload.Name)
 		unused.Address.EnsureAddressIsBinary()
 		if !bytes.Equal(subs.Address.Bytes, unused.Address.Bytes) {
-			fmt.Printf("names must match '%v', want '%v'", subs.Address.String(), namePayload.Name)
+			log.Printf("names must match '%v', want '%v'", subs.Address.String(), namePayload.Name)
 			hadError += fmt.Sprintf("names must match '%v', want '%v'", subs.Address.String(), namePayload.Name)
 		}
 
@@ -184,18 +185,18 @@ func processSubscribe(me *LookupTableStruct, bucket *subscribeBucket, submsg *su
 		// }
 		contactKey := submsg.ss.GetKey()
 		if wereSpecial {
-			fmt.Println(me.ex.Name, "Subscribe remembering con= ", submsg.ss.GetKey().Sig(), " for ", submsg.p.Sig())
+			log.Println(me.ex.Name, "Subscribe remembering con= ", submsg.ss.GetKey().Sig(), " for ", submsg.p.Sig())
 		}
 		// do we exist already?
 		foundWi, exists := watchedTopic.get(contactKey)
 		if exists {
 			if wereSpecial {
-				fmt.Println(me.ex.Name, "Subscribe already exists", contactKey.Sig(), " for ", submsg.p.Sig())
+				log.Println(me.ex.Name, "Subscribe already exists", contactKey.Sig(), " for ", submsg.p.Sig())
 			}
 			_ = foundWi
 		} else {
 			if wereSpecial {
-				fmt.Println(me.ex.Name, "Subscribe adding new contact:", contactKey.Sig(), " for", submsg.p.Sig())
+				log.Println(me.ex.Name, "Subscribe adding new contact:", contactKey.Sig(), " for", submsg.p.Sig())
 			}
 			watchedTopic.put(contactKey, wi)
 		}
@@ -208,7 +209,7 @@ func processSubscribe(me *LookupTableStruct, bucket *subscribeBucket, submsg *su
 		_, ok := submsg.p.GetOption("noack")
 		if !ok {
 			if wereSpecial {
-				fmt.Println(me.ex.Name, "Subscribe writing down:", submsg.ss.GetKey().Sig(), " for", submsg.p.Sig())
+				log.Println(me.ex.Name, "Subscribe writing down:", submsg.ss.GetKey().Sig(), " for", submsg.p.Sig())
 			}
 			submsg.ss.WriteDownstream(submsg.p) // subs going down are suback's
 		}
@@ -218,16 +219,16 @@ func processSubscribe(me *LookupTableStruct, bucket *subscribeBucket, submsg *su
 		// there's a case when we are local and just running an aide.
 		if noUpstream {
 			if wereSpecial {
-				fmt.Println(me.ex.Name, "Subscribe noUpstream writing down:", submsg.ss.GetKey().Sig(), " for", submsg.p.Sig())
+				log.Println(me.ex.Name, "Subscribe noUpstream writing down:", submsg.ss.GetKey().Sig(), " for", submsg.p.Sig())
 			}
 			// if bucket.index == 49 {
-			// 	fmt.Println("subscribe noUpstream writing down TOP for bucket 49")
+			// 	log.Println("subscribe noUpstream writing down TOP for bucket 49")
 			// }
 
 			submsg.ss.WriteDownstream(submsg.p) // subs going down are suback's
 
 			// if bucket.index == 49 {
-			// 	fmt.Println("subscribe noUpstream writing down DONE for bucket 49")
+			// 	log.Println("subscribe noUpstream writing down DONE for bucket 49")
 			// }
 		}
 	}
@@ -237,7 +238,7 @@ func processSubscribe(me *LookupTableStruct, bucket *subscribeBucket, submsg *su
 		err := bucket.looker.PushUp(submsg.p, submsg.topicHash)
 		if err != nil {
 			// what? we're sad? todo: man up
-			fmt.Println("ERROR pushup", err, submsg.p.Sig(), me.ex.Name)
+			log.Println("ERROR pushup", err, submsg.p.Sig(), me.ex.Name)
 		}
 	}
 }
@@ -246,13 +247,13 @@ func processSubscribeDown(me *LookupTableStruct, bucket *subscribeBucket, submsg
 
 	wereSpecial := false
 	SpecialPrint(&submsg.p.PacketCommon, func() {
-		fmt.Println("processSubscribeDown ", submsg.p.Sig())
+		log.Println("processSubscribeDown ", submsg.p.Sig())
 		wereSpecial = true
 	})
 
 	watcheditem, ok := getWatcher(bucket, &submsg.h) //bucket.mySubscriptions[pubmsg.h]
 	if !ok {
-		// this is weird but is it wrong? fmt.Println("processSubscribeDown ERROR no watcher for suback", submsg.p.Sig())
+		// this is weird but is it wrong? log.Println("processSubscribeDown ERROR no watcher for suback", submsg.p.Sig())
 	} else {
 		// what if there's more than one? Who get's the suback?
 		// we'll do them all
@@ -264,7 +265,7 @@ func processSubscribeDown(me *LookupTableStruct, bucket *subscribeBucket, submsg
 			_ = key
 
 			if wereSpecial {
-				fmt.Println(me.ex.Name, "processSubscribeDown sending con= ", ci.GetKey().Sig(), submsg.p.Sig())
+				log.Println(me.ex.Name, "processSubscribeDown sending con= ", ci.GetKey().Sig(), submsg.p.Sig())
 			}
 
 			if !me.checkForBadContact(ci, watcheditem) {
@@ -288,7 +289,7 @@ func heartBeatCallBack(me *LookupTableStruct, bucket *subscribeBucket, cmd *call
 	}()
 
 	// if bucket.index == 49 {
-	// 	fmt.Println("heartbeat TOP for bucket 49")
+	// 	log.Println("heartbeat TOP for bucket 49")
 	// }
 
 	s := bucket.mySubscriptions
@@ -300,7 +301,7 @@ func heartBeatCallBack(me *LookupTableStruct, bucket *subscribeBucket, cmd *call
 	for h, watchedItem := range s {
 
 		if watchedItem.getSize() == 0 {
-			// fmt.Println("Subscribe heartbeat expiring whole bucket", watchedItem.name.Sig())
+			// log.Println("Subscribe heartbeat expiring whole bucket", watchedItem.name.Sig())
 			emptyTopics = append(emptyTopics, watchedItem)
 			continue
 		}
@@ -310,7 +311,7 @@ func heartBeatCallBack(me *LookupTableStruct, bucket *subscribeBucket, cmd *call
 		// FIRST, scan all the contact references and schedule the stale ones for deleteion.
 		// if expireAll {
 		// 	// expire the whole subscription because it's dead for too long
-		// 	fmt.Println("expiring ALL", watchedItem.name)
+		// 	log.Println("expiring ALL", watchedItem.name)
 		// }
 
 		unsubsNeeded := make([]ContactInterface, 0, 10)
@@ -322,9 +323,9 @@ func heartBeatCallBack(me *LookupTableStruct, bucket *subscribeBucket, cmd *call
 			if expireAll || item.contactInterface.IsClosed() {
 
 				// if expireAll {
-				// 	fmt.Println("Subscribe heartbeat expiring all sub=", watchedItem.name.Sig(), " con=", item.contactInterface.GetKey().Sig())
+				// 	log.Println("Subscribe heartbeat expiring all sub=", watchedItem.name.Sig(), " con=", item.contactInterface.GetKey().Sig())
 				// } else {
-				// 	fmt.Println("Subscribe heartbeat unsub sub=", watchedItem.name.Sig(), " con=", item.contactInterface.GetKey().Sig())
+				// 	log.Println("Subscribe heartbeat unsub sub=", watchedItem.name.Sig(), " con=", item.contactInterface.GetKey().Sig())
 				// }
 
 				unsubsNeeded = append(unsubsNeeded, item.contactInterface) // collect them now
@@ -354,7 +355,7 @@ func heartBeatCallBack(me *LookupTableStruct, bucket *subscribeBucket, cmd *call
 				now := me.getTime()
 				good, msg := billingAccumulator.AreUnderMax(now)
 				if !good {
-					fmt.Println("have billing error", msg, watchedItem.Name.GetUint64())
+					log.Println("have billing error", msg, watchedItem.Name.GetUint64())
 					p := &packets.Send{}
 					p.Address.Bytes = new([24]byte)[:]
 					p.Address.Type = packets.BinaryAddress
@@ -389,14 +390,14 @@ func heartBeatCallBack(me *LookupTableStruct, bucket *subscribeBucket, cmd *call
 
 					msg.Subscriptions = float64(deltaTime) // means one per sec, one per min ... one. Q: is 300?
 
-					// fmt.Println("sending subscribe deltat", deltaTime, "from ", me.myname)
+					// log.Println("sending subscribe deltat", deltaTime, "from ", me.myname)
 
 					p := &packets.Send{}
 					p.Address.FromString(watchedItem.Jwtid)
 					p.Source.FromString("billing_stats_return_address_subscribe") // doesn't exist. use "ping" ?
 					str, err := json.Marshal(msg)
 					if err != nil {
-						fmt.Println(" break fast ")
+						log.Println(" break fast ")
 					}
 					p.SetOption("add-stats", str)
 					p.SetOption("stats-deltat", []byte(strconv.FormatInt(int64(deltaTime), 10)))
@@ -415,18 +416,18 @@ func heartBeatCallBack(me *LookupTableStruct, bucket *subscribeBucket, cmd *call
 	}
 
 	// if bucket.index == 49 {
-	// 	fmt.Println("heartbeat after watchedItems for bucket 49")
+	// 	log.Println("heartbeat after watchedItems for bucket 49")
 	// }
 
 	// the http serve to a thing generates many of these.
 	// we have to do this async
 	for _, emptyBucket := range emptyTopics {
-		// fmt.Println("Subscribe deleting entire empty bucket", emptyBucket.name)
+		// log.Println("Subscribe deleting entire empty bucket", emptyBucket.name)
 		delete(bucket.mySubscriptions, emptyBucket.Name) // the name is the hash
 	}
 
 	// if bucket.index == 49 {
-	// 	fmt.Println("heartbeat after deletes for bucket 49")
+	// 	log.Println("heartbeat after deletes for bucket 49")
 	// }
 
 	// async. we never know when PushUp might block
@@ -453,14 +454,14 @@ func heartBeatCallBack(me *LookupTableStruct, bucket *subscribeBucket, cmd *call
 			if !me.isGuru {
 				err := bucket.looker.PushUp(unmsg, emptyBucket.Name)
 				if err != nil {
-					fmt.Println("Subscribe heartbeat unsub  PushUp error", err)
+					log.Println("Subscribe heartbeat unsub  PushUp error", err)
 				}
 			}
 		}
 	}()
 
 	// if bucket.index == 49 {
-	// 	fmt.Println("heartbeat after starting unsubs for bucket 49")
+	// 	log.Println("heartbeat after starting unsubs for bucket 49")
 	// }
 
 	go func() {
@@ -473,7 +474,7 @@ func heartBeatCallBack(me *LookupTableStruct, bucket *subscribeBucket, cmd *call
 	}()
 
 	// if bucket.index == 49 {
-	// 	fmt.Println("heartbeat DONE for bucket 49")
+	// 	log.Println("heartbeat DONE for bucket 49")
 	// }
 
 }
@@ -482,7 +483,7 @@ func processUnsubscribe(me *LookupTableStruct, bucket *subscribeBucket, unmsg *u
 
 	_ = me
 	SpecialPrint(&unmsg.p.PacketCommon, func() {
-		fmt.Println("processUnsubscribe con= ", unmsg.ss.GetKey().Sig(), "add ", unmsg.p.Sig())
+		log.Println("processUnsubscribe con= ", unmsg.ss.GetKey().Sig(), "add ", unmsg.p.Sig())
 	})
 
 	watchedTopic, ok := getWatcher(bucket, &unmsg.topicHash)
@@ -494,7 +495,7 @@ func processUnsubscribe(me *LookupTableStruct, bucket *subscribeBucket, unmsg *u
 			if !me.isGuru {
 				err := bucket.looker.PushUp(unmsg.p, unmsg.topicHash)
 				if err != nil {
-					fmt.Println("ERROR processUnsubscribe PushUp", err, me.ex.Name)
+					log.Println("ERROR processUnsubscribe PushUp", err, me.ex.Name)
 				}
 			}
 
@@ -508,7 +509,7 @@ func processUnsubscribe(me *LookupTableStruct, bucket *subscribeBucket, unmsg *u
 				if !me.isGuru {
 					err := bucket.looker.PushUp(unmsg.p, unmsg.topicHash)
 					if err != nil {
-						fmt.Println("ERROR processUnsubscribe PushUp", err, me.ex.Name)
+						log.Println("ERROR processUnsubscribe PushUp", err, me.ex.Name)
 					}
 				}
 			}

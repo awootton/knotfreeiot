@@ -3,7 +3,7 @@ package iot
 import (
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
+	"log"
 	"math/rand"
 	"sort"
 	"strconv"
@@ -65,19 +65,19 @@ func processLookup(me *LookupTableStruct, bucket *subscribeBucket, lookmsg *look
 
 	_, ok := lookmsg.p.GetOption(SessionKeyString)
 	if !ok {
-		fmt.Println("processLookup ERROR lookmsg has no sessionValue. Very naughty. This is a violation of the new rules. This should never happen. ", lookmsg.p.Sig())
+		log.Println("processLookup ERROR lookmsg has no sessionValue. Very naughty. This is a violation of the new rules. This should never happen. ", lookmsg.p.Sig())
 	}
 
 	if !me.isGuru {
-		// fmt.Println("processLookup PushUp", me.ex.Name)
+		// log.Println("processLookup PushUp", me.ex.Name)
 		err := bucket.looker.PushUp(lookmsg.p, lookmsg.topicHash)
 		if err != nil {
-			fmt.Println("processLookup PushUp error: ", err)
+			log.Println("processLookup PushUp error: ", err)
 		}
 		return
 	}
 
-	// fmt.Println("processLookup TOP:", me.ex.Name, lookmsg.p.Sig(), " v", version)
+	log.Println("processLookup TOP:", me.ex.Name, lookmsg.p.Sig(), " v", version)
 
 	// else we are the guru or we have no upstream
 	// We will handle it here.
@@ -119,7 +119,7 @@ func processLookup(me *LookupTableStruct, bucket *subscribeBucket, lookmsg *look
 		startTime := time.Now()
 
 		if serviceDebugSession1 {
-			fmt.Println("processLookup have command:", comandStruct.CommandString)
+			log.Println("processLookup have command:", comandStruct.CommandString)
 		}
 
 		// does it require encryption?
@@ -158,9 +158,9 @@ func processLookup(me *LookupTableStruct, bucket *subscribeBucket, lookmsg *look
 		// }
 
 		delta := time.Since(startTime)
-		fmt.Println("processLookup BOTTOM:", lookmsg.p.Sig(), delta, reply)
+		log.Println("processLookup BOTTOM:", lookmsg.p.Sig(), delta, reply)
 		if len(me.ex.channelToAnyAide) >= cap(me.ex.channelToAnyAide) {
-			fmt.Println("processLookup ERROR me.ex.channelToAnyAide channel full")
+			log.Println("processLookup ERROR me.ex.channelToAnyAide channel full")
 		}
 		// can we have just ONE sendReply please?
 		send.DeleteOption("cmd")
@@ -178,12 +178,12 @@ func sendReply(me *LookupTableStruct, lookmsg *lookupMessage, reply string) {
 	send.CopyOptions(&lookmsg.p.PacketCommon)
 	send.Payload = []byte(reply)
 	if len(me.ex.channelToAnyAide) >= cap(me.ex.channelToAnyAide) {
-		fmt.Println("processLookup sendReply ERROR me.ex.channelToAnyAide channel full")
+		log.Println("processLookup sendReply ERROR me.ex.channelToAnyAide channel full")
 	}
 
 	if serviceDebugSession1 {
 		cmd, _ := lookmsg.p.GetOption("cmd")
-		fmt.Println("processLookup sending reply to:", string(cmd), "reply:", reply)
+		log.Println("processLookup sending reply to:", string(cmd), "reply:", reply)
 	}
 
 	// you know, we don't really need the "cmd" key in the reply option's.
@@ -285,7 +285,7 @@ func getAndSetWatcher(callContext interface{}, finish func(callContext interface
 				finish(callContext, watchedTopic)
 			},
 		}
-		// fmt.Println("sending to incoming q whose length is now ", len(bucket.incoming))
+		// log.Println("sending to incoming q whose length is now ", len(bucket.incoming))
 		bucket.incoming <- &mmm
 	}()
 }
@@ -314,7 +314,7 @@ func setupCommands(c *lookupContext) {
 					sendReply(me, lookMsg, "json error: "+err.Error())
 					return
 				}
-				// fmt.Println("details returns ", string(json))
+				// log.Println("details returns ", string(json))
 				sendReply(me, lookMsg, string(json))
 			}, nil)
 			return ""
@@ -336,7 +336,7 @@ func setupCommands(c *lookupContext) {
 				subKey = args[1]
 			}
 
-			// fmt.Println("get option TOP", key, subKey)
+			// log.Println("get option TOP", key, subKey)
 			getAndSetWatcher(callContext, func(callContext interface{}, watchedTopic *WatchedTopic) {
 				me, bucket, lookMsg, _ := getCallContext(callContext)
 				_ = bucket
@@ -355,7 +355,7 @@ func setupCommands(c *lookupContext) {
 						return
 					}
 				}
-				// fmt.Println("get option returning", key, subValue)
+				// log.Println("get option returning", key, subValue)
 				sendReply(me, lookMsg, subValue)
 			}, nil)
 			return ""
@@ -367,7 +367,7 @@ func setupCommands(c *lookupContext) {
 		func(msg string, args []string, callContext interface{}) string {
 
 			key := "TXT"
-			// fmt.Println("get txt")
+			// log.Println("get txt")
 			subKey := "@"
 			if len(args) > 0 {
 				subKey = args[0]
@@ -423,7 +423,7 @@ func setupCommands(c *lookupContext) {
 			// 	newOptionVal = string(decoded)
 			// }
 
-			fmt.Println("processLookup set option", key, newOptionVal, subKey)
+			log.Println("processLookup set option", key, newOptionVal, subKey)
 
 			getAndSetWatcher(callContext, func(callContext interface{}, watchedTopic *WatchedTopic) {
 				me, bucket, lookMsg, pubk := getCallContext(callContext)
@@ -462,7 +462,7 @@ func setupCommands(c *lookupContext) {
 			}
 			key := strings.ToUpper(args[0])
 			bulkVals := args[1:]
-			fmt.Println("processLookup bulk option", key, bulkVals)
+			log.Println("processLookup bulk option", key, bulkVals)
 
 			getAndSetWatcher(callContext, func(callContext interface{}, watchedTopic *WatchedTopic) {
 				me, bucket, lookMsg, pubk := getCallContext(callContext)
@@ -512,7 +512,7 @@ func setupCommands(c *lookupContext) {
 				sendReply(me, lookMsg, "replace options error: "+err.Error())
 				return ""
 			}
-			fmt.Println("processLookup replace options", newOptionsString)
+			log.Println("processLookup replace options", newOptionsString)
 
 			getAndSetWatcher(callContext, func(callContext interface{}, watchedTopic *WatchedTopic) {
 				me, bucket, lookMsg, pubk := getCallContext(callContext)
@@ -544,12 +544,12 @@ func setupCommands(c *lookupContext) {
 
 			status := ProxyStatusReturnType{false, false, "", ""}
 
-			// fmt.Println("proxy-status TOP")
+			// log.Println("proxy-status TOP")
 
 			getAndSetWatcher(callContext, func(callContext interface{}, watchedTopic *WatchedTopic) {
 				me, _, lookMsg, _ := getCallContext(callContext)
 
-				// fmt.Println("proxy-status has watcher")
+				// log.Println("proxy-status has watcher")
 
 				if watchedTopic == nil {
 					bytes, _ := json.Marshal(status)
@@ -583,7 +583,7 @@ func setupCommands(c *lookupContext) {
 			exists := LookupNameExistsReturnType{false, false, ""}
 			me, bucket, lookMsg, _ := getCallContext(callContext)
 
-			fmt.Println("top of exists")
+			log.Println("top of exists")
 
 			watchedTopic, ok := getWatcher(bucket, &lookMsg.topicHash)
 			if ok { // we have it. It was loaded already
@@ -602,9 +602,9 @@ func setupCommands(c *lookupContext) {
 			// we will lose exclusive access to the bucket now.
 			go func() {
 				// checkMongo
-				fmt.Println("exists check mongo")
+				log.Println("exists check mongo")
 				gotwatchedTopic, ok := GetSubscription(str)
-				fmt.Println("exists got mongo", ok)
+				log.Println("exists got mongo", ok)
 				if !ok {
 					exists.Exists = false
 					exists.Online = false
@@ -627,7 +627,7 @@ func setupCommands(c *lookupContext) {
 						sendReply(me, lookMsg, string(s))
 					},
 				}
-				fmt.Println("sending to incoming q (2) whose length is now ", len(bucket.incoming))
+				log.Println("sending to incoming q (2) whose length is now ", len(bucket.incoming))
 
 				bucket.incoming <- &mmm
 			}()
@@ -758,7 +758,7 @@ func decryptCommand(me *LookupTableStruct, p *packets.Lookup, command string) bo
 	cmdtmp = strings.TrimSpace(cmdtmp)
 	// check the command.
 	if command != cmdtmp {
-		fmt.Println("command mismatch", cmdtmp, command)
+		log.Println("command mismatch", cmdtmp, command)
 		return false
 	}
 	return true

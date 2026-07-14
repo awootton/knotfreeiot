@@ -1,7 +1,7 @@
 package iot
 
 import (
-	"fmt"
+	"log"
 	"math/rand"
 	"net"
 	"sync/atomic"
@@ -36,7 +36,7 @@ func (ex *Executive) DialContactToAnyAide(isTCP bool, ce *ClusterExecutive, comm
 		// 						// we have a tcp address, dial it.
 		// 						err := ex.dial Aide AndServe(aide.TCPAddress, ce)
 		// 						if err != nil {
-		// 							fmt.Println("DialContactToAnyAide dial AideAndServe returned")
+		// 							log.Println("DialContactToAnyAide dial AideAndServe returned")
 		// 						} //else {
 		// 						// there's always an error or else we'd still be in dial AideAndServe
 		// 						//}
@@ -48,11 +48,11 @@ func (ex *Executive) DialContactToAnyAide(isTCP bool, ce *ClusterExecutive, comm
 		// 	time.Sleep(1000 * time.Millisecond)
 		// 	count++
 		// 	if (count % 100) == 0 {
-		// 		fmt.Println("ex.Looker.contactToAnyAide is having problems")
+		// 		log.Println("ex.Looker.contactToAnyAide is having problems")
 		// 	}
 		// } // for
 	} else { // isTCP == false
-		fmt.Println("DON'T use non TCP mode anymore. Delete this code. ")
+		log.Println("DON'T use non TCP mode anymore. Delete this code. ")
 		for { // not the ClusterStats technique. for unit test only.
 			// if len(ce.Aides) > 0 {
 			// 	aide := ce.Aides[rand.Intn(len(ce.Aides))]
@@ -71,22 +71,22 @@ func (ex *Executive) DialContactToAnyAide(isTCP bool, ce *ClusterExecutive, comm
 			// 	connect.SetOption("token", []byte(token))
 			// 	err := PushPacketUpFromBottom(contact, &connect)
 			// 	if err != nil {
-			// 		fmt.Println("connect problems test dial conn ", err)
+			// 		log.Println("connect problems test dial conn ", err)
 			// 		continue
 			// 	}
 			// 	// this is dead code
-			// 	fmt.Println("starting for range channelToAnyAide", ex.Name)
+			// 	log.Println("starting for range channelToAnyAide", ex.Name)
 			// 	for p := range ex.channelToAnyAide {
-			// 		fmt.Println("got channelToAnyAide aide ", ex.Name)
+			// 		log.Println("got channelToAnyAide aide ", ex.Name)
 			// 		err := PushPacketUpFromBottom(contact, p)
 			// 		if err != nil {
-			// 			fmt.Println("err PushPacketUpFromBottom ", err)
+			// 			log.Println("err PushPacketUpFromBottom ", err)
 			// 		}
 			// 	}
-			// 	fmt.Println("ending for range channelToAnyAide", ex.Name)
+			// 	log.Println("ending for range channelToAnyAide", ex.Name)
 			// } else
 			{
-				fmt.Println("no aides in cluster fail")
+				log.Println("no aides in cluster fail")
 				panic("no aides in cluster fail")
 			}
 		}
@@ -116,7 +116,7 @@ func getTheIndex(ex *Executive) (int, string, string) {
 		if !ex.ClusterStats.Stats[index].IsGuru {
 			name := ex.ClusterStats.Stats[index].Name
 			address := ex.ClusterStats.Stats[index].TCPAddress
-			fmt.Println("getTheIndex returns", index, name, address)
+			log.Println("getTheIndex returns", index, name, address)
 			return index, name, address
 		}
 	}
@@ -140,7 +140,7 @@ func (ex *Executive) dialAideAndServe(comment string) {
 	count := 0
 	address := ""
 
-	fmt.Println("top of dialAideAndServe ONE TOP ONCE", ex.Name, comment)
+	log.Println("top of dialAideAndServe ONE TOP ONCE", ex.Name, comment)
 
 	startReader := make(chan bool)
 
@@ -155,13 +155,13 @@ func (ex *Executive) dialAideAndServe(comment string) {
 				index, name, address = getTheIndex(ex)
 				icount++
 				if icount > 10 {
-					fmt.Println("dialAideAndServe 1 error waiting for clusterStats too long", ex.Name, index, name, address)
+					log.Println("dialAideAndServe 1 error waiting for clusterStats too long", ex.Name, index, name, address)
 					time.Sleep(1000 * time.Millisecond)
 				}
 			}
 			var tmp int64
 			dialAideAndServeInvoked.Store(tmp)
-			fmt.Println("top of dialAideAndServe from ", ex.Name, " to ", name, address, tmp, index)
+			log.Println("top of dialAideAndServe from ", ex.Name, " to ", name, address, tmp, index)
 
 			// todo: tell prometheius we're dialing
 			var err error
@@ -173,10 +173,10 @@ func (ex *Executive) dialAideAndServe(comment string) {
 				index = -1
 				count++
 				if (count % 1000) == 0 {
-					fmt.Println("dialAideAndServe 2 error", address, err)
+					log.Println("dialAideAndServe 2 error", address, err)
 				}
 				TCPNameResolverFail2.Inc()
-				fmt.Println("dialAideAndServe top of dial timeout (2sec) ", ex.Name, " to ", name, address, tmp, index)
+				log.Println("dialAideAndServe top of dial timeout (2sec) ", ex.Name, " to ", name, address, tmp, index)
 
 				time.Sleep(100 * time.Millisecond) // try hard. There's a q filling up.
 				continue                           // back to top
@@ -187,7 +187,7 @@ func (ex *Executive) dialAideAndServe(comment string) {
 			add := conn.(*net.TCPConn).LocalAddr().String()
 			add2 := conn.(*net.TCPConn).RemoteAddr().String()
 			helpful_comment := "dialAideAndServe " + ex.Name + " to " + name + " " + address + " from " + add + " to " + add2
-			fmt.Println("dialAideAndServe connected to tcp ", add, " to ", add2, " from ", ex.Name, " to ", name, address, index)
+			log.Println("dialAideAndServe connected to tcp ", add, " to ", add2, " from ", ex.Name, " to ", name, address, index)
 
 			TCPNameResolverConnected.Inc()
 
@@ -203,14 +203,14 @@ func (ex *Executive) dialAideAndServe(comment string) {
 			connect.SetOption("helpful_comment", []byte(helpful_comment))
 			err = connect.Write(conn)
 			if err != nil {
-				fmt.Println("dialAideAndServe connect error", conn, err)
+				log.Println("dialAideAndServe connect error", conn, err)
 				conn.Close()
 				index = -1
 				time.Sleep(100 * time.Millisecond)
 				continue // back to top
 			}
 
-			fmt.Println("dialAideAndServe connected, waiting to write", ex.Name)
+			log.Println("dialAideAndServe connected, waiting to write", ex.Name)
 
 			// we pop them off the huge channelToAnyAide and write them to this socket.
 			// they reappear in other machine and turn back into packets to get processed
@@ -218,7 +218,7 @@ func (ex *Executive) dialAideAndServe(comment string) {
 
 			for { // pop packets off the channelToAnyAide and send them to the aide.
 				if index == -1 {
-					fmt.Println("dialAideAndServe index -1")
+					log.Println("dialAideAndServe index -1")
 					if conn != nil {
 						conn.Close()
 					}
@@ -234,30 +234,30 @@ func (ex *Executive) dialAideAndServe(comment string) {
 					}
 				}
 				if !exists {
-					fmt.Println("dialAideAndServe name change", ex.ClusterStats.Stats[index].Name, name, index)
+					log.Println("dialAideAndServe name change", ex.ClusterStats.Stats[index].Name, name, index)
 					oops = true
 				}
 				ex.statsmu.Unlock()
 
 				if oops {
 					index = -1
-					fmt.Println("dialAideAndServe have index -1", name, index)
+					log.Println("dialAideAndServe have index -1", name, index)
 
 					conn.Close()
 					break // from pop-packets, back to top of connect
 				}
 				if conn == nil {
-					fmt.Println("ERROR dialAideAndServe conn nil")
+					log.Println("ERROR dialAideAndServe conn nil")
 					break // from pop-packets, back to top of connect
 				}
-				// fmt.Println("dialAideAndServe waiting channelToAnyAide", ex.Name)
+				// log.Println("dialAideAndServe waiting channelToAnyAide", ex.Name)
 				p := <-ex.channelToAnyAide
 				if serviceDebugSession1 {
-					fmt.Println("dialAideAndServe got from channelToAnyAide and writing", p.Sig(), ex.Name)
+					log.Println("dialAideAndServe got from channelToAnyAide and writing", p.Sig(), ex.Name)
 				}
 				err := p.Write(conn)
 				if err != nil {
-					fmt.Println("dialAideAndServe write error", conn, err)
+					log.Println("dialAideAndServe write error", conn, err)
 					if conn != nil {
 						conn.Close()
 					}
@@ -266,7 +266,7 @@ func (ex *Executive) dialAideAndServe(comment string) {
 					break // from pop-packets, back to top of connect
 				}
 			}
-			fmt.Println("dialAideAndServe pop then write loop exiting", ex.Name)
+			log.Println("dialAideAndServe pop then write loop exiting", ex.Name)
 		}
 	}()
 
@@ -276,7 +276,7 @@ func (ex *Executive) dialAideAndServe(comment string) {
 			p := &packets.Ping{}
 			// do we care if this blocks?
 			if len(ex.channelToAnyAide)*4 >= cap(ex.channelToAnyAide)*3 {
-				fmt.Println("dialAideAndServe channel full error")
+				log.Println("dialAideAndServe channel full error")
 				time.Sleep(1 * time.Millisecond)
 			}
 			ex.channelToAnyAide <- p
@@ -298,7 +298,7 @@ func (ex *Executive) dialAideAndServe(comment string) {
 				// }
 				if conn == nil {
 					index = -1
-					fmt.Println("ERROR dialAideAndServe packets.ReadPacket no conn ")
+					log.Println("ERROR dialAideAndServe packets.ReadPacket no conn ")
 					break
 				}
 				p, err := packets.ReadPacket(conn)
@@ -306,7 +306,7 @@ func (ex *Executive) dialAideAndServe(comment string) {
 					// if err.Error() == "EOF" { // this is what i'm seeing.
 					// }
 					//if wasStarted {
-					fmt.Println("dialAideAndServe packets.ReadPacket error ", err, count, address)
+					log.Println("dialAideAndServe packets.ReadPacket error ", err, count, address)
 					if conn != nil {
 						conn.Close()
 					}
@@ -318,7 +318,7 @@ func (ex *Executive) dialAideAndServe(comment string) {
 				}
 				_ = p // drop it on the floor
 			}
-			fmt.Println("dialAideAndServe reader loop exiting")
+			log.Println("dialAideAndServe reader loop exiting")
 		}
 	}()
 

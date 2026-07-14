@@ -17,6 +17,7 @@ package iot
 
 import (
 	"fmt"
+	"log"
 	"math"
 	"sync"
 
@@ -117,7 +118,7 @@ func (ba *BillingAccumulator) AddUsage(stats *tokens.KnotFreeContactStats, now u
 		ba.i = (ba.i + 1) % len(ba.a)
 		next := &ba.a[ba.i]
 
-		//fmt.Println("rolling forward")
+		//log.Println("rolling forward")
 		BucketClear(next)
 
 		c = next
@@ -131,12 +132,12 @@ func (ba *BillingAccumulator) AddUsage(stats *tokens.KnotFreeContactStats, now u
 
 	if ba.Max.Subscriptions == 1 && stats.Subscriptions != 0 { // the test in billing_test
 		subs := ba.GetSubscriptions(now)
-		fmt.Println("Subscriptions now", subs, ba.Name)
+		log.Println("Subscriptions now", subs, ba.Name)
 	}
 
-	//fmt.Println("added", stats.Subscriptions)
-	//fmt.Println("Subscriptions now", ba.GetSubscriptions(now), ba.name)
-	//fmt.Println("doing an add")
+	//log.Println("added", stats.Subscriptions)
+	//log.Println("Subscriptions now", ba.GetSubscriptions(now), ba.name)
+	//log.Println("doing an add")
 }
 
 // AreUnderMax returns if the stats are under the limits and, if not true,

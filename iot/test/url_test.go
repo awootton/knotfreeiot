@@ -3,8 +3,8 @@ package iot_test
 import (
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -28,18 +28,18 @@ func TestNameApiDeleteName(t *testing.T) {
 	devicePublicKey := ce.PublicKeyTemp
 	_ = devicePublicKey
 
-	fmt.Println("devicePublicKey", base64.URLEncoding.EncodeToString(devicePublicKey[:]))
+	log.Println("devicePublicKey", base64.URLEncoding.EncodeToString(devicePublicKey[:]))
 
 	passphrase := "a-person-passphrase"
 	pubk, privk := tokens.GetBoxKeyPairFromPassphrase(passphrase)
 	pubkStr := base64.URLEncoding.EncodeToString(pubk[:])
 	pubkStr = strings.TrimRight(pubkStr, "=")
-	fmt.Println("pubkStr", pubkStr)
-	fmt.Println("privkStr", base64.URLEncoding.EncodeToString(privk[:]))
+	log.Println("pubkStr", pubkStr)
+	log.Println("privkStr", base64.URLEncoding.EncodeToString(privk[:]))
 
 	token := tokens.GetTest32xTokenwjwtid(pubkStr, "f9boplwyb2wxsjtkspnucrth")
 	payload, err := tokens.ValidateToken(string(token))
-	fmt.Println("payload", payload, err)
+	log.Println("payload", payload, err)
 
 	newName := "test-new-name-delete-me"
 
@@ -70,10 +70,10 @@ func TestNameApiDeleteName(t *testing.T) {
 		buffer := make([]byte, 0, (len(payload) + box.Overhead))
 		sealed := box.Seal(buffer, []byte(payload), nonce, devicePublicKey, &privk)
 
-		// fmt.Println("sealed", base64.RawURLEncoding.EncodeToString(sealed))
-		// fmt.Println("devicePublicKey", base64.RawURLEncoding.EncodeToString(devicePublicKey[:]))
-		// fmt.Println("privk", base64.RawURLEncoding.EncodeToString(privk[:]))
-		// fmt.Println("nonce", nonceStr)
+		// log.Println("sealed", base64.RawURLEncoding.EncodeToString(sealed))
+		// log.Println("devicePublicKey", base64.RawURLEncoding.EncodeToString(devicePublicKey[:]))
+		// log.Println("privk", base64.RawURLEncoding.EncodeToString(privk[:]))
+		// log.Println("nonce", nonceStr)
 
 		// sign it
 		uri := "http://knotfree.com:8085/api1/nameService?"
@@ -84,7 +84,7 @@ func TestNameApiDeleteName(t *testing.T) {
 		uri += "&name=" + newName
 		val := getVal(t, uri)
 
-		fmt.Println("get-names returned ", val)
+		log.Println("get-names returned ", val)
 
 		if val != "ok" {
 			t.Error("expected ok, got", val)
@@ -102,10 +102,10 @@ func TestNameApiDeleteName(t *testing.T) {
 		buffer := make([]byte, 0, (len(payload) + box.Overhead))
 		sealed := box.Seal(buffer, []byte(payload), nonce, devicePublicKey, &privk)
 
-		// fmt.Println("sealed", base64.RawURLEncoding.EncodeToString(sealed))
-		// fmt.Println("devicePublicKey", base64.RawURLEncoding.EncodeToString(devicePublicKey[:]))
-		// fmt.Println("privk", base64.RawURLEncoding.EncodeToString(privk[:]))
-		// fmt.Println("nonce", nonceStr)
+		// log.Println("sealed", base64.RawURLEncoding.EncodeToString(sealed))
+		// log.Println("devicePublicKey", base64.RawURLEncoding.EncodeToString(devicePublicKey[:]))
+		// log.Println("privk", base64.RawURLEncoding.EncodeToString(privk[:]))
+		// log.Println("nonce", nonceStr)
 
 		// sign it
 		uri := "http://knotfree.com:8085/api1/nameService?"
@@ -116,7 +116,7 @@ func TestNameApiDeleteName(t *testing.T) {
 		uri += "&name=" + newName
 		val := getVal(t, uri)
 
-		fmt.Println("delete returned ", val)
+		log.Println("delete returned ", val)
 
 		if val != "ok" {
 			t.Error("expected ok, got", val)
@@ -150,11 +150,11 @@ func TestNameApiDeleteName(t *testing.T) {
 			want := `{"Exists":false,"Online":false,"Owner":""}`
 			if got != want {
 				t.Error("reply got", got, "want", want)
-				fmt.Println("reply got", got, "want", want)
+				log.Println("reply got", got, "want", want)
 			}
 		} else {
 			t.Error("reply err", err)
-			fmt.Println("reply err", err)
+			log.Println("reply err", err)
 		}
 	}
 
@@ -168,18 +168,18 @@ func TestNameApiSetOption(t *testing.T) {
 
 	sc := ce.GetPacketService()
 	_ = sc
-	fmt.Println("devicePublicKey", base64.URLEncoding.EncodeToString(ce.PublicKeyTemp[:]))
+	log.Println("devicePublicKey", base64.URLEncoding.EncodeToString(ce.PublicKeyTemp[:]))
 
 	passphrase := "a-person-passphrase"
 	pubk, privk := tokens.GetBoxKeyPairFromPassphrase(passphrase)
 	pubkStr := base64.URLEncoding.EncodeToString(pubk[:])
 	pubkStr = strings.TrimRight(pubkStr, "=")
-	fmt.Println("pubkStr", pubkStr)
-	fmt.Println("privkStr", base64.URLEncoding.EncodeToString(privk[:]))
+	log.Println("pubkStr", pubkStr)
+	log.Println("privkStr", base64.URLEncoding.EncodeToString(privk[:]))
 
 	token := tokens.GetTest32xTokenwjwtid(pubkStr, "f9boplwyb2wxsjtkspnucrth")
 	payload, err := tokens.ValidateToken(string(token))
-	fmt.Println("payload", payload, err)
+	log.Println("payload", payload, err)
 
 	aName := "a-person-channel_pod" // has complicated subkeys
 	randStr := tokens.GetRandomB36String()
@@ -193,10 +193,10 @@ func TestNameApiSetOption(t *testing.T) {
 		buffer := make([]byte, 0, (len(payload) + box.Overhead))
 		sealed := box.Seal(buffer, []byte(payload), nonce, ce.PublicKeyTemp, &privk)
 
-		fmt.Println("sealed", base64.RawURLEncoding.EncodeToString(sealed))
-		fmt.Println("devicePublicKey", base64.RawURLEncoding.EncodeToString(ce.PublicKeyTemp[:]))
-		fmt.Println("privk", base64.RawURLEncoding.EncodeToString(privk[:]))
-		fmt.Println("nonce", nonceStr)
+		log.Println("sealed", base64.RawURLEncoding.EncodeToString(sealed))
+		log.Println("devicePublicKey", base64.RawURLEncoding.EncodeToString(ce.PublicKeyTemp[:]))
+		log.Println("privk", base64.RawURLEncoding.EncodeToString(privk[:]))
+		log.Println("nonce", nonceStr)
 
 		// sign it
 		uri := "http://knotfree.com:8085/api1/nameService?cmd=" + strings.ReplaceAll(command, " ", "%20")
@@ -216,12 +216,12 @@ func TestNameApiSetOption(t *testing.T) {
 			out := make([]byte, 0, len(sealed)) // it's actually smaller
 
 			result2, ok2 := box.Open(out, sealed, &nonce2, &pubk2, ce.PrivateKeyTemp)
-			fmt.Println("result2", ok2)
+			log.Println("result2", ok2)
 			_ = result2
 		}
 		val := getVal(t, uri)
 
-		fmt.Println("get-names returned ", val)
+		log.Println("get-names returned ", val)
 		if val != "ok" {
 			t.Error("expected", "ok", "got", val)
 		}
@@ -236,10 +236,10 @@ func TestNameApiSetOption(t *testing.T) {
 		buffer := make([]byte, 0, (len(payload) + box.Overhead))
 		sealed := box.Seal(buffer, []byte(payload), nonce, ce.PublicKeyTemp, &privk)
 
-		fmt.Println("sealed", base64.RawURLEncoding.EncodeToString(sealed))
-		fmt.Println("devicePublicKey", base64.RawURLEncoding.EncodeToString(ce.PublicKeyTemp[:]))
-		fmt.Println("privk", base64.RawURLEncoding.EncodeToString(privk[:]))
-		fmt.Println("nonce", nonceStr)
+		log.Println("sealed", base64.RawURLEncoding.EncodeToString(sealed))
+		log.Println("devicePublicKey", base64.RawURLEncoding.EncodeToString(ce.PublicKeyTemp[:]))
+		log.Println("privk", base64.RawURLEncoding.EncodeToString(privk[:]))
+		log.Println("nonce", nonceStr)
 
 		// sign it
 		uri := "http://knotfree.com:8085/api1/nameService?cmd=" + strings.ReplaceAll(command, " ", "%20")
@@ -259,13 +259,13 @@ func TestNameApiSetOption(t *testing.T) {
 			out := make([]byte, 0, len(sealed)) // it's actually smaller
 
 			result2, ok2 := box.Open(out, sealed, &nonce2, &pubk2, ce.PrivateKeyTemp)
-			fmt.Println("result2", ok2)
+			log.Println("result2", ok2)
 			_ = result2
 		}
 		val := getVal(t, uri)
 
 		want := "dummy2Val" + randStr
-		fmt.Println("get-names returned ", val)
+		log.Println("get-names returned ", val)
 		if val != want {
 			t.Error("expected", want, "got", val)
 		}
@@ -280,18 +280,18 @@ func TestNameApiGetOption(t *testing.T) {
 
 	sc := ce.GetPacketService()
 	_ = sc
-	fmt.Println("devicePublicKey", base64.URLEncoding.EncodeToString(ce.PublicKeyTemp[:]))
+	log.Println("devicePublicKey", base64.URLEncoding.EncodeToString(ce.PublicKeyTemp[:]))
 
 	passphrase := "a-person-passphrase"
 	pubk, privk := tokens.GetBoxKeyPairFromPassphrase(passphrase)
 	pubkStr := base64.URLEncoding.EncodeToString(pubk[:])
 	pubkStr = strings.TrimRight(pubkStr, "=")
-	fmt.Println("pubkStr", pubkStr)
-	fmt.Println("privkStr", base64.URLEncoding.EncodeToString(privk[:]))
+	log.Println("pubkStr", pubkStr)
+	log.Println("privkStr", base64.URLEncoding.EncodeToString(privk[:]))
 
 	token := tokens.GetTest32xTokenwjwtid(pubkStr, "f9boplwyb2wxsjtkspnucrth")
 	payload, err := tokens.ValidateToken(string(token))
-	fmt.Println("payload", payload, err)
+	log.Println("payload", payload, err)
 
 	aName := "a-person-channel_pod" // has complicated subkeys
 	{
@@ -304,10 +304,10 @@ func TestNameApiGetOption(t *testing.T) {
 		buffer := make([]byte, 0, (len(payload) + box.Overhead))
 		sealed := box.Seal(buffer, []byte(payload), nonce, ce.PublicKeyTemp, &privk)
 
-		fmt.Println("sealed", base64.RawURLEncoding.EncodeToString(sealed))
-		fmt.Println("devicePublicKey", base64.RawURLEncoding.EncodeToString(ce.PublicKeyTemp[:]))
-		fmt.Println("privk", base64.RawURLEncoding.EncodeToString(privk[:]))
-		fmt.Println("nonce", nonceStr)
+		log.Println("sealed", base64.RawURLEncoding.EncodeToString(sealed))
+		log.Println("devicePublicKey", base64.RawURLEncoding.EncodeToString(ce.PublicKeyTemp[:]))
+		log.Println("privk", base64.RawURLEncoding.EncodeToString(privk[:]))
+		log.Println("nonce", nonceStr)
 
 		// sign it
 		uri := "http://knotfree.com:8085/api1/nameService?cmd=" + strings.ReplaceAll(command, " ", "%20")
@@ -327,12 +327,12 @@ func TestNameApiGetOption(t *testing.T) {
 			out := make([]byte, 0, len(sealed)) // it's actually smaller
 
 			result2, ok2 := box.Open(out, sealed, &nonce2, &pubk2, ce.PrivateKeyTemp)
-			fmt.Println("result2", ok2)
+			log.Println("result2", ok2)
 			_ = result2
 		}
 		val := getVal(t, uri)
 
-		fmt.Println("get-names returned ", val)
+		log.Println("get-names returned ", val)
 		if val != "216.128.128.195" {
 			t.Error("expected", aName, "got", "216.128.128.195")
 		}
@@ -347,10 +347,10 @@ func TestNameApiGetOption(t *testing.T) {
 		buffer := make([]byte, 0, (len(payload) + box.Overhead))
 		sealed := box.Seal(buffer, []byte(payload), nonce, ce.PublicKeyTemp, &privk)
 
-		fmt.Println("sealed", base64.RawURLEncoding.EncodeToString(sealed))
-		fmt.Println("devicePublicKey", base64.RawURLEncoding.EncodeToString(ce.PublicKeyTemp[:]))
-		fmt.Println("privk", base64.RawURLEncoding.EncodeToString(privk[:]))
-		fmt.Println("nonce", nonceStr)
+		log.Println("sealed", base64.RawURLEncoding.EncodeToString(sealed))
+		log.Println("devicePublicKey", base64.RawURLEncoding.EncodeToString(ce.PublicKeyTemp[:]))
+		log.Println("privk", base64.RawURLEncoding.EncodeToString(privk[:]))
+		log.Println("nonce", nonceStr)
 
 		// sign it
 		uri := "http://knotfree.com:8085/api1/nameService?cmd=" + strings.ReplaceAll(command, " ", "%20")
@@ -370,12 +370,12 @@ func TestNameApiGetOption(t *testing.T) {
 			out := make([]byte, 0, len(sealed)) // it's actually smaller
 
 			result2, ok2 := box.Open(out, sealed, &nonce2, &pubk2, ce.PrivateKeyTemp)
-			fmt.Println("result2", ok2)
+			log.Println("result2", ok2)
 			_ = result2
 		}
 		val := getVal(t, uri)
 
-		fmt.Println("get-names returned ", val)
+		log.Println("get-names returned ", val)
 		if val != "dummy" {
 			t.Error("expected", "dummy", "got", val)
 		}
@@ -390,10 +390,10 @@ func TestNameApiGetOption(t *testing.T) {
 		buffer := make([]byte, 0, (len(payload) + box.Overhead))
 		sealed := box.Seal(buffer, []byte(payload), nonce, ce.PublicKeyTemp, &privk)
 
-		fmt.Println("sealed", base64.RawURLEncoding.EncodeToString(sealed))
-		fmt.Println("devicePublicKey", base64.RawURLEncoding.EncodeToString(ce.PublicKeyTemp[:]))
-		fmt.Println("privk", base64.RawURLEncoding.EncodeToString(privk[:]))
-		fmt.Println("nonce", nonceStr)
+		log.Println("sealed", base64.RawURLEncoding.EncodeToString(sealed))
+		log.Println("devicePublicKey", base64.RawURLEncoding.EncodeToString(ce.PublicKeyTemp[:]))
+		log.Println("privk", base64.RawURLEncoding.EncodeToString(privk[:]))
+		log.Println("nonce", nonceStr)
 
 		// sign it
 		uri := "http://knotfree.com:8085/api1/nameService?cmd=" + strings.ReplaceAll(command, " ", "%20")
@@ -413,12 +413,12 @@ func TestNameApiGetOption(t *testing.T) {
 			out := make([]byte, 0, len(sealed)) // it's actually smaller
 
 			result2, ok2 := box.Open(out, sealed, &nonce2, &pubk2, ce.PrivateKeyTemp)
-			fmt.Println("result2", ok2)
+			log.Println("result2", ok2)
 			_ = result2
 		}
 		val := getVal(t, uri)
 
-		fmt.Println("get-names returned ", val)
+		log.Println("get-names returned ", val)
 		if val != "3G2cGahYrRNXWbUQLtCaF8joHD3VJyS7hr" {
 			t.Error("expected", aName, "got", "3G2cGahYrRNXWbUQLtCaF8joHD3VJyS7hr")
 		}
@@ -434,18 +434,18 @@ func TestNameApiDetails(t *testing.T) {
 
 	//	sc := ce.GetPacketService()
 	//	_ = sc // don't do it this way because they swap out as they fail. always use ce.GetPacketService() to get the current one.
-	fmt.Println("devicePublicKey", base64.URLEncoding.EncodeToString(ce.PublicKeyTemp[:]))
+	log.Println("devicePublicKey", base64.URLEncoding.EncodeToString(ce.PublicKeyTemp[:]))
 
 	passphrase := "a-person-passphrase"
 	pubk, privk := tokens.GetBoxKeyPairFromPassphrase(passphrase)
 	pubkStr := base64.URLEncoding.EncodeToString(pubk[:])
 	pubkStr = strings.TrimRight(pubkStr, "=")
-	fmt.Println("pubkStr", pubkStr)
-	fmt.Println("privkStr", base64.URLEncoding.EncodeToString(privk[:]))
+	log.Println("pubkStr", pubkStr)
+	log.Println("privkStr", base64.URLEncoding.EncodeToString(privk[:]))
 
 	token := tokens.GetTest32xTokenwjwtid(pubkStr, "f9boplwyb2wxsjtkspnucrth")
 	payload, err := tokens.ValidateToken(string(token))
-	fmt.Println("payload", payload, err)
+	log.Println("payload", payload, err)
 
 	aName := "get-unix-time"
 	//
@@ -460,10 +460,10 @@ func TestNameApiDetails(t *testing.T) {
 		buffer := make([]byte, 0, (len(payload) + box.Overhead))
 		sealed := box.Seal(buffer, []byte(payload), nonce, ce.PublicKeyTemp, &privk)
 
-		fmt.Println("sealed", base64.RawURLEncoding.EncodeToString(sealed))
-		fmt.Println("devicePublicKey", base64.RawURLEncoding.EncodeToString(ce.PublicKeyTemp[:]))
-		fmt.Println("privk", base64.RawURLEncoding.EncodeToString(privk[:]))
-		fmt.Println("nonce", nonceStr)
+		log.Println("sealed", base64.RawURLEncoding.EncodeToString(sealed))
+		log.Println("devicePublicKey", base64.RawURLEncoding.EncodeToString(ce.PublicKeyTemp[:]))
+		log.Println("privk", base64.RawURLEncoding.EncodeToString(privk[:]))
+		log.Println("nonce", nonceStr)
 
 		// sign it
 		uri := "http://knotfree.com:8085/api1/nameService?cmd=" + command
@@ -483,12 +483,12 @@ func TestNameApiDetails(t *testing.T) {
 			out := make([]byte, 0, len(sealed)) // it's actually smaller
 
 			result2, ok2 := box.Open(out, sealed, &nonce2, &pubk2, ce.PrivateKeyTemp)
-			fmt.Println("result2", ok2)
+			log.Println("result2", ok2)
 			_ = result2
 		}
 		val := getVal(t, uri)
 
-		fmt.Println("get-names returned ", val)
+		log.Println("get-names returned ", val)
 		// now, decode the response
 		// it's a watchedTopic
 		topic := iot.WatchedTopic{}
@@ -509,18 +509,18 @@ func TestNameApiAddName(t *testing.T) {
 	devicePublicKey := ce.PublicKeyTemp
 	_ = devicePublicKey
 	_ = sc
-	fmt.Println("devicePublicKey", base64.URLEncoding.EncodeToString(devicePublicKey[:]))
+	log.Println("devicePublicKey", base64.URLEncoding.EncodeToString(devicePublicKey[:]))
 
 	passphrase := "a-person-passphrase"
 	pubk, privk := tokens.GetBoxKeyPairFromPassphrase(passphrase)
 	pubkStr := base64.URLEncoding.EncodeToString(pubk[:])
 	pubkStr = strings.TrimRight(pubkStr, "=")
-	fmt.Println("pubkStr", pubkStr)
-	fmt.Println("privkStr", base64.URLEncoding.EncodeToString(privk[:]))
+	log.Println("pubkStr", pubkStr)
+	log.Println("privkStr", base64.URLEncoding.EncodeToString(privk[:]))
 
 	token := tokens.GetTest32xTokenwjwtid(pubkStr, "f9boplwyb2wxsjtkspnucrth")
 	payload, err := tokens.ValidateToken(string(token))
-	fmt.Println("payload", payload, err)
+	log.Println("payload", payload, err)
 
 	// add a new name with web-api
 	{
@@ -534,10 +534,10 @@ func TestNameApiAddName(t *testing.T) {
 		buffer := make([]byte, 0, (len(payload) + box.Overhead))
 		sealed := box.Seal(buffer, []byte(payload), nonce, devicePublicKey, &privk)
 
-		fmt.Println("sealed", base64.RawURLEncoding.EncodeToString(sealed))
-		fmt.Println("devicePublicKey", base64.RawURLEncoding.EncodeToString(devicePublicKey[:]))
-		fmt.Println("privk", base64.RawURLEncoding.EncodeToString(privk[:]))
-		fmt.Println("nonce", nonceStr)
+		log.Println("sealed", base64.RawURLEncoding.EncodeToString(sealed))
+		log.Println("devicePublicKey", base64.RawURLEncoding.EncodeToString(devicePublicKey[:]))
+		log.Println("privk", base64.RawURLEncoding.EncodeToString(privk[:]))
+		log.Println("nonce", nonceStr)
 
 		// sign it
 		uri := "http://knotfree.com:8085/api1/nameService?"
@@ -548,7 +548,7 @@ func TestNameApiAddName(t *testing.T) {
 		uri += "&name=" + newName
 		val := getVal(t, uri)
 
-		fmt.Println("get-names returned ", val)
+		log.Println("get-names returned ", val)
 
 		if val != "ok" {
 			t.Error("expected ok, got", val)
@@ -566,14 +566,14 @@ func TestNameApiList(t *testing.T) {
 	devicePublicKey := ce.PublicKeyTemp
 	_ = devicePublicKey
 	// _ = sc
-	fmt.Println("devicePublicKey", base64.URLEncoding.EncodeToString(devicePublicKey[:]))
+	log.Println("devicePublicKey", base64.URLEncoding.EncodeToString(devicePublicKey[:]))
 
 	passphrase := "a-person-passphrase"
 	pubk, privk := tokens.GetBoxKeyPairFromPassphrase(passphrase)
 	pubkStr := base64.URLEncoding.EncodeToString(pubk[:])
 	pubkStr = strings.TrimRight(pubkStr, "=")
-	fmt.Println("pubkStr", pubkStr)
-	fmt.Println("privkStr", base64.URLEncoding.EncodeToString(privk[:]))
+	log.Println("pubkStr", pubkStr)
+	log.Println("privkStr", base64.URLEncoding.EncodeToString(privk[:]))
 
 	// get a list of names for a user pubk
 	{ // a dns lookup with iot name like get-unix-time.iot
@@ -586,10 +586,10 @@ func TestNameApiList(t *testing.T) {
 		buffer := make([]byte, 0, (len(payload) + box.Overhead))
 		sealed := box.Seal(buffer, []byte(payload), nonce, devicePublicKey, &privk)
 
-		fmt.Println("sealed", base64.RawURLEncoding.EncodeToString(sealed))
-		fmt.Println("devicePublicKey", base64.RawURLEncoding.EncodeToString(devicePublicKey[:]))
-		fmt.Println("privk", base64.RawURLEncoding.EncodeToString(privk[:]))
-		fmt.Println("nonce", nonceStr)
+		log.Println("sealed", base64.RawURLEncoding.EncodeToString(sealed))
+		log.Println("devicePublicKey", base64.RawURLEncoding.EncodeToString(devicePublicKey[:]))
+		log.Println("privk", base64.RawURLEncoding.EncodeToString(privk[:]))
+		log.Println("nonce", nonceStr)
 
 		// sign it
 		uri := "http://knotfree.com:8085/api1/getNames?cmd=" + base64.RawURLEncoding.EncodeToString(sealed)
@@ -597,21 +597,21 @@ func TestNameApiList(t *testing.T) {
 		uri += "&pubk=" + pubkStr
 		val := getVal(t, uri)
 
-		fmt.Println("get-names returned ", len(val))
+		log.Println("get-names returned ", len(val))
 
 		valBin, err := base64.RawURLEncoding.DecodeString(val)
 		if err != nil {
-			fmt.Println("failed to deocde", err)
+			log.Println("failed to deocde", err)
 			t.Error("failed to decode", err)
 		}
 		decrypted, ok := box.Open(nil, valBin, nonce, devicePublicKey, &privk)
 		if !ok {
-			fmt.Println("failed to open")
+			log.Println("failed to open")
 			t.Error("failed to decode", err)
 		}
 
-		fmt.Println("get-names returned ", len(string(decrypted)))
-		// fmt.Println("get-names returned ", string(decrypted))
+		log.Println("get-names returned ", len(string(decrypted)))
+		// log.Println("get-names returned ", string(decrypted))
 		// now, decode the response
 
 		// now decode
@@ -624,7 +624,7 @@ func getVal(t *testing.T, url string) string {
 	resp, err := http.Get(url)
 	assert.Nil(t, err)
 	if err != nil {
-		fmt.Println("http.Get err", err)
+		log.Println("http.Get err", err)
 		return err.Error()
 	}
 	assert.Equal(t, 200, resp.StatusCode)
@@ -659,14 +659,14 @@ func TestUrl(t *testing.T) {
 		uri := "http://knotfree.com:8085/api1/nameService?cmd=" + strings.ReplaceAll(command, " ", "%20")
 		uri += "&name=" + "get-unix-time"
 		val := getVal(t, uri) // note: the .com and .test tlds must be in /etc/hosts
-		fmt.Println("get.option.a", val)
+		log.Println("get.option.a", val)
 		assert.Equal(t, val, "216.128.128.195")
 	}
 
 	// NOTE: knotfree.com is 127.0.0.1 in /etc/hosts
 	{ // a regular api call
 		val := getVal(t, "http://knotfree.com:8085/api1/getPublicKey")
-		fmt.Println("getPublicKey", val)
+		log.Println("getPublicKey", val)
 		sss := base64.RawURLEncoding.EncodeToString(ce.PublicKeyTemp[:])
 		assert.Equal(t, val, sss) //"-muxcABH_pTsuNqT3yaYfQj-3krwM6XmEu47vTZLSHM")
 	}
@@ -679,7 +679,7 @@ func TestUrl(t *testing.T) {
 
 	{ // a device call
 		val := getVal(t, "http://get-unix-time.knotfree.com:8085/get/pubk")
-		fmt.Println("pubk", val)
+		log.Println("pubk", val)
 		assert.Equal(t, val, "bht-Ka3j7GKuMFOablMlQnABnBvBeugvSf4CdFV3LXs")
 	}
 
@@ -702,19 +702,19 @@ func TestUrlFancy(t *testing.T) {
 
 	{ // a device call to get-unix-time_test
 		val := getVal(t, "http://get-unix-time.test.knotfree.com:8085/get/pubk") // note: the .com and .test tlds are in /etc/hosts
-		fmt.Println("pubk", val)
+		log.Println("pubk", val)
 		assert.Equal(t, val, "bht-Ka3j7GKuMFOablMlQnABnBvBeugvSf4CdFV3LXs")
 	}
 
 	{ // a device call to get-unix-time_test
 		val := getVal(t, "http://get-unix-time.test:8085/get/pubk") // note: the .com and .test tlds are in /etc/hosts
-		fmt.Println("pubk", val)
+		log.Println("pubk", val)
 		assert.Equal(t, val, "bht-Ka3j7GKuMFOablMlQnABnBvBeugvSf4CdFV3LXs")
 	}
 
 	{ // a device call
 		val := getVal(t, "http://get-unix-time.iot.knotfree.com:8085/get/pubk")
-		fmt.Println("pubk", val)
+		log.Println("pubk", val)
 		assert.Equal(t, val, "bht-Ka3j7GKuMFOablMlQnABnBvBeugvSf4CdFV3LXs")
 	}
 
@@ -723,13 +723,13 @@ func TestUrlFancy(t *testing.T) {
 func TestStringToMap(t *testing.T) {
 	str := "a b c d"
 	m := iot.StringToMap(str)
-	fmt.Println("m", m)
+	log.Println("m", m)
 	assert.Equal(t, m["a"], "b")
 	assert.Equal(t, m["c"], "d")
 
 	str = "a"
 	m = iot.StringToMap(str)
-	fmt.Println("m", m)
+	log.Println("m", m)
 	assert.Equal(t, m["@"], "a")
 }
 
@@ -738,6 +738,6 @@ func TestMapToString(t *testing.T) {
 	m["a"] = "b"
 	m["c"] = "d"
 	str := iot.MapToString(m)
-	fmt.Println("str", str)
+	log.Println("str", str)
 	assert.Equal(t, str, "a b c d")
 }

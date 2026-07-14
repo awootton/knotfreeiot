@@ -73,7 +73,7 @@ func StartClusterOfClusters(timeGetter func() uint32) [][]*iot.ClusterExecutive 
 	// 			i = len(aidesInRowAbove) - 1
 	// 		}
 	// 		aide := aidesInRowAbove[i]
-	// 		fmt.Println("connecting " + guru.Name + " to " + aide.Name)
+	// 		log.Println("connecting " + guru.Name + " to " + aide.Name)
 
 	// 		iot.ConnectGuruToSuperAide(guru, aide)
 	// 	}

@@ -17,6 +17,7 @@ package iot_test
 
 import (
 	"fmt"
+	"log"
 	"math/rand"
 	"testing"
 
@@ -36,18 +37,18 @@ func TestDeltas(t *testing.T) {
 
 	names1 := getNames(1)
 	mapped1 := getMapped(names1)
-	//fmt.Println("names are ", names1)
-	//fmt.Println("mapped is ", mapped1)
+	//log.Println("names are ", names1)
+	//log.Println("mapped is ", mapped1)
 
 	names2 := getNames(2)
 	mapped2 := getMapped(names2)
-	//fmt.Println("names are ", names2)
-	//fmt.Println("mapped is ", mapped2)
+	//log.Println("names are ", names2)
+	//log.Println("mapped is ", mapped2)
 
 	names3 := getNames(3)
 	mapped3 := getMapped(names3)
-	//fmt.Println("names are ", names3)
-	//fmt.Println("mapped is ", mapped3)
+	//log.Println("names are ", names3)
+	//log.Println("mapped is ", mapped3)
 
 	fmt.Println("1 to 2 ")
 	delta(mapped1, mapped2)
@@ -117,7 +118,7 @@ func TestDistribution(t *testing.T) {
 		names = append(names, fmt.Sprintf("backend-%d", i))
 	}
 
-	//fmt.Println("names are ", names)
+	//log.Println("names are ", names)
 
 	table := maglev.New(names, uint64(hsize))
 
@@ -126,7 +127,7 @@ func TestDistribution(t *testing.T) {
 	// 	idx := table.Lookup(uint64(i))
 	// 	mapped = append(mapped, names[idx])
 	// }
-	//fmt.Println("mapped is ", mapped)
+	//log.Println("mapped is ", mapped)
 
 	r := make([]int, size)
 	rand.Seed(0)
@@ -136,18 +137,18 @@ func TestDistribution(t *testing.T) {
 		idx := table.Lookup(uint64(iii))
 		r[idx]++
 	}
-	fmt.Println("r len is ", len(r))
+	log.Println("r len is ", len(r))
 
 	var total int
 	var max = 0
 	for _, v := range r {
 		total += v
-		//fmt.Print(v, " ")
+		//log.Print(v, " ")
 		if v > max {
 			max = v
 		}
 	}
 
 	mean := float64(total) / size
-	fmt.Printf("max=%v, mean=%v, peak-to-mean=%v", max, mean, float64(max)/mean)
+	log.Printf("max=%v, mean=%v, peak-to-mean=%v", max, mean, float64(max)/mean)
 }

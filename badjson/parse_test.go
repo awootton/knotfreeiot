@@ -18,7 +18,7 @@ package badjson_test
 import (
 	"encoding/base64"
 	"encoding/hex"
-	"fmt"
+	"log"
 	"reflect"
 	"strings"
 	"testing"
@@ -53,23 +53,23 @@ func ExampleChop() {
 	// parse the text
 	segment, err := badjson.Chop(someText)
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 	}
 	// traverse the result
 	for s := segment; s != nil; s = s.Next() {
-		fmt.Println(reflect.TypeOf(s))
+		log.Println(reflect.TypeOf(s))
 	}
 	// output it
 	output := badjson.ToString(segment)
-	fmt.Println(output)
+	log.Println(output)
 
 	someText = `"abc""def""ghi""jkl"` // an quoted array of 4 strings
 	segment, err = badjson.Chop(someText)
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 	}
 	output = badjson.ToString(segment)
-	fmt.Println(output)
+	log.Println(output)
 
 	// Expect: *badjson.RuneArray
 	// *badjson.RuneArray
@@ -81,15 +81,15 @@ func ExampleChop() {
 
 func binaryTests() {
 
-	fmt.Println("abc", hex.EncodeToString([]byte("abc")))
-	fmt.Println("def", hex.EncodeToString([]byte("def")))
-	fmt.Println("ghi", hex.EncodeToString([]byte("ghi")))
-	fmt.Println("jkl", hex.EncodeToString([]byte("jkl")))
+	log.Println("abc", hex.EncodeToString([]byte("abc")))
+	log.Println("def", hex.EncodeToString([]byte("def")))
+	log.Println("ghi", hex.EncodeToString([]byte("ghi")))
+	log.Println("jkl", hex.EncodeToString([]byte("jkl")))
 
-	fmt.Println("abc", base64.RawURLEncoding.EncodeToString([]byte("abc")))
-	fmt.Println("def", base64.RawURLEncoding.EncodeToString([]byte("def")))
-	fmt.Println("ghi", base64.RawURLEncoding.EncodeToString([]byte("ghi")))
-	fmt.Println("jkl", base64.RawURLEncoding.EncodeToString([]byte("jkl")))
+	log.Println("abc", base64.RawURLEncoding.EncodeToString([]byte("abc")))
+	log.Println("def", base64.RawURLEncoding.EncodeToString([]byte("def")))
+	log.Println("ghi", base64.RawURLEncoding.EncodeToString([]byte("ghi")))
+	log.Println("jkl", base64.RawURLEncoding.EncodeToString([]byte("jkl")))
 
 }
 

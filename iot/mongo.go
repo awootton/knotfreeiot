@@ -104,9 +104,9 @@ func InitMongo() {
 	defer func() {
 		endTime := time.Now()
 		duration := endTime.Sub(startTime)
-		fmt.Println("InitMongo took ", duration)
+		log.Println("InitMongo took ", duration)
 	}()
-	fmt.Println("InitMongo starting")
+	log.Println("InitMongo starting")
 
 	MongoClientOptions = initMongEnv()
 	_ = MongoClientOptions
@@ -149,7 +149,7 @@ func GetSubscriptionList(ownerPubk string) ([]WatchedTopic, error) {
 
 	// client, err := GetMongoClient()
 	// if err != nil {
-	// 	fmt.Println("mongo.Connect err", err)
+	// 	log.Println("mongo.Connect err", err)
 	// 	return nil, err
 	// }
 	// // defer client.Disconnect(ctx)
@@ -159,7 +159,7 @@ func GetSubscriptionList(ownerPubk string) ([]WatchedTopic, error) {
 	filter := bson.D{{Key: "own", Value: ownerPubk}}
 	cursor, err := subscriptionsDb.Find(context.TODO(), filter)
 	if err != nil {
-		fmt.Println("mongo find err", err)
+		log.Println("mongo find err", err)
 		return nil, err
 	}
 
@@ -168,7 +168,7 @@ func GetSubscriptionList(ownerPubk string) ([]WatchedTopic, error) {
 		return nil, err
 	}
 
-	// fmt.Println("found watched topic ", len(names))
+	// log.Println("found watched topic ", len(names))
 
 	return names, nil
 }
@@ -180,7 +180,7 @@ func GetSubscriptionListCount(ownerPubk string) (int, error) {
 	filter := bson.D{{Key: "own", Value: ownerPubk}}
 	cursor, err := subscriptionsDb.Find(context.TODO(), filter)
 	if err != nil {
-		fmt.Println("mongo find err", err)
+		log.Println("mongo find err", err)
 		return 0, err
 	}
 
@@ -192,7 +192,7 @@ func GetSubscriptionListCount(ownerPubk string) (int, error) {
 		return 0, err
 	}
 
-	fmt.Println("found watched topic count ", len(names))
+	log.Println("found watched topic count ", len(names))
 
 	return len(names), nil
 }
@@ -216,7 +216,7 @@ func GetSubscription(hashedTopicStr string) (*WatchedTopic, bool) {
 	}
 	topic, ok := getSubscriptionInternal(hashedTopicStr)
 	if ok {
-		// fmt.Println("GetSubscription found topic for ", hashedTopicStr)
+		// log.Println("GetSubscription found topic for ", hashedTopicStr)
 		return topic, true
 	}
 	// not found. Cache the not found.
@@ -243,29 +243,29 @@ func GetNoneSubscription(hashedTopicStr string) bool {
 
 func getSubscriptionInternal(hashedTopicStr string) (*WatchedTopic, bool) {
 
-	// fmt.Println("Mongo GetSubscription ", hashedTopicStr)
+	// log.Println("Mongo GetSubscription ", hashedTopicStr)
 	startTime := time.Now()
 	defer func() {
 		endTime := time.Now()
 		duration := endTime.Sub(startTime)
 		if duration > 1000*time.Millisecond {
-			fmt.Println("GetSubscription SLOW took ", duration) // I can't live like this. FML.
+			log.Println("GetSubscription SLOW took ", duration) // I can't live like this. FML.
 		}
 	}()
 
 	filter := bson.D{{Key: "name", Value: hashedTopicStr}}
 	result := subscriptionsDb.FindOne(context.TODO(), filter)
 	if result.Err() != nil {
-		// fmt.Println("mongo find name err", result.Err())
+		// log.Println("mongo find name err", result.Err())
 		return nil, false
 	}
 	found := WatchedTopic{}
 	err := result.Decode(&found)
 	if err != nil {
-		fmt.Println("mongo find name Decode err", err)
+		log.Println("mongo find name Decode err", err)
 		return nil, false
 	}
-	// fmt.Println("found watched topic ", found.Name.ToBase64(), found.Jwtid)
+	// log.Println("found watched topic ", found.Name.ToBase64(), found.Jwtid)
 	return &found, true
 }
 
@@ -275,7 +275,7 @@ func DeleteSubscription(hashedTopicStr string) error {
 
 	// client, err := GetMongoClient() //:= mongo.Connect(ctx, MongoClientOptions)
 	// if err != nil {
-	// 	fmt.Println("mongo.Connect err", err)
+	// 	log.Println("mongo.Connect err", err)
 	// 	return err
 	// }
 	// defer client.Disconnect(ctx)
@@ -286,7 +286,7 @@ func DeleteSubscription(hashedTopicStr string) error {
 	filter := bson.D{{Key: "name", Value: hashedTopicStr}}
 	result, err := subscriptions.DeleteOne(context.TODO(), filter)
 	if err != nil {
-		// fmt.Println("mongo delete name err", result.Err())
+		// log.Println("mongo delete name err", result.Err())
 		return err
 	}
 	_ = result
@@ -298,6 +298,7 @@ func SaveSubscription(watchedTopic *WatchedTopic) error {
 	InitMongo()
 
 	if watchedTopic == nil {
+		log.Println("watchedTopic is nil")
 		return fmt.Errorf("watchedTopic is nil")
 	}
 	if watchedTopic.Created == 0 {
@@ -308,7 +309,7 @@ func SaveSubscription(watchedTopic *WatchedTopic) error {
 
 	// client, err := mongo.Connect(ctx, MongoClientOptions) // is this a new connection each time?
 	// if err != nil {
-	// 	fmt.Println("mongo.Connect err", err)
+	// 	log.Println("mongo.Connect err", err)
 	// 	return err
 	// }
 	// defer client.Disconnect(ctx)
@@ -336,7 +337,7 @@ func SaveSubscription(watchedTopic *WatchedTopic) error {
 
 	// result, err := subscriptions.UpdateOne(context.TODO(), filter, watchedTopic)
 	// if err != nil {
-	// 	fmt.Println("mongo insert err", err)
+	// 	log.Println("mongo insert err", err)
 	// 	return err
 	// }
 	// _ = result
@@ -376,7 +377,7 @@ func SaveChildBitsCache(world string, cache *ChildBitsCache) bool {
 		// not found, insert
 		_, err := childBitsCacheColl.InsertOne(context.TODO(), cache)
 		if err != nil {
-			fmt.Println("mongo insert child bits cache err", err)
+			log.Println("mongo insert child bits cache err", err)
 			return false
 		}
 		return true
@@ -384,7 +385,7 @@ func SaveChildBitsCache(world string, cache *ChildBitsCache) bool {
 		// found, replace
 		_, err := childBitsCacheColl.ReplaceOne(context.TODO(), filter, cache)
 		if err != nil {
-			fmt.Println("mongo replace child bits cache err", err)
+			log.Println("mongo replace child bits cache err", err)
 			return false
 		}
 	}
@@ -408,7 +409,7 @@ func GetChildBitsCache(world string) (*ChildBitsCache, bool) {
 	found := ChildBitsCache{}
 	err := result.Decode(&found)
 	if err != nil {
-		fmt.Println("mongo find child bits cache Decode err", err)
+		log.Println("mongo find child bits cache Decode err", err)
 		return nil, false
 	}
 	return &found, true
@@ -473,7 +474,7 @@ func initIotTables() error {
 		return err
 	}
 	_ = name
-	// fmt.Println("Name of subscriptions Index Created: " + name)
+	// log.Println("Name of subscriptions Index Created: " + name)
 
 	indexModel = mongo.IndexModel{
 		Keys:    bson.D{{Key: "jwtid", Value: 1}},
@@ -484,7 +485,7 @@ func initIotTables() error {
 		return err
 	}
 	_ = name
-	// fmt.Println("Name of subscriptions Index Created: " + name)
+	// log.Println("Name of subscriptions Index Created: " + name)
 
 	indexModel = mongo.IndexModel{
 		Keys:    bson.D{{Key: "own", Value: 1}},
@@ -495,7 +496,7 @@ func initIotTables() error {
 		return err
 	}
 	_ = name
-	// fmt.Println("Name of subscriptions Index Created: " + name)
+	// log.Println("Name of subscriptions Index Created: " + name)
 
 	// now do the tokens
 	// now do the tokens
@@ -510,7 +511,7 @@ func initIotTables() error {
 		return err
 	}
 	_ = name
-	// fmt.Println("Name of tokens Index Created: " + name)
+	// log.Println("Name of tokens Index Created: " + name)
 
 	indexModel = mongo.IndexModel{
 		Keys:    bson.D{{Key: "knotfreetokenpayload.pubk", Value: 1}},
@@ -521,7 +522,7 @@ func initIotTables() error {
 		return err
 	}
 	_ = name
-	// fmt.Println("Name of tokens Index Created: " + name)
+	// log.Println("Name of tokens Index Created: " + name)
 
 	//  this is the IP address from which a free token was created.
 	indexModel = mongo.IndexModel{
@@ -533,7 +534,7 @@ func initIotTables() error {
 		return err
 	}
 	_ = name
-	// fmt.Println("Name of tokens Index Created: " + name)
+	// log.Println("Name of tokens Index Created: " + name)
 
 	// now do the child bits cash
 	// now do the child bits cash
@@ -551,7 +552,7 @@ func initIotTables() error {
 		return err
 	}
 	_ = name
-	// fmt.Println("Name of child bits cache Index Created: " + name)
+	// log.Println("Name of child bits cache Index Created: " + name)
 
 	// that might be it.
 

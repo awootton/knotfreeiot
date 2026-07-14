@@ -1,7 +1,7 @@
 package main
 
 import (
-	"fmt"
+	"log"
 	"os"
 	"strings"
 	"time"
@@ -14,12 +14,12 @@ import (
 func main() {
 
 	target_cluster := os.Getenv("TARGET_CLUSTER")
-	fmt.Println("target_cluster", target_cluster)
+	log.Println("target_cluster", target_cluster)
 
 	token := os.Getenv("TOKEN")
-	fmt.Println("token", token)
+	log.Println("token", token)
 
-	fmt.Println("version 3")
+	log.Println("version 3")
 
 	argsWithoutProg := os.Args[1:]
 
@@ -42,7 +42,7 @@ func main() {
 
 		c.Host = os.Getenv("TARGET_CLUSTER") + ":8384" // + ":8384"
 
-		fmt.Println("monitor main c.Host", c.Host)
+		log.Println("monitor main c.Host", c.Host)
 
 		monitor_pod.ServeGetTime(token, &c)
 	}
@@ -50,7 +50,7 @@ func main() {
 	// no thank you. monitor_pod.PublishTestTopic(token) it's gaslighting me.
 
 	for {
-		fmt.Println("in monitor_pod, calling ReplaceTempInF ")
+		log.Println("in monitor_pod, calling ReplaceTempInF ")
 		monitor_pod.ReplaceTempInF()
 		time.Sleep(600 * time.Second)
 	}
@@ -72,7 +72,7 @@ func Deploy(TARGET_CLUSTER string) {
 	sdata = strings.ReplaceAll(sdata, "__TOKEN__", TOKEN)
 	err := os.WriteFile("dummy.yaml", []byte(sdata), 0644)
 	if err != nil {
-		fmt.Println("fail flail 888")
+		log.Println("fail flail 888")
 	}
 	kubectl.K("kubectl apply -f dummy.yaml")
 }

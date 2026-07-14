@@ -23,8 +23,8 @@ package kubectl
 import (
 	"bytes"
 	"errors"
-	"fmt"
 	"io"
+	"log"
 	"os/exec"
 	"strings"
 	"time"
@@ -44,14 +44,14 @@ func Execute(command string, input string) (string, error) {
 // A command line utility in go.
 func Exec(command string) {
 	if !Quiet {
-		fmt.Println(">" + command)
+		log.Println(">" + command)
 	}
 	out, err := K8s(command, "")
 	if err != nil {
-		fmt.Println(">ERROR:", err, out)
+		log.Println(">ERROR:", err, out)
 	}
 	if !Quiet {
-		fmt.Println("", out)
+		log.Println("", out)
 	}
 }
 
@@ -64,7 +64,7 @@ func Exec(command string) {
 // and that's annoying because I kinda like watching Docker build.
 func K8s(command string, input string) (string, error) {
 	if !Quiet {
-		fmt.Println(">" + command)
+		log.Println(">" + command)
 	}
 	cmd := exec.Command("bash", "-c", command)
 	if input != "" {
@@ -75,7 +75,7 @@ func K8s(command string, input string) (string, error) {
 		go func() {
 			defer stdin.Close()
 			n, err := io.WriteString(stdin, input)
-			fmt.Println("io.WriteString> ", n, " ", err)
+			log.Println("io.WriteString> ", n, " ", err)
 		}()
 	}
 
@@ -95,7 +95,7 @@ type buffWriter struct {
 
 func (bw *buffWriter) Write(barr []byte) (int, error) {
 	if !SuperQuiet {
-		fmt.Println("kubectlgo>>", string(barr))
+		log.Println("kubectlgo>>", string(barr))
 	}
 	return bw.b.Write(barr)
 }
@@ -118,14 +118,14 @@ func myCombinedOutput(c *exec.Cmd) ([]byte, error) {
 // K - a shorter version of K8s
 func K(command string) {
 	if !Quiet {
-		fmt.Println(">" + command)
+		log.Println(">" + command)
 	}
 	out, err := K8s(command, "")
 	if err != nil {
-		fmt.Println(">ERROR:", err, out)
+		log.Println(">ERROR:", err, out)
 	}
 	if !Quiet {
-		fmt.Println("", out)
+		log.Println("", out)
 	}
 }
 
@@ -141,7 +141,7 @@ func GetThePodNames(deploymentName string) map[string]bool {
 		pods, err := K8s("kubectl get po | grep "+deploymentName, "")
 		Quiet = false
 		if err != nil {
-			fmt.Println("kubectl get po err ", err)
+			log.Println("kubectl get po err ", err)
 			time.Sleep(2000 * time.Millisecond)
 			count++
 			if count > 10 { // 20 sec
@@ -149,7 +149,7 @@ func GetThePodNames(deploymentName string) map[string]bool {
 			}
 			continue // back to get po
 		}
-		// fmt.Println(pods)
+		// log.Println(pods)
 		// eg. deploymentName-7428876776-54rws   0/1       Pending   0          10s
 		allGood := true
 		lines := strings.Split(pods, "\n")
@@ -162,9 +162,9 @@ func GetThePodNames(deploymentName string) map[string]bool {
 			podname = strings.Trim(podname, " ")
 			// eg deploymentName-7428876776-54rws
 			thepodnames[podname] = true
-			//fmt.Println(podname)
+			//log.Println(podname)
 			tmp := line[len(podname)+1:]
-			//fmt.Println(tmp)
+			//log.Println(tmp)
 			if strings.Contains(tmp, "0/1") {
 				allGood = false
 			}
@@ -178,12 +178,12 @@ func GetThePodNames(deploymentName string) map[string]bool {
 		time.Sleep(2000 * time.Millisecond)
 		count++
 		if count > 500 { // 1000 sec
-			fmt.Println("Pods not all up. Timed out. \n", thepodnames)
+			log.Println("Pods not all up. Timed out. \n", thepodnames)
 			return thepodnames
 		}
 	}
 	// pods all up
-	fmt.Println(thepodnames)
+	log.Println(thepodnames)
 	return thepodnames
 }
 
@@ -191,7 +191,7 @@ func GetThePodNames(deploymentName string) map[string]bool {
 
 func check(e error) {
 	if e != nil {
-		fmt.Println("PANIC because ", e)
+		log.Println("PANIC because ", e)
 		panic(e)
 	}
 }

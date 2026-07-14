@@ -2,7 +2,7 @@ package iot
 
 import (
 	"bytes"
-	"fmt"
+	"log"
 	"reflect"
 
 	"github.com/awootton/knotfreeiot/packets"
@@ -32,7 +32,7 @@ func CheckSendPacket(send *packets.Send) bool {
 	buf.Grow(1024 * 1024) // 1MB
 	err := send.Write(&buf)
 	if err != nil {
-		fmt.Println("processLookup sendReply ERROR marshaling send:", err)
+		log.Println("processLookup sendReply ERROR marshaling send:", err)
 		return false
 	}
 	data := buf.Bytes()
@@ -40,49 +40,49 @@ func CheckSendPacket(send *packets.Send) bool {
 
 	gotpacket, err := packets.ReadPacket(bufReader)
 	if err != nil {
-		fmt.Println("processLookup sendReply ERROR reading packet:", err)
+		log.Println("processLookup sendReply ERROR reading packet:", err)
 		return false
 	}
 	var recvSend, ok = gotpacket.(*packets.Send)
 	if !ok {
-		fmt.Println("processLookup sendReply ERROR gotpacket is not of type *packets.Send")
+		log.Println("processLookup sendReply ERROR gotpacket is not of type *packets.Send")
 		return false
 	}
 	address := recvSend.Address.ToBytes()
 	source := recvSend.Source.ToBytes()
 	payload := recvSend.Payload
 	if !bytes.Equal(address, []byte(send.Address.ToBytes())) {
-		fmt.Println("processLookup sendReply ERROR address mismatch. got:", string(address), "want:", string(send.Address.ToBytes()))
+		log.Println("processLookup sendReply ERROR address mismatch. got:", string(address), "want:", string(send.Address.ToBytes()))
 		return false
 	}
 	if !bytes.Equal(source, []byte(send.Source.ToBytes())) {
-		fmt.Println("processLookup sendReply ERROR source mismatch. got:", string(source), "want:", string(send.Source.ToBytes()))
+		log.Println("processLookup sendReply ERROR source mismatch. got:", string(source), "want:", string(send.Source.ToBytes()))
 		return false
 	}
 	if !bytes.Equal(payload, []byte(send.Payload)) {
-		fmt.Println("processLookup sendReply ERROR payload mismatch. got:", string(payload), "want:", string(send.Payload))
+		log.Println("processLookup sendReply ERROR payload mismatch. got:", string(payload), "want:", string(send.Payload))
 		return false
 	}
 
 	keys, values := recvSend.GetOptionKeys()
 	sendkeys, sendvalues := send.GetOptionKeys()
 	if !reflect.DeepEqual(keys, sendkeys) {
-		fmt.Println("processLookup sendReply ERROR option keys mismatch. got:", keys, "want:", sendkeys)
+		log.Println("processLookup sendReply ERROR option keys mismatch. got:", keys, "want:", sendkeys)
 		return false
 	}
 	if !reflect.DeepEqual(values, sendvalues) {
-		fmt.Println("processLookup sendReply ERROR option values mismatch. got:", values, "want:", sendvalues)
+		log.Println("processLookup sendReply ERROR option values mismatch. got:", values, "want:", sendvalues)
 		return false
 	}
 	const printkeys = false
 	if printkeys {
-		fmt.Println("processLookup original option keys and values:")
+		log.Println("processLookup original option keys and values:")
 		for i := 0; i < len(sendkeys); i++ {
-			fmt.Println("    key is ", string(sendkeys[i]), "val is ", string(sendvalues[i]))
+			log.Println("    key is ", string(sendkeys[i]), "val is ", string(sendvalues[i]))
 		}
-		fmt.Println("processLookup recvSend option keys and values:")
+		log.Println("processLookup recvSend option keys and values:")
 		for i := 0; i < len(keys); i++ {
-			fmt.Println("    key is ", string(keys[i]), "val is ", string(values[i]))
+			log.Println("    key is ", string(keys[i]), "val is ", string(values[i]))
 		}
 	}
 
@@ -103,7 +103,7 @@ func CheckSendPacketAlways(send *packets.Send) bool {
 	buf.Grow(1024 * 1024) // 1MB
 	err := send.Write(&buf)
 	if err != nil {
-		fmt.Println("processLookup sendReply ERROR marshaling send:", err)
+		log.Println("processLookup sendReply ERROR marshaling send:", err)
 		return false
 	}
 	data := buf.Bytes()
@@ -111,43 +111,43 @@ func CheckSendPacketAlways(send *packets.Send) bool {
 
 	gotpacket, err := packets.ReadPacket(bufReader)
 	if err != nil {
-		fmt.Println("processLookup sendReply ERROR reading packet:", err)
+		log.Println("processLookup sendReply ERROR reading packet:", err)
 		return false
 	}
 	var recvSend, ok = gotpacket.(*packets.Send)
 	if !ok {
-		fmt.Println("processLookup sendReply ERROR gotpacket is not of type *packets.Send")
+		log.Println("processLookup sendReply ERROR gotpacket is not of type *packets.Send")
 		return false
 	}
 	address := recvSend.Address.ToBytes()
 	source := recvSend.Source.ToBytes()
 	payload := recvSend.Payload
 	if !bytes.Equal(address, []byte(send.Address.ToBytes())) {
-		fmt.Println("processLookup sendReply ERROR address mismatch. got:", string(address), "want:", string(send.Address.ToBytes()))
+		log.Println("processLookup sendReply ERROR address mismatch. got:", string(address), "want:", string(send.Address.ToBytes()))
 		return false
 	}
 	if !bytes.Equal(source, []byte(send.Source.ToBytes())) {
-		fmt.Println("processLookup sendReply ERROR source mismatch. got:", string(source), "want:", string(send.Source.ToBytes()))
+		log.Println("processLookup sendReply ERROR source mismatch. got:", string(source), "want:", string(send.Source.ToBytes()))
 		return false
 	}
 	if !bytes.Equal(payload, []byte(send.Payload)) {
-		fmt.Println("processLookup sendReply ERROR payload mismatch. got:", string(payload), "want:", string(send.Payload))
+		log.Println("processLookup sendReply ERROR payload mismatch. got:", string(payload), "want:", string(send.Payload))
 		return false
 	}
 
 	keys, values := recvSend.GetOptionKeys()
 	sendkeys, sendvalues := send.GetOptionKeys()
 	if !reflect.DeepEqual(keys, sendkeys) {
-		fmt.Println("processLookup sendReply ERROR option keys mismatch. got:", keys, "want:", sendkeys)
+		log.Println("processLookup sendReply ERROR option keys mismatch. got:", keys, "want:", sendkeys)
 		return false
 	}
 	if !reflect.DeepEqual(values, sendvalues) {
-		fmt.Println("processLookup sendReply ERROR option values mismatch. got:", values, "want:", sendvalues)
+		log.Println("processLookup sendReply ERROR option values mismatch. got:", values, "want:", sendvalues)
 		return false
 	}
-	// fmt.Println("processLookup sendReply option keys and values:")
+	// log.Println("processLookup sendReply option keys and values:")
 	// for i := 0; i < len(keys); i++ {
-	// 	fmt.Println("    key is ", string(keys[i]), "val is ", string(values[i]))
+	// 	log.Println("    key is ", string(keys[i]), "val is ", string(values[i]))
 	// }
 	return true
 }
@@ -164,7 +164,7 @@ func CheckLookupPacket(send *packets.Lookup) bool {
 	buf.Grow(1024 * 1024) // 1MB
 	err := send.Write(&buf)
 	if err != nil {
-		fmt.Println("processLookup sendReply ERROR marshaling send:", err)
+		log.Println("processLookup sendReply ERROR marshaling send:", err)
 		return false
 	}
 	data := buf.Bytes()
@@ -172,43 +172,43 @@ func CheckLookupPacket(send *packets.Lookup) bool {
 
 	gotpacket, err := packets.ReadPacket(bufReader)
 	if err != nil {
-		fmt.Println("processLookup sendReply ERROR reading packet:", err)
+		log.Println("processLookup sendReply ERROR reading packet:", err)
 		return false
 	}
 	var recvSend, ok = gotpacket.(*packets.Lookup)
 	if !ok {
-		fmt.Println("processLookup sendReply ERROR gotpacket is not of type *packets.Lookup")
+		log.Println("processLookup sendReply ERROR gotpacket is not of type *packets.Lookup")
 		return false
 	}
 	address := recvSend.Address.ToBytes()
 	source := recvSend.Source.ToBytes()
 	// payload := recvSend.Payload
 	if !bytes.Equal(address, []byte(send.Address.ToBytes())) {
-		fmt.Println("processLookup sendReply ERROR address mismatch. got:", string(address), "want:", string(send.Address.ToBytes()))
+		log.Println("processLookup sendReply ERROR address mismatch. got:", string(address), "want:", string(send.Address.ToBytes()))
 		return false
 	}
 	if !bytes.Equal(source, []byte(send.Source.ToBytes())) {
-		fmt.Println("processLookup sendReply ERROR source mismatch. got:", string(source), "want:", string(send.Source.ToBytes()))
+		log.Println("processLookup sendReply ERROR source mismatch. got:", string(source), "want:", string(send.Source.ToBytes()))
 		return false
 	}
 	// if !bytes.Equal(payload, []byte(send.Payload)) {
-	// 	fmt.Println("processLookup sendReply ERROR payload mismatch. got:", string(payload), "want:", string(send.Payload))
+	// 	log.Println("processLookup sendReply ERROR payload mismatch. got:", string(payload), "want:", string(send.Payload))
 	// 	return false
 	// }
 
 	keys, values := recvSend.GetOptionKeys()
 	sendkeys, sendvalues := send.GetOptionKeys()
 	if !reflect.DeepEqual(keys, sendkeys) {
-		fmt.Println("processLookup sendReply ERROR option keys mismatch. got:", keys, "want:", sendkeys)
+		log.Println("processLookup sendReply ERROR option keys mismatch. got:", keys, "want:", sendkeys)
 		return false
 	}
 	if !reflect.DeepEqual(values, sendvalues) {
-		fmt.Println("processLookup sendReply ERROR option values mismatch. got:", values, "want:", sendvalues)
+		log.Println("processLookup sendReply ERROR option values mismatch. got:", values, "want:", sendvalues)
 		return false
 	}
-	// fmt.Println("processLookup sendReply option keys and values:")
+	// log.Println("processLookup sendReply option keys and values:")
 	// for i := 0; i < len(keys); i++ {
-	// 	fmt.Println("    key is ", string(keys[i]), "val is ", string(values[i]))
+	// 	log.Println("    key is ", string(keys[i]), "val is ", string(values[i]))
 	// }
 
 	return true
@@ -225,10 +225,10 @@ func RewriteSessionKeyToCheck(p *packets.Send) {
 	}
 
 	if sessionValue, ok := p.GetOption(SessionKeyString); !ok {
-		fmt.Println("ERROR processLookup lookmsg hasn't sessionKey") // doesn't happen. Does it?
+		log.Println("ERROR processLookup lookmsg hasn't sessionKey") // doesn't happen. Does it?
 	} else {
 
-		// fmt.Println("processLookup sendReply sessionKey is ", string(sessionValue)) // doesn't happen. Does it?
+		// log.Println("processLookup sendReply sessionKey is ", string(sessionValue)) // doesn't happen. Does it?
 
 		// Have it. I'm going to totally copy it. Just in case something is happening to the original backing array or something.
 		// Hail Mary, full of grace,
@@ -236,16 +236,16 @@ func RewriteSessionKeyToCheck(p *packets.Send) {
 		// Jesus. Holy Mary, Mother of God, pray for us sinners, now and at the hour of our death. Amen.
 		keylen := len(sessionValue) // actually 28. It's always 28 and 'fetch' will never become a thing.
 		if keylen != 28 {
-			fmt.Println("processLookup sendReply ERROR sessionKey length is not 28. Is today 10/31? 4/1? 4/20? It's ", keylen)
+			log.Println("processLookup sendReply ERROR sessionKey length is not 28. Is today 10/31? 4/1? 4/20? It's ", keylen)
 		}
 		newSessionKeyVal := make([]byte, 28) // actually 28, on the heap, not here in the stack frames.
 		copied := copy(newSessionKeyVal[:], sessionValue)
 		if copied != 28 {
-			fmt.Println("processLookup sendReply ERROR sessionKey copy length is not 28. Is today 10/31? 4/1? 4/20? It's ", copied)
+			log.Println("processLookup sendReply ERROR sessionKey copy length is not 28. Is today 10/31? 4/1? 4/20? It's ", copied)
 		}
 
 		// they are the same. This is silly.
-		// fmt.Println("processLookup sendReply newSessionKeyVal is ", string(newSessionKeyVal)) // doesn't happen. Does it?
+		// log.Println("processLookup sendReply newSessionKeyVal is ", string(newSessionKeyVal)) // doesn't happen. Does it?
 
 		p.SetOption(SessionKeyString, newSessionKeyVal[:])
 	}
@@ -263,7 +263,7 @@ func RewriteSessionKeyToCheckLookup(p *packets.Lookup) {
 	}
 
 	if sessionValue, ok := p.GetOption(SessionKeyString); !ok {
-		fmt.Println("ERROR processLookup lookmsg hasn't sessionKey") // doesn't happen. Does it?
+		log.Println("ERROR processLookup lookmsg hasn't sessionKey") // doesn't happen. Does it?
 	} else {
 
 		// Have it. I'm going to totally copy it. Just in case something is happening to the original backing array or something.
@@ -272,12 +272,12 @@ func RewriteSessionKeyToCheckLookup(p *packets.Lookup) {
 		// Jesus. Holy Mary, Mother of God, pray for us sinners, now and at the hour of our death. Amen.
 		keylen := len(sessionValue) // actually 28. It's always 28 and 'fetch' will never become a thing.
 		if keylen != 28 {
-			fmt.Println("processLookup sendReply ERROR sessionKey length is not 28. Is today 10/31? 4/1? 4/20? It's ", keylen)
+			log.Println("processLookup sendReply ERROR sessionKey length is not 28. Is today 10/31? 4/1? 4/20? It's ", keylen)
 		}
 		newSessionKeyVal := make([]byte, 28) // actually 28, on the heap, not here in the stack frames.
 		copied := copy(newSessionKeyVal[:], sessionValue)
 		if copied != 28 {
-			fmt.Println("processLookup sendReply ERROR sessionKey copy length is not 28. Is today 10/31? 4/1? 4/20? It's ", copied)
+			log.Println("processLookup sendReply ERROR sessionKey copy length is not 28. Is today 10/31? 4/1? 4/20? It's ", copied)
 		}
 		p.SetOption(SessionKeyString, newSessionKeyVal[:])
 	}

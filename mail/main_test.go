@@ -1,7 +1,7 @@
 package mail
 
 import (
-	"fmt"
+	"log"
 	"net/smtp"
 	"os"
 	"testing"
@@ -26,7 +26,7 @@ func TestMail1(t *testing.T) {
 
 	homeDir, err := os.UserHomeDir()
 	_ = err
-	fmt.Println("homeDir", homeDir)
+	log.Println("homeDir", homeDir)
 	tmp, err := os.ReadFile(homeDir + "/atw/googleapppass.txt")
 	_ = err
 	password = string(tmp)
@@ -54,9 +54,9 @@ func TestMail1(t *testing.T) {
 	// This is the message to send in the mail
 	msg := "Hello from dreaming of knot free mail " + time.Now().String() + "\r\n"
 
-	fmt.Println("from", from)
-	fmt.Println("to", toList)
-	fmt.Println("msg", msg)
+	log.Println("from", from)
+	log.Println("to", toList)
+	log.Println("msg", msg)
 
 	// We can't send strings directly in mail,
 	// strings need to be converted into slice bytes
@@ -73,7 +73,7 @@ func TestMail1(t *testing.T) {
 
 	emailMessage := makeEmailMessage(from, toList, title, msg)
 
-	fmt.Println("emailMessage", emailMessage)
+	log.Println("emailMessage", emailMessage)
 
 	// SendMail uses TLS connection to send the mail
 	// The email is sent to all address in the toList,
@@ -81,15 +81,15 @@ func TestMail1(t *testing.T) {
 	// This returns error if any occurred.
 	err = smtp.SendMail(host+":"+port, auth, from, toList, []byte(emailMessage))
 	// err = MySendMail(host+":"+port, auth, from, toList, []byte(emailMessage), func(c *smtp.Client) error {
-	// 	fmt.Println("in MySendMail") // we're not using this
+	// 	log.Println("in MySendMail") // we're not using this
 	// 	return nil
 	// })
 
 	// handling the errors
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 		os.Exit(1)
 	}
 
-	fmt.Println("Successfully sent mail to all user in toList")
+	log.Println("Successfully sent mail to all user in toList")
 }

@@ -4,7 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
-	"fmt"
+	"log"
 	"math/rand"
 	"testing"
 
@@ -28,7 +28,7 @@ func TestMakingKeys(t *testing.T) {
 
 		curve25519.ScalarBaseMult(publicKey, privateKey)
 
-		fmt.Println(" passphrase ", masterPassPhrase, " private ", "="+base64.RawURLEncoding.EncodeToString(privateKey[:]), " \npublic ", "="+base64.RawURLEncoding.EncodeToString(publicKey[:]))
+		log.Println(" passphrase ", masterPassPhrase, " private ", "="+base64.RawURLEncoding.EncodeToString(privateKey[:]), " \npublic ", "="+base64.RawURLEncoding.EncodeToString(publicKey[:]))
 	}
 
 	{
@@ -46,7 +46,7 @@ func TestMakingKeys(t *testing.T) {
 
 		curve25519.ScalarBaseMult(publicKey, privateKey)
 
-		fmt.Println(" passphrase ", humanName, " private ", "="+base64.RawURLEncoding.EncodeToString(privateKey[:]), " \npublic ", "="+base64.RawURLEncoding.EncodeToString(publicKey[:]))
+		log.Println(" passphrase ", humanName, " private ", "="+base64.RawURLEncoding.EncodeToString(privateKey[:]), " \npublic ", "="+base64.RawURLEncoding.EncodeToString(publicKey[:]))
 	}
 
 }
@@ -63,7 +63,7 @@ func TestBox1(t *testing.T) {
 
 	curve25519.ScalarBaseMult(publicKey, privateKey)
 
-	fmt.Println("private", hex.EncodeToString(privateKey[:]), "public", hex.EncodeToString(publicKey[:]))
+	log.Println("private", hex.EncodeToString(privateKey[:]), "public", hex.EncodeToString(publicKey[:]))
 	// a6d8051b972129f473b2f0865282d0b505a23a8c3c8c678bdd4b0cea33d2df0d
 	// b8bbe796e2839c6ed69ca757847c9be0319f061d755d5bd23064a34b86075958
 
@@ -73,7 +73,7 @@ func TestBox1(t *testing.T) {
 
 	curve25519.ScalarBaseMult(devicePublicKey, &devicePrivateKey)
 
-	fmt.Println("dev private", hex.EncodeToString(devicePrivateKey[:]), "dev public", hex.EncodeToString(devicePublicKey[:]))
+	log.Println("dev private", hex.EncodeToString(devicePrivateKey[:]), "dev public", hex.EncodeToString(devicePublicKey[:]))
 	// e214a049cf64bb02004557e7343c906f0c590403e20b4074585cf533dbda6108
 	// d1eaa91d2a681dc02d357132b6a83e6140230a951ca72f55a0ce757527fae431
 
@@ -85,17 +85,17 @@ func TestBox1(t *testing.T) {
 	buffer := make([]byte, 0, (len(message) + box.Overhead))
 	sealed := box.Seal(buffer, []byte(message), nonce, devicePublicKey, privateKey)
 
-	//fmt.Println("encrypted message ", hex.EncodeToString(out))
-	fmt.Println("encrypted message", hex.EncodeToString(sealed))
+	//log.Println("encrypted message ", hex.EncodeToString(out))
+	log.Println("encrypted message", hex.EncodeToString(sealed))
 
 	// send out, and nonce to device
 	openbuffer := make([]byte, 0, (len(sealed))) // - box.Overhead))
 
 	opened, ok := box.Open(openbuffer, sealed, nonce, publicKey, &devicePrivateKey)
 
-	fmt.Println("decrypted message hex", hex.EncodeToString(opened), ok)
-	fmt.Println("decrypted message ", string(opened))
-	//fmt.Println("decrypted message ", hex.EncodeToString(result))
+	log.Println("decrypted message hex", hex.EncodeToString(opened), ok)
+	log.Println("decrypted message ", string(opened))
+	//log.Println("decrypted message ", hex.EncodeToString(result))
 }
 
 func TestBoxMatchesTypeScript(t *testing.T) {
@@ -103,24 +103,24 @@ func TestBoxMatchesTypeScript(t *testing.T) {
 	senderPass := "testString123" //
 	hash := sha256.Sum256([]byte(senderPass))
 
-	fmt.Println(senderPass, "hashes to ", base64.RawURLEncoding.EncodeToString(hash[:]))
+	log.Println(senderPass, "hashes to ", base64.RawURLEncoding.EncodeToString(hash[:]))
 
 	receiverPass := "myFamousOldeSaying" //
 	hash = sha256.Sum256([]byte(receiverPass))
 
-	fmt.Println(receiverPass, "hashes to ", base64.RawURLEncoding.EncodeToString(hash[:]))
+	log.Println(receiverPass, "hashes to ", base64.RawURLEncoding.EncodeToString(hash[:]))
 
 	spublic, sprivate := tokens.GetBoxKeyPairFromPassphrase(senderPass)
 
-	fmt.Println(senderPass, "makes sender public key ", base64.RawURLEncoding.EncodeToString(spublic[:]))
-	fmt.Println(senderPass, "makes sender private key ", base64.RawURLEncoding.EncodeToString(sprivate[:]))
+	log.Println(senderPass, "makes sender public key ", base64.RawURLEncoding.EncodeToString(spublic[:]))
+	log.Println(senderPass, "makes sender private key ", base64.RawURLEncoding.EncodeToString(sprivate[:]))
 	//testString123 makes sender public key   bht-Ka3j7GKuMFOablMlQnABnBvBeugvSf4CdFV3LXs
 	//testString123 makes sender secret key   VY5e4pCAwDlr-HdfioX6TCiv41Xx_SsTtUcupKndFpQ
 
 	rpublic, rprivate := tokens.GetBoxKeyPairFromPassphrase(receiverPass)
 
-	fmt.Println(receiverPass, "makes receiver public key ", base64.RawURLEncoding.EncodeToString(rpublic[:]))
-	fmt.Println(receiverPass, "makes receiver private key ", base64.RawURLEncoding.EncodeToString(rprivate[:]))
+	log.Println(receiverPass, "makes receiver public key ", base64.RawURLEncoding.EncodeToString(rpublic[:]))
+	log.Println(receiverPass, "makes receiver private key ", base64.RawURLEncoding.EncodeToString(rprivate[:]))
 
 	message := "this is my test message"
 
@@ -131,13 +131,13 @@ func TestBoxMatchesTypeScript(t *testing.T) {
 	buffer := make([]byte, 0, (len(message) + box.Overhead))
 	sealed := box.Seal(buffer, []byte(message), &nonce, &rpublic, &sprivate)
 
-	fmt.Println("boxed", base64.RawURLEncoding.EncodeToString(sealed))
+	log.Println("boxed", base64.RawURLEncoding.EncodeToString(sealed))
 
 	// send out, and nonce to device
 	openbuffer := make([]byte, 0, (len(sealed))) // - box.Overhead))
 
 	opened, ok := box.Open(openbuffer, sealed, &nonce, &spublic, &rprivate)
 	_ = ok
-	fmt.Println("unboxed ", string(opened))
+	log.Println("unboxed ", string(opened))
 
 }

@@ -2,7 +2,7 @@ package iot
 
 import (
 	"errors"
-	"fmt"
+	"log"
 	"net"
 	"reflect"
 	"time"
@@ -22,9 +22,9 @@ type tcpContact struct {
 func (cc *tcpContact) DoClosingWork(err error) {
 	// do we need a mutex here?
 	// No, it is only called from the one place and only once
-	fmt.Println("tcpContact DoClosingWork con=", cc.GetKey().Sig(), err)
+	log.Println("tcpContact DoClosingWork con=", cc.GetKey().Sig(), err)
 	if cc.netDotTCPConn != nil {
-		//fmt.Println("close tcp ", cc.netDotTCPConn.RemoteAddr())
+		//log.Println("close tcp ", cc.netDotTCPConn.RemoteAddr())
 		cc.netDotTCPConn.Close()
 		cc.netDotTCPConn = nil
 	}
@@ -46,7 +46,7 @@ func (cc *tcpContact) WriteDownstream(packet packets.Interface) error {
 	got, ok := packet.GetOption("debg")
 	isDebug := ok && string(got) == "12345678"
 	if isDebug {
-		fmt.Println("tcpContact WriteDownstream con=", cc.GetKey().Sig(), packet.Sig())
+		log.Println("tcpContact WriteDownstream con=", cc.GetKey().Sig(), packet.Sig())
 	}
 	// var goterr error
 	// var wg sync.WaitGroup we don't need to wait. It's in the Q and that's enough.
@@ -57,7 +57,7 @@ func (cc *tcpContact) WriteDownstream(packet packets.Interface) error {
 			//defer wg.Done()
 			u := HasError(packet)
 			if u != nil && !cc.config.IsGuru() {
-				fmt.Println("tcpContact ERROR write disconnect con=", cc.GetKey().Sig(), packet.Sig())
+				log.Println("tcpContact ERROR write disconnect con=", cc.GetKey().Sig(), packet.Sig())
 				u.Write(cc) // write disconnect
 				cc.DoClose(errors.New(u.String()))
 				_ = errors.New(u.String())
@@ -66,14 +66,14 @@ func (cc *tcpContact) WriteDownstream(packet packets.Interface) error {
 					return
 				}
 				// if isDebug {
-				// 	fmt.Println("tcpContact in the socket con=", cc.GetKey().Sig(), packet.Sig())
+				// 	log.Println("tcpContact in the socket con=", cc.GetKey().Sig(), packet.Sig())
 				// }
 				// this must not block, otherwise the whole channel gets stuck.
 				err := packet.Write(cc)
 				// cc.netDotTCPConn.SetNoDelay(true)
 				// when do we flush? do we need to flush?
 				if err != nil {
-					fmt.Println("tcpContact write ERROR con=", cc.GetKey().Sig(), err)
+					log.Println("tcpContact write ERROR con=", cc.GetKey().Sig(), err)
 					// close the connection???
 				}
 			}
@@ -83,7 +83,7 @@ func (cc *tcpContact) WriteDownstream(packet packets.Interface) error {
 }
 
 func (cc *tcpContact) WriteUpstream(cmd packets.Interface) error {
-	fmt.Println("FIXME tcp received from below dead code ERROR delete me", cmd, reflect.TypeOf(cmd))
+	log.Println("FIXME tcp received from below dead code ERROR delete me", cmd, reflect.TypeOf(cmd))
 	err := cmd.Write(cc)
 	if err != nil {
 		cc.DoClose(err)
@@ -92,25 +92,25 @@ func (cc *tcpContact) WriteUpstream(cmd packets.Interface) error {
 }
 
 func listenForPacketsConnect(ex *Executive, name string) {
-	fmt.Println("TCPUtil listen top ", name, "at", ex.Name, "with", ex.GetTCPAddress())
+	log.Println("TCPUtil listen top ", name, "at", ex.Name, "with", ex.GetTCPAddress())
 	ln, err := net.Listen("tcp", name)
 	if err != nil {
 		// handle error
 		//srvrLogThing.Collect(err.Error())
-		//fmt.Println("server didnt' stary ", err)
+		//log.Println("server didnt' stary ", err)
 		TCPServerDidntStart.Inc()
 		return
 	}
 	for {
-		fmt.Println("TCPUtil Server listening for packets connections ", name, ex.Name)
+		log.Println("TCPUtil Server listening for packets connections ", name, ex.Name)
 		tmpconn, err := ln.Accept()
 		if err != nil {
 			//	srvrLogThing.Collect(err.Error())
-			//fmt.Println("accept err ", err)
+			//log.Println("accept err ", err)
 			TCPServerAcceptError.Inc()
 			continue
 		}
-		fmt.Println("TCPUtil Server accepted connection ", name, ex.Name, tmpconn.RemoteAddr())
+		log.Println("TCPUtil Server accepted connection ", name, ex.Name, tmpconn.RemoteAddr())
 
 		go handleConnection(tmpconn.(*net.TCPConn), ex)
 	}
@@ -124,22 +124,22 @@ func handleConnection(tcpConn *net.TCPConn, ex *Executive) {
 
 	cc := localMakeTCPContact(ex.Config, tcpConn)
 	defer func() {
-		// fmt.Println("tcpContact handleConnection exit close")
+		// log.Println("tcpContact handleConnection exit close")
 		cc.DoClose(nil)
 	}()
 
-	fmt.Println("tcpContact add, ", tcpConn.RemoteAddr(), cc.GetKey().Sig(), ex.Name)
+	log.Println("tcpContact add, ", tcpConn.RemoteAddr(), cc.GetKey().Sig(), ex.Name)
 
 	TCPServerNewConnection.Inc()
 
 	err := SocketSetup(tcpConn)
 	if err != nil {
 		//connLogThing.Collect("server err " + err.Error())
-		fmt.Println("setup err", err)
+		log.Println("setup err", err)
 		return
 	}
 
-	// defer fmt.Println("tcpContact QUIT, ", tcpConn.RemoteAddr(), cc.GetKey().Sig(), ex.Name)
+	// defer log.Println("tcpContact QUIT, ", tcpConn.RemoteAddr(), cc.GetKey().Sig(), ex.Name)
 
 	// we might just for over the range of the handler input channel?
 	for !ex.IsClosed() {
@@ -148,14 +148,14 @@ func handleConnection(tcpConn *net.TCPConn, ex *Executive) {
 		if cc.GetToken() == nil {
 			err := cc.netDotTCPConn.SetDeadline(time.Now().Add(2 * time.Second))
 			if err != nil {
-				fmt.Println("tcpContact deadline err 3", err)
+				log.Println("tcpContact deadline err 3", err)
 				cc.DoClose(err)
 				return // quit, close the sock, be forgotten
 			}
 		} else {
 			err := cc.netDotTCPConn.SetDeadline(time.Now().Add(30 * time.Minute))
 			if err != nil {
-				fmt.Println("tcpContact deadline err 4", err, tcpConn.RemoteAddr())
+				log.Println("tcpContact deadline err 4", err, tcpConn.RemoteAddr())
 				cc.DoClose(err)
 				return // quit, close the sock, be forgotten, start over
 			}
@@ -164,13 +164,13 @@ func handleConnection(tcpConn *net.TCPConn, ex *Executive) {
 		// read a packet and push it up from the bottom.
 		// I wish I knew if this contact needs bigger buffers. It might be dialAideAndServe
 
-		// fmt.Println("tcpContact waiting for packet con=", cc.GetKey().Sig(), ex.Name)
+		// log.Println("tcpContact waiting for packet con=", cc.GetKey().Sig(), ex.Name)
 		p, err := packets.ReadPacket(cc)
 		if err != nil {
 			// We get these whenever someone dials, does someting and then disconnects.
 			// Like this little fucker: PublishTestTopic Dialing  :8384
 			// it's fairly normal.
-			fmt.Println("tcpContact read closed", time.Now(), cc.key.Sig(), err, tcpConn.RemoteAddr(), ex.isGuru, ex.Name)
+			log.Println("tcpContact read closed", time.Now(), cc.key.Sig(), err, tcpConn.RemoteAddr(), ex.isGuru, ex.Name)
 			TCPServerPacketReadError.Inc()
 			cc.DoClose(err)
 			return
@@ -193,14 +193,14 @@ func handleConnection(tcpConn *net.TCPConn, ex *Executive) {
 			// ? cc.LogMeVerbose
 			// what are all the empty sends I'm getting? eg. tcpContact got packet  bvp1 send to:ET9M frm:w2q_ with: guru-20e1689727145d45d663f2696fd88183
 			if !skipMe && serviceDebugSession1 {
-				fmt.Println("tcpContact got packet ", cc.GetKey().Sig(), "packet sig", p.Sig(), "my name", ex.Name)
+				log.Println("tcpContact got packet ", cc.GetKey().Sig(), "packet sig", p.Sig(), "my name", ex.Name)
 			}
 		}
 
 		err = PushPacketUpFromBottom(cc, p)
 		if err != nil {
 			//connLogThing.Collect("se err " + err.Error())
-			fmt.Println("iot.push err", err, tcpConn.RemoteAddr())
+			log.Println("iot.push err", err, tcpConn.RemoteAddr())
 			TCPServerIotPushError.Inc()
 			cc.DoClose(err)
 			return
@@ -213,24 +213,24 @@ func SocketSetup(tcpConn *net.TCPConn) error {
 	//tcpConn := conn.(*net.TCPConn)
 	err := tcpConn.SetReadBuffer(4096 * 16)
 	if err != nil {
-		fmt.Println("tcpContact SocketSetup err1 " + err.Error())
+		log.Println("tcpContact SocketSetup err1 " + err.Error())
 		return err
 	}
 	err = tcpConn.SetWriteBuffer(4096 * 16)
 	if err != nil {
-		fmt.Println("tcpContact SocketSetup err2 " + err.Error())
+		log.Println("tcpContact SocketSetup err2 " + err.Error())
 		return err
 	}
 	err = tcpConn.SetNoDelay(true)
 	if err != nil {
-		fmt.Println("tcpContact SocketSetup err3 " + err.Error())
+		log.Println("tcpContact SocketSetup err3 " + err.Error())
 		return err
 	}
 	// SetReadDeadline and SetWriteDeadline
 
 	err = tcpConn.SetDeadline(time.Now().Add(20 * time.Minute))
 	if err != nil {
-		fmt.Println("tcpContact SocketSetup err4 " + err.Error())
+		log.Println("tcpContact SocketSetup err4 " + err.Error())
 		return err
 	}
 	return nil

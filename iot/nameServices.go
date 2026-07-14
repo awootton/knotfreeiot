@@ -2,7 +2,7 @@ package iot
 
 import (
 	"encoding/base64"
-	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -30,8 +30,8 @@ func (api ApiHandler) NameService(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	// fmt.Println("NameService command", command)
-	// fmt.Println("NameService theirPubk", theirPubk)
+	// log.Println("NameService command", command)
+	// log.Println("NameService theirPubk", theirPubk)
 
 	look := packets.Lookup{}
 	look.Address.FromString(aName)
@@ -67,18 +67,18 @@ func (api ApiHandler) NameService(w http.ResponseWriter, req *http.Request) {
 		if len(tmp) > 100 {
 			tmp = tmp[:100] + "..."
 		}
-		fmt.Println("NameService reply", tmp, aName)
+		log.Println("NameService reply", tmp, aName)
 	}
 	// this is httpd so no need to encrypt the reply
 	// the encrypt of the send was to prove ownership
 	n, err := w.Write(replyBytes)
 	if err != nil {
-		fmt.Println("NameService write error", err)
+		log.Println("NameService write error", err)
 		http.Error(w, err.Error(), 500) // does this work?
 		return
 	}
 	if n != len(replyBytes) {
-		fmt.Println("NameService write error", n, len(replyBytes))
+		log.Println("NameService write error", n, len(replyBytes))
 	}
 }
 
@@ -91,7 +91,7 @@ func createNameFunc(msg string, args []string, callContext interface{}) string {
 	me, bucket, lookMsg, pubk := getCallContext(callContext)
 
 	if len(args) < 2 {
-		fmt.Println("add name error: too few args")
+		log.Println("add name error: too few args")
 		sendReply(me, lookMsg, "add name error: too few args")
 		return ""
 	}
@@ -99,12 +99,12 @@ func createNameFunc(msg string, args []string, callContext interface{}) string {
 	token := args[1]
 	payload, err := tokens.ValidateToken(string(token))
 	if err != nil {
-		fmt.Println("add name error: invalid token", err)
+		log.Println("add name error: invalid token", err)
 		sendReply(me, lookMsg, "add name error: invalid token")
 		return ""
 	}
 	if payload.Pubk != pubk {
-		fmt.Println("add name error: not owner")
+		log.Println("add name error: not owner")
 		sendReply(me, lookMsg, "add name error: not owner")
 		return ""
 	}
@@ -115,13 +115,13 @@ func createNameFunc(msg string, args []string, callContext interface{}) string {
 		// and we are async now
 		count, err := GetSubscriptionListCount(payload.Pubk)
 		if err != nil {
-			fmt.Println("getNames GetSubscriptionList", err)
+			log.Println("getNames GetSubscriptionList", err)
 			// http.Error(w, err.Error(), 500)
 			sendReply(me, lookMsg, "error GetSubscriptionList")
 			return
 		}
 		if count+1 > int(payload.Subscriptions) {
-			fmt.Println("add name error: too many names")
+			log.Println("add name error: too many names")
 			sendReply(me, lookMsg, "add name error: you own more names than allowed by your token")
 			return
 		}
@@ -132,33 +132,33 @@ func createNameFunc(msg string, args []string, callContext interface{}) string {
 			// What if we want to change the owner of a name?
 			// TODO: make another command for this.
 			if watchedTopic.Owner != payload.Pubk {
-				fmt.Println("add name error: not owner")
+				log.Println("add name error: not owner")
 				sendReply(me, lookMsg, "add name error: not owner")
 				return
 			}
-			fmt.Println("add name: name already exists", name)
+			log.Println("add name: name already exists", name)
 			watchedTopic.Expires = payload.ExpirationTime
 			watchedTopic.Jwtid = payload.JWTID
 			watchedTopic.Owner = payload.Pubk
 			err = SaveSubscription(watchedTopic)
 			if err != nil {
-				fmt.Println("add name: save subscription err", err)
+				log.Println("add name: save subscription err", err)
 			}
 		} else {
 			// try to pull it first
 			gotwatchedTopic, ok := GetSubscription(lookMsg.topicHash.ToBase64())
 			if ok {
 				if gotwatchedTopic.Owner != pubk {
-					fmt.Println("add name error: not owner", name)
+					log.Println("add name error: not owner", name)
 					sendReply(me, lookMsg, "add name error: not owner")
 					return
 				}
-				fmt.Println("add name: name already exists")
+				log.Println("add name: name already exists")
 				gotwatchedTopic.Expires = payload.ExpirationTime
 				gotwatchedTopic.Jwtid = payload.JWTID
 				err = SaveSubscription(gotwatchedTopic)
 				if err != nil {
-					fmt.Println("add name: save subscription err", err)
+					log.Println("add name: save subscription err", err)
 				}
 				watchedTopic = gotwatchedTopic
 			} else {
@@ -175,7 +175,7 @@ func createNameFunc(msg string, args []string, callContext interface{}) string {
 				}
 				err = SaveSubscription(&newWatchedTopic)
 				if err != nil {
-					fmt.Println("add name error: save subscription2", err)
+					log.Println("add name error: save subscription2", err)
 				}
 				watchedTopic = &newWatchedTopic
 			}
@@ -201,7 +201,7 @@ func deleteNameFunc(msg string, args []string, callContext interface{}) string {
 	me, bucket, lookMsg, pubk := getCallContext(callContext)
 	_ = bucket
 	if len(args) < 1 {
-		fmt.Println("delete name error: too few args")
+		log.Println("delete name error: too few args")
 		sendReply(me, lookMsg, "delete name error: too few args")
 		return ""
 	}
@@ -216,7 +216,7 @@ func deleteNameFunc(msg string, args []string, callContext interface{}) string {
 		// we NEVER delete without loading first and checking the owner.
 		if watcherExisted {
 			if watchedTopic.Owner != pubk {
-				fmt.Println("delete name error: not owner", name)
+				log.Println("delete name error: not owner", name)
 				sendReply(me, lookMsg, "delete name error: not owner")
 				return
 			}
@@ -227,20 +227,21 @@ func deleteNameFunc(msg string, args []string, callContext interface{}) string {
 				sendReply(me, lookMsg, "delete name error: hash mismatch")
 				return
 			}
+			log.Println("deleteNameFunc calling DeleteSubscription", name)
 			err := DeleteSubscription(hashedStr)
 			if err != nil {
-				fmt.Println("add name error: save subscription", err)
+				log.Println("delete name error: save subscription", err)
 			}
 		} else {
 			gotwatchedTopic, ok := GetSubscription(lookMsg.topicHash.ToBase64())
 			if !ok {
 				// is this really an error?
-				fmt.Println("delete name error: not found", name)
+				log.Println("delete name error: not found", name)
 				sendReply(me, lookMsg, "delete name error: not found")
 				return
 			}
 			if gotwatchedTopic.Owner != pubk {
-				fmt.Println("delete name error: not owner", name)
+				log.Println("delete name error: not owner", name)
 				sendReply(me, lookMsg, "delete name error: not owner")
 				return
 			}
@@ -251,9 +252,10 @@ func deleteNameFunc(msg string, args []string, callContext interface{}) string {
 				sendReply(me, lookMsg, "delete name error: hash mismatch")
 				return
 			}
+			log.Println("deleteNameFunc calling DeleteSubscription", name)
 			err := DeleteSubscription(hashedStr)
 			if err != nil {
-				fmt.Println("add name error: save subscription", err)
+				log.Println("add name error: save subscription", err)
 			}
 		}
 		// now reaquire the bucket and replace the watcher.
@@ -282,13 +284,13 @@ func (api ApiHandler) NameServiceOLD(w http.ResponseWriter, req *http.Request) {
 	theirPubk := req.URL.Query().Get("pubk") // this has to be the owners public key of the name
 	//	aName := req.URL.Query().Get("name")     // this has to be text name of the subscription involved
 
-	fmt.Println("NameService cmd", cmd)
-	fmt.Println("NameService theirPubk", theirPubk)
+	log.Println("NameService cmd", cmd)
+	log.Println("NameService theirPubk", theirPubk)
 
 	// we need to unbox this
 	bincmd, err := base64.RawURLEncoding.DecodeString(cmd)
 	if err != nil {
-		fmt.Println("NameService decode cmd", err)
+		log.Println("NameService decode cmd", err)
 		http.Error(w, err.Error(), 500)
 		return
 	}
@@ -297,7 +299,7 @@ func (api ApiHandler) NameServiceOLD(w http.ResponseWriter, req *http.Request) {
 	openbuffer := make([]byte, 0, (len(cmd))) // - box.Overhead))
 	tmp, err := base64.RawURLEncoding.DecodeString(theirPubk)
 	if err != nil {
-		fmt.Println("NameService decode pubk", err)
+		log.Println("NameService decode pubk", err)
 		http.Error(w, err.Error(), 500)
 		return
 	}
@@ -305,25 +307,25 @@ func (api ApiHandler) NameServiceOLD(w http.ResponseWriter, req *http.Request) {
 	copy(pubk[:], tmp[:])
 	opened, ok := box.Open(openbuffer, bincmd, nonce, pubk, api.ce.PrivateKeyTemp)
 	if !ok {
-		fmt.Println("NameService box open failed", nonceStr, theirPubk, api.ce.PrivateKeyTemp)
+		log.Println("NameService box open failed", nonceStr, theirPubk, api.ce.PrivateKeyTemp)
 		http.Error(w, "box open failed", 500)
 		return
 	}
 	parts := strings.Split(string(opened), "#")
 	if len(parts) != 2 {
-		fmt.Println("NameService parts len != 2")
+		log.Println("NameService parts len != 2")
 		http.Error(w, "parts len != 2", 500)
 		return
 	}
 	// if parts[0] != theirPubk {
-	// 	fmt.Println("pubk not match")
+	// 	log.Println("pubk not match")
 	// 	http.Error(w, "pubk not match", 500)
 	// 	return
 	// }
 	timeStr := parts[1]
 	seconds, err := strconv.ParseInt(timeStr, 10, 64)
 	if err != nil {
-		fmt.Println("time not int")
+		log.Println("time not int")
 		http.Error(w, "time not int", 500)
 		return
 	}
@@ -332,7 +334,7 @@ func (api ApiHandler) NameServiceOLD(w http.ResponseWriter, req *http.Request) {
 		delta = -delta
 	}
 	if delta > 10 {
-		fmt.Println("time not match")
+		log.Println("time not match")
 		http.Error(w, "time not match", 500)
 		return
 	}
@@ -343,9 +345,9 @@ func (api ApiHandler) NameServiceOLD(w http.ResponseWriter, req *http.Request) {
 	// modify name
 
 	cmdparts := strings.Split(cmd, " ")
-	fmt.Println("getNames cmdparts", cmdparts)
+	log.Println("getNames cmdparts", cmdparts)
 	if len(cmdparts) < 1 {
-		fmt.Println("getNames cmdparts len < 1")
+		log.Println("getNames cmdparts len < 1")
 		http.Error(w, "cmdparts len < 1", 500)
 		return
 	}

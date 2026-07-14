@@ -3,7 +3,7 @@ package iot
 import (
 	"bufio"
 	"errors"
-	"fmt"
+	"log"
 	"net"
 	"time"
 
@@ -26,11 +26,11 @@ func MakeTextExecutive(ex *Executive, serverName string) *Executive {
 // Text2Packet turns badjson into a packet
 func Text2Packet(text string) (packets.Interface, error) {
 
-	// fmt.Println("Text2Packet converting ", text)
+	// log.Println("Text2Packet converting ", text)
 	// parse the text
 	segment, err := badjson.Chop(text)
 	if err != nil {
-		fmt.Println("SendText badjson err", err)
+		log.Println("SendText badjson err", err)
 		return nil, err
 	}
 	rawFirstSegment := segment.Raw()
@@ -56,7 +56,7 @@ func Text2Packet(text string) (packets.Interface, error) {
 	}
 	p, err := packets.FillPacket(&uni)
 	if err != nil {
-		fmt.Println("problem with packet", err)
+		log.Println("problem with packet", err)
 	}
 	return p, err
 }
@@ -85,7 +85,7 @@ func (cc *textContact) WriteDownstream(packet packets.Interface) error {
 
 	text := packet.String()
 	bytes := []byte(text + "\n")
-	//fmt.Println("writing down ", string(bytes))
+	//log.Println("writing down ", string(bytes))
 	_, err := cc.Write(bytes)
 	if err != nil {
 		cc.DoClose(err)
@@ -95,20 +95,20 @@ func (cc *textContact) WriteDownstream(packet packets.Interface) error {
 
 // textServer serves a line oriented text protocol
 func textServer(ex *Executive, name string) {
-	fmt.Println("knot text service starting ", name)
+	log.Println("knot text service starting ", name)
 	ln, err := net.Listen("tcp", name)
 	if err != nil {
 		// handle error
 		//srvrLogThing.Collect(err.Error())
-		fmt.Println("server didnt' start ", err)
+		log.Println("server didnt' start ", err)
 		return
 	}
 	for !ex.IsClosed() {
-		//fmt.Println("Server listening")
+		//log.Println("Server listening")
 		tmpconn, err := ln.Accept()
 		if err != nil {
 			//	srvrLogThing.Collect(err.Error())
-			fmt.Println("accetp err ", err)
+			log.Println("accetp err ", err)
 			continue
 		}
 		go textConnection(tmpconn.(*net.TCPConn), ex) //,handler types.ProtocolHandler)
@@ -129,7 +129,7 @@ func textConnection(tcpConn *net.TCPConn, ex *Executive) {
 	err := SocketSetup(tcpConn)
 	if err != nil {
 		//connLogThing.Collect("server err " + err.Error())
-		fmt.Println("setup err", err)
+		log.Println("setup err", err)
 		return
 	}
 	for !ex.IsClosed() {
@@ -138,26 +138,26 @@ func textConnection(tcpConn *net.TCPConn, ex *Executive) {
 		}
 		if cc.GetToken() == nil {
 			err := cc.netDotTCPConn.SetDeadline(time.Now().Add(20 * time.Second))
-			fmt.Println("set deadline SHORT")
+			log.Println("set deadline SHORT")
 			if err != nil {
 				//connLogThing.Collect("server err2 " + err.Error())
-				fmt.Println("set deadline err1", err)
+				log.Println("set deadline err1", err)
 				cc.DoClose(err)
 				return // quit, close the sock, be forgotten
 			}
 		} else {
 			err := cc.netDotTCPConn.SetDeadline(time.Now().Add(20 * time.Minute))
-			//fmt.Println("set deadline LONG")
+			//log.Println("set deadline LONG")
 			if err != nil {
 				//connLogThing.Collect("server err2 " + err.Error())
-				fmt.Println("set deadline err2", err)
+				log.Println("set deadline err2", err)
 				cc.DoClose(err)
 				return // quit, close the sock, be forgotten
 			}
 		}
-		//fmt.Println("waiting for packet")
+		//log.Println("waiting for packet")
 		str, err := lineReader.ReadString('\n')
-		// fmt.Println("text-protocol got line ", str)
+		// log.Println("text-protocol got line ", str)
 		if len(str) > 0 {
 			str = str[0 : len(str)-1] // strip off the newline.
 		}
@@ -167,7 +167,7 @@ func textConnection(tcpConn *net.TCPConn, ex *Executive) {
 		if err != nil {
 			//connLogThing.Collect("se err " + err.Error())FIXME: all the connLogThing become prometheus
 			if err.Error() != "EOF" {
-				fmt.Println("packets 2 read err", err)
+				log.Println("packets 2 read err", err)
 			}
 			cc.DoClose(err)
 			return
@@ -175,16 +175,16 @@ func textConnection(tcpConn *net.TCPConn, ex *Executive) {
 		p, err := Text2Packet(str)
 		if err != nil {
 			//connLogThing.Collect("se err " + err.Error())
-			fmt.Println("packets 3 read err", err)
+			log.Println("packets 3 read err", err)
 			// should we write 'man' page and keep going?
 			cc.DoClose(err)
 			return
 		}
-		//fmt.Println("t got packet", p)
+		//log.Println("t got packet", p)
 		err = PushPacketUpFromBottom(cc, p)
 		if err != nil {
 			//connLogThing.Collect("se err " + err.Error())
-			fmt.Println("text.push err", err)
+			log.Println("text.push err", err)
 			cc.DoClose(err)
 			return
 		}

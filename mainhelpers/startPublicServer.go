@@ -1,7 +1,7 @@
 package mainhelpers
 
 import (
-	"fmt"
+	"log"
 	"net/http"
 	"net/http/httputil"
 	"os"
@@ -16,7 +16,7 @@ import (
 
 // func (api ApiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
-// 	fmt.Println("ApiHandler ServeHTTP", req.RequestURI, req.Host)
+// 	log.Println("ApiHandler ServeHTTP", req.RequestURI, req.Host)
 
 // 	w.Header().Add("Access-Control-Allow-Origin", "*")
 
@@ -26,7 +26,7 @@ import (
 
 // 		path := req.RequestURI[len(proxyApiPath):]
 
-// 		fmt.Println("proxy path", path)
+// 		log.Println("proxy path", path)
 // 		if strings.HasSuffix(path, ".png") || strings.HasSuffix(path, ".jpg") {
 // 			w.Header().Set("Content-Type", "image/png")
 // 		}
@@ -55,7 +55,7 @@ import (
 // 		stats := api.ce.Aides[0].GetExecutiveStats()
 // 		bytes, err := json.Marshal(stats)
 // 		if err != nil {
-// 			fmt.Println("GetExecutiveStats marshal", err)
+// 			log.Println("GetExecutiveStats marshal", err)
 // 		}
 // 		w.Write(bytes)
 
@@ -74,7 +74,7 @@ import (
 
 // 		sss := base64.RawURLEncoding.EncodeToString(api.ce.PublicKeyTemp[:])
 
-// 		fmt.Println("serve /api1/getPublicKey ", sss)
+// 		log.Println("serve /api1/getPublicKey ", sss)
 
 // 		//w.Header().Set("Access-Control-Allow-Origin", "*")
 // 		w.Write([]byte(sss))
@@ -99,7 +99,7 @@ import (
 
 // 	} else {
 // 		// http.NotFound(w, req)
-// 		// fmt.Fprintf(w, "expected known path "+req.RequestURI)
+// 		// log.Fprintf(w, "expected known path "+req.RequestURI)
 // 		// iot.HTTPServe404.Inc()
 // 		api.staticStuffHandler.ServeHTTP(w, req)
 // 	}
@@ -124,7 +124,7 @@ import (
 // var servedMap = map[string]*RequestReplyStruct{}
 
 func IsLocal(r *http.Request) bool {
-	fmt.Println("host is ", r.Host)
+	log.Println("host is ", r.Host)
 	if os.Getenv("KNOT_KUNG_FOO") == "atw" {
 		return true
 	}
@@ -136,15 +136,15 @@ func IsLocal(r *http.Request) bool {
 
 // func (superMux *SuperMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
-// 	//fmt.Println("giant token ", tokens.GetImpromptuGiantToken())
+// 	//log.Println("giant token ", tokens.GetImpromptuGiantToken())
 
 // 	// if !strings.Contains(r.Host, "knotfree.") {
-// 	// 	fmt.Println("unknown host ", r.Host)
+// 	// 	log.Println("unknown host ", r.Host)
 // 	// 	http.NotFound(w, r)
 // 	// 	return
 // 	// }
 
-// 	// fmt.Println("ServeHTTP from host ", r.Host)
+// 	// log.Println("ServeHTTP from host ", r.Host)
 
 // 	if strings.HasPrefix(r.Host, "212.2.245.112") { // the ip address of knotfree.io
 // 		r.Host = "knotfree.io"
@@ -156,7 +156,7 @@ func IsLocal(r *http.Request) bool {
 
 // 	domainParts := strings.Split(r.Host, ".")
 // 	if len(domainParts) == 4 { // dotted quads don't work for what's coming.
-// 		fmt.Println("unknown host-dotted", r.Host)
+// 		log.Println("unknown host-dotted", r.Host)
 // 		http.NotFound(w, r)
 // 		return
 // 	}
@@ -164,7 +164,7 @@ func IsLocal(r *http.Request) bool {
 // 	// eg [knotfree net]
 // 	// eg [subdomain knotfree net]
 // 	// eg [subdomain knotfree io]
-// 	// fmt.Println("serving domainParts ", domainParts)
+// 	// log.Println("serving domainParts ", domainParts)
 
 // 	isApiRequest := strings.HasPrefix(r.RequestURI, "/api1/") // len(r.RequestURI) >= 9 && r.RequestURI[:9] == "/api1/get"
 // 	isApiRequest = isApiRequest || r.RequestURI == "/mqtt"
@@ -186,7 +186,7 @@ type ProxyHandler struct {
 }
 
 func (ph *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	fmt.Println(r.URL)
+	log.Println(r.URL)
 	w.Header().Set("X-Ben", "Rad")
 	ph.p.ServeHTTP(w, r)
 }
@@ -207,7 +207,7 @@ func (ph *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // 		for {
 // 			// mt.Println("Heartbeat ", ce.Aides[0].Name)
 // 			ce.Aides[0].Heartbeat(uint32(time.Now().Unix()))
-// 			// fmt.Println("Heartbeat DONE", ce.Aides[0].Name)
+// 			// log.Println("Heartbeat DONE", ce.Aides[0].Name)
 // 			time.Sleep(10 * time.Second)
 // 		}
 // 	}()
@@ -232,18 +232,18 @@ func (ph *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // 		MaxHeaderBytes: 1 << 13,
 // 	}
 // 	go func(s *http.Server) {
-// 		fmt.Println("http service for ws " + s.Addr)
+// 		log.Println("http service for ws " + s.Addr)
 // 		err := s.ListenAndServe()
 // 		_ = err
-// 		fmt.Println("ListenAndServe 8085 returned !!!!!  arrrrg", err)
+// 		log.Println("ListenAndServe 8085 returned !!!!!  arrrrg", err)
 // 	}(s)
 // }
 
 // func startPublicServer9102() {
-// 	fmt.Println("http metrics service 9102")
+// 	log.Println("http metrics service 9102")
 // 	http.Handle("/metrics", promhttp.Handler())
 // 	http.ListenAndServe(":9102", nil)
-// 	fmt.Println("http service 9102 FAIL")
+// 	log.Println("http service 9102 FAIL")
 // }
 
 // func startPublicServer3100() {
@@ -258,7 +258,7 @@ func (ph *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // 			req.Header.Add("X-Origin-Host", origin.Host)
 // 			req.URL.Scheme = "http"
 // 			req.URL.Host = origin.Host
-// 			//fmt.Println("fwd graf:", req.URL.Host, req.URL.Port(), req.URL.Path)
+// 			//log.Println("fwd graf:", req.URL.Host, req.URL.Port(), req.URL.Path)
 // 			iot.ForwardsCount3100.Inc()
 // 		}
 // 		proxy := &httputil.ReverseProxy{Director: director}
@@ -273,10 +273,10 @@ func (ph *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // 		MaxHeaderBytes: 1 << 13,
 // 	}
 // 	go func(s *http.Server) {
-// 		fmt.Println("http grafana service " + s.Addr)
+// 		log.Println("http grafana service " + s.Addr)
 // 		err := s.ListenAndServe()
 // 		_ = err
-// 		fmt.Println("ListenAndServe 3100 returned !!!!!  arrrrg", err)
+// 		log.Println("ListenAndServe 3100 returned !!!!!  arrrrg", err)
 // 	}(s)
 
 // }
@@ -293,7 +293,7 @@ func (ph *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // 			req.Header.Add("X-Origin-Host", origin.Host)
 // 			req.URL.Scheme = "http"
 // 			req.URL.Host = origin.Host
-// 			//fmt.Println("fwd prom:", req.URL.Host, req.URL.Port(), req.URL.Path)
+// 			//log.Println("fwd prom:", req.URL.Host, req.URL.Port(), req.URL.Path)
 // 			iot.ForwardsCount9090.Inc()
 // 		}
 // 		proxy := &httputil.ReverseProxy{Director: director}
@@ -308,10 +308,10 @@ func (ph *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // 		MaxHeaderBytes: 1 << 13,
 // 	}
 // 	go func(s *http.Server) {
-// 		fmt.Println("http service " + s.Addr)
+// 		log.Println("http service " + s.Addr)
 // 		err := s.ListenAndServe()
 // 		_ = err
-// 		fmt.Println("ListenAndServe 9090 returned !!!!!  arrrrg", err)
+// 		log.Println("ListenAndServe 9090 returned !!!!!  arrrrg", err)
 // 	}(s)
 
 // }
@@ -324,7 +324,7 @@ func (ph *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // func (api wsAPIHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
-// 	//fmt.Println("ws ServeHTTP", r.RequestURI)
+// 	//log.Println("ws ServeHTTP", r.RequestURI)
 
 // 	allowAll := func(r *http.Request) bool {
 // 		return true
@@ -347,7 +347,7 @@ func (ph *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // 	headerMap := make(map[string]string)
 // 	pos := strings.Index(httpBytes, "\r\n\r\n")
 // 	if pos <= 0 {
-// 		fmt.Println("isWhat? no header end!!! this is bad ", httpBytes)
+// 		log.Println("isWhat? no header end!!! this is bad ", httpBytes)
 // 		return "", headerMap, ""
 // 	}
 // 	payload := httpBytes[pos+4:]
@@ -363,7 +363,7 @@ func (ph *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // 			val := strings.Trim(head[pos+1:], " ")
 // 			headerMap[key] = val
 // 		} else {
-// 			fmt.Println("weird header found " + head)
+// 			log.Println("weird header found " + head)
 // 		}
 // 	}
 // 	return firstLine, headerMap, payload
@@ -388,7 +388,7 @@ func (ph *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // 	ctx := req.Context()
 
 // 	// what is IP or id of sender?
-// 	fmt.Println("token req RemoteAddr", remoteAddr) // F I X M E: use db see below
+// 	log.Println("token req RemoteAddr", remoteAddr) // F I X M E: use db see below
 
 // 	now := time.Now().Unix()
 // 	numberOfMinutesPassed := (now - bootTimeSec) / 6 // now it's 10 sec
@@ -409,14 +409,14 @@ func (ph *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // 		iot.BadTokenRequests.Inc()
 // 	}
 // 	buf := buff1024[:n]
-// 	fmt.Println("token request read body", string(buf), n)
+// 	log.Println("token request read body", string(buf), n)
 // 	_ = buf
 
 // 	tokenRequest := &tokens.TokenRequest{}
 // 	err = json.Unmarshal(buf, tokenRequest)
 // 	if err != nil {
 // 		iot.BadTokenRequests.Inc()
-// 		fmt.Println("TokenRequest err", err.Error())
+// 		log.Println("TokenRequest err", err.Error())
 // 		http.Error(w, err.Error(), 500)
 // 		return
 // 	} else {
@@ -456,14 +456,14 @@ func (ph *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // 		if exp > uint32(time.Now().Unix()+60*60*24*365) {
 // 			// more than a year in the future not allowed now.
 // 			exp = uint32(time.Now().Unix() + 60*60*24*365)
-// 			fmt.Println("had long token ", string(payload.JWTID)) // TODO: store in db
+// 			log.Println("had long token ", string(payload.JWTID)) // TODO: store in db
 // 		}
 
 // 		cost := priceThing.Price // tokens.CalcTokenPrice(&payload, uint32(time.Now().Unix()))
-// 		fmt.Println("token cost is " + fmt.Sprintf("%f", cost))
+// 		log.Println("token cost is " + log.Sprintf("%f", cost))
 
 // 		// if cost > 0.012 {
-// 		// 	http.Error(w, "token too expensive at "+fmt.Sprintf("%f", cost), 500)
+// 		// 	http.Error(w, "token too expensive at "+log.Sprintf("%f", cost), 500)
 // 		// 	return
 // 		// }
 
@@ -480,7 +480,7 @@ func (ph *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // 		year, month, day := when.Date()
 
 // 		comments := make([]interface{}, 3)
-// 		tmp := fmt.Sprintf(" expires: %v-%v-%v", year, int(month), day)
+// 		tmp := log.Sprintf(" expires: %v-%v-%v", year, int(month), day)
 // 		comments[0] = tokenRequest.Comment + tmp
 // 		comments[1] = "" //payload
 // 		comments[2] = string(tokenString)
@@ -488,7 +488,7 @@ func (ph *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // 		_ = err
 // 		//returnval = []byte(strings.ReplaceAll(string(returnval), `"`, ``))
 // 		// returnval = []byte(strings.ReplaceAll(string(returnval), ` `, `_`))
-// 		//fmt.Println("sending token package ", string(returnval))
+// 		//log.Println("sending token package ", string(returnval))
 
 // 		returnval := tokenString
 
@@ -528,7 +528,7 @@ func (ph *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // 		time.Sleep(1 * time.Second)
 // 		w.Write(bytes)
 // 		tokensServed++
-// 		fmt.Println("done sending free token")
+// 		log.Println("done sending free token")
 // 	}
 // }
 
@@ -546,7 +546,7 @@ func (ph *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // // webHandler.ServeHTTP serves the static content
 // func (api webHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
-// 	fmt.Println("webHandler ServeHTTP", r.RequestURI)
+// 	log.Println("webHandler ServeHTTP", r.RequestURI)
 
 // 	api.fs2.ServeHTTP(w, r)
 

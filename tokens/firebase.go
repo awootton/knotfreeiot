@@ -16,6 +16,7 @@ func XXGetFirebaseApp(ctx context.Context) (*firebase.App, error) {
 
 	home, err := os.UserHomeDir()
 	if err != nil {
+		log.Println("error UserHomeDir: ", err)
 		return nil, fmt.Errorf("error UserHomeDir: %v", err)
 	}
 
@@ -28,6 +29,7 @@ func XXGetFirebaseApp(ctx context.Context) (*firebase.App, error) {
 
 	app, err := firebase.NewApp(ctx, config, opt)
 	if err != nil {
+		log.Println("error initializing app: ", err)
 		return nil, fmt.Errorf("error initializing app: %v", err)
 	}
 	return app, nil
@@ -59,9 +61,9 @@ func XxxxCalcTokenPrice(token *KnotFreeTokenPayload, unixIssueTime uint32) float
 	// tinyConnectAmt := float32(10*1000) / float32(5000)
 	// tinyIO := float32(1000 * 1000 * 1000 * 1000 / 5000) // per month
 
-	// fmt.Println("tinyCost ", tinyCost)               // 0.001 or 1 m$ or 1000 u$
-	// fmt.Println("tinyConnectAmt ", tinyConnectAmt)   // 2
-	// fmt.Println("tinyIO/sec ", tinyIO/secsInMonth) // 77 bytes/sec
+	// log.Println("tinyCost ", tinyCost)               // 0.001 or 1 m$ or 1000 u$
+	// log.Println("tinyConnectAmt ", tinyConnectAmt)   // 2
+	// log.Println("tinyIO/sec ", tinyIO/secsInMonth) // 77 bytes/sec
 
 	greaterPrice := float64(-1.0)
 
@@ -135,7 +137,7 @@ func XX_depricsted_LogNewToken(ctx context.Context, token *KnotFreeTokenPayload,
 
 	_, seterr := dbref.Push(ctx, tokenLogStruct)
 	if seterr != nil {
-		fmt.Println("about to die from app.Firestore error ", seterr)
+		log.Println("about to die from app.Firestore error ", seterr)
 		//log.Fatalf("app.Firestore: set %v", seterr)
 		log.Println(" ERROR app.Firestore: ", seterr)
 	}

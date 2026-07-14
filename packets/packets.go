@@ -438,9 +438,9 @@ func (p *Unsubscribe) Fill(str *Universal) error {
 func (p *Send) Fill(str *Universal) error {
 
 	if len(str.Args) < 3 {
-		// fmt.Println("too few args for Send", str.Cmd)
+		// log.Println("too few args for Send", str.Cmd)
 		// for _, a := range str.Args {
-		// 	fmt.Println("arg", a)
+		// 	log.Println("arg", a)
 		// }
 		return errors.New("too few args for Send: " + strconv.Itoa(len(str.Args)))
 	}
@@ -788,7 +788,7 @@ func ReadUniversal(reader io.Reader) (*Universal, error) {
 	str.Args, err = ReadArrayOfByteArray(reader)
 	_ = n
 	// if err != nil {  this happens with a partial buffer.
-	// 	fmt.Println("ReadUniversal got error", err, "type:", rune(str.Cmd))
+	// 	log.Println("ReadUniversal got error", err, "type:", rune(str.Cmd))
 	// }
 	return &str, err
 }
@@ -840,14 +840,14 @@ func ReadArrayOfByteArray(reader io.Reader) ([][]byte, error) {
 
 	if total >= 8000000 { // atw 4/2021
 		// this can happen with a partial buffer
-		// fmt.Println("Packet too long error ", total)
+		// log.Println("Packet too long error ", total)
 		// for i := 0; i < int(argsLen); i++ {
-		// 	fmt.Println("Packet strlen ", lengths[i])
+		// 	log.Println("Packet strlen ", lengths[i])
 		// }
 		return nil, errors.New("packet too long for this reality")
 	}
 
-	// fmt.Println("Packet total ", total)
+	// log.Println("Packet total ", total)
 
 	// now we can read the rest all at once
 	bytes := make([]uint8, total) // alloc the base array

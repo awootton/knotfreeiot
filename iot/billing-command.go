@@ -34,7 +34,7 @@ func serveBillingCommand(p *packets.Send, billingAccumulator *BillingAccumulator
 		}
 	}
 
-	// fmt.Println(" billing channel has command", command)
+	// log.Println(" billing channel has command", command)
 	// TODO: make this like the monnitor_pod and lookmsg
 	reply := ""
 	switch command {

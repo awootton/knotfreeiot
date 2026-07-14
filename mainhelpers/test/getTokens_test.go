@@ -12,7 +12,7 @@ var sampleToken1 = `eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiSldUIn0.eyJleHAiOjE2MDkzNzY0
 
 // 	tokens.LoadPrivateKeys("~/atw/privateKeys4.txt")
 
-// 	fmt.Println("in TestMakeLargeToken")
+// 	log.Println("in TestMakeLargeToken")
 
 // 	tokenRequest := &tokens.TokenRequest{}
 // 	payload := tokens.KnotFreeTokenPayload{}
@@ -44,21 +44,21 @@ var sampleToken1 = `eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiSldUIn0.eyJleHAiOjE2MDkzNzY0
 // 	if exp > uint32(time.Now().Unix()+60*60*24*365) {
 // 		// more than a year in the future not allowed now.
 // 		exp = uint32(time.Now().Unix() + 60*60*24*365)
-// 		fmt.Println("had long token ", string(payload.JWTID)) // TODO: store in db
+// 		log.Println("had long token ", string(payload.JWTID)) // TODO: store in db
 // 	}
 
 // 	cost := tokens.CalcTokenPrice(&payload, uint32(time.Now().Unix()))
 // 	jsonstr, _ := json.Marshal(payload)
-// 	fmt.Println("token cost is "+fmt.Sprintf("%f", cost), string(jsonstr))
+// 	log.Println("token cost is "+log.Sprintf("%f", cost), string(jsonstr))
 
 // 	large32x := mainhelpers.ScaleTokenPayload(&payload, 8*32)
 // 	cost = tokens.CalcTokenPrice(large32x, uint32(time.Now().Unix()))
 // 	jsonstr, _ = json.Marshal(large32x)
-// 	fmt.Println("token cost is "+fmt.Sprintf("%f", cost), string(jsonstr))
+// 	log.Println("token cost is "+log.Sprintf("%f", cost), string(jsonstr))
 
-// 	fmt.Println("token is "+fmt.Sprintf("%f", cost), string(jsonstr))
+// 	log.Println("token is "+log.Sprintf("%f", cost), string(jsonstr))
 
-// 	fmt.Println("token is "+fmt.Sprintf("%f", cost), string(jsonstr))
+// 	log.Println("token is "+log.Sprintf("%f", cost), string(jsonstr))
 
 // }
 
@@ -69,6 +69,6 @@ var sampleToken1 = `eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiSldUIn0.eyJleHAiOjE2MDkzNzY0
 // 	tokens.LoadPrivateKeys("~/atw/privateKeys4.txt")
 
 // 	tok := tokens.Get32xTokenLocal() //mainhelpers.MakeMedium32cToken()
-// 	fmt.Println(tok)
+// 	log.Println(tok)
 
 // }

@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"log"
 	"strings"
 	"testing"
 	"time"
@@ -19,7 +20,7 @@ func TestCalcTokenPrice(t *testing.T) {
 
 	price := tokens.GetTokenStatsAndPrice(tokens.TinyX2)
 
-	fmt.Println("TinyX2 cost is ", price.Price)
+	log.Println("TinyX2 cost is ", price.Price)
 
 }
 
@@ -29,8 +30,8 @@ func TestCalcTokenPrice_TinyX4(t *testing.T) {
 
 	price := tokens.GetTokenStatsAndPrice(tokens.TinyX4)
 
-	fmt.Println("TinyX4 cost is ", price.Price)
-	fmt.Println("TinyX4 for a year is ", price.Price*12) // 0.048 or about 50 cents per decade.
+	log.Println("TinyX4 cost is ", price.Price)
+	log.Println("TinyX4 for a year is ", price.Price*12) // 0.048 or about 50 cents per decade.
 }
 
 func Fixme_TestMakeReservation(t *testing.T) {
@@ -52,7 +53,7 @@ func Fixme_TestMakeReservation(t *testing.T) {
 	}
 	foundPayload, ok := tokens.VerifyToken([]byte(trimmedToken), []byte(publicKeyBytes))
 	_ = ok
-	fmt.Println("foundPayload is ", foundPayload)
+	log.Println("foundPayload is ", foundPayload)
 
 	payload := &tokens.SubscriptionNameReservationPayload{}
 	payload.ExpirationTime = starttime + 60*60*24*(365)
@@ -65,7 +66,7 @@ func Fixme_TestMakeReservation(t *testing.T) {
 	if err != nil {
 		t.Errorf("got %v, want %v", "nil", "something else")
 	}
-	fmt.Println("tok bytes ", string(tokBytes))
+	log.Println("tok bytes ", string(tokBytes))
 
 	when := time.Unix(int64(payload.ExpirationTime), 0)
 	year, month, day := when.Date()
@@ -80,7 +81,7 @@ func Fixme_TestMakeReservation(t *testing.T) {
 	returnval = []byte(strings.ReplaceAll(string(returnval), `"`, ``))
 	returnval = []byte(strings.ReplaceAll(string(returnval), ` `, `_`))
 
-	fmt.Println("final token ", string(returnval))
+	log.Println("final token ", string(returnval))
 
 	// now, unpack it. and verify
 
@@ -97,9 +98,9 @@ func Fixme_TestMakeReservation(t *testing.T) {
 	if !ok {
 		t.Errorf("got %v, want %v", "false", "true")
 	}
-	fmt.Println("payload of name token ", namePayload)
-	fmt.Println("payload of name token ", namePayload)
-	fmt.Println("payload of name token ", namePayload)
+	log.Println("payload of name token ", namePayload)
+	log.Println("payload of name token ", namePayload)
+	log.Println("payload of name token ", namePayload)
 
 	got := "ok"
 	want := "ok"
@@ -128,6 +129,6 @@ func TestFindsrr(t *testing.T) {
 func check(err error) {
 	if err != nil {
 		// panic(err)
-		fmt.Println("check error ", err)
+		log.Println("check error ", err)
 	}
 }

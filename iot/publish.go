@@ -17,7 +17,7 @@ package iot
 
 import (
 	"encoding/json"
-	"fmt"
+	"log"
 	"strconv"
 
 	"github.com/awootton/knotfreeiot/packets"
@@ -33,14 +33,14 @@ func processPublish(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *publ
 	})
 
 	if wereSpecial {
-		fmt.Println(me.ex.Name, "processPublish top con=", pubmsg.ss.GetKey().Sig(), " to:", pubmsg.p.Sig())
+		log.Println(me.ex.Name, "processPublish top con=", pubmsg.ss.GetKey().Sig(), " to:", pubmsg.p.Sig())
 	}
 
 	{
 		// it's a send.
 		payload := string(pubmsg.p.Payload)
 		if len(payload) == 0 { // with no payload. Who would do that? It could be really hard to figure out.
-			fmt.Println(me.ex.Name, "processPublish empty payload con=", pubmsg.ss.GetKey().Sig(), " to:", pubmsg.p.Sig())
+			log.Println(me.ex.Name, "processPublish empty payload con=", pubmsg.ss.GetKey().Sig(), " to:", pubmsg.p.Sig())
 		}
 	}
 
@@ -56,11 +56,11 @@ func processPublish(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *publ
 			if err != nil {
 				// what? sad? todo: man up
 				// we should die and reconnect
-				fmt.Println(me.ex.Name, "when a q push fails", string(pubmsg.p.Payload))
+				log.Println(me.ex.Name, "when a q push fails", string(pubmsg.p.Payload))
 			}
 		} else {
 			//  we're the guru and there's no topic.
-			fmt.Println(me.ex.Name, "processPublish no watcher, no upstream, guru", pubmsg.p.Sig())
+			log.Println(me.ex.Name, "processPublish no watcher, no upstream, guru", pubmsg.p.Sig())
 		}
 	} else {
 
@@ -81,7 +81,7 @@ func processPublish(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *publ
 			// todo: implement "get stats"
 			billstr, hasStats := pubmsg.p.GetOption("add-stats")
 
-			// fmt.Println("isBilling ", haveUpstream, hasStats, string(pubmsg.p.Payload))
+			// log.Println("isBilling ", haveUpstream, hasStats, string(pubmsg.p.Payload))
 
 			if hasStats && !me.isGuru { //!haveUpstream {
 
@@ -92,10 +92,10 @@ func processPublish(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *publ
 					if err == nil {
 						deltat = int(tmp)
 					} else {
-						fmt.Println(me.ex.Name, "ERROR FAIL to parse "+string(deltatStr))
+						log.Println(me.ex.Name, "ERROR FAIL to parse "+string(deltatStr))
 					}
 				} else {
-					fmt.Println(me.ex.Name, "ERROR FAIL to find  stats-deltat")
+					log.Println(me.ex.Name, "ERROR FAIL to find  stats-deltat")
 				}
 
 				msg := &Stats{}
@@ -103,7 +103,7 @@ func processPublish(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *publ
 				if err == nil {
 
 					// if billingAccumulator.max.Subscriptions == 1 { // the test in billing_test
-					// 	fmt.Println("publish BillingAccumulator ADDING", msg)
+					// 	log.Println("publish BillingAccumulator ADDING", msg)
 					// }
 					now := me.getTime()
 					billingAccumulator.AddUsage(&msg.KnotFreeContactStats, now, deltat)
@@ -118,7 +118,7 @@ func processPublish(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *publ
 
 					gotsend := serveBillingCommand(pubmsg.p, billingAccumulator, me.getTime())
 					if len(me.ex.channelToAnyAide) >= cap(me.ex.channelToAnyAide) {
-						fmt.Println("serveBillingCommand channelToAnyAide channel is full")
+						log.Println("serveBillingCommand channelToAnyAide channel is full")
 					}
 					me.ex.channelToAnyAide <- &gotsend
 				}
@@ -130,9 +130,9 @@ func processPublish(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *publ
 			// do the WriteDownstream
 			watchedTopic.Expires = 25*60 + me.getTime() //20 min
 			// this is where the typical packet comes
-			// fmt.Println("pub down", string(pubmsg.p.Payload))
+			// log.Println("pub down", string(pubmsg.p.Payload))
 			if wereSpecial && watchedTopic.thetree.Size() == 0 {
-				fmt.Println(me.ex.Name, "processPublish getWatcher found topic but no subs con=", pubmsg.ss.GetKey().Sig(), " p:", pubmsg.p.Sig())
+				log.Println(me.ex.Name, "processPublish getWatcher found topic but no subs con=", pubmsg.ss.GetKey().Sig(), " p:", pubmsg.p.Sig())
 			}
 			pubMsgKey := pubmsg.ss.GetKey()
 			it := watchedTopic.Iterator()
@@ -150,23 +150,23 @@ func processPublish(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *publ
 						ci.WriteDownstream(pubmsg.p)
 						sentMessages.Inc()
 						if wereSpecial {
-							fmt.Println(me.ex.Name, "WriteDownstream con=", ci.GetKey().Sig(), " ", pubmsg.p.Sig())
+							log.Println(me.ex.Name, "WriteDownstream con=", ci.GetKey().Sig(), " ", pubmsg.p.Sig())
 						}
 					} else {
 						if wereSpecial {
-							fmt.Println(me.ex.Name, "haveBadContact ", ci.GetKey().Sig(), " ", pubmsg.p.Sig())
+							log.Println(me.ex.Name, "haveBadContact ", ci.GetKey().Sig(), " ", pubmsg.p.Sig())
 						}
 					}
 					// }
 				} else {
 					// we don't sent right back to ourselves. this is the typical case
 					// if me.isGuru {
-					// 	fmt.Println("k1 k2 k3 k4 ", key.Sig(), pubMsgKey.Sig(), ci.GetKey().Sig(), pubmsg.ss.GetKey().Sig())
+					// 	log.Println("k1 k2 k3 k4 ", key.Sig(), pubMsgKey.Sig(), ci.GetKey().Sig(), pubmsg.ss.GetKey().Sig())
 					// }
 					if key != pubMsgKey {
 						if !me.checkForBadContact(ci, watchedTopic) {
 							if wereSpecial {
-								fmt.Println(me.ex.Name, "WriteDownstream2 ", ci.GetKey().Sig(), " ", pubmsg.p.Sig())
+								log.Println(me.ex.Name, "WriteDownstream2 ", ci.GetKey().Sig(), " ", pubmsg.p.Sig())
 							}
 							ci.WriteDownstream(pubmsg.p)
 							sentMessages.Inc()
@@ -175,7 +175,7 @@ func processPublish(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *publ
 							// we're in the interator so no: watchedTopic.remove(ci.GetKey())
 
 							if wereSpecial {
-								fmt.Println(me.ex.Name, "haveBadContact2", ci.GetKey().Sig(), " ", pubmsg.p.Sig())
+								log.Println(me.ex.Name, "haveBadContact2", ci.GetKey().Sig(), " ", pubmsg.p.Sig())
 							}
 							// what if we don't ??
 							badContacts = append(badContacts, ci)
@@ -186,19 +186,19 @@ func processPublish(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *publ
 			}
 			for _, ci := range badContacts {
 				if wereSpecial {
-					fmt.Println(me.ex.Name, "Publish removing bad contact", ci.GetKey().Sig(), " sub:", pubmsg.ss.GetKey().Sig())
+					log.Println(me.ex.Name, "Publish removing bad contact", ci.GetKey().Sig(), " sub:", pubmsg.ss.GetKey().Sig())
 				}
 				watchedTopic.remove(ci.GetKey())
 			}
 		}
 
 		if wereSpecial {
-			fmt.Println(me.ex.Name, "pub PushUp con=", pubmsg.ss.GetKey().Sig(), pubmsg.p.Sig())
+			log.Println(me.ex.Name, "pub PushUp con=", pubmsg.ss.GetKey().Sig(), pubmsg.p.Sig())
 		}
 		if !me.isGuru { //me.upstreamRouter != nil {
 			err := bucket.looker.PushUp(pubmsg.p, pubmsg.topicHash)
 			if err != nil {
-				fmt.Println("ERROR PushUp in processPublish ", err, pubmsg.p.Sig(), " in ", me.ex.Name)
+				log.Println("ERROR PushUp in processPublish ", err, pubmsg.p.Sig(), " in ", me.ex.Name)
 				// sendPushUpFail.Inc()
 			}
 		}
@@ -210,7 +210,7 @@ func processPublishDown(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *
 
 	wereSpecial := false
 	SpecialPrint(&pubmsg.p.PacketCommon, func() {
-		fmt.Println(me.ex.Name, "processPublishDown ", pubmsg.p.Sig())
+		log.Println(me.ex.Name, "processPublishDown ", pubmsg.p.Sig())
 		wereSpecial = true
 	})
 
@@ -218,15 +218,15 @@ func processPublishDown(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *
 	if !ok {
 
 		// SpecialPrint(&pubmsg.p.PacketCommon, func() {
-		// 	//fmt.Println("special no publish possible this should not happen going down?", pubmsg.p.Address.String())
+		// 	//log.Println("special no publish possible this should not happen going down?", pubmsg.p.Address.String())
 		// })
-		// fmt.Println("Publish no publish possible this should not happen going down?", pubmsg.p.Address.String(), " in ", me.ex.Name)
+		// log.Println("Publish no publish possible this should not happen going down?", pubmsg.p.Address.String(), " in ", me.ex.Name)
 
 		// there was an unsub but our parent doesnt know we should not be subscribing.
 		// we should send an unsub to our parent
 
 		if wereSpecial {
-			fmt.Println(me.ex.Name, "processPublishDown no watcher, unsub in parent", pubmsg.p.Address.Sig())
+			log.Println(me.ex.Name, "processPublishDown no watcher, unsub in parent", pubmsg.p.Address.Sig())
 		}
 
 		unsub := packets.Unsubscribe{}
@@ -236,7 +236,7 @@ func processPublishDown(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *
 		if !me.isGuru {
 			err := bucket.looker.PushUp(&unsub, pubmsg.h)
 			if err != nil {
-				fmt.Println("error PushUp in processPublishDown ", err)
+				log.Println("error PushUp in processPublishDown ", err)
 			}
 		}
 		missedPushes.Inc()
@@ -244,7 +244,7 @@ func processPublishDown(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *
 	} else {
 		watcheditem.Expires = 25*60 + me.getTime() // 25 min
 		if wereSpecial && watcheditem.thetree.Size() == 0 {
-			fmt.Println(me.ex.Name, "processPublishDown getWatcher found topic but no subs ", " p:", pubmsg.p.Sig())
+			log.Println(me.ex.Name, "processPublishDown getWatcher found topic but no subs ", " p:", pubmsg.p.Sig())
 		}
 		it := watcheditem.Iterator()
 		for it.Next() {
@@ -260,13 +260,13 @@ func processPublishDown(me *LookupTableStruct, bucket *subscribeBucket, pubmsg *
 			// need: system test watching for duplicates.
 			if !me.checkForBadContact(ci, watcheditem) {
 				if wereSpecial {
-					fmt.Println(me.ex.Name, "    processPublishDown WriteDownstream3 to con:", ci.GetKey().Sig(), " pub:", pubmsg.p.Sig())
+					log.Println(me.ex.Name, "    processPublishDown WriteDownstream3 to con:", ci.GetKey().Sig(), " pub:", pubmsg.p.Sig())
 				}
 				ci.WriteDownstream(pubmsg.p)
 				sentMessages.Inc()
 			} else {
 				if wereSpecial {
-					fmt.Println(me.ex.Name, "    processPublishDown haveBadContact to con:", ci.GetKey().Sig(), " pub:", pubmsg.p.Sig())
+					log.Println(me.ex.Name, "    processPublishDown haveBadContact to con:", ci.GetKey().Sig(), " pub:", pubmsg.p.Sig())
 				}
 			}
 		}

@@ -24,7 +24,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"errors"
-	"fmt"
+	"log"
 	mathrand "math/rand"
 	"os"
 	"sort"
@@ -331,7 +331,7 @@ func SavePublicKey(key string, publicKey string) {
 	defer allThePublicKeysInUniverseMux.Unlock()
 
 	if len(publicKey) < 32 { // our keys are 32
-		fmt.Println("fixme wtf key wrong len fatal ")
+		log.Println("fixme wtf key wrong len fatal ")
 		return
 	}
 	allThePublicKeysInUniverse = append(allThePublicKeysInUniverse, publicKey)
@@ -358,8 +358,8 @@ func FindPublicKey(thekey string) string {
 
 	// for k, v := range allThePublicKeysInUniverse {
 	// 	bytes := []byte(v)
-	// 	fmt.Println(k)
-	// 	fmt.Println(bytes)
+	// 	log.Println(k)
+	// 	log.Println(bytes)
 	// }
 
 	foundi := sort.Search(len(allThePublicKeysInUniverse), func(i int) bool {
@@ -424,7 +424,7 @@ func LoadPrivateKeys(fname string) error {
 	fname = strings.Replace(fname, "~", home, 1)
 	data, err := os.ReadFile(fname)
 	if err != nil {
-		fmt.Println("pk read file err", fname, err)
+		log.Println("pk read file err", fname, err)
 		return err
 	}
 	data = []byte(strings.Trim(string(data), "\n"))
@@ -436,11 +436,11 @@ func LoadPrivateKeys(fname string) error {
 
 		bytes, err := base64.RawURLEncoding.DecodeString(part)
 		if err != nil {
-			fmt.Println("fail to decode part")
+			log.Println("fail to decode part")
 			continue
 		}
 		if len(bytes) != 64 {
-			fmt.Println("fail 64 bytes expected", len(bytes))
+			log.Println("fail 64 bytes expected", len(bytes))
 			continue
 		}
 
@@ -448,7 +448,7 @@ func LoadPrivateKeys(fname string) error {
 		publicKey := privateKey.Public()
 		epublic := bytes[32:] // publicKey.([]byte) or get bytes or something
 		public64 := base64.RawURLEncoding.EncodeToString([]byte(epublic))
-		//fmt.Println("loaded public key ", public64)
+		//log.Println("loaded public key ", public64)
 		first4 := public64[0:4]
 		knownPrivateKeys[first4] = string(privateKey)
 		knownPrivateKeyPrefixes = append(knownPrivateKeyPrefixes, first4)
@@ -606,7 +606,7 @@ func GetImpromptuGiantToken() string {
 	if giantToken != "" {
 		return giantToken
 	}
-	fmt.Println("GetImpromptuGiantToken")
+	log.Println("GetImpromptuGiantToken")
 
 	LoadPublicKeys()
 	LoadPrivateKeys("~/atw/privateKeys4.txt")
@@ -615,7 +615,7 @@ func GetImpromptuGiantToken() string {
 	signingKey := GetPrivateKeyWhole(0)
 	bbb, err := MakeToken(payload, []byte(signingKey))
 	if err != nil {
-		fmt.Println("error GetImpromptuGiantToken", err)
+		log.Println("error GetImpromptuGiantToken", err)
 	}
 	giantToken = string(bbb)
 	return giantToken
@@ -627,7 +627,7 @@ func GetImpromptuGiantTokenWithPubk(pubk string, jwtid string) string {
 	// if giantToken != "" {
 	// 	return giantToken
 	// }
-	fmt.Println("GetImpromptuGiantTokenWithPubk")
+	log.Println("GetImpromptuGiantTokenWithPubk")
 
 	LoadPublicKeys()
 	LoadPrivateKeys("~/atw/privateKeys4.txt")
@@ -638,7 +638,7 @@ func GetImpromptuGiantTokenWithPubk(pubk string, jwtid string) string {
 	signingKey := GetPrivateKeyWhole(0)
 	bbb, err := MakeToken(payload, []byte(signingKey))
 	if err != nil {
-		fmt.Println("error GetImpromptuGiantToken", err)
+		log.Println("error GetImpromptuGiantToken", err)
 	}
 	giantToken = string(bbb)
 	return giantToken
@@ -651,7 +651,7 @@ func GetImpromptuGiantTokenLocal(personPubk string, jwtid string) (string, *Knot
 	if giantTokenLocal != "" {
 		return giantTokenLocal, giantTokenLocalPayload
 	}
-	fmt.Println("GetImpromptuGiantTokenLocal")
+	log.Println("GetImpromptuGiantTokenLocal")
 	LoadPublicKeys()
 	LoadPrivateKeys("~/atw/privateKeys4.txt")
 
@@ -665,7 +665,7 @@ func GetImpromptuGiantTokenLocal(personPubk string, jwtid string) (string, *Knot
 	signingKey := GetPrivateKeyWhole(0)
 	bbb, err := MakeToken(payload, []byte(signingKey))
 	if err != nil {
-		fmt.Println("err GetImpromptuGiantTokenLocal", err)
+		log.Println("err GetImpromptuGiantTokenLocal", err)
 	}
 	giantToken = string(bbb)
 	giantTokenLocalPayload = payload
@@ -684,7 +684,7 @@ func Get32xTokenLocal() []byte {
 	signingKey := GetPrivateKeyWhole(0)
 	bbb, err := MakeToken(payload, []byte(signingKey))
 	if err != nil {
-		fmt.Println("Get32xTokenLocal", err)
+		log.Println("Get32xTokenLocal", err)
 	}
 	aTest32xToken = bbb
 	return aTest32xToken
@@ -733,7 +733,7 @@ func LoadPublicKeys() {
 
 		s = strings.Trim(s, " \n")
 		if len(s) != 43 {
-			fmt.Println("fatal", len(s))
+			log.Println("fatal", len(s))
 		}
 		front := s[0:4]
 		bytes, _ := base64.RawURLEncoding.DecodeString(s)
@@ -767,7 +767,7 @@ func MakeRandomPhrase(amount int) string {
 	if len(e_words) == 0 {
 		str := English_words
 		e_words = strings.Split(str, "\n")
-		fmt.Println("Our random word generater uses a discionary of ", len(e_words), " words")
+		log.Println("Our random word generater uses a discionary of ", len(e_words), " words")
 	}
 	result := ""
 	for i := 0; i < amount; i++ {

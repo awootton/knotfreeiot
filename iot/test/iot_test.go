@@ -82,7 +82,7 @@ func TestTwoLevel(t *testing.T) {
 	}
 
 	// val := readCounter(iot.TopicsAdded)
-	// got = fmt.Sprint("topics collected ", val)
+	// got = log.Sprint("topics collected ", val)
 	// _ = got
 	count, fract := guru0.GetSubsCount()
 	_ = fract
@@ -199,7 +199,7 @@ func TestSend(t *testing.T) {
 	// }, "timed out waiting for topics collected to be 3")
 
 	// val := readCounter(iot.TopicsAdded)
-	// got = fmt.Sprint("topics collected ", val)
+	// got = log.Sprint("topics collected ", val)
 	count, fract := guru.GetSubsCount()
 	_ = fract
 	got = fmt.Sprint("topics collected ", count)

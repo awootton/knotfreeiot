@@ -3,7 +3,7 @@ package iot_test
 import (
 	"context"
 	"encoding/json"
-	"fmt"
+	"log"
 	"net"
 	"net/http"
 	"strings"
@@ -31,7 +31,7 @@ func TestQueryCallOverHttp3native(t *testing.T) {
 	n, err := resp.Body.Read(buf)
 	assert.NoError(t, err)
 	result := string(buf[:n])
-	// fmt.Printf("Response body: %s\n", result)
+	// log.Printf("Response body: %s\n", result)
 	assert.Equal(t, 200, resp.StatusCode)
 	// assert.Equal(t, "-muxcABH_pTsuNqT3yaYfQj-3krwM6XmEu47vTZLSHM", result)
 	{
@@ -67,7 +67,7 @@ func TestQueryCallOverHttp3(t *testing.T) {
 	buf := make([]byte, 1024*64)
 	n, err := resp.Body.Read(buf)
 	result := string(buf[:n])
-	fmt.Printf("Response body: %s\n", result)
+	log.Printf("Response body: %s\n", result)
 
 	assert.NoError(t, err)
 	assert.Equal(t, 200, resp.StatusCode)
@@ -77,7 +77,7 @@ func TestQueryCallOverHttp3(t *testing.T) {
 		err = json.Unmarshal([]byte(result), &responses)
 		assert.NoError(t, err)
 		if err != nil {
-			fmt.Println(err)
+			log.Println(err)
 			t.Errorf("Error unmarshalling JSON: %v", err)
 			return
 		}
@@ -118,8 +118,8 @@ func TestLookupDnsOverHttpNativeNotFound(t *testing.T) {
 		return
 	}
 
-	fmt.Printf("Response: %+v\n", response.Answer[0].Data)
-	fmt.Printf("Response: %+v\n", response.Comment)
+	log.Printf("Response: %+v\n", response.Answer[0].Data)
+	log.Printf("Response: %+v\n", response.Comment)
 
 	assert.Equal(t, 3, response.Status) // NXDOMAIN not found
 	assert.Equal(t, recordType, response.Answer[0].Type)
@@ -147,7 +147,7 @@ func TestQueryCallOverHttp(t *testing.T) {
 	n, err := resp.Body.Read(buf)
 	assert.NoError(t, err)
 	result := string(buf[:n])
-	// fmt.Printf("Response body: %s\n", result)
+	// log.Printf("Response body: %s\n", result)
 	assert.Equal(t, 200, resp.StatusCode)
 	// assert.Equal(t, "-muxcABH_pTsuNqT3yaYfQj-3krwM6XmEu47vTZLSHM", result)
 	if strings.HasPrefix(result, "[") {
@@ -189,7 +189,7 @@ func TestAnyCallOverHttp(t *testing.T) {
 	n, err := resp.Body.Read(buf)
 	assert.NoError(t, err)
 	result := string(buf[:n])
-	// fmt.Printf("Response body: %s\n", result)
+	// log.Printf("Response body: %s\n", result)
 	assert.Equal(t, 200, resp.StatusCode)
 	assert.Equal(t, "-muxcABH_pTsuNqT3yaYfQj-3krwM6XmEu47vTZLSHM", result)
 }

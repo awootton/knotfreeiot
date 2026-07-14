@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
-	"fmt"
+	"log"
 	"strconv"
 	"strings"
 	"testing"
@@ -406,14 +406,14 @@ func ExampleTestPacketStuff() {
 
 		err := packets.WriteVarLenInt(uint32(val), uint8(0), &b)
 		if err != nil {
-			fmt.Println(err)
+			log.Println(err)
 		}
 		got, err := packets.ReadVarLenInt(&b)
 		if err != nil {
-			fmt.Println(err)
+			log.Println(err)
 		}
 		if got != val {
-			fmt.Println(val, " vs ", got)
+			log.Println(val, " vs ", got)
 		}
 	}
 	{
@@ -424,23 +424,23 @@ func ExampleTestPacketStuff() {
 
 		err := str.Write(&b)
 		if err != nil {
-			fmt.Println(err)
+			log.Println(err)
 		}
 		str2, err := packets.ReadUniversal(&b)
 		if len(str2.Args) != 3 {
-			fmt.Println("len(str2.Args) != 3")
+			log.Println("len(str2.Args) != 3")
 		}
 		if string(str.Args[0]) != "aa" {
-			fmt.Println("string(str.Args[0]) != aa")
+			log.Println("string(str.Args[0]) != aa")
 		}
 		if string(str.Args[1]) != "B" {
-			fmt.Println("string(str.Args[1]) != B")
+			log.Println("string(str.Args[1]) != B")
 		}
 		if string(str.Args[2]) != "cccccccccc" {
-			fmt.Println("string(str.Args[2]) != cccccccccc")
+			log.Println("string(str.Args[2]) != cccccccccc")
 		}
 	}
-	fmt.Println("done")
+	log.Println("done")
 
 	// Output: done
 
@@ -460,24 +460,24 @@ func ExampleToJSON() {
 	hexstr := strings.ReplaceAll(addr, ":", "")
 	decoded, err := hex.DecodeString(hexstr)
 	if err != nil {
-		fmt.Println("wrong")
+		log.Println("wrong")
 	}
 	cmd.SetOption("AAAA", decoded)
 	decoded, err = hex.DecodeString("FFFF00000000000000ABCDEF")
 	if err != nil {
-		fmt.Println("wrong2")
+		log.Println("wrong2")
 	}
 	cmd.SetOption("z", decoded)
 	cmd.SetOption("option2", []byte("На берегу пустынных волн"))
 
 	jdata, err := (&cmd).ToJSON()
-	fmt.Println(string(jdata))
+	log.Println(string(jdata))
 	_ = err
 
 	iot.CheckSendPacket(&cmd)
 
 	//  GetIPV6Option
-	// fmt.Println(cmd.GetIPV6Option())
+	// log.Println(cmd.GetIPV6Option())
 
 	// Output: [P,destaddr,sourceaddr,"some data",AAAA,=IAENuIWjAAAAAIouA3BzNA,option1,test,option2,"На берегу пустынных волн",z,=__8AAAAAAAAAq83v]
 	// [32 1 13 184 133 163 0 0 0 0 138 46 3 112 115 52]
@@ -498,7 +498,7 @@ func Test1(t *testing.T) {
 	cmd.Payload = []byte("some_data")
 
 	jdata, err := (&cmd).ToJSON()
-	fmt.Println(string(jdata))
+	log.Println(string(jdata))
 	_ = err
 
 	got = string(jdata)
@@ -721,7 +721,7 @@ func TestForZombies2(t *testing.T) {
 	bb.Reset()
 	err = (&cmd).Write(&bb)
 	check(err)
-	fmt.Println("buffer size", bb.Len()) // the limit is 8m now
+	log.Println("buffer size", bb.Len()) // the limit is 8m now
 	aPacket, err = packets.ReadPacket(&bb)
 	_ = aPacket
 	got = err.Error()
@@ -739,7 +739,7 @@ func TestAddressMisc(t *testing.T) {
 
 	s := a.String()
 
-	//fmt.Println(s)
+	//log.Println(s)
 	want := " 12345678901234567890123456789012"
 	if s != want {
 		t.Errorf("got %v, want %v", s, want)
@@ -763,7 +763,7 @@ func TestAddressMisc(t *testing.T) {
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
 	}
-	//fmt.Println(bina.String())
+	//log.Println(bina.String())
 	a = packets.NewAddressUnion("xx")
 	a.FromString("=4bhbJ9a8sFhGwY5qSPEY6J8MBYcUDen7")
 	//dest := make([]byte, 127)
@@ -826,7 +826,7 @@ func TestAddressMisc(t *testing.T) {
 
 func check(e error) {
 	if e != nil {
-		fmt.Println("ERROR because ", e)
+		log.Println("ERROR because ", e)
 	}
 }
 

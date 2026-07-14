@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -24,16 +24,16 @@ type apiHandler struct { // lose this?
 }
 
 func (api apiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	//fmt.Println("req.RequestURI", req.RequestURI)
+	//log.Println("req.RequestURI", req.RequestURI)
 	switch req.RequestURI {
 	case "/api2/getstats": // GET
 		// return the stats for just me.
-		// fmt.Println("GetStats /api2/getstats", api.ex.Name, api.ex.httpAddress)
+		// log.Println("GetStats /api2/getstats", api.ex.Name, api.ex.httpAddress)
 		stats := api.ex.GetExecutiveStats()
 		stats.Limits = api.ex.Limits
 		bytes, err := json.Marshal(stats)
 		if err != nil {
-			fmt.Println("GetExecutiveStats marshal", err)
+			log.Println("GetExecutiveStats marshal", err)
 		}
 		w.Write(bytes)
 
@@ -51,12 +51,12 @@ func (api apiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 		API1PostGurus.Inc()
 		if len(args.Names) > 0 && len(args.Names) == len(args.Addresses) {
-			// fmt.Println("SetUpstreamNames ", args.Names, args.Addresses, api.ex.Name, api.ex.tcpAddress)
+			// log.Println("SetUpstreamNames ", args.Names, args.Addresses, api.ex.Name, api.ex.tcpAddress)
 			api.ex.Looker.SetUpstreamNames(args.Names, args.Addresses)
 		} else {
-			fmt.Println("SetUpstreamNames bad names sent", args.Names, args.Addresses, args)
+			log.Println("SetUpstreamNames bad names sent", args.Names, args.Addresses, args)
 		}
-		//fmt.Println("/api2/set done")
+		//log.Println("/api2/set done")
 
 	case "/api2/clusterstats": // POST
 
@@ -84,7 +84,7 @@ func (api apiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		api.ex.ClusterStatsString = string(data)
 		api.ex.statsmu.Unlock()
 
-		// fmt.Println("api2/clusterstats", str, api.ex.Name)
+		// log.Println("api2/clusterstats", str, api.ex.Name)
 
 	default:
 		http.NotFound(w, req)
@@ -107,12 +107,12 @@ func MakeHTTPExecutive(ex *Executive, serverName string) *Executive {
 		MaxHeaderBytes: 1 << 20,
 	}
 	go func(s *http.Server) {
-		fmt.Println("http service ", ex.Name, s.Addr)
+		log.Println("http service ", ex.Name, s.Addr)
 		err := s.ListenAndServe()
 		if err != nil {
-			fmt.Println("ListenAndServe ERROR", err)
+			log.Println("ListenAndServe ERROR", err)
 		}
-		fmt.Println("ListenAndServe returned !!!!!  arrrrg", err)
+		log.Println("ListenAndServe returned !!!!!  arrrrg", err)
 	}(s)
 	return ex
 }
@@ -143,7 +143,7 @@ func GetServerStats(addr string) (*ExecutiveStats, error) {
 			return stats, err
 		}
 	} else {
-		fmt.Println("GetServerStats failed ", addr, err)
+		log.Println("GetServerStats failed ", addr, err)
 	}
 	return stats, err
 }
@@ -168,7 +168,7 @@ func PostUpstreamNames(guruList []string, addressList []string, addr string) err
 
 	jbytes, err := json.Marshal(arg)
 	if err != nil {
-		fmt.Println("unreachable ?? bb")
+		log.Println("unreachable ?? bb")
 		return errors.New("upstreamNamesArg marshal fail")
 	}
 
@@ -187,25 +187,25 @@ func PostUpstreamNames(guruList []string, addressList []string, addr string) err
 // PostClusterStats sends some stats to
 func PostClusterStats(ex *Executive, stats *ClusterStats, addr string) error {
 
-	fmt.Println("PostClusterStats sending to ", addr, "from", ex.Name)
+	log.Println("PostClusterStats sending to ", addr, "from", ex.Name)
 
 	jbytes, err := json.Marshal(stats)
 	if err != nil {
-		fmt.Println("unreachable ? PostClusterStats marshal fail")
+		log.Println("unreachable ? PostClusterStats marshal fail")
 		return errors.New("PostClusterStats marshal fail")
 	}
 
 	addstr := "http://" + addr + "/api2/clusterstats"
-	fmt.Println("PostClusterStats sending to ", addstr, "from", ex.Name)
+	log.Println("PostClusterStats sending to ", addstr, "from", ex.Name)
 	client := http.Client{Timeout: 1 * time.Second}
 	resp, err := client.Post(addstr, "application/json", bytes.NewReader(jbytes))
 	if err != nil {
-		fmt.Println("PostClusterStats err", err, addstr, "from", ex.Name)
+		log.Println("PostClusterStats err", err, addstr, "from", ex.Name)
 		return err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
-		fmt.Println("PostClusterStats not 200", resp.StatusCode, addstr, "from", ex.Name)
+		log.Println("PostClusterStats not 200", resp.StatusCode, addstr, "from", ex.Name)
 		return errors.New("PostClusterStats not 200")
 	}
 	return nil

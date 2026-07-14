@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"reflect"
 	"sync"
@@ -125,7 +126,7 @@ func (me *LookupTableStruct) PushUp(p packets.Interface, h HashType) error {
 	if len(router.channels) == 0 {
 		// can't pushup to no channels
 		if !me.isGuru {
-			fmt.Println("ERROR len(router.channels) == 0 in PushUp for ", me.myname)
+			log.Println("ERROR len(router.channels) == 0 in PushUp for ", me.myname)
 		}
 		return errors.New("no upstream channels")
 	}
@@ -133,25 +134,25 @@ func (me *LookupTableStruct) PushUp(p packets.Interface, h HashType) error {
 	if upc != nil {
 
 		if !upc.isRunning() || upc.founderr != nil || upc.conn == nil {
-			fmt.Println("upc.running == false or founderr or conn==nil in PushUp for ", me.myname)
+			log.Println("upc.running == false or founderr or conn==nil in PushUp for ", me.myname)
 		}
 		SpecialPrint(&packets.PacketCommon{}, func() {
-			fmt.Println("upc pushing up from ", me.ex.Name, " to ", upc.name, p)
+			log.Println("upc pushing up from ", me.ex.Name, " to ", upc.name, p)
 		})
 		if len(upc.up) >= cap(upc.up) {
-			fmt.Println("LookupTableStruct PushUp  channel to the guru full")
+			log.Println("LookupTableStruct PushUp  channel to the guru full")
 		}
 
 		// does it have any payload? Who does that?
 		snd, ok := p.(*packets.Send)
 		if ok && len(snd.Payload) == 0 {
-			fmt.Println("LookupTableStruct PushUp  channel to the guru has no payload wtf. ", p.Sig())
+			log.Println("LookupTableStruct PushUp  channel to the guru has no payload wtf. ", p.Sig())
 		}
 
 		upc.up <- p
 
 	} else {
-		fmt.Println("where is our socket?")
+		log.Println("where is our socket?")
 		return errors.New("missing upper channel")
 	}
 	return nil
@@ -180,7 +181,7 @@ func NewLookupTable(projectedTopicCount int, aname string, isGuru bool, getTime 
 	portion := projectedTopicCount / int(me.theBucketsSize)
 	portion2 := projectedTopicCount >> me.theBucketsSizeLog2 // we can init the hash maps big
 	if portion != portion2 {
-		fmt.Println("EPIC FAIL me.theBucketsSizeLog2 != uint(math.Log2(float64(me.theBucketsSize)))")
+		log.Println("EPIC FAIL me.theBucketsSizeLog2 != uint(math.Log2(float64(me.theBucketsSize)))")
 	}
 	me.allTheSubscriptions = make([]subscribeBucket, me.theBucketsSize)
 	for i := 0; i < me.theBucketsSize; i++ {
@@ -214,20 +215,20 @@ func (me *LookupTableStruct) sendSubscriptionMessage(ss ContactInterface, p *pac
 	msg.topicHash.InitFromBytes(p.Address.Bytes)
 	i := msg.topicHash.GetFractionalBits(me.theBucketsSizeLog2) // is 4. The first 4 bits of the hash.
 	b := me.allTheSubscriptions[i]
-	// fmt.Println("sendSubscriptionMessage pushing #", b.index, len(b.incoming))
+	// log.Println("sendSubscriptionMessage pushing #", b.index, len(b.incoming))
 	if len(b.incoming) >= cap(b.incoming) {
-		fmt.Println("sendSubscriptionMessage channel full", i)
+		log.Println("sendSubscriptionMessage channel full", i)
 		for item := range b.incoming {
 			cb, ok := item.(*callBackCommand)
 			if ok {
-				fmt.Println("sendSubscriptionMessage callback ", cb.name)
+				log.Println("sendSubscriptionMessage callback ", cb.name)
 			} else {
-				fmt.Println("sendSubscriptionMessage type ", reflect.TypeOf(item))
+				log.Println("sendSubscriptionMessage type ", reflect.TypeOf(item))
 			}
 		}
 	}
 	b.incoming <- &msg
-	// fmt.Println("sendSubscriptionMessage pushed to q")
+	// log.Println("sendSubscriptionMessage pushed to q")
 }
 
 // SendUnsubscribeMessage will create a message object, copy pointers to it so it'll own them now, and queue the message.
@@ -241,7 +242,7 @@ func (me *LookupTableStruct) sendUnsubscribeMessage(ss ContactInterface, p *pack
 	i := msg.topicHash.GetFractionalBits(me.theBucketsSizeLog2)
 	b := me.allTheSubscriptions[i]
 	if len(b.incoming) >= cap(b.incoming) {
-		fmt.Println("sendUnsubscribeMessage channel full")
+		log.Println("sendUnsubscribeMessage channel full")
 	}
 	b.incoming <- &msg
 }
@@ -257,7 +258,7 @@ func (me *LookupTableStruct) sendLookupMessage(ss ContactInterface, p *packets.L
 	i := msg.topicHash.GetFractionalBits(me.theBucketsSizeLog2)
 	b := me.allTheSubscriptions[i]
 	if len(b.incoming) >= cap(b.incoming) {
-		fmt.Println("sendLookupMessage channel full")
+		log.Println("sendLookupMessage channel full")
 	}
 	b.incoming <- &msg
 }
@@ -275,7 +276,7 @@ func (me *LookupTableStruct) sendPublishMessageDown(p *packets.Send) {
 	i := msg.h.GetFractionalBits(me.theBucketsSizeLog2)
 	b := me.allTheSubscriptions[i]
 	if len(b.incoming) >= cap(b.incoming) {
-		fmt.Println("sendPublishMessageDown channel full")
+		log.Println("sendPublishMessageDown channel full")
 	}
 	b.incoming <- &msg
 }
@@ -291,7 +292,7 @@ func (me *LookupTableStruct) sendSubscriptionMessageDown(p *packets.Subscribe) {
 	i := msg.h.GetFractionalBits(me.theBucketsSizeLog2)
 	b := me.allTheSubscriptions[i]
 	if len(b.incoming) >= cap(b.incoming) {
-		fmt.Println("sendSubscriptionMessageDown channel full")
+		log.Println("sendSubscriptionMessageDown channel full")
 	}
 	b.incoming <- &msg
 }
@@ -300,7 +301,7 @@ func (me *LookupTableStruct) sendSubscriptionMessageDown(p *packets.Subscribe) {
 func (me *LookupTableStruct) sendPublishMessage(ss ContactInterface, p *packets.Send) {
 
 	if len(p.Payload) == 0 {
-		fmt.Println("sendPublishMessage channel towards the guru has no payload wtf. ")
+		log.Println("sendPublishMessage channel towards the guru has no payload wtf. ")
 	}
 
 	msg := publishMessage{}
@@ -311,7 +312,7 @@ func (me *LookupTableStruct) sendPublishMessage(ss ContactInterface, p *packets.
 	i := msg.topicHash.GetFractionalBits(me.theBucketsSizeLog2)
 	b := me.allTheSubscriptions[i]
 	if len(b.incoming) >= cap(b.incoming) {
-		fmt.Println("sendPublishMessage channel full")
+		log.Println("sendPublishMessage channel full")
 	}
 	b.incoming <- &msg
 }
@@ -357,7 +358,7 @@ func (me *LookupTableStruct) GetAllSubsCount() (int, float64) {
 		for _, bucket := range me.allTheSubscriptions {
 			countingCB.wg.Add(1)
 			if len(bucket.incoming)*4 >= cap(bucket.incoming)*3 {
-				fmt.Println("error: GetAllSubsCount bucket.incoming is full", bucket.index)
+				log.Println("error: GetAllSubsCount bucket.incoming is full", bucket.index)
 			}
 			if len(bucket.incoming) > fullestBucketSize {
 				fullestBucketSize = len(bucket.incoming)
@@ -366,14 +367,14 @@ func (me *LookupTableStruct) GetAllSubsCount() (int, float64) {
 			bucket.incoming <- &countingCB
 		}
 		_ = fullestBucket
-		// fmt.Println("GetAllSubsCount biggest bucket is ", fullestBucket, " with ", fullestBucketSize, " items")
+		// log.Println("GetAllSubsCount biggest bucket is ", fullestBucket, " with ", fullestBucketSize, " items")
 		countingCB.wg.Wait()
 		done <- true
 	}()
 	select {
 	case <-done:
 	case <-time.After(2 * time.Second):
-		fmt.Println("timeout in GetAllSubsCount ")
+		log.Println("timeout in GetAllSubsCount ")
 	}
 
 	fract := float64(countingCB.qdepth) / float64(countingCB.totalCapacity)
@@ -390,17 +391,17 @@ func (bucket *subscribeBucket) processMessages(me *LookupTableStruct) {
 		// now that we have it, comeback QUICK for another.
 
 		// if bucket.index == 49 {
-		// 	fmt.Println("have processMessages ", reflect.TypeOf(msg), "bucket", bucket.index)
+		// 	log.Println("have processMessages ", reflect.TypeOf(msg), "bucket", bucket.index)
 		// }
 
 		// if reflect.TypeOf(msg) != reflect.TypeOf(&callBackCommand{}) {
-		// 	fmt.Println("have processMessages ", reflect.TypeOf(msg), "#", bucket.index)
+		// 	log.Println("have processMessages ", reflect.TypeOf(msg), "#", bucket.index)
 		// }
 
 		// TODO: use virtual methods or function pointers to avoid this switch.
 		// eg use the CallBackInterface for everything.
 
-		// fmt.Println("lookup-table have msg from bucket.incoming", msg)
+		// log.Println("lookup-table have msg from bucket.incoming", msg)
 
 		switch v := msg.(type) {
 
@@ -418,18 +419,18 @@ func (bucket *subscribeBucket) processMessages(me *LookupTableStruct) {
 		case *unsubscribeMessage:
 			processUnsubscribe(me, bucket, v)
 		case CallBackInterface:
-			// fmt.Println("callback in", bucket.index)
+			// log.Println("callback in", bucket.index)
 			cbc := msg.(CallBackInterface)
 			cbc.Run(me, bucket)
-			// fmt.Println("callback out", bucket.index)
+			// log.Println("callback out", bucket.index)
 
 		default:
 			// no match. do nothing. panic?
-			fmt.Println("ERROR processMessages missing case for ", reflect.TypeOf(msg))
+			log.Println("ERROR processMessages missing case for ", reflect.TypeOf(msg))
 			fatalMessups.Inc()
 		}
 	}
-	// fmt.Println("FATAL processMessages exited loop")
+	// log.Println("FATAL processMessages exited loop")
 }
 
 type baseMessage struct {
@@ -538,7 +539,7 @@ func (me *LookupTableStruct) Heartbeat(now uint32) {
 		for _, bucket := range me.allTheSubscriptions {
 			command.wg.Add(1)
 			if len(bucket.incoming)*4 >= cap(bucket.incoming)*3 {
-				fmt.Println("Heartbeat channel full", bucket.index)
+				log.Println("Heartbeat channel full", bucket.index)
 			}
 			bucket.incoming <- &command
 		}
@@ -548,15 +549,15 @@ func (me *LookupTableStruct) Heartbeat(now uint32) {
 	select {
 	case <-isDone:
 	case <-time.After(1 * time.Second):
-		fmt.Println("LookupTableStruct Heartbeat timeout ERROR")
+		log.Println("LookupTableStruct Heartbeat timeout ERROR")
 		for _, bucket := range me.allTheSubscriptions {
 			if command.donemap[bucket.index] == 0 {
-				fmt.Print(" bucket=", bucket.index, len(bucket.incoming))
+				log.Print(" bucket=", bucket.index, len(bucket.incoming))
 			}
 		}
-		fmt.Println()
+		log.Println()
 	}
-	// fmt.Println("LookupTableStruct Heartbeat DONE")
+	// log.Println("LookupTableStruct Heartbeat DONE")
 }
 
 // DEBUG because I don't know a better way.
@@ -595,7 +596,7 @@ func (wt *WatchedTopic) get(key HalfHash) (*watcherItem, bool) {
 	}
 	item, ok := thing.(*watcherItem)
 	if !ok {
-		fmt.Println("ERROR everything MUST be a watcherItem")
+		log.Println("ERROR everything MUST be a watcherItem")
 		return nil, ok
 	}
 	return item, ok
@@ -792,7 +793,7 @@ func (me *LookupTableStruct) FlushMarkerAndWait() {
 	for _, bucket := range me.allTheSubscriptions {
 		command.wg.Add(1)
 		if len(bucket.incoming) >= cap(bucket.incoming) {
-			fmt.Println("FlushMarkerAndWait channel full")
+			log.Println("FlushMarkerAndWait channel full")
 		}
 		bucket.incoming <- &command
 	}
@@ -824,7 +825,7 @@ func (cb *callBackCommand) Run(me *LookupTableStruct, bucket *subscribeBucket) {
 }
 
 func guruDeleteRemappedAndGoneTopics(me *LookupTableStruct, bucket *subscribeBucket, cmd *callBackCommand) {
-	// fmt.Println("guruDeleteRemappedAndGoneTopics bucket", bucket.index, len(bucket.mySubscriptions))
+	// log.Println("guruDeleteRemappedAndGoneTopics bucket", bucket.index, len(bucket.mySubscriptions))
 	//for _, s := range bucket.mySubscriptions {
 	s := bucket.mySubscriptions
 	for h, WatchedTopic := range s { //s {
@@ -848,7 +849,7 @@ func reSubscribeRemappedTopics(me *LookupTableStruct, bucket *subscribeBucket, c
 
 	defer func() {
 		cmd.wg.Done()
-		//fmt.Println("finished reSubscribeRemappedTopics")
+		//log.Println("finished reSubscribeRemappedTopics")
 	}()
 	s := bucket.mySubscriptions
 	for h, watchedTopic := range s {
@@ -873,7 +874,7 @@ func reSubscribeMyTopics(me *LookupTableStruct, bucket *subscribeBucket, cmd *ca
 
 	defer func() {
 		cmd.wg.Done()
-		//fmt.Println("finished reSubscribeRemappedTopics")
+		//log.Println("finished reSubscribeRemappedTopics")
 	}()
 	s := bucket.mySubscriptions
 	for h, watchedTopic := range s {

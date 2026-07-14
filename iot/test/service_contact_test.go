@@ -3,6 +3,7 @@ package iot_test
 import (
 	"encoding/base64"
 	"fmt"
+	"log"
 	"strconv"
 	"strings"
 	"testing"
@@ -37,14 +38,14 @@ func TestReserveOneName(t *testing.T) {
 	pubk, privk := tokens.GetBoxKeyPairFromPassphrase(passphrase)
 	pubkStr := base64.URLEncoding.EncodeToString(pubk[:])
 	pubkStr = strings.TrimRight(pubkStr, "=")
-	fmt.Println("pubkStr", pubkStr)
-	fmt.Println("privkStr", base64.URLEncoding.EncodeToString(privk[:]))
+	log.Println("pubkStr", pubkStr)
+	log.Println("privkStr", base64.URLEncoding.EncodeToString(privk[:]))
 
 	// pubk, privk := tokens.GetBoxKeyPairFromPassphrase(string(passPhrase))
 	// pubkStr := base64.URLEncoding.EncodeToString(pubk[:])
 	// pubkStr = strings.TrimRight(pubkStr, "=")
 	_ = privk
-	fmt.Println("pubkStr", pubkStr)
+	log.Println("pubkStr", pubkStr)
 
 	// keep using the same jwtid as before
 	token, payload := tokens.GetImpromptuGiantTokenLocal(pubkStr, "plfdfo4ezlgclcumjtqkiwre")
@@ -54,7 +55,7 @@ func TestReserveOneName(t *testing.T) {
 	name := "a-person-channel-one-name_iot"
 	{
 		name = strings.TrimSpace(name)
-		fmt.Println("Reserving", name)
+		log.Println("Reserving", name)
 
 		nonceStr := []byte("dd4lh93s2qqw1cfkmbzokrch") // tokens.GetRandomB36String())
 		nonce := new([24]byte)
@@ -87,11 +88,11 @@ func TestReserveOneName(t *testing.T) {
 				want := "ok"
 				if got != want {
 					t.Error("reply got", got, "want", want)
-					fmt.Println("reply got", got, "want", want)
+					log.Println("reply got", got, "want", want)
 				}
 			} else {
 				t.Error("reply err", err)
-				fmt.Println("reply err", err)
+				log.Println("reply err", err)
 			}
 		}
 	}
@@ -108,10 +109,10 @@ func XxxxTestServiceContactTCP_prod(t *testing.T) {
 
 	// time.Sleep(5 * time.Second)
 
-	fmt.Println("ServiceContactTcp_prod test start 1")
-	fmt.Println("ServiceContactTcp_prod test start 1")
-	fmt.Println("ServiceContactTcp_prod test start 1")
-	fmt.Println("ServiceContactTcp_prod test start 1")
+	log.Println("ServiceContactTcp_prod test start 1")
+	log.Println("ServiceContactTcp_prod test start 1")
+	log.Println("ServiceContactTcp_prod test start 1")
+	log.Println("ServiceContactTcp_prod test start 1")
 
 	name := "a-person-channel_iot"
 	{
@@ -124,24 +125,24 @@ func XxxxTestServiceContactTCP_prod(t *testing.T) {
 		reply, err := sc.Get(&cmd)
 		if err == nil {
 			got := string(reply.(*packets.Send).Payload)
-			fmt.Println("reply 1 got", got)
+			log.Println("reply 1 got", got)
 			want := "216.128.128.195"
 			if got != want {
 				t.Error("reply got", got, "want", want)
-				fmt.Println("reply got", got, "want", want)
+				log.Println("reply got", got, "want", want)
 			}
 		} else {
 			t.Error("reply err", err)
-			fmt.Println("reply err", err)
+			log.Println("reply err", err)
 		}
 	}
 
 	// time.Sleep(5 * time.Second)
 
-	fmt.Println("ServiceContactTcp_prod test start 2")
-	fmt.Println("ServiceContactTcp_prod test start 2")
-	fmt.Println("ServiceContactTcp_prod test start 2")
-	fmt.Println("ServiceContactTcp_prod test start 2")
+	log.Println("ServiceContactTcp_prod test start 2")
+	log.Println("ServiceContactTcp_prod test start 2")
+	log.Println("ServiceContactTcp_prod test start 2")
+	log.Println("ServiceContactTcp_prod test start 2")
 
 	starttime := time.Now()
 	for i := 0; i < 10; i++ {
@@ -154,19 +155,19 @@ func XxxxTestServiceContactTCP_prod(t *testing.T) {
 		reply, err := sc.Get(&cmd)
 		if err == nil {
 			got := string(reply.(*packets.Send).Payload)
-			// fmt.Println("reply 2 got", got)
+			// log.Println("reply 2 got", got)
 			want := "216.128.128.195"
 			if got != want {
 				t.Error("reply got", got, "want", want)
-				fmt.Println("reply got", got, "want", want)
+				log.Println("reply got", got, "want", want)
 			}
 		} else {
 			t.Error("reply err", err)
-			fmt.Println("reply err", err)
+			log.Println("reply err", err)
 		}
 	}
 	elapsed := time.Since(starttime)
-	fmt.Println("ServiceContactTcp_prod test done", elapsed)
+	log.Println("ServiceContactTcp_prod test done", elapsed)
 }
 
 func TestGetProxyStatus(t *testing.T) {
@@ -192,11 +193,11 @@ func TestGetProxyStatus(t *testing.T) {
 			want := got // fixme "{\"Exists\":true,\"Online\":false,\"Static\":\"\",\"Proxy\":\"https://snap-shot-static-assets2.s3.us-east-2.amazonaws.com/build/\"}"
 			if got != want {
 				t.Error("reply got", got, "want", want)
-				fmt.Println("reply got", got, "want", want)
+				log.Println("reply got", got, "want", want)
 			}
 		} else {
 			t.Error("reply err", err)
-			fmt.Println("reply err", err)
+			log.Println("reply err", err)
 		}
 	}
 	// time.Sleep(1000 * time.Second)
@@ -225,11 +226,11 @@ func TestGetA(t *testing.T) {
 			want := "216.128.128.195"
 			if got != want {
 				t.Error("reply got", got, "want", want)
-				fmt.Println("reply got", got, "want", want)
+				log.Println("reply got", got, "want", want)
 			}
 		} else {
 			t.Error("reply err", err)
-			fmt.Println("reply err", err)
+			log.Println("reply err", err)
 		}
 	}
 	// time.Sleep(1000 * time.Second)
@@ -254,13 +255,13 @@ func TestReserve(t *testing.T) {
 	pubk, privk := tokens.GetBoxKeyPairFromPassphrase(passphrase)
 	pubkStr := base64.URLEncoding.EncodeToString(pubk[:])
 	pubkStr = strings.TrimRight(pubkStr, "=")
-	fmt.Println("pubkStr", pubkStr)
+	log.Println("pubkStr", pubkStr)
 
 	passphrase = "a-person-passphrase"
 	pubk, privk = tokens.GetBoxKeyPairFromPassphrase(passphrase)
 	pubkStr = base64.URLEncoding.EncodeToString(pubk[:])
 	pubkStr = strings.TrimRight(pubkStr, "=")
-	fmt.Println("pubkStr", pubkStr)
+	log.Println("pubkStr", pubkStr)
 	token, payload := tokens.GetImpromptuGiantTokenLocal(pubkStr, "")
 
 	// make an internet name
@@ -304,11 +305,11 @@ func TestReserve(t *testing.T) {
 				want := "ok"
 				if got != want {
 					t.Error("reply got", got, "want", want)
-					fmt.Println("reply got", got, "want", want)
+					log.Println("reply got", got, "want", want)
 				}
 			} else {
 				t.Error("reply err", err)
-				fmt.Println("reply err", err)
+				log.Println("reply err", err)
 			}
 		}
 		{
@@ -337,11 +338,11 @@ func TestReserve(t *testing.T) {
 				want := "ok"
 				if got != want {
 					t.Error("reply got", got, "want", want)
-					fmt.Println("reply got", got, "want", want)
+					log.Println("reply got", got, "want", want)
 				}
 			} else {
 				t.Error("reply err", err)
-				fmt.Println("reply err", err)
+				log.Println("reply err", err)
 			}
 		}
 		{
@@ -370,11 +371,11 @@ func TestReserve(t *testing.T) {
 				want := "ok"
 				if got != want {
 					t.Error("reply got", got, "want", want)
-					fmt.Println("reply got", got, "want", want)
+					log.Println("reply got", got, "want", want)
 				}
 			} else {
 				t.Error("reply err", err)
-				fmt.Println("reply err", err)
+				log.Println("reply err", err)
 			}
 		}
 		// FIXME: this doesn't work. we need to fix it.
@@ -404,11 +405,11 @@ func TestReserve(t *testing.T) {
 				want := "ok"
 				if got != want {
 					t.Error("reply got", got, "want", want)
-					fmt.Println("reply got", got, "want", want)
+					log.Println("reply got", got, "want", want)
 				}
 			} else {
 				t.Error("reply err", err)
-				fmt.Println("reply err", err)
+				log.Println("reply err", err)
 			}
 		}
 
@@ -439,13 +440,13 @@ func XxxxTestSetLongOption(t *testing.T) {
 	pubk, privk := tokens.GetBoxKeyPairFromPassphrase(passphrase)
 	pubkStr := base64.URLEncoding.EncodeToString(pubk[:])
 	pubkStr = strings.TrimRight(pubkStr, "=")
-	fmt.Println("pubkStr", pubkStr)
+	log.Println("pubkStr", pubkStr)
 
 	passphrase = "a-person-passphrase"
 	pubk, privk = tokens.GetBoxKeyPairFromPassphrase(passphrase)
 	pubkStr = base64.URLEncoding.EncodeToString(pubk[:])
 	pubkStr = strings.TrimRight(pubkStr, "=")
-	fmt.Println("pubkStr", pubkStr)
+	log.Println("pubkStr", pubkStr)
 	token, payload := tokens.GetImpromptuGiantTokenLocal(pubkStr, "")
 	_ = token
 
@@ -487,11 +488,11 @@ func XxxxTestSetLongOption(t *testing.T) {
 				want := "ok"
 				if got != want {
 					t.Error("reply got", got, "want", want)
-					fmt.Println("reply got", got, "want", want)
+					log.Println("reply got", got, "want", want)
 				}
 			} else {
 				t.Error("reply err", err)
-				fmt.Println("reply err", err)
+				log.Println("reply err", err)
 			}
 		}
 	}
@@ -553,11 +554,11 @@ func TestSubs(t *testing.T) {
 			want := `{"Exists":true,"Online":false,"Owner":"NEUdZXsPTD-lxGeeHWXG-o_9wlfn_sBSqPqUqzA0HS0"}`
 			if got != want {
 				t.Error("reply got", got, "want", want)
-				fmt.Println("reply got", got, "want", want)
+				log.Println("reply got", got, "want", want)
 			}
 		} else {
 			t.Error("reply err", err)
-			fmt.Println("reply err", err)
+			log.Println("reply err", err)
 		}
 	}
 	timeStr = strconv.FormatInt(time.Now().Unix(), 10)
@@ -583,11 +584,11 @@ func TestSubs(t *testing.T) {
 			want := devicePublicKeyStr
 			if got != want {
 				t.Error("reply got", got, "want", want)
-				fmt.Println("reply got", got, "want", want)
+				log.Println("reply got", got, "want", want)
 			}
 		} else {
 			t.Error("reply err", err)
-			fmt.Println("reply err", err)
+			log.Println("reply err", err)
 		}
 	}
 	// start a monitor server
@@ -616,11 +617,11 @@ func TestSubs(t *testing.T) {
 			want := `{"Exists":true,"Online":true,"Owner":"NEUdZXsPTD-lxGeeHWXG-o_9wlfn_sBSqPqUqzA0HS0"}`
 			if got != want {
 				t.Error("reply got", got, "want", want)
-				fmt.Println("reply got", got, "want", want)
+				log.Println("reply got", got, "want", want)
 			}
 		} else {
 			t.Error("reply err", err)
-			fmt.Println("reply err", err)
+			log.Println("reply err", err)
 		}
 	}
 
@@ -642,10 +643,10 @@ func TestServiceContact(t *testing.T) {
 	// this is the timeout test and it works but is kinda slow for a unit test.
 	//  put this back: reply, err := sc.Get(&msg)
 	// if err != nil {
-	// 	fmt.Println("SendPacket returned error and that's good", err)
+	// 	log.Println("SendPacket returned error and that's good", err)
 	// } else {
 	// 	t.Error("SendPacket returned wanted timeout", string(reply.(*packets.Send).Payload))
-	// 	fmt.Println("SendPacket returned", string(reply.(*packets.Send).Payload))
+	// 	log.Println("SendPacket returned", string(reply.(*packets.Send).Payload))
 	// }
 	// Now. Start the get-unix-time service.
 
@@ -658,7 +659,7 @@ func TestServiceContact(t *testing.T) {
 	// c.Token = tokens.GetImpromptuGiantTokenLocal()
 	// c.LogMeVerbose = true
 	// c.Host = "localhost" + ":8384" //
-	// fmt.Println("monitor main c.Host", c.Host)
+	// log.Println("monitor main c.Host", c.Host)
 	// monitor_pod.ServeGetTime(c.Token, &c)
 
 	// try it again.
@@ -667,10 +668,10 @@ func TestServiceContact(t *testing.T) {
 	// msg.Payload = []byte("get time")
 	reply, err = ce.GetPacketService().GetPacketReply(&msg)
 	if err != nil {
-		fmt.Println("SendPacket returned error and that's bad", err)
+		log.Println("SendPacket returned error and that's bad", err)
 		t.Error("SendPacket returned wanted timeout", string(reply.(*packets.Send).Payload))
 	} else {
-		fmt.Println("SendPacket returned", string(reply.(*packets.Send).Payload))
+		log.Println("SendPacket returned", string(reply.(*packets.Send).Payload))
 	}
 
 	// ce.Heartbeat(getTime()) // this is'nt working. we have no test for the timeouts.
@@ -680,7 +681,7 @@ func TestServiceContact(t *testing.T) {
 	// ce.Heartbeat(getTime())
 	// ce.Heartbeat(getTime())
 
-	fmt.Println("ServiceContact test done")
+	log.Println("ServiceContact test done")
 
 }
 
@@ -701,7 +702,7 @@ func makeClusterWithServiceContact() *iot.ClusterExecutive {
 	// iot.StartNewServiceContact(ce.Aides[0], func(sc *iot.ServiceContact, err error) {
 	// 	ce.PacketService = sc
 	// 	if err != nil {
-	// 		fmt.Println("StartNewServiceContact failed", err)
+	// 		log.Println("StartNewServiceContact failed", err)
 	// 	}
 	// })
 
@@ -740,12 +741,12 @@ func TestServiceContactTCP(t *testing.T) {
 
 	reply, err = sc.Get(&msg)
 	if err != nil {
-		fmt.Println("SendPacket returned error and that's bad", err)
+		log.Println("SendPacket returned error and that's bad", err)
 		t.Error("SendPacket returned timeout")
 	} else {
-		fmt.Println("SendPacket returned", string(reply.(*packets.Send).Payload))
+		log.Println("SendPacket returned", string(reply.(*packets.Send).Payload))
 	}
-	fmt.Println("ServiceContactTcp test done")
+	log.Println("ServiceContactTcp test done")
 }
 
 func TestServiceContactTCP_DNS(t *testing.T) {
@@ -781,10 +782,10 @@ func TestServiceContactTCP_DNS(t *testing.T) {
 
 		reply, err = sc.Get(&cmd)
 		if err != nil {
-			fmt.Println("SendPacket returned error and that's bad", err)
+			log.Println("SendPacket returned error and that's bad", err)
 			assert.Equal(t, 0, 1, "SendPacket returned error and that's bad"+err.Error())
 		} else {
-			fmt.Println("SendPacket returned", string(reply.(*packets.Send).Payload))
+			log.Println("SendPacket returned", string(reply.(*packets.Send).Payload))
 		}
 	}
 	// time.Sleep(10 * time.Second)
@@ -800,12 +801,12 @@ func TestServiceContactTCP_DNS(t *testing.T) {
 
 		reply, err = sc.Get(&cmd)
 		if err != nil {
-			fmt.Println("SendPacket returned error and that's bad", err)
+			log.Println("SendPacket returned error and that's bad", err)
 			assert.Equal(t, 0, 1, "SendPacket returned timeout"+err.Error())
 		} else {
-			fmt.Println("SendPacket returned", string(reply.(*packets.Send).Payload))
+			log.Println("SendPacket returned", string(reply.(*packets.Send).Payload))
 		}
 	}
 
-	fmt.Println("ServiceContactTcp test done")
+	log.Println("ServiceContactTcp test done")
 }

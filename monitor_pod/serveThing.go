@@ -3,8 +3,8 @@ package monitor_pod
 import (
 	"encoding/base64"
 	"errors"
-	"fmt"
 	"io"
+	"log"
 	"math"
 	"math/rand"
 	"net"
@@ -171,7 +171,7 @@ func ServeGetTime(token string, c *ThingContext) { // use knotfree format
 				}
 			}()
 
-			fmt.Println("connected and subscribed and waiting..", c.Topic)
+			log.Println("connected and subscribed and waiting..", c.Topic)
 
 			for { // read cmd and respond loop
 				p, err := packets.ReadPacket(conn) // blocks
@@ -185,7 +185,7 @@ func ServeGetTime(token string, c *ThingContext) { // use knotfree format
 				}
 				if _, ok := p.(*packets.Subscribe); ok {
 					// this is the suback and is normal
-					fmt.Println("monitor has suback", c.Topic, p.Sig())
+					log.Println("monitor has suback", c.Topic, p.Sig())
 					waitCount = 0
 					continue
 				}
@@ -201,7 +201,7 @@ func ServeGetTime(token string, c *ThingContext) { // use knotfree format
 				pub, ok := sendme.(*packets.Send)
 				if ok {
 					SpecialPrint(&pub.PacketCommon, func() {
-						fmt.Println("serveThing reply ", c.Topic, strings.Split(string(pub.Payload), "\n")[0])
+						log.Println("serveThing reply ", c.Topic, strings.Split(string(pub.Payload), "\n")[0])
 					})
 				}
 				err = sendme.Write(conn)
@@ -222,7 +222,7 @@ func ServeGetTime(token string, c *ThingContext) { // use knotfree format
 	for waitCount > 0 {
 		time.Sleep(10 * time.Millisecond)
 	}
-	fmt.Println("serveThing started", c.Topic)
+	log.Println("serveThing started", c.Topic)
 }
 
 func Subscribe(c *ThingContext, conn net.Conn) error {
@@ -257,7 +257,7 @@ func digestPacket(p packets.Interface, c *ThingContext) (packets.Interface, erro
 	message := string(pub.Payload)
 
 	SpecialPrint(&pub.PacketCommon, func() {
-		fmt.Print("monitor ", c.Topic, " got ", pub.Sig())
+		log.Print("monitor ", c.Topic, " got ", pub.Sig())
 	})
 
 	isHttp := false
@@ -290,7 +290,7 @@ func digestPacket(p packets.Interface, c *ThingContext) (packets.Interface, erro
 				argvalue := argparts2[1]
 				tmp := make([]byte, len(argvalue))
 				copy(tmp, argvalue)
-				//fmt.Println("arg and val is ", argname, string(tmp))
+				//log.Println("arg and val is ", argname, string(tmp))
 				pub.SetOption(argname, []byte(argvalue)) // todo: copy inside of setoption
 			}
 		}
@@ -299,7 +299,7 @@ func digestPacket(p packets.Interface, c *ThingContext) (packets.Interface, erro
 		message = strings.ReplaceAll(message, "/", " ")
 		message = strings.Trim(message, " ")
 		SpecialPrint(&pub.PacketCommon, func() {
-			fmt.Println("http command is ", strings.Split(message, "\n")[0])
+			log.Println("http command is ", strings.Split(message, "\n")[0])
 		})
 	}
 
@@ -374,9 +374,9 @@ func digestPacket(p packets.Interface, c *ThingContext) (packets.Interface, erro
 					}
 					message = mparts[0]
 					message = strings.ReplaceAll(message, "/", " ")
-					//fmt.Println("decrypted command is ", message)
+					//log.Println("decrypted command is ", message)
 					SpecialPrint(&pub.PacketCommon, func() {
-						fmt.Println("decrypted command is ", strings.Split(message, "\n")[0])
+						log.Println("decrypted command is ", strings.Split(message, "\n")[0])
 					})
 
 				} else {
@@ -479,7 +479,7 @@ func digestPacket(p packets.Interface, c *ThingContext) (packets.Interface, erro
 			reply = "Error: " + hadError
 		}
 		SpecialPrint(&pub.PacketCommon, func() {
-			fmt.Println("encrypted reply is ", c.Topic, reply, "nonce", string(nonc))
+			log.Println("encrypted reply is ", c.Topic, reply, "nonce", string(nonc))
 		})
 	}
 
@@ -500,7 +500,7 @@ func digestPacket(p packets.Interface, c *ThingContext) (packets.Interface, erro
 		reply = sttrbuf.String()
 	}
 
-	// fmt.Println("monitor reply ", reply)
+	// log.Println("monitor reply ", reply)
 
 	sendme := &packets.Send{}
 	sendme.Address = pub.Source
@@ -527,7 +527,7 @@ func XXXxxxPublishTestTopic(token string) { // use knotfree format
 				fail++
 				continue
 			}
-			fmt.Println("PublishTestTopic Dialing ", tcpAddr)
+			log.Println("PublishTestTopic Dialing ", tcpAddr)
 			conn, err := net.DialTCP("tcp", nil, tcpAddr)
 			if err != nil {
 				println("Dial failed:", err.Error())
@@ -554,7 +554,7 @@ func XXXxxxPublishTestTopic(token string) { // use knotfree format
 			message := min + ":" + sec + " count " + strconv.Itoa(testtopicCount)
 			testtopicCount++
 
-			//fmt.Println("testtopic connected")
+			//log.Println("testtopic connected")
 			topic := "testtopic"
 			sub := &packets.Send{}
 			sub.Address.FromString(topic)
@@ -750,16 +750,16 @@ func getFromReno(cmd string, current string) string {
 	// read passphrase from ~/atw/renoIotpass.txt
 	home, _ := os.UserHomeDir()
 	fname := home + "/atw/renoIotpass.txt"
-	fmt.Println("getFromReno fname", fname)
+	log.Println("getFromReno fname", fname)
 
 	tmp, err := os.ReadFile(fname)
 	if err != nil {
-		fmt.Println("TestGetIotResponseReno err", err)
+		log.Println("TestGetIotResponseReno err", err)
 		return current
 	}
 	passphrase := strings.TrimSpace(string(tmp))
 
-	fmt.Println("getFromReno passphrase", len(passphrase))
+	log.Println("getFromReno passphrase", len(passphrase))
 
 	c := ThingContext{}
 
@@ -783,7 +783,7 @@ func getFromReno(cmd string, current string) string {
 
 	r := GetIotResponse(server, thing, cmd, c.PubStr, c.AdminPrivStr, c.AdminPubStr)
 
-	fmt.Println("getFromReno r", r)
+	log.Println("getFromReno r", r)
 	return r
 }
 
@@ -796,7 +796,7 @@ func ReplaceTempInF() {
 
 	TempInF, _ = strconv.ParseFloat(temp, 64)
 	Humidity, _ = strconv.ParseFloat(hum, 64)
-	fmt.Println("replaceTempInF TempInF", TempInF, "Humidity", Humidity)
+	log.Println("replaceTempInF TempInF", TempInF, "Humidity", Humidity)
 }
 
 // GetIotResponse queries a thing for a response via http
@@ -811,12 +811,12 @@ func GetIotResponse(server string, thing string, cmd string, devicepubk string, 
 
 		publicKeyBinary, err := base64.RawURLEncoding.DecodeString(devicepubk)
 		if err != nil {
-			fmt.Println("GetIotResponse err", err)
+			log.Println("GetIotResponse err", err)
 			return "error GetIotResponse:" + err.Error()
 		}
 		adminPrivateKeyBinary, err := base64.RawURLEncoding.DecodeString(adminprivk)
 		if err != nil {
-			fmt.Println("GetIotResponse err", err)
+			log.Println("GetIotResponse err", err)
 			return "error GetIotResponse:" + err.Error()
 		}
 
@@ -834,7 +834,7 @@ func GetIotResponse(server string, thing string, cmd string, devicepubk string, 
 		buffer := make([]byte, 0, (len(payload) + box.Overhead))
 		sealed := box.Seal(buffer, []byte(payload), nonce, publicKeyBuffer, adminPrivateKeyBuffer)
 		if len(sealed) == 0 {
-			fmt.Println("GetIotResponse box fail")
+			log.Println("GetIotResponse box fail")
 			return "error GetIotResponse: box fail"
 		}
 		url += "=" + base64.RawURLEncoding.EncodeToString(sealed)
@@ -848,29 +848,29 @@ func GetIotResponse(server string, thing string, cmd string, devicepubk string, 
 
 	resp, err := http.Get(url)
 	if err != nil {
-		fmt.Println("GetIotResponse err", err)
+		log.Println("GetIotResponse err", err)
 		return "error GetIotResponse:" + err.Error()
 	}
 	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		fmt.Println("GetIotResponse err", err)
+		log.Println("GetIotResponse err", err)
 		return "error GetIotResponse:" + err.Error()
 	}
 	result = string(body)
-	fmt.Println("GetIotResponse body", result)
+	log.Println("GetIotResponse body", result)
 
 	// if devicepubk then we need to decrypt the response
 	if result[0] == '=' {
 		// decrypt the response
 		publicKeyBinary, err := base64.RawURLEncoding.DecodeString(devicepubk)
 		if err != nil {
-			fmt.Println("GetIotResponse err", err)
+			log.Println("GetIotResponse err", err)
 			return "error GetIotResponse:" + err.Error()
 		}
 		adminPrivateKeyBinary, err := base64.RawURLEncoding.DecodeString(adminprivk)
 		if err != nil {
-			fmt.Println("GetIotResponse err", err)
+			log.Println("GetIotResponse err", err)
 			return "error GetIotResponse:" + err.Error()
 		}
 
@@ -885,27 +885,27 @@ func GetIotResponse(server string, thing string, cmd string, devicepubk string, 
 
 		sealed, err := base64.RawURLEncoding.DecodeString(result[1:]) // skip the '='
 		if err != nil {
-			fmt.Println("GetIotResponse err", err)
+			log.Println("GetIotResponse err", err)
 			return "error GetIotResponse:" + err.Error()
 		}
 		opened, ok := box.Open(nil, sealed, nonce, publicKeyBuffer, adminPrivateKeyBuffer)
 		if !ok {
-			fmt.Println("GetIotResponse box fail")
+			log.Println("GetIotResponse box fail")
 			return "error GetIotResponse: box fail"
 		}
 		result = string(opened)
-		fmt.Println("GetIotResponse opened", result)
+		log.Println("GetIotResponse opened", result)
 		// split the time off of it.
 		parts := strings.Split(result, "#")
 		if len(parts) < 2 {
-			fmt.Println("GetIotResponse err", "no time")
+			log.Println("GetIotResponse err", "no time")
 			return "error GetIotResponse no time"
 		}
 		result = parts[0]
 		now := time.Now().Unix()
 		t, err := strconv.ParseInt(parts[1], 10, 64)
 		if err != nil {
-			fmt.Println("GetIotResponse err", err)
+			log.Println("GetIotResponse err", err)
 			return "error GetIotResponse:" + err.Error()
 		}
 		delta := now - t
@@ -913,7 +913,7 @@ func GetIotResponse(server string, thing string, cmd string, devicepubk string, 
 			delta = -delta
 		}
 		if delta > 10 {
-			fmt.Println("GetIotResponse err", "time too old")
+			log.Println("GetIotResponse err", "time too old")
 			return "error GetIotResponse: time too old"
 		}
 	}

@@ -1,7 +1,7 @@
 package iot
 
 import (
-	"fmt"
+	"log"
 	"net"
 	"time"
 
@@ -45,7 +45,7 @@ func (router *upstreamRouterStruct) getUpperChannel(h uint64) *upperChannel {
 	// defer router.mux.Unlock()
 	index := router.maglev.Lookup(h)
 	if index >= len(router.channels) {
-		fmt.Println("ERROR index >= len(router.channels) panic ")
+		log.Println("ERROR index >= len(router.channels) panic ")
 	}
 	c := router.channels[index]
 	return c
@@ -58,14 +58,14 @@ func (router *upstreamRouterStruct) getUpperChannel(h uint64) *upperChannel {
 func (me *LookupTableStruct) SetUpstreamNames(names []string, addresses []string) {
 
 	// this is really a function on upstreamRouter:upstreamRouterStruct
-	// fmt.Println("SetUpstreamNames called with ", names, " and ", addresses)
+	// log.Println("SetUpstreamNames called with ", names, " and ", addresses)
 
 	router := me.upstreamRouter
 	// router.mux.Lock()
 	// defer router.mux.Unlock()
 
 	if len(names) != len(addresses) {
-		fmt.Println("error len(names) != len(addresses) panic")
+		log.Println("error len(names) != len(addresses) panic")
 		panic("error len(names) != len(addresses) panic")
 		// return
 	}
@@ -82,11 +82,11 @@ func (me *LookupTableStruct) SetUpstreamNames(names []string, addresses []string
 		hadChange = true
 	}
 	if !hadChange {
-		// fmt.Println("SetUpstreamNames no change")
+		// log.Println("SetUpstreamNames no change")
 		return
 	}
 	// maybe some more verifications?
-	fmt.Println("SetUpstreamNames changed from ", router.channels, " to ", names)
+	log.Println("SetUpstreamNames changed from ", router.channels, " to ", names)
 
 	// if me.isGuru { what was this?  atw 6/11/26
 	// 	me.setGuruUpstreamNames(names) // recalc the maglev
@@ -121,7 +121,7 @@ func (me *LookupTableStruct) SetUpstreamNames(names []string, addresses []string
 		if found && upc.isRunning() {
 			router.channels[i] = upc
 		} else {
-			fmt.Println("SetUpstreamNames starting upper router from ", me.ex.Name, " to ", name)
+			log.Println("SetUpstreamNames starting upper router from ", me.ex.Name, " to ", name)
 			upc = &upperChannel{}
 			upc.name = name
 			upc.address = address
@@ -135,18 +135,18 @@ func (me *LookupTableStruct) SetUpstreamNames(names []string, addresses []string
 	}
 	// lose the stale ones
 	if len(oldContacts) != 0 {
-		fmt.Println("forgetting old channels ", oldContacts, " vs ", theNamesThisTime)
+		log.Println("forgetting old channels ", oldContacts, " vs ", theNamesThisTime)
 	}
 
 	for _, upc := range oldContacts {
 		_, found := theNamesThisTime[upc.name]
 		if !found {
 			close(upc.stopped)
-			fmt.Println("forgetting upper router ", upc.name)
+			log.Println("forgetting upper router ", upc.name)
 			// why even close these? upc.stopped is is the signal that we're done here
 			// ?? close(upc.up)
 			// atw not sure ?? close(upc.down) // atw had panic when close of closed channel ?
-			upc.conn.Close()
+			// this panics 7/8/26 atw upc.conn.Close()
 			delete(router.name2channel, upc.name)
 		}
 	}
@@ -172,7 +172,7 @@ func (me *LookupTableStruct) SetUpstreamNames(names []string, addresses []string
 		for _, bucket := range me.allTheSubscriptions {
 			command.wg.Add(1)
 			if len(bucket.incoming) == cap(bucket.incoming) {
-				fmt.Println("SetUpstreamNames channel full")
+				log.Println("SetUpstreamNames channel full")
 			}
 			bucket.incoming <- &command
 		}
@@ -182,9 +182,9 @@ func (me *LookupTableStruct) SetUpstreamNames(names []string, addresses []string
 
 	select {
 	case <-done:
-		fmt.Println("SetUpstreamNames done")
+		log.Println("SetUpstreamNames done")
 	case <-time.After(5 * time.Second):
-		fmt.Println("SetUpstreamNames timeout")
+		log.Println("SetUpstreamNames timeout")
 	}
 
 }
@@ -219,12 +219,12 @@ func (me *LookupTableStruct) setGuruUpstreamNames(names []string) {
 		command.callback = guruDeleteRemappedAndGoneTopics
 		command.index = myindex
 
-		fmt.Println("guruDeleteRemappedAndGoneTopics", myindex)
+		log.Println("guruDeleteRemappedAndGoneTopics", myindex)
 
 		for _, bucket := range me.allTheSubscriptions {
 			command.wg.Add(1)
 			if len(bucket.incoming)*4 == cap(bucket.incoming)*3 {
-				fmt.Println("setGuruUpstreamNames channel full")
+				log.Println("setGuruUpstreamNames channel full")
 			}
 			bucket.incoming <- &command
 		}
@@ -251,10 +251,10 @@ type ByteChan struct {
 // this is a packet in bytes
 func (bc *ByteChan) Write(b []byte) (int, error) {
 	if len(bc.TheChan) == cap(bc.TheChan) {
-		fmt.Println("ByteChan channel full")
+		log.Println("ByteChan channel full")
 	}
 	bc.TheChan <- b
-	// fmt.Println(" ByteChan has ", string(b))
+	// log.Println(" ByteChan has ", string(b))
 	return len(b), nil
 }
 

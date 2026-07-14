@@ -346,7 +346,7 @@ func (b *HexBytes) GetBytes() []byte {
 	decoded, err := hex.DecodeString(in)
 	// it's impossible to get test coverage for this:
 	// if err != nil {
-	// 	fmt.Println("decode error:", err)
+	// 	log.Println("decode error:", err)
 	// 	return []byte("")
 	// }
 	_ = err

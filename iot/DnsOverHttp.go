@@ -90,11 +90,11 @@ func LookupDnsOverHttp(domains []string, recordType int, dnsServer string) ([]Dn
 
 			cachekey := domain + "____" + recordTypeStr
 			if cachedResponse, found := dnsResponseCache.Get(cachekey); found {
-				// fmt.Println("Cache hit for ", cachekey, ": ", cachedResponse)
+				// log.Println("Cache hit for ", cachekey, ": ", cachedResponse)
 				answers[i] = cachedResponse
 				return
 			}
-			// fmt.Println("LookupDnsOverHttp Resolving ", cachekey) // eg testmain-0n1u1e15p.xyz_1
+			// log.Println("LookupDnsOverHttp Resolving ", cachekey) // eg testmain-0n1u1e15p.xyz_1
 
 			response, err := lookupOne(domain, recordType, resolver) // this is just a placeholder for now, we will implement it later. It will query the DoH server and return the response.
 			if err != nil {

@@ -20,6 +20,8 @@ import (
 	"strings"
 	"testing"
 
+	"log"
+
 	"github.com/awootton/knotfreeiot/iot"
 	"github.com/awootton/knotfreeiot/tokens"
 )
@@ -81,19 +83,19 @@ func TestSubscriptionOverrun(t *testing.T) {
 		c1.SetExpires(localtime + 60*60) // an hour
 		got, ok = c1.(*testContact).popResultAsString()
 		if ok {
-			fmt.Println("got", got)
+			log.Println("got", got)
 			break
 		}
 	}
 	if got == "" {
 		IterateAndWait(t, func() bool {
 			got, ok := c1.(*testContact).popResultAsString()
-			fmt.Println("c1 got", got)
+			log.Println("c1 got", got)
 			return ok
 		}, "timed out waiting for TestSubscriptionOverrun result")
 	}
-	fmt.Println("got", got)
-	fmt.Println("subscriptions. aide1", aide1.GetExecutiveStats().Subscriptions*float64(aide1.GetExecutiveStats().Limits.Subscriptions))
+	log.Println("got", got)
+	log.Println("subscriptions. aide1", aide1.GetExecutiveStats().Subscriptions*float64(aide1.GetExecutiveStats().Limits.Subscriptions))
 
 	for {
 		got, _ = c1.(*testContact).popResultAsString()
@@ -142,7 +144,7 @@ func TestContactTimeout(t *testing.T) {
 
 	ce.WaitForActions()
 
-	fmt.Println("contacts aide1", aide1.GetExecutiveStats().Connections*float64(aide1.GetExecutiveStats().Limits.Connections))
+	log.Println("contacts aide1", aide1.GetExecutiveStats().Connections*float64(aide1.GetExecutiveStats().Limits.Connections))
 
 	for seconds := 0; seconds < 20*60; seconds += 10 {
 		localtime += 10
@@ -163,7 +165,7 @@ func TestContactTimeout(t *testing.T) {
 		t.Errorf("got %v, want %v", got, want)
 	}
 
-	fmt.Println("minutes passed", (localtime-starttime)/60)
+	log.Println("minutes passed", (localtime-starttime)/60)
 
 	// now just wait for a while for c1 to get kicked off
 	for seconds := 0; seconds < 18*60; seconds += 10 {
@@ -173,7 +175,7 @@ func TestContactTimeout(t *testing.T) {
 		ce.WaitForActions()
 
 	}
-	fmt.Println("minutes passed", (localtime-starttime)/60)
+	log.Println("minutes passed", (localtime-starttime)/60)
 
 	got = fmt.Sprint("contacts aide1 ", aide1.GetExecutiveStats().Connections*float64(aide1.GetExecutiveStats().Limits.Connections))
 	want = "contacts aide1 2.97"
@@ -262,8 +264,8 @@ func TestConnectionsOver(t *testing.T) {
 	// the contacts should be c3 refused
 	ce.WaitForActions()
 
-	fmt.Println("contacts aide1", aide1.GetExecutiveStats().Connections*float64(aide1.GetExecutiveStats().Limits.Connections))
-	fmt.Println("contacts aide2", aide2.GetExecutiveStats().Connections*float64(aide2.GetExecutiveStats().Limits.Connections))
+	log.Println("contacts aide1", aide1.GetExecutiveStats().Connections*float64(aide1.GetExecutiveStats().Limits.Connections))
+	log.Println("contacts aide2", aide2.GetExecutiveStats().Connections*float64(aide2.GetExecutiveStats().Limits.Connections))
 
 	for minutes := 0; minutes < 40; minutes++ {
 		localtime += 60
@@ -286,12 +288,12 @@ func TestConnectionsOver(t *testing.T) {
 	}
 	// note the packet in the q of c3 describes the error.
 	got = fmt.Sprint(c3.(*testContact).popResultAsString())
-	//fmt.Println(got)
+	//log.Println(got)
 	want = `[P,=jZae727K08KaOmKSgOaGzww_XVqGr_PK,ping," BILLING ERROR 1.66 connections > 1",error," BILLING ERROR 1.66 connections > 1"]true`
-	//fmt.Println(want)
+	//log.Println(want)
 	// for i := 40; i < 45; i++ {
-	// 	fmt.Println(got[i])
-	// 	fmt.Println(want[i])
+	// 	log.Println(got[i])
+	// 	log.Println(want[i])
 	// }
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
@@ -320,8 +322,8 @@ func TestBills(t *testing.T) {
 
 		testtime += uint32(dt)
 
-		//fmt.Println("input rate", ba.GetInput(testtime))
-		//	fmt.Println("conn rate", ba.GetConnections(testtime))
+		//log.Println("input rate", ba.GetInput(testtime))
+		//	log.Println("conn rate", ba.GetConnections(testtime))
 
 	}
 	got = fmt.Sprint(ba.GetInput(testtime), ba.GetConnections(testtime))
@@ -405,7 +407,7 @@ func TestBillingAccumulatorContact(t *testing.T) {
 		if changed {
 			statsResult := &tokens.KnotFreeContactStats{}
 			ba.GetStats(now, statsResult)
-			fmt.Println("stats", statsResult)
+			log.Println("stats", statsResult)
 		}
 	}
 

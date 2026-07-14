@@ -7,8 +7,8 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"os/user"
 	"strings"
@@ -22,17 +22,17 @@ import (
 
 // makeToken gettoken Get32xToken GetImpromptuGiantToken GetImpromptuGiantTokenLocal Get32xTokenLocal
 func TestGetGiantTokens(t *testing.T) {
-	fmt.Println("giant token ", tokens.GetImpromptuGiantToken())
-	//fmt.Println("giant local ", tokens.GetImpromptuGiantTokenLocal(""))
-	fmt.Println("medium local ", string(tokens.Get32xTokenLocal()))
+	log.Println("giant token ", tokens.GetImpromptuGiantToken())
+	//log.Println("giant local ", tokens.GetImpromptuGiantTokenLocal(""))
+	log.Println("medium local ", string(tokens.Get32xTokenLocal()))
 
-	fmt.Println("giant token ", tokens.GetImpromptuGiantToken())
-	//fmt.Println("giant local ", tokens.GetImpromptuGiantTokenLocal(""))
-	fmt.Println("medium local ", string(tokens.Get32xTokenLocal()))
+	log.Println("giant token ", tokens.GetImpromptuGiantToken())
+	//log.Println("giant local ", tokens.GetImpromptuGiantTokenLocal(""))
+	log.Println("medium local ", string(tokens.Get32xTokenLocal()))
 
 	// I need one with my pubk in it, and my billing key
-	fmt.Println("giant token atw pubk\n", tokens.GetImpromptuGiantTokenWithPubk("NEUdZXsPTD-lxGeeHWXG-o_9wlfn_sBSqPqUqzA0HS0", "dvaw3z28o8bxqsq6fwozx3hx"))
-	fmt.Println()
+	log.Println("giant token atw pubk\n", tokens.GetImpromptuGiantTokenWithPubk("NEUdZXsPTD-lxGeeHWXG-o_9wlfn_sBSqPqUqzA0HS0", "dvaw3z28o8bxqsq6fwozx3hx"))
+	log.Println()
 }
 
 func TestMakeGiantTokenToFile(t *testing.T) {
@@ -40,11 +40,11 @@ func TestMakeGiantTokenToFile(t *testing.T) {
 	token := tokens.GetImpromptuGiantToken()
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 	}
 	err = os.WriteFile(homeDir+"/atw_private/giantToken.txt", []byte(token), 0644)
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 	}
 
 }
@@ -58,7 +58,7 @@ func TestMakeRandomPhrase(t *testing.T) {
 	if len(str) < 30 {
 		t.Error("TestMakeRandomPhrase fail too short")
 	}
-	fmt.Println(" TestMakeRandomPhrase = ", str)
+	log.Println(" TestMakeRandomPhrase = ", str)
 
 }
 
@@ -66,14 +66,14 @@ func XxxxTestMassageWordList(t *testing.T) {
 	_ = t
 	path, err := os.Getwd()
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 	}
-	fmt.Println(path)
+	log.Println(path)
 
 	// we're in 'tests/'
 	dat, err := os.ReadFile("../words-table-before.txt")
 	if err != nil {
-		fmt.Println("problem reading file")
+		log.Println("problem reading file")
 	}
 	strdata := string(dat)
 	for i := 0; i < 10; i++ {
@@ -83,7 +83,7 @@ func XxxxTestMassageWordList(t *testing.T) {
 	lines := strings.Split(strdata, "\n")
 	f, err := os.Create("../wordlist-after.txt")
 	if err != nil {
-		fmt.Println("problem reading file")
+		log.Println("problem reading file")
 	}
 	defer f.Close()
 
@@ -132,7 +132,7 @@ func TestFind(t *testing.T) {
 
 	// dat, err := ioutil.ReadFile("./publicKeys_xxx.txt")
 	// if err != nil {
-	// 	fmt.Println("fail 1")
+	// 	log.Println("fail 1")
 	// }
 	// datparts := strings.Split(string(dat), "\n")
 	// if len(datparts) < 64 {
@@ -151,7 +151,7 @@ func TestFind(t *testing.T) {
 	// 	prefix := part[0:4]
 	// 	bytes, err := base64.RawURLEncoding.DecodeString(part)
 	// 	if err != nil {
-	// 		fmt.Println("fail 2")
+	// 		log.Println("fail 2")
 	// 	}
 	// 	tokens.SavePublicKey(prefix, string(bytes))
 	// }
@@ -167,7 +167,7 @@ func TestFind(t *testing.T) {
 		bytes, err := base64.RawURLEncoding.DecodeString(part)
 		want = string(bytes)
 		if err != nil {
-			fmt.Println("corrupt input error fail 3")
+			log.Println("corrupt input error fail 3")
 		}
 		got = tokens.FindPublicKey(prefix)
 		if got != want {
@@ -248,11 +248,11 @@ func getRemotePublic(key string) string {
 
 	dat, err := ioutil.ReadFile(dir + "/atwaux/privateKeys.txt")
 	if err != nil {
-		fmt.Println("fail 4")
+		log.Println("fail 4")
 	}
 	datparts := strings.Split(string(dat), "\n")
 	if len(datparts) < 64 {
-		fmt.Printf("got %v, want %v", len(datparts), 64)
+		log.Printf("got %v, want %v", len(datparts), 64)
 	}
 	for _, part := range datparts {
 
@@ -261,14 +261,14 @@ func getRemotePublic(key string) string {
 
 		bytes, err := base64.RawURLEncoding.DecodeString(part)
 		if err != nil {
-			fmt.Println("fail 5")
+			log.Println("fail 5")
 		}
 
 		privateKey := ed25519.PrivateKey(bytes)
 		publicKey := privateKey.Public()
 		epublic := publicKey.(ed25519.PublicKey)
 		public64 := base64.RawURLEncoding.EncodeToString([]byte(epublic))
-		//fmt.Println(public64)
+		//log.Println(public64)
 		first4 := public64[0:4]
 		if first4 == key {
 			return string(bytes)
@@ -299,10 +299,10 @@ func TestVerify(t *testing.T) {
 	hd, err := jwt.Verify([]byte(ticket), algo, &plout)
 	if err != nil {
 		// ...
-		fmt.Println("verify err=", err)
+		log.Println("verify err=", err)
 		got = err.Error()
 	}
-	fmt.Println(hd)
+	log.Println(hd)
 
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
@@ -314,7 +314,7 @@ func TestMakeTicket(t *testing.T) {
 
 	algo := jwt.NewEd25519(jwt.Ed25519PrivateKey(GetSamplePrivate()))
 
-	fmt.Println("algo=", algo)
+	log.Println("algo=", algo)
 
 	now := time.Now()
 	pl := CustomPayload{
@@ -336,7 +336,7 @@ func TestMakeTicket(t *testing.T) {
 		// ...
 	}
 
-	fmt.Println("token=", string(token))
+	log.Println("token=", string(token))
 
 	algoPublic := jwt.NewEd25519(jwt.Ed25519PublicKey(GetSamplePublic()))
 
@@ -344,9 +344,9 @@ func TestMakeTicket(t *testing.T) {
 	hd, err := jwt.Verify(token, algoPublic, &plout)
 	if err != nil {
 		// ...
-		fmt.Println("verify err=", err)
+		log.Println("verify err=", err)
 	}
-	fmt.Println(hd)
+	log.Println(hd)
 
 }
 
@@ -358,7 +358,7 @@ func TestMakeTicket000(t *testing.T) {
 	sh.Write([]byte("secret"))
 	shabytes := sh.Sum(nil)
 
-	fmt.Println(hex.EncodeToString(shabytes))
+	log.Println(hex.EncodeToString(shabytes))
 
 	now := time.Now()
 	pl := CustomPayload{
@@ -380,15 +380,15 @@ func TestMakeTicket000(t *testing.T) {
 		// ...
 	}
 
-	fmt.Println("token=", string(token))
+	log.Println("token=", string(token))
 
 	var plout CustomPayload
 	hd, err := jwt.Verify(token, hs, &plout)
 	if err != nil {
 		// ...
-		fmt.Println("verify err=", err)
+		log.Println("verify err=", err)
 	}
-	fmt.Println(hd)
+	log.Println(hd)
 
 }
 
@@ -399,12 +399,12 @@ func TestMakeKeypair(t *testing.T) {
 
 	public, private, _ := ed25519.GenerateKey(rand.Reader)
 
-	fmt.Println(base64.RawURLEncoding.EncodeToString(public))
-	fmt.Println(base64.RawURLEncoding.EncodeToString(private))
+	log.Println(base64.RawURLEncoding.EncodeToString(public))
+	log.Println(base64.RawURLEncoding.EncodeToString(private))
 
 	pub2 := private.Public()
 	retypeed, ok := pub2.(ed25519.PublicKey)
-	fmt.Println("pub2", base64.RawURLEncoding.EncodeToString(retypeed), ok)
+	log.Println("pub2", base64.RawURLEncoding.EncodeToString(retypeed), ok)
 
 	got := base64.RawURLEncoding.EncodeToString(retypeed)
 	want := base64.RawURLEncoding.EncodeToString(public)
@@ -419,15 +419,15 @@ func ExampleZeroReader() {
 	var zero tokens.ZeroReader
 	public, private, _ := ed25519.GenerateKey(zero)
 
-	fmt.Println(base64.RawURLEncoding.WithPadding(base64.NoPadding).EncodeToString(public))
-	fmt.Println(base64.RawURLEncoding.WithPadding(base64.NoPadding).EncodeToString(private))
+	log.Println(base64.RawURLEncoding.WithPadding(base64.NoPadding).EncodeToString(public))
+	log.Println(base64.RawURLEncoding.WithPadding(base64.NoPadding).EncodeToString(private))
 
 	message := []byte("test message")
 	sig := ed25519.Sign(private, message)
 	if !ed25519.Verify(public, message, sig) {
-		fmt.Println("valid signature rejected")
+		log.Println("valid signature rejected")
 	} else {
-		fmt.Println("good")
+		log.Println("good")
 	}
 
 	// Expected: O2onvM62pC1io6jQKm8Nc2UyFXcd4kOmOsBIoYtZ2ik
@@ -443,8 +443,8 @@ func XxxxTest1(t *testing.T) {
 
 	public, private, _ := ed25519.GenerateKey(rand.Reader)
 
-	fmt.Println(base64.StdEncoding.WithPadding(base64.NoPadding).EncodeToString(public))
-	fmt.Println(base64.StdEncoding.WithPadding(base64.NoPadding).EncodeToString(private))
+	log.Println(base64.StdEncoding.WithPadding(base64.NoPadding).EncodeToString(public))
+	log.Println(base64.StdEncoding.WithPadding(base64.NoPadding).EncodeToString(private))
 
 	// on my developer machine KNOT_KUNG_FOO is awt so I can tell I'm local
 	if os.Getenv("KNOT_KUNG_FOO") == "xxxxxatw" {
@@ -452,12 +452,12 @@ func XxxxTest1(t *testing.T) {
 		if os.IsNotExist(err) {
 			puf, err := os.Create("./publicKeys_xxx.txt")
 			if err != nil {
-				fmt.Println("fail 6")
+				log.Println("fail 6")
 			}
 			defer puf.Close()
 			prf, err := os.Create("privateKeys_xxx.txt")
 			if err != nil {
-				fmt.Println("fail 7")
+				log.Println("fail 7")
 			}
 			defer prf.Close()
 
@@ -475,7 +475,7 @@ func XxxxTest1(t *testing.T) {
 }
 
 // func Test2(t *testing.T) {
-// 	fmt.Println("hello2")
+// 	log.Println("hello2")
 // 	ExampleZeroReader()
 
 // 	tmp, err := ioutil.ReadFile("ccced25519_2.pub")
@@ -492,7 +492,7 @@ func XxxxTest1(t *testing.T) {
 // 		t.Error()
 // 		return
 // 	}
-// 	fmt.Println(base64.RawURLEncoding.EncodeToString(public))
+// 	log.Println(base64.RawURLEncoding.EncodeToString(public))
 
 // 	if len(public) != ed25519.PublicKeySize { // 32
 // 		t.Error()
@@ -506,7 +506,7 @@ func XxxxTest1(t *testing.T) {
 // 	str = strings.ReplaceAll(str, "\n", "")
 // 	private, err := base64.RawURLEncoding.DecodeString(str)
 
-// 	fmt.Println(base64.RawURLEncoding.EncodeToString(private))
+// 	log.Println(base64.RawURLEncoding.EncodeToString(private))
 
 // 	private = tokens.ParseOpenSSHPrivateKey(private)
 
@@ -515,7 +515,7 @@ func XxxxTest1(t *testing.T) {
 // 		return
 // 	}
 
-// 	fmt.Println(base64.RawURLEncoding.EncodeToString(private))
+// 	log.Println(base64.RawURLEncoding.EncodeToString(private))
 
 // 	if len(private) != ed25519.PrivateKeySize { // 64
 // 		t.Error()
@@ -525,9 +525,9 @@ func XxxxTest1(t *testing.T) {
 // 	message := ([]byte("test message test message test message"))[0:32]
 // 	sig := ed25519.Sign(private, message)
 // 	if !ed25519.Verify(public, message, sig) {
-// 		fmt.Println("valid signature rejected")
+// 		log.Println("valid signature rejected")
 // 	} else {
-// 		fmt.Println("good")
+// 		log.Println("good")
 // 	}
 
 // 	// the reverse ??
@@ -601,7 +601,7 @@ func BenchmarkCheckToken2(b *testing.B) {
 		_ = hd
 		_ = err
 		if payload.Connections != 2 {
-			fmt.Println("wrong")
+			log.Println("wrong")
 		}
 		payload.Connections = -1
 
@@ -619,11 +619,11 @@ func Xxxxxnot_TestMakeTok2(t *testing.T) {
 	payload.Issuer = tokens.GetPrivateKeyPrefix(0) //"_9sh"
 
 	tok, err := tokens.MakeToken(payload, []byte(signingKey))
-	fmt.Println("TestMakeTok2 is ", base64.RawURLEncoding.EncodeToString(tok), err)
+	log.Println("TestMakeTok2 is ", base64.RawURLEncoding.EncodeToString(tok), err)
 
 	_, ok := tokens.VerifyToken(tok, []byte(tokens.FindPublicKey(tokens.GetPrivateKeyPrefix(0)))) // "_9sh"
 
-	fmt.Println("OK", ok)
+	log.Println("OK", ok)
 
 }
 
@@ -640,12 +640,12 @@ func Xxxxnot_TestMakeToken1connection(t *testing.T) {
 	payload.Issuer = tokens.GetPrivateKeyPrefix(0) //"_9sh"
 
 	tok, err := tokens.MakeToken(payload, []byte(signingKey))
-	fmt.Println("TestMakeToken1connection token is", string(tok))
-	//fmt.Println("TestMakeToken1connection is ", base64.RawURLEncoding.EncodeToString(tok), err)
+	log.Println("TestMakeToken1connection token is", string(tok))
+	//log.Println("TestMakeToken1connection is ", base64.RawURLEncoding.EncodeToString(tok), err)
 	_ = err
 	_, ok := tokens.VerifyToken(tok, []byte(tokens.FindPublicKey(tokens.GetPrivateKeyPrefix(0)))) //"_9sh")))
 
-	fmt.Println("OK", ok)
+	log.Println("OK", ok)
 }
 
 // can't LoadPrivateKeys in test
@@ -671,7 +671,7 @@ func Nnot_TestBox(t *testing.T) {
 	payload.JWTID = tokens.GetRandomB36String()    // has len = 24
 
 	tok, err := tokens.MakeToken(payload, []byte(signingKey))
-	fmt.Println("TestBox tok is ", base64.RawURLEncoding.EncodeToString(tok), err)
+	log.Println("TestBox tok is ", base64.RawURLEncoding.EncodeToString(tok), err)
 
 	// box it up
 	boxout := make([]byte, len(tok)+box.Overhead+99)
@@ -697,12 +697,12 @@ func Nnot_TestBox(t *testing.T) {
 	openbuffer := make([]byte, len(tok)*2)
 	opened, ok := box.Open(openbuffer, sealed, &jwtid, serpub, clipriv)
 	if !ok {
-		fmt.Println("OK 1 not ok ", ok)
+		log.Println("OK 1 not ok ", ok)
 	}
 
 	_, ok = tokens.VerifyToken(opened, []byte(tokens.FindPublicKey("_9sh")))
 
-	fmt.Println("OK", ok)
+	log.Println("OK", ok)
 
 }
 

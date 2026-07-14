@@ -2,6 +2,7 @@ package iot
 
 import (
 	"fmt"
+	"log"
 	"net"
 	"sync"
 
@@ -111,7 +112,7 @@ func (sc *ServiceContactTcp) Get(msg packets.Interface) (packets.Interface, erro
 func (sc *ServiceContactTcp) SendPacket(msg packets.Interface, returnChannel chan packets.Interface, doneChannelForGet chan bool, callback func()) {
 
 	sessionValue := GetSessionValue()
-	// fmt.Println("service-contact_tcp sessionValue ", sessionValue)
+	// log.Println("service-contact_tcp sessionValue ", sessionValue)
 
 	// case  on the type of msg and set the session value and reply address
 	switch v := msg.(type) {
@@ -125,12 +126,12 @@ func (sc *ServiceContactTcp) SendPacket(msg packets.Interface, returnChannel cha
 		CheckLookupPacket(v)
 
 	default:
-		fmt.Printf("ERROR service-contact_tcp I don't know about type %T!\n", v)
+		log.Printf("ERROR service-contact_tcp I don't know about type %T!\n", v)
 		close(doneChannelForGet)
 		return
 	}
 
-	// fmt.Println("ServiceContact_tcp send packet ", msg.Sig())
+	// log.Println("ServiceContact_tcp send packet ", msg.Sig())
 
 	sc.key2channelLock.Lock()
 	sc.key2channel[sessionValue] = returnChannel
@@ -155,14 +156,14 @@ func (sc *ServiceContactTcp) SendPacket(msg packets.Interface, returnChannel cha
 				// this was closed and then we can remove the key/value from the map. This is the normal ending.
 				return
 			// case <-sc.contact.ClosedChannel: Does this happen?
-			// 	fmt.Println("seviceContact contact closed. This is bad")
+			// 	log.Println("seviceContact contact closed. This is bad")
 			// 	close(sc.closed)
 			case <-sc.closed:
-				fmt.Println("service-contact_tcp closed. This is bad")
+				log.Println("service-contact_tcp closed. This is bad")
 				return
 			case <-time.After(7 * time.Second): // sooner than nginx? What was that about?
 				errMsg := "SendPacket timed out waiting for reply (receiver offline)"
-				fmt.Println(errMsg)
+				log.Println(errMsg)
 				return
 			}
 		}
@@ -202,17 +203,17 @@ func InitNewServiceContactTcp(sc *ServiceContactTcp) error {
 		// 	haveSuback = true
 		case packet := <-sc.packetsChan:
 			// see if it's a suback
-			// fmt.Println("waiting for suback on gotDataChan.TheChan got ", cmd.Sig())
+			// log.Println("waiting for suback on gotDataChan.TheChan got ", cmd.Sig())
 			if packet == nil {
-				fmt.Println("ERROR nil packet waiting for suback. Never happens.")
+				log.Println("ERROR nil packet waiting for suback. Never happens.")
 			} else {
 				subcmd, ok := packet.(*packets.Subscribe)
 				_ = subcmd
 				if !ok {
-					fmt.Println("ERROR wrong packet waiting for suback  ")
+					log.Println("ERROR wrong packet waiting for suback  ")
 				} else {
 					// if isDebg {
-					// 	fmt.Println("http handler have suback  ", subcmd.Sig())
+					// 	log.Println("http handler have suback  ", subcmd.Sig())
 					// }
 					haveSuback = true
 				}
@@ -220,7 +221,7 @@ func InitNewServiceContactTcp(sc *ServiceContactTcp) error {
 			// we have to wait for the suback to come back
 		case <-time.After(7 * time.Second):
 			errMsg := "timed out waiting for suback reply 7 sec."
-			fmt.Println(errMsg)
+			log.Println(errMsg)
 			close(sc.closed)
 			return fmt.Errorf(errMsg)
 		}
@@ -256,13 +257,13 @@ func InitNewServiceContactTcp(sc *ServiceContactTcp) error {
 					if !got {
 						_, ok := p.(*packets.Subscribe)
 						if ok {
-							// nobody cares about the sub acks. fmt.Println("ServiceContact got suback ERROR no sessionKey in packet ", subPacket.Sig())
+							// nobody cares about the sub acks. log.Println("ServiceContact got suback ERROR no sessionKey in packet ", subPacket.Sig())
 							continue
 						}
 						// these are a problem.
 						// let's get the whole packet and see if we can figure out what it is.
 						what := p.String() // or sig() ?
-						fmt.Println("ServiceContact ERROR no session value in packet #", sc.index, " ", what)
+						log.Println("ServiceContact ERROR no session value in packet #", sc.index, " ", what)
 						// weird. How does a status: "topic not found errid=bvBbhJawYXIMWsxJOWHt"
 						// get back here without a session value? I don't know. But it does.
 						// It seems like a simple thing. running test TestDialTCP_one_at_a_time
@@ -273,7 +274,7 @@ func InitNewServiceContactTcp(sc *ServiceContactTcp) error {
 					// FIXME: atw, is there a better way? No, copilot, it's not a hack that 'just works'.
 					copied := copy(sessionValue[:], sessionValueFoundSlice)
 					if copied != 28 {
-						fmt.Println("ServiceContact ERROR sessionValue copy length is not 28. Is today 10/31? 4/1? 4/20? It's ", copied)
+						log.Println("ServiceContact ERROR sessionValue copy length is not 28. Is today 10/31? 4/1? 4/20? It's ", copied)
 					}
 					// one thing that happens is that the aide sends back a send before or instead of forwarding to the guru
 					// where it can be properly handled by the lookmsg and the nameservices.
@@ -292,7 +293,7 @@ func InitNewServiceContactTcp(sc *ServiceContactTcp) error {
 						if ok {
 							cmd, ok := p.GetOption("cmd")
 							if ok {
-								fmt.Println("ServiceContact got a send with a cmd option. This is an echo from aide. Throwing it away. cmd=", string(cmd), " in packet #", sc.index, " ", p.Sig())
+								log.Println("ServiceContact got a send with a cmd option. This is an echo from aide. Throwing it away. cmd=", string(cmd), " in packet #", sc.index, " ", p.Sig())
 								continue
 							}
 						}
@@ -307,10 +308,10 @@ func InitNewServiceContactTcp(sc *ServiceContactTcp) error {
 						// the theory is that a response on this key already happened and is screwing every thing up.
 						// Let's just see about that. Who would do such a henious Thing?
 						oldResponse, ok2 := sc.oldKeys[sessionValue]
-						fmt.Println("ServiceContact ERROR no channel for key ", string(sessionValue[:]), " in packet #", sc.index, " ", p.Sig())
+						log.Println("ServiceContact ERROR no channel for key ", string(sessionValue[:]), " in packet #", sc.index, " ", p.Sig())
 						if ok2 {
-							fmt.Println("ServiceContact ERROR but we DID have an OLD response for key ", string(sessionValue[:]), " was: ", oldResponse.String(), " in #", sc.index)
-							fmt.Println("ServiceContact ERROR compare to  ", p.String(), " was: ", oldResponse.String(), " in #", sc.index)
+							log.Println("ServiceContact ERROR but we DID have an OLD response for key ", string(sessionValue[:]), " was: ", oldResponse.String(), " in #", sc.index)
+							log.Println("ServiceContact ERROR compare to  ", p.String(), " was: ", oldResponse.String(), " in #", sc.index)
 						}
 						if len(sc.oldKeys) > 8192 {
 							sc.oldKeys = make(map[[28]byte]packets.Interface) // clear it out if it gets too big. This is a hack to avoid memory leaks.
@@ -320,17 +321,17 @@ func InitNewServiceContactTcp(sc *ServiceContactTcp) error {
 						if ok3 {
 							cmd, ok := p.GetOption("cmd")
 							if ok {
-								fmt.Println("ServiceContact ERROR but we DID have a Send packet for key ", string(sessionValue[:]), " in #", sc.index, " cmd=", string(cmd))
+								log.Println("ServiceContact ERROR but we DID have a Send packet for key ", string(sessionValue[:]), " in #", sc.index, " cmd=", string(cmd))
 							}
 						} else {
-							fmt.Println("ServiceContact ERROR I expected a send packet for key ", string(sessionValue[:]), " in #", sc.index, " but got ", p.String())
+							log.Println("ServiceContact ERROR I expected a send packet for key ", string(sessionValue[:]), " in #", sc.index, " but got ", p.String())
 						}
 						_, ok4 := p.(*packets.Send)
 						if !ok4 {
-							fmt.Println("ServiceContact ERROR do they normally get send or lookup? ", p.String(), " in #", sc.index, " ", p.String())
+							log.Println("ServiceContact ERROR do they normally get send or lookup? ", p.String(), " in #", sc.index, " ", p.String())
 						}
 					} else {
-						// fmt.Println("ServiceContact HAVE  channel for key ", string(sessionValue[:]), " in packet #", sc.index, " ", p.Sig())
+						// log.Println("ServiceContact HAVE  channel for key ", string(sessionValue[:]), " in packet #", sc.index, " ", p.Sig())
 						destChan <- p
 					}
 				}
@@ -379,7 +380,7 @@ func (sc *ServiceContactTcp) ConnectLoopForever() {
 				continue // to connect loop
 			}
 
-			fmt.Println("service-contact_tcp connected and waiting..")
+			log.Println("service-contact_tcp connected and waiting..")
 
 			// subscribe to the mySubscriptionName
 			subs := packets.Subscribe{}
@@ -423,7 +424,7 @@ func (sc *ServiceContactTcp) ConnectLoopForever() {
 				}
 				err = sc.conn.SetDeadline(time.Now().Add(30 * time.Minute))
 				if err != nil {
-					fmt.Println("deadline err 5", err, sc.conn.RemoteAddr())
+					log.Println("deadline err 5", err, sc.conn.RemoteAddr())
 					time.Sleep(2 * time.Second)
 					sc.fail++
 					done = true

@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"log"
 	"reflect"
 	"testing"
 	"time"
@@ -22,8 +23,8 @@ func makeSampleWatchedItem() ([]*iot.WatchedTopic, []*iot.SavedToken) {
 
 	ownerPassPhrase := "myFamousOldeSaying" // blRyuFY51TT7jL6GBLHPYjE5-nAV_Cc2wUEuXmkqNCU
 	spublic, sprivate := tokens.GetBoxKeyPairFromPassphrase(ownerPassPhrase)
-	fmt.Println(ownerPassPhrase, "makes sender public key ", base64.RawURLEncoding.EncodeToString(spublic[:]))
-	fmt.Println(ownerPassPhrase, "makes sender private key ", base64.RawURLEncoding.EncodeToString(sprivate[:]))
+	log.Println(ownerPassPhrase, "makes sender public key ", base64.RawURLEncoding.EncodeToString(spublic[:]))
+	log.Println(ownerPassPhrase, "makes sender private key ", base64.RawURLEncoding.EncodeToString(sprivate[:]))
 
 	for i := 0; i < 4; i++ {
 
@@ -100,17 +101,17 @@ func TestSubscriptions(t *testing.T) {
 	if ss == nil {
 		t.Fatal("subscription not found")
 	}
-	fmt.Println("got subscription ", ss.Name, " owned by ", ss.Owner)
+	log.Println("got subscription ", ss.Name, " owned by ", ss.Owner)
 
 	list, err := iot.GetSubscriptionList(ss.Owner)
 	if err != nil {
 		t.Fatal("failed to get subscription list")
 	}
 	_ = list
-	// fmt.Println("subscription list: ", list) // pretty big
+	// log.Println("subscription list: ", list) // pretty big
 
 	// 	topics, savedTokens := makeSampleWatchedItem()
-	// 	fmt.Println("got topics ", len(topics), " and saved tokens ", len(savedTokens))
+	// 	log.Println("got topics ", len(topics), " and saved tokens ", len(savedTokens))
 
 	ss, ok = iot.GetSubscription("xOZPbNiNsA_lM_6xJEwMaa7YmVMGlDpA")
 	if ok {
@@ -119,7 +120,7 @@ func TestSubscriptions(t *testing.T) {
 	if ss != nil {
 		t.Fatal("subscription should not be found")
 	}
-	fmt.Println("got subscription ", ss)
+	log.Println("got subscription ", ss)
 }
 
 // um, no. Let mongo init it'self
@@ -172,7 +173,7 @@ func TestMongo(t *testing.T) {
 	// 	var result iot.SavedToken
 	// 	err := cursor.Decode(&result)
 	// 	check(err)
-	// 	fmt.Println("found saved token ", result.KnotFreeTokenPayload.JWTID, result.IpAddress)
+	// 	log.Println("found saved token ", result.KnotFreeTokenPayload.JWTID, result.IpAddress)
 
 	// 	gotjwt = result.KnotFreeTokenPayload.JWTID
 	// }
@@ -187,7 +188,7 @@ func TestMongo(t *testing.T) {
 	// 	var result iot.WatchedTopic
 	// 	err := cursor.Decode(&result)
 	// 	check(err)
-	// 	fmt.Println("found watched topic ", result.Name, result.Jwtid)
+	// 	log.Println("found watched topic ", result.Name, result.Jwtid)
 	// }
 
 }
@@ -208,15 +209,15 @@ func TestMongoTopicBson(t *testing.T) {
 	for it.Next() {
 		s, ok := it.Key().(string)
 		_ = ok
-		fmt.Println("topic opt kv ", s, reflect.TypeOf(it.Value()), it.Value())
+		log.Println("topic opt kv ", s, reflect.TypeOf(it.Value()), it.Value())
 	}
 	bytes, err = json.Marshal(topics[0])
 	check(err)
-	// fmt.Println("topic bytes json", string(bytes))
+	// log.Println("topic bytes json", string(bytes))
 	t2 := &iot.WatchedTopic{}
 	err = json.Unmarshal(bytes, t2)
 	check(err)
-	// fmt.Println("topic 2 json restored ", t2)
+	// log.Println("topic 2 json restored ", t2)
 
 	assert.Equal(t, topics[0].Name[0], t2.Name[0])
 	assert.Equal(t, topics[0].Name[1], t2.Name[1])
@@ -224,11 +225,11 @@ func TestMongoTopicBson(t *testing.T) {
 
 	bytes, err = bson.Marshal(topics[0])
 	check(err)
-	// fmt.Println("topic bytes ", string(bytes))
-	// fmt.Println("topic bytes ", showBson(bytes))
+	// log.Println("topic bytes ", string(bytes))
+	// log.Println("topic bytes ", showBson(bytes))
 	asJson := showBson(bytes)
 	_ = asJson
-	fmt.Println("BSON length of encoded topic ", len(bytes))
+	log.Println("BSON length of encoded topic ", len(bytes))
 
 	newtopic := &iot.WatchedTopic{}
 	err = bson.Unmarshal(bytes, newtopic)
@@ -237,12 +238,12 @@ func TestMongoTopicBson(t *testing.T) {
 	assert.Equal(t, topics[0].Name[1], newtopic.Name[1])
 	assert.Equal(t, topics[0].Name[2], newtopic.Name[2])
 
-	// fmt.Println("newtopic ", newtopic)
+	// log.Println("newtopic ", newtopic)
 	it = newtopic.OptionalKeyValues.Iterator()
 	for it.Next() {
 		s, ok := it.Key().(string)
 		_ = ok
-		fmt.Println("newtopic opt kv ", s, reflect.TypeOf(it.Value()), it.Value())
+		log.Println("newtopic opt kv ", s, reflect.TypeOf(it.Value()), it.Value())
 	}
 }
 
@@ -276,7 +277,7 @@ type Restaurant struct {
 // 	if err != nil {
 // 		check(err)
 // 	}
-// 	fmt.Println("Name of restaurants Index Created: " + name)
+// 	log.Println("Name of restaurants Index Created: " + name)
 
 // 	newRestaurant := Restaurant{Name: "828299", Cuisine: "Alan" + tokens.GetRandomB36String()}
 // 	resultInsert, err := restaurants.InsertOne(context.TODO(), newRestaurant)
@@ -296,20 +297,20 @@ type Restaurant struct {
 // 		check(err)
 // 	}
 
-// 	fmt.Println("updated ", updateResult)
+// 	log.Println("updated ", updateResult)
 
 // 	filter = bson.D{{Key: "name", Value: "828299"}}
 // 	var result Restaurant
 // 	singleResult := restaurants.FindOne(context.TODO(), filter).Decode(&result)
 // 	if err != nil {
 // 		if err == mongo.ErrNoDocuments {
-// 			fmt.Println("no documents found")
+// 			log.Println("no documents found")
 // 			return
 // 		} else {
 // 			check(err)
 // 		}
 // 	}
-// 	fmt.Println("singleResult ", singleResult)
+// 	log.Println("singleResult ", singleResult)
 // 	assert.Equal(t, newCuisine, result.Cuisine)
 
 // }

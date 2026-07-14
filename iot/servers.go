@@ -3,7 +3,6 @@ package iot
 import (
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -59,7 +58,7 @@ func StartPublicServer(ce *ClusterExecutive) {
 		}
 	}()
 
-	// Can someone please clean this up? It's a mess. We have multiple http servers, some for reverse proxy, some for metrics, some for the api, and it's all over the place. We should have one http server and use different handlers for different paths. And we should use a router instead of manually checking the paths. And we should use a proper logging library instead of fmt.Println. And we should handle errors properly instead of just printing them. And we should... well, you get the idea.
+	// Can someone please clean this up? It's a mess. We have multiple http servers, some for reverse proxy, some for metrics, some for the api, and it's all over the place. We should have one http server and use different handlers for different paths. And we should use a router instead of manually checking the paths. And we should use a proper logging library instead of log.Println. And we should handle errors properly instead of just printing them. And we should... well, you get the idea.
 	// every time I touch it, it breaks.
 	staticStuffHandlerGotohere := webHandler{ce,
 		http.FileServer(http.Dir("./gotohere-static-react-build"))} // FIXME: points to   (a react build)
@@ -114,10 +113,10 @@ func StartPublicServer(ce *ClusterExecutive) {
 		MaxHeaderBytes: 1 << 13,
 	}
 	go func(s *http.Server) {
-		fmt.Println("StartPublicServer for " + s.Addr)
+		log.Println("StartPublicServer for " + s.Addr)
 		err := s.ListenAndServe()
 		_ = err
-		fmt.Println("ListenAndServe 8085 returned !!!!!  arrrrg", err)
+		log.Println("ListenAndServe 8085 returned !!!!!  arrrrg", err)
 	}(s)
 }
 
@@ -138,7 +137,7 @@ func (api webHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Println("webHandler ServeHTTP", r.Host, r.RequestURI)
+	log.Println("webHandler ServeHTTP", r.Host, r.RequestURI)
 
 	// it's only 15 meg. Can we just read it all in and serve it from memory?
 
@@ -146,10 +145,10 @@ func (api webHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func startPublicServer9102() {
-	fmt.Println("http metrics service 9102")
+	log.Println("http metrics service 9102")
 	http.Handle("/metrics", promhttp.Handler())
 	http.ListenAndServe(":9102", nil)
-	fmt.Println("startPublicServer9102 9102 FAIL")
+	log.Println("startPublicServer9102 9102 FAIL")
 }
 
 func startPublicServer3100() {
@@ -164,7 +163,7 @@ func startPublicServer3100() {
 			req.Header.Add("X-Origin-Host", origin.Host)
 			req.URL.Scheme = "http"
 			req.URL.Host = origin.Host
-			//fmt.Println("fwd graf:", req.URL.Host, req.URL.Port(), req.URL.Path)
+			//log.Println("fwd graf:", req.URL.Host, req.URL.Port(), req.URL.Path)
 			ForwardsCount3100.Inc()
 		}
 		proxy := &httputil.ReverseProxy{Director: director}
@@ -179,10 +178,10 @@ func startPublicServer3100() {
 		MaxHeaderBytes: 1 << 13,
 	}
 	go func(s *http.Server) {
-		fmt.Println("http grafana service " + s.Addr)
+		log.Println("http grafana service " + s.Addr)
 		err := s.ListenAndServe()
 		_ = err
-		fmt.Println("ListenAndServe 3100 returned !!!!!  arrrrg", err)
+		log.Println("ListenAndServe 3100 returned !!!!!  arrrrg", err)
 	}(s)
 
 }
@@ -199,7 +198,7 @@ func XstartPublicServer9090() {
 			req.Header.Add("X-Origin-Host", origin.Host)
 			req.URL.Scheme = "http"
 			req.URL.Host = origin.Host
-			//fmt.Println("fwd prom:", req.URL.Host, req.URL.Port(), req.URL.Path)
+			//log.Println("fwd prom:", req.URL.Host, req.URL.Port(), req.URL.Path)
 			ForwardsCount9090.Inc()
 		}
 		proxy := &httputil.ReverseProxy{Director: director}
@@ -214,10 +213,10 @@ func XstartPublicServer9090() {
 		MaxHeaderBytes: 1 << 13,
 	}
 	go func(s *http.Server) {
-		fmt.Println("http public service 9090 " + s.Addr)
+		log.Println("http public service 9090 " + s.Addr)
 		err := s.ListenAndServe()
 		_ = err
-		fmt.Println("ListenAndServe 9090 returned !!!!!  arrrrg", err)
+		log.Println("ListenAndServe 9090 returned !!!!!  arrrrg", err)
 	}(s)
 
 }
@@ -230,7 +229,7 @@ type wsAPIHandler struct { // this is the websocket handler
 
 func (api wsAPIHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
-	//fmt.Println("ws ServeHTTP", r.RequestURI)
+	//log.Println("ws ServeHTTP", r.RequestURI)
 
 	allowAll := func(r *http.Request) bool {
 		return true
@@ -253,7 +252,7 @@ func ParsePayload(httpBytes string) (string, map[string]string, string) {
 	headerMap := make(map[string]string)
 	pos := strings.Index(httpBytes, "\r\n\r\n")
 	if pos <= 0 {
-		fmt.Println("isWhat? no header end!!! this is bad ", httpBytes)
+		log.Println("isWhat? no header end!!! this is bad ", httpBytes)
 		return "", headerMap, ""
 	}
 	payload := httpBytes[pos+4:]
@@ -269,7 +268,7 @@ func ParsePayload(httpBytes string) (string, map[string]string, string) {
 			val := strings.Trim(head[pos+1:], " ")
 			headerMap[key] = val
 		} else {
-			fmt.Println("weird header found " + head)
+			log.Println("weird header found " + head)
 		}
 	}
 	return firstLine, headerMap, payload
@@ -279,7 +278,7 @@ func (superMux *SuperMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	theHost := r.Host
 	if !strings.HasPrefix(theHost, "10.") {
-		// boring fmt.Println("ServeHTTP from host ", theHost)
+		// boring log.Println("ServeHTTP from host ", theHost)
 	}
 
 	if r.RequestURI == "/healthz" || r.RequestURI == "/livez" {
@@ -316,7 +315,7 @@ func (superMux *SuperMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if strings.Contains(theHost, "gotohere.") {
-		fmt.Println("ServeHTTP for gotohere ", theHost)
+		log.Println("ServeHTTP for gotohere ", theHost)
 		// is this slow? Is it messing us up?
 		// TODO: recurse through the directory and reject everyone else.
 		superMux.staticStuffHandlerGotohere.ServeHTTP(w, r)
@@ -325,12 +324,12 @@ func (superMux *SuperMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if isApiRequest {
 		// show the query string parameters for debugging
-		// fmt.Println("ServeHTTP api request ", r.RequestURI, theHost)
+		// log.Println("ServeHTTP api request ", r.RequestURI, theHost)
 		superMux.sub.ServeHTTP(w, r)
 		return
 	}
 
-	fmt.Println("ServeHTTP for SUBDOMAIN request ", theHost, r.RequestURI)
+	log.Println("ServeHTTP for SUBDOMAIN request ", theHost, r.RequestURI)
 
 	// Let's do this the other way arounnd.
 	// we will subdomain ALL the TLDs except knotfree hosts which are literally knotfree.xxx
@@ -372,7 +371,7 @@ func (superMux *SuperMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// 	subDomain := domainParts[0]
 	// 	// subSubDomain := domainParts[0]
 	// 	//
-	// 	fmt.Println("sub sub domain ", subDomain, args)
+	// 	log.Println("sub sub domain ", subDomain, args)
 	// 	command := strings.Join(args, " ")
 	// 	cmd := packets.Lookup{}
 	// 	cmd.Address.FromString(subDomain)
@@ -382,17 +381,17 @@ func (superMux *SuperMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// 	// send it
 	// 	reply, err := superMux.ce.PacketService.GetPacketReply(&cmd)
 	// 	if err != nil {
-	// 		fmt.Println("sub sub domain err", err)
+	// 		log.Println("sub sub domain err", err)
 	// 		http.NotFound(w, r)
 	// 		return
 	// 	}
 	// 	thePacket, ok := reply.(*packets.Send)
 	// 	if !ok {
-	// 		fmt.Println("sub sub domain not a send packet")
+	// 		log.Println("sub sub domain not a send packet")
 	// 		http.NotFound(w, r)
 	// 		return
 	// 	}
-	// 	// fmt.Println("sub sub domain reply", string(thePacket.Payload))
+	// 	// log.Println("sub sub domain reply", string(thePacket.Payload))
 	// 	w.Write(thePacket.Payload)
 	// 	return
 
@@ -408,14 +407,14 @@ func (api ApiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	// I think nginx might be spamming me.
 	// show it.
 
-	fmt.Println("ApiHandler ServeHTTP RequestURI,host,", req.RequestURI, req.Host)
+	log.Println("ApiHandler ServeHTTP RequestURI,host,", req.RequestURI, req.Host)
 
 	if req.RequestURI != "/healthz" && req.RequestURI != "/livez" {
 		tmp := req.RequestURI
 		if len(tmp) > 100 {
 			tmp = tmp[0:100] // why?
 		}
-		// this gets tedious fmt.Println("ApiHandler ServeHTTP", tmp, req.Host)
+		// this gets tedious log.Println("ApiHandler ServeHTTP", tmp, req.Host)
 	}
 
 	w.Header().Add("Access-Control-Allow-Origin", "*")
@@ -426,7 +425,7 @@ func (api ApiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 		path := req.RequestURI[len(proxyApiPath):]
 
-		// fmt.Println("proxy path", path)
+		// log.Println("proxy path", path)
 		if strings.HasSuffix(path, ".png") || strings.HasSuffix(path, ".jpg") {
 			w.Header().Set("Content-Type", "image/png")
 		}
@@ -434,17 +433,17 @@ func (api ApiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		// DONE: build a cache and don't fetch the same thing twice in the same 10 minutes.
 
 		wholeUrl := "https://raw.githubusercontent.com/" + path
-		fmt.Println("proxying to ", wholeUrl)
+		log.Println("proxying to ", wholeUrl)
 
 		if true {
 
 			handler2 := api.cacheClient.Middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				// do something with the response
-				fmt.Println("cacheClient.Middleware", r.RequestURI)
-				// fmt.Println("cacheClient.Middleware", r.URL)
+				log.Println("cacheClient.Middleware", r.RequestURI)
+				// log.Println("cacheClient.Middleware", r.URL)
 				resp, err := http.Get(wholeUrl)
 				if err != nil {
-					fmt.Println("rawgithubusercontentproxy failed to fetch ", wholeUrl)
+					log.Println("rawgithubusercontentproxy failed to fetch ", wholeUrl)
 					w.Write([]byte("error " + err.Error()))
 					return
 				}
@@ -465,7 +464,7 @@ func (api ApiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			// old way
 			resp, err := http.Get(wholeUrl)
 			if err != nil {
-				fmt.Println("rawgithubusercontentproxy failed to fetch ", wholeUrl)
+				log.Println("rawgithubusercontentproxy failed to fetch ", wholeUrl)
 				w.Write([]byte("error " + err.Error()))
 				return
 			}
@@ -547,7 +546,7 @@ func (api ApiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		}
 		if len(responses) == 1 {
 			jsonBytes, err := json.Marshal(responses[0])
-			// fmt.Println("dns-query response", string(jsonBytes))
+			// log.Println("dns-query response", string(jsonBytes))
 			if err != nil {
 				http.Error(w, err.Error(), 500)
 				return
@@ -557,7 +556,7 @@ func (api ApiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			// multiple responses. return an array of responses.
 			jsonBytes, err := json.Marshal(responses)
 			// too big to print
-			fmt.Println("dns-query response bytes len", len(jsonBytes), " for", len(responses), "responses")
+			log.Println("dns-query response bytes len", len(jsonBytes), " for", len(responses), "responses")
 			if err != nil {
 				http.Error(w, err.Error(), 500)
 				return
@@ -569,7 +568,7 @@ func (api ApiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		stats := api.ce.Aides[0].GetExecutiveStats()
 		bytes, err := json.Marshal(stats)
 		if err != nil {
-			fmt.Println("GetExecutiveStats marshal", err)
+			log.Println("GetExecutiveStats marshal", err)
 		}
 		w.Write(bytes)
 
@@ -583,7 +582,7 @@ func (api ApiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 		sss := base64.RawURLEncoding.EncodeToString(api.ce.PublicKeyTemp[:])
 
-		fmt.Println("serve /api1/getPublicKey ", sss)
+		log.Println("serve /api1/getPublicKey ", sss)
 
 		//w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Write([]byte(sss))
@@ -626,7 +625,7 @@ func (api ApiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 		// don't use this. use the nameService
 		name := req.URL.Query().Get("name")
-		fmt.Println("have getNameStatus", name)
+		log.Println("have getNameStatus", name)
 
 		look := packets.Lookup{}
 		look.Address.FromString(name)
@@ -655,13 +654,13 @@ func (api ApiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		theirPubk := req.URL.Query().Get("pubk")
 		_ = ourPrivK
 
-		fmt.Println("getNames cmd", cmd)
-		fmt.Println("getNames theirPubk", theirPubk)
+		log.Println("getNames cmd", cmd)
+		log.Println("getNames theirPubk", theirPubk)
 
 		// we need to unbox this
 		bincmd, err := base64.RawURLEncoding.DecodeString(cmd)
 		if err != nil {
-			fmt.Println("getNames decode cmd", err)
+			log.Println("getNames decode cmd", err)
 			http.Error(w, err.Error(), 500)
 			return
 		}
@@ -670,7 +669,7 @@ func (api ApiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		openbuffer := make([]byte, 0, (len(cmd))) // - box.Overhead))
 		tmp, err := base64.RawURLEncoding.DecodeString(theirPubk)
 		if err != nil {
-			fmt.Println("getNames decode pubk", err)
+			log.Println("getNames decode pubk", err)
 			http.Error(w, err.Error(), 500)
 			return
 		}
@@ -678,25 +677,25 @@ func (api ApiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		copy(pubk[:], tmp[:])
 		opened, ok := box.Open(openbuffer, bincmd, nonce, pubk, api.ce.PrivateKeyTemp)
 		if !ok {
-			fmt.Println("getNames box open failed", nonceStr, theirPubk, ourPrivK)
+			log.Println("getNames box open failed", nonceStr, theirPubk, ourPrivK)
 			http.Error(w, "box open failed", 500)
 			return
 		}
 		parts := strings.Split(string(opened), "#")
 		if len(parts) != 2 {
-			fmt.Println("getNames parts len != 2")
+			log.Println("getNames parts len != 2")
 			http.Error(w, "parts len != 2", 500)
 			return
 		}
 		if parts[0] != theirPubk {
-			fmt.Println("pubk not match")
+			log.Println("pubk not match")
 			http.Error(w, "pubk not match", 500)
 			return
 		}
 		timeStr := parts[1]
 		seconds, err := strconv.ParseInt(timeStr, 10, 64)
 		if err != nil {
-			fmt.Println("time not int")
+			log.Println("time not int")
 			http.Error(w, "time not int", 500)
 			return
 		}
@@ -705,26 +704,26 @@ func (api ApiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			delta = -delta
 		}
 		if delta > 10 {
-			fmt.Println("time not match")
+			log.Println("time not match")
 			http.Error(w, "time not match", 500)
 			return
 		}
 
 		list, err := GetSubscriptionList(theirPubk)
 		if err != nil {
-			fmt.Println("getNames GetSubscriptionList", err)
+			log.Println("getNames GetSubscriptionList", err)
 			http.Error(w, err.Error(), 500)
 			return
 		}
 
 		jsonList, err := json.Marshal(list)
 		if err != nil {
-			fmt.Println("getNames json.Marshal", err)
+			log.Println("getNames json.Marshal", err)
 			http.Error(w, err.Error(), 500)
 			return
 		}
 
-		// fmt.Println("getNames found ", string(jsonList)) //
+		// log.Println("getNames found ", string(jsonList)) //
 		//now we must encrypt the answer
 
 		payload := string(jsonList)
@@ -739,7 +738,7 @@ func (api ApiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	case "/api1/nameService":
 
 		// show the query string parameters for debugging
-		//fmt.Println("nameService query", req.URL.Query())
+		//log.Println("nameService query", req.URL.Query())
 		api.NameService(w, req)
 
 	case "/api1/setAllChildBitCache":
@@ -749,7 +748,7 @@ func (api ApiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 		worldName := req.URL.Query().Get("world")
 
-		fmt.Println("/api1/setAllChildBitCache for world=", worldName)
+		log.Println("/api1/setAllChildBitCache for world=", worldName)
 
 		defer req.Body.Close()
 
@@ -772,7 +771,7 @@ func (api ApiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		if time.Now().Unix()-whenWasLocalDataSet > 60*3 {
 			ok := SaveChildBitsNameAndData(worldName, string(body))
 			if !ok {
-				fmt.Println("failed to save child bits for world=", worldName)
+				log.Println("failed to save child bits for world=", worldName)
 			}
 		}
 		w.Write([]byte("ok"))
@@ -785,7 +784,7 @@ func (api ApiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		worldName := req.URL.Query().Get("world")
 		_ = worldName
 
-		fmt.Println("/api1/getAllChildBitCache for world=", worldName)
+		log.Println("/api1/getAllChildBitCache for world=", worldName)
 
 		WorldName2ChildbitsLock.Lock()
 		wholeString, ok := WorldName2ChildbitsWholeString[worldName]
@@ -805,7 +804,7 @@ func (api ApiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			// call the DB to get the latest child bits for this world
 			cachedata, ok := GetChildBitsCache(worldName)
 			if ok {
-				fmt.Println("/api1/getAllChildBitCache got data from DB for world=", worldName, "len=", len(cachedata.Data))
+				log.Println("/api1/getAllChildBitCache got data from DB for world=", worldName, "len=", len(cachedata.Data))
 				wholeString = []byte(cachedata.Data)
 				WorldName2ChildbitsLock.Lock()
 				WorldName2ChildbitsWholeString[worldName] = wholeString
@@ -815,7 +814,7 @@ func (api ApiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 				WorldName2ChildbitsLock.Unlock()
 			} else {
 				wholeString = []byte{} // empty
-				fmt.Println("/api1/getAllChildBitCache no data from DB for world=", worldName)
+				log.Println("/api1/getAllChildBitCache no data from DB for world=", worldName)
 			}
 		}
 		if len(wholeString) == 0 {
@@ -826,26 +825,26 @@ func (api ApiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		}
 
 		// and also, lol, this.
-		fmt.Println("/api1/getAllChildBitCache data written will be len =", len(wholeString))
+		log.Println("/api1/getAllChildBitCache data written will be len =", len(wholeString))
 
 		// do I need to be working it this hard?
 		n, err := w.Write(wholeString)
 		for n < len(wholeString) {
 			n2, err2 := w.Write(wholeString[n:])
 			if err2 != nil {
-				fmt.Println("/api1/getAllChildBitCache error writing response for world=", worldName, "err=", err2)
+				log.Println("/api1/getAllChildBitCache error writing response for world=", worldName, "err=", err2)
 				break
 			}
 			n += n2
 		}
 		if err != nil {
-			fmt.Println("/api1/getAllChildBitCache error writing response for world=", worldName, "err=", err)
+			log.Println("/api1/getAllChildBitCache error writing response for world=", worldName, "err=", err)
 		} else {
-			fmt.Println("/api1/getAllChildBitCache sent", n, "bytes for world=", worldName)
+			log.Println("/api1/getAllChildBitCache sent", n, "bytes for world=", worldName)
 		}
 
 	default: // default:
-		fmt.Println("ApiHandler ServeHTTP default query", req.RequestURI, req.Host)
+		log.Println("ApiHandler ServeHTTP default query", req.RequestURI, req.Host)
 		//  This might be unnecessary but I want to see the path if it fails.
 		if req.RequestURI == "/index.html" || req.RequestURI == "/" {
 			indexHtml := getIndexHtml()
@@ -866,11 +865,11 @@ func getIndexHtml() []byte {
 		return indexHtml
 	}
 	cwd, _ := os.Getwd()
-	fmt.Println("getIndexHtml cwd", cwd)
+	log.Println("getIndexHtml cwd", cwd)
 	var err error
 	indexHtml, err = os.ReadFile("./docs/index.html")
 	if err != nil {
-		fmt.Println("getIndexHtml err", err)
+		log.Println("getIndexHtml err", err)
 	}
 	return indexHtml
 }

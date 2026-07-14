@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"net/http"
 
@@ -33,7 +32,7 @@ func main() {
 	tokens.LoadPublicKeys()
 	tokens.LoadPrivateKeys("~/atw/privateKeys4.txt")
 
-	fmt.Println("StartCluster Hello, World!")
+	log.Println("StartCluster Hello, World!")
 
 	getTime := func() uint32 {
 		return uint32(time.Now().Unix())
@@ -48,8 +47,8 @@ func main() {
 
 	theGuru := ce.Gurus[0]
 
-	fmt.Println("StartClustertheGuru tcp", theGuru.GetTCPAddress())    // 19001
-	fmt.Println("StartCluster theGuru http", theGuru.GetHTTPAddress()) // 19000
+	log.Println("StartClustertheGuru tcp", theGuru.GetTCPAddress())    // 19001
+	log.Println("StartCluster theGuru http", theGuru.GetHTTPAddress()) // 19000
 
 	// launch an aide using main.go
 
@@ -64,13 +63,13 @@ func main() {
 	// iot.StartPublicServer(ce2) // this will heartbeat the theAide
 
 	theAide := ce.Aides[0]
-	fmt.Println("StartClustertheAide tcp", theAide.GetTCPAddress())    // 8384
-	fmt.Println("StartCluster theAide http", theAide.GetHTTPAddress()) // 8080
+	log.Println("StartClustertheAide tcp", theAide.GetTCPAddress())    // 8384
+	log.Println("StartCluster theAide http", theAide.GetHTTPAddress()) // 8080
 
 	// init the stupid DB so we don't get a fail on the first request. this is a hack.
 	_, ok := iot.GetSubscription("xOZPbNiNsA_lM_6xJEwM1C7YmVMGlDpA")
 	if !ok {
-		fmt.Println("subscription not found, xOZPbNiNsA_lM_6xJEwM1C7YmVMGlDpA during startCluster init.")
+		log.Println("subscription not found, xOZPbNiNsA_lM_6xJEwM1C7YmVMGlDpA during startCluster init.")
 	}
 
 	ce.WaitForActions() // force cluster status to go out, normally this is done by the k8s operator.
@@ -103,5 +102,5 @@ func main() {
 		theGuru.Heartbeat(now)
 		time.Sleep(10 * time.Second)
 	}
-	// fmt.Println("the bottom of the world!")
+	// log.Println("the bottom of the world!")
 }

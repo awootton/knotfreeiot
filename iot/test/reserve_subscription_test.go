@@ -1,11 +1,12 @@
 package iot_test
 
 import (
+	"fmt"
 	"math/rand"
 	"strings"
 
 	"encoding/base64"
-	"fmt"
+	"log"
 	"testing"
 	"time"
 
@@ -42,8 +43,8 @@ func Not_TestReserveName(t *testing.T) { // delete me
 
 	var reader MathRandReader
 	client_public, client_private, err := box.GenerateKey(reader)                             // NOT ed25519.GenerateKey(reader) which returns 64 byte secret
-	fmt.Println("client_public k  ", base64.RawURLEncoding.EncodeToString(client_public[:]))  // PPWTXny1zMVx4RTQpTJ3qfZUwoefiuvl5Nk97dE7rjY
-	fmt.Println("client_private k ", base64.RawURLEncoding.EncodeToString(client_private[:])) // 0n-f1uxXIEuSy8KLUC2lfjGW5iQfPSNUPkyo0ADKZMs
+	log.Println("client_public k  ", base64.RawURLEncoding.EncodeToString(client_public[:]))  // PPWTXny1zMVx4RTQpTJ3qfZUwoefiuvl5Nk97dE7rjY
+	log.Println("client_private k ", base64.RawURLEncoding.EncodeToString(client_private[:])) // 0n-f1uxXIEuSy8KLUC2lfjGW5iQfPSNUPkyo0ADKZMs
 
 	reserve := tokens.SubscriptionNameReservationPayload{}
 	reserve.ExpirationTime = starttime + 60*60*24*(365)*2 // 2 years from 2020 jan 1
@@ -53,7 +54,7 @@ func Not_TestReserveName(t *testing.T) { // delete me
 
 	reserveBytes, err := tokens.MakeNameToken(&reserve, []byte(tokens.GetPrivateKeyMatching(reserve.Issuer)))
 
-	fmt.Println("Original name jwt", string(reserveBytes))
+	log.Println("Original name jwt", string(reserveBytes))
 
 	var nonce [24]byte
 	reader.Read(nonce[:])
@@ -66,8 +67,8 @@ func Not_TestReserveName(t *testing.T) { // delete me
 
 	pub := aide0.Config.GetCe().PublicKeyTemp[:]
 	pri := aide0.Config.GetCe().PrivateKeyTemp[:]
-	fmt.Println("knot_public k ", base64.RawURLEncoding.EncodeToString(pub))
-	fmt.Println("knot_private k ", base64.RawURLEncoding.EncodeToString(pri))
+	log.Println("knot_public k ", base64.RawURLEncoding.EncodeToString(pub))
+	log.Println("knot_private k ", base64.RawURLEncoding.EncodeToString(pri))
 
 	contact0 := makeTestContact(aide0.Config, "")
 	contact9 := makeTestContact(aide9.Config, "")
@@ -121,14 +122,14 @@ func Not_TestReserveName(t *testing.T) { // delete me
 		open_bytes, err := box.Open(dest_buffer, box_bytes2, &nonce2, &pubk2, clusterSecret)
 		_ = err
 		// this should be our original jwt for a name res
-		fmt.Println("recovered name jwt", string(open_bytes))
+		log.Println("recovered name jwt", string(open_bytes))
 
 		publicKeyBytes := tokens.FindPublicKey("yRst")
 		namePayload, ok := tokens.VerifyNameToken([]byte(open_bytes), []byte(publicKeyBytes))
 		if !ok {
 			t.Errorf("got %v, want %v", "false", "true")
 		}
-		fmt.Println("payload of name token ", namePayload)
+		log.Println("payload of name token ", namePayload)
 
 		// and here's the trick
 		// the public key in the namePayload must
@@ -188,12 +189,12 @@ func Not_TestReserveName(t *testing.T) { // delete me
 	IterateAndWait(t, func() bool {
 		got, ok := contact0.(*testContact).popResultAsString()
 		if ok {
-			fmt.Println("packets.Lookup 4 reserve got ", got)
+			log.Println("packets.Lookup 4 reserve got ", got)
 			count++
 		}
 		return count >= 4
 	}, "timed out waiting for look message 2 arrive")
-	fmt.Println("lookup was " + got)
+	log.Println("lookup was " + got)
 
 }
 
@@ -276,16 +277,16 @@ func TestLookupSubs(t *testing.T) {
 			return ok
 		}, "timed out waiting for can you hear me now")
 
-		fmt.Println("reply was " + got)
+		log.Println("reply was " + got)
 		want := `[P,=6X2eixvv3rz9Irvi85t2S5gdA0tRfB0B,contact0_address,"can you hear me now?"]`
 		if got != want {
 			t.Errorf("got %v, want %v", got, want)
 		}
 	}
 	{
-		// fmt.Println("pause here for a sec ")
+		// log.Println("pause here for a sec ")
 		// time.Sleep(time.Second)
-		// fmt.Println("moving along after a sec ")
+		// log.Println("moving along after a sec ")
 
 		// send again
 		sendmessage := packets.Send{}
@@ -313,7 +314,7 @@ func TestLookupSubs(t *testing.T) {
 			return ok
 		}, "timed out waiting2 for can you hear me now2")
 
-		fmt.Println("reply2 was " + got)
+		log.Println("reply2 was " + got)
 		want := `[P,=6X2eixvv3rz9Irvi85t2S5gdA0tRfB0B,contact0_address,"can you 2 hear me now2 ?"]`
 		if got != want {
 			t.Errorf("got %v, want %v", got, want)
@@ -344,14 +345,14 @@ func TestLookupSubs(t *testing.T) {
 			}
 			return ok
 		}, "timed out waiting for message from 0 to 9. message from 0 to 9. ")
-		fmt.Println("reply3 was " + got)
+		log.Println("reply3 was " + got)
 		want := `[P,=OKU2ncwOXF7_pEK8QM-duSHlTzE7jvDe,contact9_address,"message from 0 to 9. message from 0 to 9. "]`
 		if got != want {
 			t.Errorf("got %v, want %v", got, want)
 		}
 	}
 
-	fmt.Println("------------------------------------")
+	log.Println("------------------------------------")
 
 	look := packets.Lookup{}
 	look.Address.FromString("contact9_address")
@@ -364,12 +365,12 @@ func TestLookupSubs(t *testing.T) {
 	IterateAndWait(t, func() bool {
 		got, ok := contact0.(*testContact).popResultAsString()
 		if ok {
-			fmt.Println("packets.Lookup got ", got)
+			log.Println("packets.Lookup got ", got)
 			count++
 		}
 		return count >= 4
 	}, "timed out waiting for look message to arrive")
-	fmt.Println("lookup was " + got)
+	log.Println("lookup was " + got)
 }
 
 func showBson(bytes []byte) string {

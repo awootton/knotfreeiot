@@ -22,6 +22,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"log"
 	"strconv"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -132,7 +133,7 @@ func (h *HashType) FromBase64(str string) {
 		panic("FromBase64 bad input")
 	}
 	if len(bytes) != HashTypeLen {
-		fmt.Println("FromBase64 bad input")
+		log.Println("FromBase64 bad input")
 	} else {
 		h.InitFromBytes(bytes)
 	}
@@ -160,22 +161,26 @@ func (h *HashType) UnmarshalBSON(data []byte) error {
 	if len(s) == 32 {
 		h.FromBase64(s)
 	} else {
-		return fmt.Errorf("bsin bad string HashType")
+		log.Println("bson bad string HashType")
+		return fmt.Errorf("bson bad string HashType")
 	}
 	return nil
 }
 
 func (h *HashType) UnmarshalBSONValue(t bsontype.Type, data []byte) error {
 	if t != bson.TypeString {
+		log.Println("invalid bson value type HashType'", t.String(), "'")
 		return fmt.Errorf("invalid bson value type HashType'%s'", t.String())
 	}
 	// var s string
 	// err := bson.UnmarshalValue(bson.TypeString, data, &s)
 	s, b, ok := bsoncore.ReadString(data)
 	if !ok {
+		log.Println("invalid bson string value HashType")
 		return fmt.Errorf("invalid bson string value HashType")
 	}
 	if len(s) != 32 {
+		log.Println("invalid bson string length HashType")
 		return fmt.Errorf("invalid bson string length HashType")
 	}
 	_ = b
@@ -203,9 +208,9 @@ func (h *HashType) GetFractionalBits(n int) int {
 		a := h.GetHalfHash()
 		return int(a >> (64 - n))
 	}
-	fmt.Println("FIXME: implement GetFractionalBits for > 64")
-	fmt.Println("FIXME: better idEa")
-	fmt.Println("FIXME: please")
+	log.Println("FIXME: implement GetFractionalBits for > 64")
+	log.Println("FIXME: better idEa")
+	log.Println("FIXME: please")
 	return 0
 }
 

@@ -2,7 +2,7 @@ package iot_test
 
 import (
 	"encoding/base64"
-	"fmt"
+	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -41,14 +41,14 @@ func XxxxTestReserveNames(t *testing.T) {
 	domainList, err := os.ReadFile(homeDir + "/atw_private/domainList.txt")
 	check(err)
 
-	// fmt.Println("passPhrase", passPhrase)
-	// fmt.Println("domainList", domainList)
+	// log.Println("passPhrase", passPhrase)
+	// log.Println("domainList", domainList)
 
 	pubk, privk := tokens.GetBoxKeyPairFromPassphrase(string(passPhrase))
 	pubkStr := base64.URLEncoding.EncodeToString(pubk[:])
 	pubkStr = strings.TrimRight(pubkStr, "=")
 	_ = privk
-	fmt.Println("pubkStr", pubkStr)
+	log.Println("pubkStr", pubkStr)
 
 	// keep using the same jwtid as before
 	token, payload := tokens.GetImpromptuGiantTokenLocal(pubkStr, "plfdfo4ezlgclcumjtqkiwre")
@@ -58,7 +58,7 @@ func XxxxTestReserveNames(t *testing.T) {
 	names := strings.Split(string(domainList), "\n")
 	for _, name := range names {
 		name = strings.TrimSpace(name)
-		fmt.Println("Reserving", name)
+		log.Println("Reserving", name)
 
 		nonceStr := []byte(tokens.GetRandomB36String())
 		nonce := new([24]byte)
@@ -91,12 +91,12 @@ func XxxxTestReserveNames(t *testing.T) {
 				want := "ok"
 				if got != want {
 					t.Error("reply got", got, "want", want)
-					fmt.Println("reply got", got, "want", want)
+					log.Println("reply got", got, "want", want)
 				}
 				iot.CheckSendPacket(reply.(*packets.Send))
 			} else {
 				t.Error("reply err", err)
-				fmt.Println("reply err", err)
+				log.Println("reply err", err)
 			}
 		}
 	}

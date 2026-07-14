@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"strconv"
 	"testing"
 
@@ -46,7 +47,7 @@ func XxxxTestGrowGurus(t *testing.T) {
 
 	stats := ce.Aides[0].GetExecutiveStats()
 	bytes, _ := json.Marshal(stats)
-	fmt.Println(string(bytes))
+	log.Println(string(bytes))
 
 	c1 := getNewContactFromSlackestAide(ce, "")
 	SendText(c1, "S "+c1.String()) // subscribe to my name
@@ -77,7 +78,7 @@ func XxxxTestGrowGurus(t *testing.T) {
 	// they will time out.
 	for i := 0; i < subsStressSize; i++ {
 		cmd := "S " + c1.String() + "_" + strconv.FormatInt(int64(i), 10)
-		//fmt.Println("sub cmd", cmd)
+		//log.Println("sub cmd", cmd)
 		SendText(c1, cmd)
 		localtime += 60 // a minute
 		ce.Operate()
@@ -86,19 +87,19 @@ func XxxxTestGrowGurus(t *testing.T) {
 
 	ce.WaitForActions()
 
-	//fmt.Println("c1 has ", c1test.getResultAsString())
+	//log.Println("c1 has ", c1test.getResultAsString())
 
 	got = fmt.Sprint("guru count ", len(ce.Gurus))
 	want = "guru count 2"
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
 	}
-	fmt.Println("total minions", len(ce.Aides))
+	log.Println("total minions", len(ce.Aides))
 
 	// check that they all get messages after the expansion
 	for i := 0; i < subsStressSize; i++ {
 		command := "P " + c1.String() + "_" + strconv.FormatInt(int64(i), 10) + " x x x a_test_message"
-		//fmt.Println(command)
+		//log.Println(command)
 		SendText(c2, command) // publish to c1 from c2
 	}
 	WaitForActions(ce.Aides[0])
@@ -112,14 +113,14 @@ func XxxxTestGrowGurus(t *testing.T) {
 		// 	send := p[0].(*packets.Send)
 		// 	got = string(send.Payload)
 		// } else {
-		// 	fmt.Println("expected Send, got ", p)
+		// 	log.Println("expected Send, got ", p)
 		// }
 		// if len(c1test.mostRecent) > 0 {
-		// 	//fmt.Println("popping", c1test.mostRecent[0])
+		// 	//log.Println("popping", c1test.mostRecent[0])
 		// 	c1test.mostRecent = c1test.mostRecent[1:]
 		// }
 		// if got != want {
-		// 	fmt.Println("no most recent", i)
+		// 	log.Println("no most recent", i)
 		// 	t.Errorf("got %v, want %v", got, want)
 		// }
 	}
@@ -127,9 +128,9 @@ func XxxxTestGrowGurus(t *testing.T) {
 	// delete a subscription a minute and see what happens.
 	for i := 4; i < subsStressSize; i++ {
 		cmd := "U " + c1.String() + "_" + strconv.FormatInt(int64(i), 10)
-		//fmt.Println("cmd", cmd)
+		//log.Println("cmd", cmd)
 		if cmd == "U Contact87f3c67cf22746ec_59" {
-			fmt.Println("cmd", cmd)
+			log.Println("cmd", cmd)
 		}
 		SendText(c1, cmd)
 		localtime += 60 // a minute
@@ -144,7 +145,7 @@ func XxxxTestGrowGurus(t *testing.T) {
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
 	}
-	fmt.Println("total minions", len(ce.Aides))
+	log.Println("total minions", len(ce.Aides))
 
 }
 
@@ -195,7 +196,7 @@ func Xatw_fixme_TestGrowAides(t *testing.T) {
 		// wtf t.Errorf("got %v, want %v", got, want)
 	}
 
-	fmt.Println("topics after 1 connect ", ce.GetSubsCount())
+	log.Println("topics after 1 connect ", ce.GetSubsCount())
 
 	// add a contact a minute and see what happens.
 	// contacts will start timing out
@@ -205,11 +206,11 @@ func Xatw_fixme_TestGrowAides(t *testing.T) {
 		// index := len(allContacts)
 		// ci.(*testContact).index = index
 		cmd := fmt.Sprintf("S contactTopic%v", i)
-		//fmt.Println("cmd := ", cmd)   S contactTopic51
+		//log.Println("cmd := ", cmd)   S contactTopic51
 		SendText(ci, cmd)
 		localtime += 60 // a minute
 		ce.WaitForActions()
-		//fmt.Println("topics soo far ", ce.GetSubsCount())
+		//log.Println("topics soo far ", ce.GetSubsCount())
 		ce.Operate()
 		ce.WaitForActions()
 		for _, cc := range allContacts {
@@ -237,7 +238,7 @@ func Xatw_fixme_TestGrowAides(t *testing.T) {
 	if got != want {
 		// t.Errorf("got %v, want %v", got, want)
 	}
-	fmt.Println("total minions", len(ce.Aides)) // 4
+	log.Println("total minions", len(ce.Aides)) // 4
 
 	// check that they all get messages - send some
 	for i, cc := range allContacts {
@@ -267,10 +268,10 @@ func Xatw_fixme_TestGrowAides(t *testing.T) {
 		// 	send := p[0].(*packets.Send)
 		// 	got = string(send.Payload)
 		// } else {
-		// 	fmt.Println("expected Send, got ", reflect.TypeOf(p), p)
+		// 	log.Println("expected Send, got ", reflect.TypeOf(p), p)
 		// }
 		// if len(cc.mostRecent) > 0 {
-		// 	//fmt.Println("popping", cc.mostRecent[0])
+		// 	//log.Println("popping", cc.mostRecent[0])
 		// 	cc.mostRecent = cc.mostRecent[:0]
 		// }
 
@@ -309,7 +310,7 @@ func Xatw_fixme_TestGrowAides(t *testing.T) {
 
 	// is the guru connected?
 
-	fmt.Println("check 1")
+	log.Println("check 1")
 
 	for i, cc := range allContacts {
 		_ = cc
@@ -325,7 +326,7 @@ func Xatw_fixme_TestGrowAides(t *testing.T) {
 		ce.WaitForActions()
 	}
 
-	fmt.Println("check 2")
+	log.Println("check 2")
 
 	for i, cc := range allContacts {
 		_ = cc
@@ -340,19 +341,19 @@ func Xatw_fixme_TestGrowAides(t *testing.T) {
 		// 	send := p[0].(*packets.Send)
 		// 	got = string(send.Payload)
 		// } else {
-		// 	fmt.Println("i expected Send, got ", cc.mostRecent, want)
+		// 	log.Println("i expected Send, got ", cc.mostRecent, want)
 		// }
 		// if len(cc.mostRecent) > 0 {
 		// 	cc.mostRecent = cc.mostRecent[1:]
 		// }
 		if got != want {
-			fmt.Println("i no most recent", i, cc)
+			log.Println("i no most recent", i, cc)
 			t.Errorf("got %v, want %v", got, want)
 
 		}
 	}
 
-	fmt.Println("check 3")
+	log.Println("check 3")
 	// close all the contacts and the aides should shrink
 	for i, cc := range allContacts {
 		if i == 0 {

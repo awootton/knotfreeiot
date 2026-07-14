@@ -2,7 +2,7 @@ package iot_test
 
 import (
 	"encoding/json"
-	"fmt"
+	"log"
 	"net/http"
 	"strings"
 	"testing"
@@ -41,7 +41,7 @@ func TestDialTCP_by_batches(t *testing.T) {
 	ce := makeClusterWithServiceContact()
 	_ = ce
 
-	fmt.Println("TestDialTCP_by_batches makeClusterWithServiceContact done. We should have the guru dialed already.")
+	log.Println("TestDialTCP_by_batches makeClusterWithServiceContact done. We should have the guru dialed already.")
 
 	sleepTime := 15 * time.Second
 	time.Sleep(sleepTime) // except now it worked. wtf. Keep going. I can't live like this.
@@ -50,28 +50,28 @@ func TestDialTCP_by_batches(t *testing.T) {
 	// typically they are fetches as .vr from here and then .xyz from cloudflare
 	// trying to just load them from here will probably crash something, or disconnect the guru or something.
 
-	// fmt.Println("TestDialTCP", names)
+	// log.Println("TestDialTCP", names)
 	startTime := time.Now()
 	okCount := 0
 	failCount := 0
 	// needs passes, lol.
 	for pass := 0; pass < 1; pass++ {
 		if pass%10 == 0 {
-			fmt.Println("TestDialTCP_one_at_a_time pass", pass)
+			log.Println("TestDialTCP_one_at_a_time pass", pass)
 		}
 		for _, nameList := range names {
-			// fmt.Println("TestDialTCP", nameList)
+			// log.Println("TestDialTCP", nameList)
 			// through the front door.
 
 			// with .vr and commas.
 			// join them with commas and send them all at once.
 
 			theNames := strings.Join(nameList, ".vr,")
-			// fmt.Println("TestDialTCP_batches_bitches sending names:", theNames)
+			// log.Println("TestDialTCP_batches_bitches sending names:", theNames)
 
 			url := "http://knotfree.com:8085/api1/dns-query?name=" + theNames + "&type=A&knotfree=1"
 
-			// fmt.Println("TestDialTCP_batches_bitches url:", url)
+			// log.Println("TestDialTCP_batches_bitches url:", url)
 
 			resp, err := http.Get(url)
 			assert.NoError(t, err)
@@ -91,10 +91,10 @@ func TestDialTCP_by_batches(t *testing.T) {
 			}
 			// what about this? Technically w're getting an error: assert.NoError(t, err)
 			result := string(buf[:n])
-			// fmt.Printf("Response body: %s\n", result)
+			// log.Printf("Response body: %s\n", result)
 			assert.Equal(t, 200, resp.StatusCode)
 
-			// fmt.Printf("Response body: %s\n", result)
+			// log.Printf("Response body: %s\n", result)
 			// eg.
 			// why are we getting 2's?
 			// [{"Status":2,"TC":false,"RD":true,"RA":false,"AD":false,"CD":true,"Question":[{"name":"testmain-0n0u0e16p-0.vr","type":1}],"Comment":"Server failure"},{"Status":2,"TC":false,"RD":true,"RA":false,"AD":false,"CD":true,"Question":[{"name":"
@@ -116,17 +116,17 @@ func TestDialTCP_by_batches(t *testing.T) {
 					answer := response.Answer[0].Data
 					_ = answer
 					if response.Status != 0 && response.Status != 3 {
-						fmt.Println("TestDialTCP_batches_bitches expecting 0 or 3 for", nameList[i], "is", response.Status, "answer is", answer)
+						log.Println("TestDialTCP_batches_bitches expecting 0 or 3 for", nameList[i], "is", response.Status, "answer is", answer)
 					}
-					// let's not: fmt.Println("TestDialTCP_batches_bitches response for", nameList[i], "is", answer)
+					// let's not: log.Println("TestDialTCP_batches_bitches response for", nameList[i], "is", answer)
 				}
 			}
 		}
 	}
 	endTime := time.Now()
 	duration := endTime.Sub(startTime)
-	fmt.Println("success ratio is ", okCount, " vs ", failCount, " = ", float64(okCount)/float64(okCount+failCount))
-	fmt.Println("TestDialTCP_by_batches_bitches took ", duration, " for ", okCount+failCount, " batches, average time ", duration/time.Duration(okCount+failCount))
+	log.Println("success ratio is ", okCount, " vs ", failCount, " = ", float64(okCount)/float64(okCount+failCount))
+	log.Println("TestDialTCP_by_batches_bitches took ", duration, " for ", okCount+failCount, " batches, average time ", duration/time.Duration(okCount+failCount))
 }
 
 // PASS with read-till-eof loop below.  TestDialTCP_by_batches PROD response body length: 1198 usually around 4000
@@ -158,29 +158,29 @@ func TestDialTCP_by_batches_PROD(t *testing.T) {
 	// typically they are fetches as .vr from here and then .xyz from cloudflare
 	// trying to just load them from here will probably crash something, or disconnect the guru or something.
 
-	// fmt.Println("TestDialTCP", names)
+	// log.Println("TestDialTCP", names)
 	startTime := time.Now()
 	okCount := 0
 	failCount := 0
 	// needs passes, lol.
 	for pass := 0; pass < 1; pass++ {
 		if pass%10 == 0 {
-			fmt.Println("TestDialTCP_by_batches PROD pass", pass)
+			log.Println("TestDialTCP_by_batches PROD pass", pass)
 		}
 		for _, nameList := range names {
-			// fmt.Println("TestDialTCP", nameList)
+			// log.Println("TestDialTCP", nameList)
 			// through the front door.
 
 			// with .vr and commas.
 			// join them with commas and send them all at once.
 
 			theNames := strings.Join(nameList, ".vr,")
-			// fmt.Println("TestDialTCP_by_batches PROD sending names:", theNames)
+			// log.Println("TestDialTCP_by_batches PROD sending names:", theNames)
 
 			url := "https://knotfree.net/api1/dns-query?name=" + theNames + "&type=A&knotfree=1"
 			// url := "http://knotfree.io/api1/dns-query?name=" + theNames + "&type=A&knotfree=1"
 
-			// fmt.Println("TestDialTCP_by_batches PROD url:", url)
+			// log.Println("TestDialTCP_by_batches PROD url:", url)
 
 			resp, err := http.Get(url)
 			assert.NoError(t, err)
@@ -207,15 +207,15 @@ func TestDialTCP_by_batches_PROD(t *testing.T) {
 					}
 				}
 			}
-			fmt.Printf("TestDialTCP_by_batches PROD response body length: %d\n", totalRead)
+			log.Printf("TestDialTCP_by_batches PROD response body length: %d\n", totalRead)
 			n = totalRead
 
 			// what about this? Technically w're getting an error: assert.NoError(t, err)
 			result := string(buf[:n])
-			// fmt.Printf("Response body: %s\n", result)
+			// log.Printf("Response body: %s\n", result)
 			assert.Equal(t, 200, resp.StatusCode)
 
-			// fmt.Printf("Response body: %s\n", result)
+			// log.Printf("Response body: %s\n", result)
 			// eg.
 			// why are we getting 2's?
 			// [{"Status":2,"TC":false,"RD":true,"RA":false,"AD":false,"CD":true,"Question":[{"name":"testmain-0n0u0e16p-0.vr","type":1}],"Comment":"Server failure"},{"Status":2,"TC":false,"RD":true,"RA":false,"AD":false,"CD":true,"Question":[{"name":"
@@ -224,7 +224,7 @@ func TestDialTCP_by_batches_PROD(t *testing.T) {
 				err = json.Unmarshal([]byte(result), &responses)
 				assert.NoError(t, err)
 				if err != nil {
-					fmt.Println("TestDialTCP_by_batches PROD error unmarshalling JSON: ", result, err)
+					log.Println("TestDialTCP_by_batches PROD error unmarshalling JSON: ", result, err)
 					t.Errorf("Error unmarshalling JSON: %v", err)
 					failCount += len(nameList)
 					continue
@@ -232,7 +232,7 @@ func TestDialTCP_by_batches_PROD(t *testing.T) {
 				okCount += len(nameList)
 				// this is the main one.
 				if len(nameList) != len(responses) {
-					fmt.Println("TestDialTCP_by_batches PROD mismatch: expected", len(nameList), "responses, got", len(responses))
+					log.Println("TestDialTCP_by_batches PROD mismatch: expected", len(nameList), "responses, got", len(responses))
 				}
 				assert.Equal(t, len(nameList), len(responses))
 				for i, response := range responses {
@@ -242,9 +242,9 @@ func TestDialTCP_by_batches_PROD(t *testing.T) {
 						answer := response.Answer[0].Data
 						_ = answer
 						if response.Status != 0 && response.Status != 3 {
-							fmt.Println("TestDialTCP_by_batches PROD expecting 0 or 3 for", nameList[i], "is", response.Status, "answer is", answer)
+							log.Println("TestDialTCP_by_batches PROD expecting 0 or 3 for", nameList[i], "is", response.Status, "answer is", answer)
 						}
-						// let's not: fmt.Println("TestDialTCP_by_batches PROD response for", nameList[i], "is", answer)
+						// let's not: log.Println("TestDialTCP_by_batches PROD response for", nameList[i], "is", answer)
 					}
 				}
 			}
@@ -252,8 +252,8 @@ func TestDialTCP_by_batches_PROD(t *testing.T) {
 	}
 	endTime := time.Now()
 	duration := endTime.Sub(startTime)
-	fmt.Println("success ratio is ", okCount, " vs ", failCount, " = ", float64(okCount)/float64(okCount+failCount))
-	fmt.Println("TestDialTCP_by_batches PROD took ", duration, " for ", okCount+failCount, " batches, average time ", duration/time.Duration(okCount+failCount))
+	log.Println("success ratio is ", okCount, " vs ", failCount, " = ", float64(okCount)/float64(okCount+failCount))
+	log.Println("TestDialTCP_by_batches PROD took ", duration, " for ", okCount+failCount, " batches, average time ", duration/time.Duration(okCount+failCount))
 }
 
 //
@@ -279,17 +279,17 @@ func TestDialTCP_one_at_a_time(t *testing.T) {
 	// typically they are fetches as .vr from here and then .xyz from cloudflare
 	// trying to just load them from here will probably crash something, or disconnect the guru or something.
 
-	// fmt.Println("TestDialTCP", names)
+	// log.Println("TestDialTCP", names)
 	startTime := time.Now()
 	okCount := 0
 	failCount := 0
 	for pass := 0; pass < 4; pass++ {
-		fmt.Println("TestDialTCP_one_at_a_time pass", pass)
+		log.Println("TestDialTCP_one_at_a_time pass", pass)
 		for _, nameList := range names {
-			// fmt.Println("TestDialTCP", nameList)
+			// log.Println("TestDialTCP", nameList)
 			for _, name := range nameList {
 
-				// fmt.Println("TestDialTCP", name)
+				// log.Println("TestDialTCP", name)
 
 				recordType := 1 // A record
 				response, err := iot.LookupDnsOverHttpKnotfreeOnce(ce, name+".vr", recordType)
@@ -313,34 +313,33 @@ func TestDialTCP_one_at_a_time(t *testing.T) {
 				assert.Equal(t, recordType, response.Answer[0].Type)
 				okCount++
 				// let's just print these:
-				// boring fmt.Println("address is ", response.Answer[0].Data)
+				// boring log.Println("address is ", response.Answer[0].Data)
 			}
 		}
 	}
 	endTime := time.Now()
 	duration := endTime.Sub(startTime)
-	fmt.Println("success ratio is ", okCount, " vs ", failCount, " = ", float64(okCount)/float64(okCount+failCount))
-	fmt.Println("TestDialTCP_by_batches_bitches took ", duration, " for ", okCount+failCount, " batches, average time ", duration/time.Duration(okCount+failCount))
-
+	log.Println("success ratio is ", okCount, " vs ", failCount, " = ", float64(okCount)/float64(okCount+failCount))
+	log.Println("TestDialTCP_one_at_a_time took ", duration, " for ", okCount+failCount, " batches, average time ", duration/time.Duration(okCount+failCount))
 }
 
-func TestDialTCP_1000_FAILED_get_option_A(t *testing.T) {
+func TestDialTCP_1000_NoExist_get_option_A(t *testing.T) {
 
 	ce := makeClusterWithServiceContact()
 
-	fmt.Println()
-	fmt.Println()
-	fmt.Println()
-	fmt.Println()
+	log.Println()
+	log.Println()
+	log.Println()
+	log.Println()
 
 	// wait for 5 sec, just to be silly. It's not supposed to matter AT ALL.
 	sleepTime := 5 * time.Second
 	time.Sleep(sleepTime) // except now it worked. wtf. Keep going. I can't live like this.
 
-	fmt.Println()
-	fmt.Println()
-	fmt.Println()
-	fmt.Println()
+	log.Println()
+	log.Println()
+	log.Println()
+	log.Println()
 
 	passes := 100 // 1024 * 64
 	startTime := time.Now()
@@ -367,30 +366,30 @@ func TestDialTCP_1000_FAILED_get_option_A(t *testing.T) {
 		if !ok {
 			t.Fatal("GetPacketReply did not return expected   message")
 		}
-		// bulky fmt.Println("TestDialTCP_one_at_a_time got  help reply", got)
+		// bulky log.Println("TestDialTCP_one_at_a_time got  help reply", got)
 	}
 	endTime := time.Now()
 	elapsed := endTime.Sub(startTime)
-	fmt.Printf("TestDialTCP_1000_helps completed %d passes in %s, average time %s\n", passes, elapsed, elapsed/time.Duration(passes))
+	log.Printf("TestDialTCP_1000_NoExist_get_option_A completed %d passes in %s, average time %s\n", passes, elapsed, elapsed/time.Duration(passes))
 }
 
 func TestDialTCP_1000_get_option_A(t *testing.T) {
 
 	ce := makeClusterWithServiceContact()
 
-	fmt.Println()
-	fmt.Println()
-	fmt.Println()
-	fmt.Println()
+	log.Println()
+	log.Println()
+	log.Println()
+	log.Println()
 
 	// wait for 5 sec, just to be silly. It's not supposed to matter AT ALL.
 	sleepTime := 5 * time.Second
 	time.Sleep(sleepTime) // except now it worked. wtf. Keep going. I can't live like this.
 
-	fmt.Println()
-	fmt.Println()
-	fmt.Println()
-	fmt.Println()
+	log.Println()
+	log.Println()
+	log.Println()
+	log.Println()
 
 	passes := 100 // 1024 * 64
 	startTime := time.Now()
@@ -417,11 +416,11 @@ func TestDialTCP_1000_get_option_A(t *testing.T) {
 		if !ok {
 			t.Fatal("GetPacketReply did not return expected   message")
 		}
-		// bulky fmt.Println("TestDialTCP_one_at_a_time got   help reply", got)
+		// bulky log.Println("TestDialTCP_one_at_a_time got   help reply", got)
 	}
 	endTime := time.Now()
 	elapsed := endTime.Sub(startTime)
-	fmt.Printf("TestDialTCP_1000_helps completed %d passes in %s, average time %s\n", passes, elapsed, elapsed/time.Duration(passes))
+	log.Printf("TestDialTCP_1000_helps completed %d passes in %s, average time %s\n", passes, elapsed, elapsed/time.Duration(passes))
 }
 
 // see TestLookupDnsOverHttpNativeNotFound !!
@@ -463,19 +462,19 @@ func TestDialTCP_1000_helps(t *testing.T) {
 
 	ce := makeClusterWithServiceContact()
 
-	fmt.Println()
-	fmt.Println()
-	fmt.Println()
-	fmt.Println()
+	log.Println()
+	log.Println()
+	log.Println()
+	log.Println()
 
 	// wait for 5 sec, just to be silly. It's not supposed to matter AT ALL.
 	sleepTime := 5 * time.Second
 	time.Sleep(sleepTime) // except now it worked. wtf. Keep going. I can't live like this.
 
-	fmt.Println()
-	fmt.Println()
-	fmt.Println()
-	fmt.Println()
+	log.Println()
+	log.Println()
+	log.Println()
+	log.Println()
 
 	passes := 100 // 1024 * 64
 	startTime := time.Now()
@@ -498,11 +497,11 @@ func TestDialTCP_1000_helps(t *testing.T) {
 		if !ok {
 			t.Fatal("GetPacketReply did not return expected help message")
 		}
-		// bulky fmt.Println("TestDialTCP_one_at_a_time got help reply", got)
+		// bulky log.Println("TestDialTCP_one_at_a_time got help reply", got)
 	}
 	endTime := time.Now()
 	elapsed := endTime.Sub(startTime)
-	fmt.Printf("TestDialTCP_1000_helps completed %d passes in %s, average time %s\n", passes, elapsed, elapsed/time.Duration(passes))
+	log.Printf("TestDialTCP_1000_helps completed %d passes in %s, average time %s\n", passes, elapsed, elapsed/time.Duration(passes))
 }
 
 // TestDialTCP_1000_helps_Prod calls prod with the simplest of the lookup commands.
@@ -519,9 +518,9 @@ func TestDialTCP_1000_helps_Prod(t *testing.T) {
 
 	// ce := makeClusterWithServiceContact()
 
-	fmt.Println()
-	fmt.Println()
-	fmt.Println()
+	log.Println()
+	log.Println()
+	log.Println()
 
 	// curl "https://knotfree.net/api1/nameService?name=somename&cmd=help"
 	failCount := 0
@@ -533,7 +532,7 @@ func TestDialTCP_1000_helps_Prod(t *testing.T) {
 		url := "https://knotfree.net/api1/nameService?name=dummmyName&cmd=help"
 		// url := "http://knotfree.io/api1/nameService?name=dummmyName&cmd=help"
 
-		// fmt.Println("TestDialTCP_by_batches PROD url:", url)
+		// log.Println("TestDialTCP_by_batches PROD url:", url)
 
 		resp, err := http.Get(url)
 		assert.NoError(t, err)
@@ -551,17 +550,17 @@ func TestDialTCP_1000_helps_Prod(t *testing.T) {
 			failCount++
 			continue
 		}
-		//	fmt.Printf("body length: %d\n", n)
+		//	log.Printf("body length: %d\n", n)
 		got := string(buf[:n])
 		ok := strings.Contains(got, "[help] lists all commands. 🔓 means no encryption required")
 		if !ok {
 			t.Fatal("GetPacketReply did not return expected help message")
 		}
-		// bulky fmt.Println("TestDialTCP_1000_helps_Prod got help reply", got)
+		// bulky log.Println("TestDialTCP_1000_helps_Prod got help reply", got)
 	}
 	endTime := time.Now()
 	elapsed := endTime.Sub(startTime)
-	fmt.Printf("TestDialTCP_1000_helps_Prod completed %d passes in %s, average time %s\n", passes, elapsed, elapsed/time.Duration(passes))
+	log.Printf("TestDialTCP_1000_helps_Prod completed %d passes in %s, average time %s\n", passes, elapsed, elapsed/time.Duration(passes))
 }
 
 var names = [][]string{

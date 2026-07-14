@@ -3,7 +3,7 @@ package iot_test
 import (
 	"bufio"
 	"errors"
-	"fmt"
+	"log"
 	"net"
 	"reflect"
 	"runtime"
@@ -56,9 +56,9 @@ func makeTestContact(config *iot.ContactStructConfig, token string) iot.ContactI
 
 	// 		str := thing.String()
 	// 		if strings.HasPrefix(str, "[P,contactTopic45") {
-	// 			//fmt.Println("into mostRecent", thing, reflect.TypeOf(thing))
+	// 			//log.Println("into mostRecent", thing, reflect.TypeOf(thing))
 	// 		}
-	// 		fmt.Println("into mostRecent", thing, reflect.TypeOf(thing), cc.String())
+	// 		log.Println("into mostRecent", thing, reflect.TypeOf(thing), cc.String())
 
 	// 		if reflect.TypeOf(thing) == reflect.TypeOf(&packets.Disconnect{}) {
 	// 			if cc.doNotReconnect == true {
@@ -73,7 +73,7 @@ func makeTestContact(config *iot.ContactStructConfig, token string) iot.ContactI
 	// 			if isSend {
 	// 				send.Address Alias = []byte("")
 	// 			}
-	// 			//fmt.Println("appending mostRecent", thing)
+	// 			//log.Println("appending mostRecent", thing)
 	// 			cc.mostRecent = append(cc.mostRecent, thing)
 	// 		}
 	// 	}
@@ -140,7 +140,7 @@ func (cc *testContact) WriteDownstream(packet packets.Interface) error {
 	text := packet.String()
 	cc.IncOutput(len(text))
 
-	// fmt.Println(cc.index, "APPENDING to mostRecent", text)
+	// log.Println(cc.index, "APPENDING to mostRecent", text)
 	iot.CheckSendPacket(packet.(*packets.Send))
 	// cc.mostRecent = append(cc.mostRecent, packet) //use stream instead of array
 	cc.mostRecent <- packet
@@ -157,7 +157,7 @@ func (cc *testContact) WriteDownstream(packet packets.Interface) error {
 
 // TODO: i think we can get rid of WriteUpstream as a method of ContactInterface
 func (cc *testContact) WriteUpstream(cmd packets.Interface) error {
-	fmt.Println("FIXME received from below does this exist?", cmd, reflect.TypeOf(cmd))
+	log.Println("FIXME received from below does this exist?", cmd, reflect.TypeOf(cmd))
 	return errors.New("Only upper contacts get WriteUpstream")
 }
 
@@ -191,7 +191,7 @@ func readSocket(conn *net.TCPConn) packets.Interface {
 	if err != nil {
 		str := err.Error() // "read tcp 127.0.0.1:50053->127.0.0.1:1234: i/o timeout"
 		if !(strings.HasPrefix(str, "read tcp ") && strings.HasSuffix(str, ": i/o timeout")) {
-			fmt.Println("read err her", err)
+			log.Println("read err her", err)
 		}
 		return &packets.Disconnect{} // normal for timeout
 	}
@@ -205,7 +205,7 @@ func readLine(conn *net.TCPConn) string {
 	err := conn.SetDeadline(time.Now().Add(10 * time.Millisecond))
 	if err != nil {
 		// /srvrLogThing.Collect("cl err4 " + err.Error())
-		fmt.Println("read line fail1", err)
+		log.Println("read line fail1", err)
 		return ""
 	}
 	lineReader := bufio.NewReader(conn)
@@ -213,7 +213,7 @@ func readLine(conn *net.TCPConn) string {
 	if err != nil {
 		str := err.Error() // "read tcp 127.0.0.1:50053->127.0.0.1:1234: i/o timeout"
 		if !(strings.HasPrefix(str, "read tcp ") && strings.HasSuffix(str, ": i/o timeout")) {
-			fmt.Println("read err here", err) // FIXME: return err?
+			log.Println("read err here", err) // FIXME: return err?
 		}
 		return "" // normal for timeout
 	}
@@ -226,7 +226,7 @@ func readLine(conn *net.TCPConn) string {
 
 func openConnectedSocket(name string, t *testing.T, token string) *net.TCPConn {
 
-	fmt.Println("openConnectedSocket dialing ", name)
+	log.Println("openConnectedSocket dialing ", name)
 	conn1, err := net.DialTimeout("tcp", name, time.Duration(10*time.Millisecond)) //net.DialTCP("tcp", nil, tcpAddr)
 	if err != nil {
 		println("Dial 1 failed:", err.Error())
@@ -295,7 +295,7 @@ func getNewContactFromSlackestAide(ce *iot.ClusterExecutive, token string) iot.C
 	if smallestAide == nil {
 		return nil // fixme return error
 	}
-	//fmt.Println("smallest aide is ", smallestAide.Name)
+	//log.Println("smallest aide is ", smallestAide.Name)
 	cc := makeTestContact(smallestAide.Config, token)
 	return cc
 }
@@ -310,9 +310,9 @@ func TestMakeLargeTokenAtw(t *testing.T) {
 	payload.JWTID = "oa6jjafj9asar7vpi15lz2l2"
 	bbb, err := tokens.MakeToken(payload, []byte(signingKey))
 	if err != nil {
-		fmt.Println("Get32xTokenLocal", err)
+		log.Println("Get32xTokenLocal", err)
 	}
-	fmt.Println("Get32xTokenLocal", string(bbb))
+	log.Println("Get32xTokenLocal", string(bbb))
 
 }
 
