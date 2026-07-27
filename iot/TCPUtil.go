@@ -107,7 +107,7 @@ func MakeHTTPExecutive(ex *Executive, serverName string) *Executive {
 		MaxHeaderBytes: 1 << 20,
 	}
 	go func(s *http.Server) {
-		log.Println("http service ", ex.Name, s.Addr)
+		log.Println("MakeHTTPExecutive http service, name, port ", ex.Name, s.Addr)
 		err := s.ListenAndServe()
 		if err != nil {
 			log.Println("ListenAndServe ERROR", err)

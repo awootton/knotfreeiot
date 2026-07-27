@@ -10,6 +10,9 @@
 
 **/__debug_bin*
 
+# the build
+knotfreeiot
+
 # actually the knotfree react build is in here
 docs/
 # the gotohere react build is in here

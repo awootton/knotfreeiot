@@ -221,7 +221,7 @@ func MQTTHandlePacket(cc *mqttContact, control libmqtt.Packet) {
 		if mq.Props != nil { // copy the props
 			p.Source.FromString(mq.Props.RespTopic)
 			for k, v := range mq.Props.UserProps {
-				p.SetOption(k, []byte(fmt.Sprint(v)))
+				p.SetOption(k, fmt.Append(nil, v))
 			}
 			if len(mq.Props.CorrelationData) > 0 {
 				p.SetOption("CorrelationData", mq.Props.CorrelationData)
@@ -258,7 +258,7 @@ func MQTTHandlePacket(cc *mqttContact, control libmqtt.Packet) {
 			if mq.Props != nil {
 				pp.Source.FromString(mq.Props.RespTopic)
 				for k, v := range mq.Props.UserProps {
-					p.SetOption(k, []byte(fmt.Sprint(v)))
+					p.SetOption(k, fmt.Append(nil, v))
 				}
 			}
 			_ = PushPacketUpFromBottom(cc, pp)
@@ -279,7 +279,7 @@ func MQTTHandlePacket(cc *mqttContact, control libmqtt.Packet) {
 			p.Address.FromString(topic.Name)
 			if mq.Props != nil { // copy the props
 				for k, v := range mq.Props.UserProps {
-					p.SetOption(k, []byte(fmt.Sprint(v)))
+					p.SetOption(k, fmt.Append(nil, v))
 				}
 			}
 			err := PushPacketUpFromBottom(cc, p)
@@ -312,7 +312,7 @@ func MQTTHandlePacket(cc *mqttContact, control libmqtt.Packet) {
 			p.Address.FromString(topic)
 			if mq.Props != nil { // copy the props
 				for k, v := range mq.Props.UserProps {
-					p.SetOption(k, []byte(fmt.Sprint(v)))
+					p.SetOption(k, fmt.Append(nil, v))
 				}
 			}
 			_ = PushPacketUpFromBottom(cc, p)

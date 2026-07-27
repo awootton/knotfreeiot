@@ -32,6 +32,7 @@ import (
 
 	"github.com/awootton/knotfreeiot/iot"
 	"github.com/awootton/knotfreeiot/tokens"
+	"golang.org/x/sys/unix"
 )
 
 // when running?
@@ -43,6 +44,12 @@ func main() {
 	go func() {
 		log.Println(http.ListenAndServe("localhost:6060", nil))
 	}()
+
+	if isRunningUnderRosetta() {
+		log.Println("Running under Rosetta  !!!! FAILURE !!!! MAJOR PROBLEM !!!! FIXME:.")
+	} else {
+		log.Println("Not running under Rosetta")
+	}
 
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
@@ -141,4 +148,13 @@ func main() {
 
 func bToMb(u uint64) any {
 	return fmt.Sprintf("%.2f", float64(u)/1024/1024)
+}
+
+func isRunningUnderRosetta() bool {
+	// sysctl.proc_translated returns 1 if running under Rosetta, 0 otherwise
+	val, err := unix.SysctlUint32("sysctl.proc_translated")
+	if err != nil {
+		return false
+	}
+	return val == 1
 }

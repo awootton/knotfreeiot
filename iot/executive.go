@@ -333,7 +333,7 @@ func MakeTCPMain(name string, limits *ExecutiveLimits, token string, isGuru bool
 	MakeTCPExecutive(aide1, aide1.tcpAddress)
 	//  do we need this? MakeTextExecutive(aide1, aide1.textAddress)
 	MakeHTTPExecutive(aide1, aide1.httpAddress)
-	MakeMqttExecutive(aide1, aide1.mqttAddress)
+	// turned off 7/26/26 MakeMqttExecutive(aide1, aide1.mqttAddress)
 
 	go aide1.DialContactToAnyAide(isTCP, ce, "aide1 dialing itself? aide "+aide1.Name)
 

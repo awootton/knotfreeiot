@@ -4,6 +4,8 @@ import (
 	"log"
 	"net/http"
 
+	"golang.org/x/sys/unix"
+
 	_ "net/http/pprof"
 
 	"time"
@@ -24,6 +26,12 @@ func main() {
 	// 	log.Fatal(err)
 	// }
 	// pprof.StartCPUProfile(f)
+
+	if isRunningUnderRosetta() {
+		log.Println("Running under Rosetta  !!!! FAILURE !!!! MAJOR PROBLEM !!!! FIXME:.")
+	} else {
+		log.Println("Not running under Rosetta")
+	}
 
 	go func() {
 		log.Println(http.ListenAndServe("localhost:6060", nil))
@@ -103,4 +111,13 @@ func main() {
 		time.Sleep(10 * time.Second)
 	}
 	// log.Println("the bottom of the world!")
+}
+
+func isRunningUnderRosetta() bool {
+	// sysctl.proc_translated returns 1 if running under Rosetta, 0 otherwise
+	val, err := unix.SysctlUint32("sysctl.proc_translated")
+	if err != nil {
+		return false
+	}
+	return val == 1
 }

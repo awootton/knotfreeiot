@@ -50,3 +50,17 @@ Copyright 2024 Alan Tracey Wootton. See LICENSE.
 #knotfree #iot #mqtt #mqtt5 #go #mqtt5nano
 
 ![](https://github.com/awootton/knotfreeiot/workflows/Go/badge.svg)
+
+
+
+#### how to start the clusterInProcess/startCluster.go server without the command line, 
+which is broken. because dlv or somehthing has a problem with rosetta.
+
+go run clusterInProcess/startCluster.go
+
+holy cow. it works. 
+
+My arm64 VS Code command line is running my arm64 Go program under rosetta. A regular mac terminal does not do that. 
+Needless to say the debugger (Delve) won't work. 
+how do I get VS Code to stop running go under rosetta?
+
